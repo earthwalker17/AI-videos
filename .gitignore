@@ -1,0 +1,44 @@
+# --- dependencies & builds ---
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+.eslintcache
+
+# --- python ---
+.venv/
+__pycache__/
+*.pyc
+
+# --- generated output: never in git (see docs/ARCHITECTURE.md, storage tiers) ---
+# renders, chunked runs, QA reports, release files
+out/
+# browsers, fetched references, research dumps, downloads, model weights
+.cache/
+
+# Remotion writes its headless shell and bundles next to the nearest package.json
+.remotion/
+
+# --- local, personal or secret ---
+.env
+.env.*
+!.env.example
+aiv.local.json
+.claude/settings.local.json
+.claude/worktrees/
+
+# --- OS / editor noise ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- per-video heavy inputs ---
+# Large or non-redistributable inputs live outside git. A video's assets/ keeps
+# only small committed files; anything heavy is listed in a manifest instead.
+# (git cannot re-include a file inside an ignored directory, so ignore contents.)
+videos/*/media/*
+!videos/*/media/manifest.json

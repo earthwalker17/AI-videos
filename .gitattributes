@@ -1,0 +1,46 @@
+# Normalize text to LF everywhere (this repo is edited on Windows with core.autocrlf=true).
+* text=auto eol=lf
+
+# Windows-native scripts keep CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary media and fonts: never diff, never convert.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.avif binary
+*.tif binary
+*.tiff binary
+*.exr binary
+*.hdr binary
+*.ico binary
+*.svgz binary
+*.mp4 binary
+*.mov binary
+*.mkv binary
+*.webm binary
+*.mxf binary
+*.wav binary
+*.flac binary
+*.mp3 binary
+*.ogg binary
+*.opus binary
+*.m4a binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.glb binary
+*.bin binary
+*.ktx2 binary
+*.zip binary
+*.pdf binary
+
+# Generated files: collapse in diffs.
+catalog.json linguist-generated=true
+schemas/*.json linguist-generated=true
+pnpm-lock.yaml linguist-generated=true
