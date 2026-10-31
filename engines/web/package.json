@@ -1,0 +1,18 @@
+{
+  "name": "@aiv/engine-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Web engine: Playwright harness that captures page-contract pages (canvas, WebGL, WebGPU, SVG) deterministically, plus the in-page runtime.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./page": "./src/page/index.ts"
+  },
+  "dependencies": {
+    "@aiv/core": "workspace:*",
+    "@aiv/pipeline": "workspace:*",
+    "playwright-core": "catalog:",
+    "vite": "catalog:"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "packages/*/src",
+    "engines/*/src",
+    "tools/*/src",
+    "templates/*/src",
+    "*.config.ts"
+  ]
+}

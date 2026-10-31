@@ -1,0 +1,59 @@
+{
+  "name": "ai-videos",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Source, workflows and shared tooling behind an AI + code video series, and an open knowledge base for making videos with code.",
+  "type": "module",
+  "license": "(MIT AND CC-BY-4.0)",
+  "author": "earthwalker17",
+  "homepage": "https://github.com/earthwalker17/AI-videos#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/earthwalker17/AI-videos.git"
+  },
+  "bugs": {
+    "url": "https://github.com/earthwalker17/AI-videos/issues"
+  },
+  "engines": {
+    "node": ">=24.11"
+  },
+  "packageManager": "pnpm@11.1.3",
+  "scripts": {
+    "aiv": "tsx tools/aiv/src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aiv/core": "workspace:*",
+    "@aiv/engine-web": "workspace:*",
+    "@aiv/remotion-kit": "workspace:*",
+    "@fontsource-variable/inter": "catalog:",
+    "@react-three/drei": "catalog:",
+    "@react-three/fiber": "catalog:",
+    "@react-three/postprocessing": "catalog:",
+    "@remotion/cli": "catalog:",
+    "@remotion/three": "catalog:",
+    "postprocessing": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "remotion": "catalog:",
+    "three": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@aiv/cli": "workspace:*",
+    "@aiv/pipeline": "workspace:*",
+    "@eslint/js": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/three": "catalog:",
+    "eslint": "catalog:",
+    "globals": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

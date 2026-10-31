@@ -1,0 +1,18 @@
+{
+  "name": "@aiv/cli",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "The aiv command line: new, doctor, check, render, post, qa, release, heavy.",
+  "exports": {
+    ".": "./src/cli.ts"
+  },
+  "dependencies": {
+    "@aiv/core": "workspace:*",
+    "@aiv/pipeline": "workspace:*",
+    "@aiv/engine-web": "workspace:*",
+    "@aiv/engine-remotion": "workspace:*",
+    "zod": "catalog:"
+  }
+}

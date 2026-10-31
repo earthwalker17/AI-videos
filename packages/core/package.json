@@ -1,0 +1,14 @@
+{
+  "name": "@aiv/core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Isomorphic determinism helpers (seeded rng, easing, test swatches) and the shared zod contracts.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  }
+}

@@ -1,0 +1,47 @@
+packages:
+  - packages/*
+  - engines/*
+  - tools/*
+
+# One toolchain at HEAD (docs/ARCHITECTURE.md, decision 3). Video and template code has
+# no package.json of its own: it resolves these pins through the root package.
+# Remotion requires every remotion/@remotion/* package on the same exact version.
+# three stays below 0.187 until postprocessing widens its peer range (<0.187.0).
+# React stays below 19.4 (R3F 9.8 peer range). TypeScript stays on 5.9 (typescript-eslint <6.1).
+catalog:
+  remotion: 4.0.539
+  '@remotion/bundler': 4.0.539
+  '@remotion/cli': 4.0.539
+  '@remotion/renderer': 4.0.539
+  '@remotion/three': 4.0.539
+  react: 19.3.1
+  react-dom: 19.3.1
+  three: 0.186.1
+  '@react-three/fiber': 9.8.2
+  '@react-three/drei': 10.7.9
+  '@react-three/postprocessing': 3.2.2
+  postprocessing: 6.39.5
+  zod: 4.6.7
+  '@fontsource-variable/inter': 5.3.0
+  playwright-core: 1.64.1
+  vite: 8.3.5
+  typescript: 5.9.3
+  tsx: 4.23.15
+  vitest: 5.0.5
+  eslint: 10.14.0
+  '@eslint/js': 10.0.1
+  typescript-eslint: 8.72.1
+  globals: 17.13.0
+  '@types/node': 24.19.2
+  '@types/react': 19.3.0
+  '@types/three': 0.186.0
+
+# pnpm 11 blocks dependency install scripts unless approved here.
+allowBuilds:
+  esbuild: true
+
+# @remotion/bundler pins webpack 5.105 exactly; schema-utils asks for ^5.112. Remotion's
+# own tree, accepted until Remotion moves its pin.
+peerDependencyRules:
+  allowedVersions:
+    webpack: '5'

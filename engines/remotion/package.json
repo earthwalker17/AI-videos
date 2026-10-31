@@ -1,0 +1,20 @@
+{
+  "name": "@aiv/engine-remotion",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Remotion engine adapter: bundles a video's Remotion entry and renders compositions to a mezzanine plus render.json.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aiv/core": "workspace:*",
+    "@aiv/pipeline": "workspace:*",
+    "@remotion/bundler": "catalog:",
+    "@remotion/renderer": "catalog:",
+    "remotion": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  }
+}

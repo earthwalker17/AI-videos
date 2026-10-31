@@ -1,0 +1,23 @@
+{
+  "name": "@aiv/remotion-kit",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Deterministic React/Remotion building blocks: a Stage3D for R3F under Remotion, titles, test swatches.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aiv/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "catalog:",
+    "remotion": "catalog:",
+    "three": "catalog:",
+    "@react-three/fiber": "catalog:",
+    "@react-three/postprocessing": "catalog:",
+    "postprocessing": "catalog:",
+    "@remotion/three": "catalog:"
+  }
+}

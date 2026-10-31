@@ -1,0 +1,15 @@
+{
+  "name": "@aiv/pipeline",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "Node pipeline stages shared by every engine: host safety, ffmpeg/encode presets, chunk runner, QA and release.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aiv/core": "workspace:*",
+    "zod": "catalog:"
+  }
+}
