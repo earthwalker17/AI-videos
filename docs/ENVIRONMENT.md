@@ -33,7 +33,6 @@ table is generated from it.
 | `three` | 0.186.1 |
 | `@react-three/fiber` | 9.8.2 |
 | `@react-three/drei` | 10.7.9 |
-| `@react-three/postprocessing` | 3.2.2 |
 | `postprocessing` | 6.39.5 |
 | `zod` | 4.6.7 |
 | `@fontsource-variable/inter` | 5.3.0 |
@@ -52,8 +51,9 @@ table is generated from it.
 <!-- /aiv:generated -->
 
 The web engine's browser is the Chrome for Testing build that the pinned `playwright-core`
-expects. FFmpeg is not pinned by the repository; its version and a hash of its build
-configuration are recorded in every `render.json`.
+expects; the Remotion engine's is the Chrome Headless Shell that the pinned
+`@remotion/renderer` expects. FFmpeg is not pinned by the repository; its version and a hash
+of its build configuration are recorded in every `render.json`.
 
 ## Reference host
 The measured numbers in the docs come from this laptop unless they say otherwise. It is a
@@ -69,8 +69,16 @@ deliberately modest machine: what works here works on most.
 Measured there:
 - Web template, 150 frames: 0.05–0.07 s per frame at 960x540, 0.12 s per frame at 1920x1080,
   plus about 10 s fixed cost per render call.
-- Remotion with React Three Fiber (the previous film, *THE AI STACK*): about 0.8–1.2 s per
-  1080p frame at concurrency 1; concurrency 2 was not faster.
+- Remotion template (React Three Fiber, shadows, bloom; frame capture, PNG decode and
+  lossless encode included): 0.16–0.19 s per frame at 960x540, 0.28–0.37 s per frame at
+  1920x1080. A changed bundle costs about 5 s with a warm webpack cache and about 50 s cold; an
+  unchanged one is reused.
+- Remotion with React Three Fiber in the previous film, *THE AI STACK* (a heavier scene,
+  JPEG frames, `renderMedia`): about 0.8–1.2 s per 1080p frame at concurrency 1; concurrency 2
+  was not faster.
+- Disk: the two pinned browsers take about 440 MB (`.cache/browsers`) and 283 MB
+  (`node_modules/.remotion`). Remotion's webpack cache in `node_modules/.cache` grows past
+  1 GB and is safe to delete.
 
 On a machine like this, long renders run in chunks of at most ten minutes per call (exit `75`
 means "call again"), one heavy job at a time.
@@ -79,7 +87,7 @@ means "call again"), one heavy job at a time.
 
 | Variable | Effect |
 |---|---|
-| `AIV_ALLOW_SOFTWARE_GL=1` | Allow software rendering (SwiftShader, llvmpipe) where engines normally refuse it, for CI without a GPU. Pixels differ from a GPU render. |
+| `AIV_ALLOW_SOFTWARE_GL=1` | Allow software rendering (SwiftShader, llvmpipe) where engines normally refuse it, for CI without a GPU; the Remotion engine then renders with `--gl=swangle`. Pixels differ from a GPU render. |
 | `AIV_MIN_FREE_MB` | Free memory (MB) a heavy job needs before it starts (default 1500). |
 | `AIV_HEAVY_LOCK` | Path of the machine-wide heavy-job lock file. |
 | `AIV_PREVIEW_ENCODER` | Force the draft encoder (`libx264`, `h264_qsv`, `h264_nvenc`, …). |

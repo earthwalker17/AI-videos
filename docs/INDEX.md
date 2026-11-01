@@ -31,6 +31,7 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 - [Roadmap](ROADMAP.md): Forward-looking infrastructure work only, capped at 150 lines.
 
 ## Engines and templates
+- [Remotion engine (`@aiv/engine-remotion`)](../engines/remotion/ENGINE.md) (`remotion`) · template [templates/remotion](../templates/remotion/README.md): The Remotion engine renders a React/Remotion composition, frame by frame and deterministically, into the shared chunk runner.
 - [Web engine (`@aiv/engine-web`)](../engines/web/ENGINE.md) (`web`) · template [templates/web](../templates/web/README.md): The web engine captures any page that installs the page contract, frame by frame and deterministically, into the shared chunk runner.
 - [Stage documents](../templates/_video/): the stubs `aiv new` copies into every video (BRIEF.md, CREDITS.md, FACTS.md, README.md, SCRIPT.md, STORYBOARD.md, TREATMENT.md)
 
@@ -50,6 +51,7 @@ _None yet: a style is added when a second video reuses a look ([ARCHITECTURE.md]
 - [Make every frame a pure function of its index](../knowledge/deterministic-frames.md): A video rendered in chunks, resumed after a crash, or re-rendered next month must produce the same pixels for the same frame.
 - [Capture WebGL and WebGPU on a Windows laptop GPU with headless Chrome](../knowledge/headless-gpu-windows.md): Headless Chrome can render on the real GPU of a modest Windows laptop, but only with the right build and flags, and its screenshots are the wrong way to get frames out.
 - [Master to -14 LUFS with a two-pass, linear loudnorm](../knowledge/loudness-two-pass.md): Platforms turn loud uploads down and leave quiet ones quiet, so a mix should arrive at the platform's reference loudness with headroom for true peaks.
+- [Render React Three Fiber under Remotion so every chunk start looks the same](../knowledge/r3f-under-remotion.md): Remotion renders a 3D scene one frame at a time, in chunks, and each chunk usually starts on a fresh page.
 
 ## References
 - [Claude Code packaging — skills, CLAUDE.md, plugins, marketplaces](../references/claude-code-packaging.md): How Claude Code finds and loads instructions, skills and plugins, and how third parties (Remotion, HyperFrames, lemo-opuscar) package theirs.

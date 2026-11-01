@@ -31,7 +31,6 @@
     "@fontsource-variable/inter": "catalog:",
     "@react-three/drei": "catalog:",
     "@react-three/fiber": "catalog:",
-    "@react-three/postprocessing": "catalog:",
     "@remotion/cli": "catalog:",
     "@remotion/three": "catalog:",
     "postprocessing": "catalog:",

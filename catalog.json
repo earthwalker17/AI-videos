@@ -96,9 +96,21 @@
       "id": "loudness-two-pass",
       "title": "Master to -14 LUFS with a two-pass, linear loudnorm",
       "path": "knowledge/loudness-two-pass.md"
+    },
+    {
+      "id": "r3f-under-remotion",
+      "title": "Render React Three Fiber under Remotion so every chunk start looks the same",
+      "path": "knowledge/r3f-under-remotion.md"
     }
   ],
   "engines": [
+    {
+      "id": "remotion",
+      "title": "Remotion engine (`@aiv/engine-remotion`)",
+      "path": "engines/remotion/ENGINE.md",
+      "template": "templates/remotion",
+      "usedBy": []
+    },
     {
       "id": "web",
       "title": "Web engine (`@aiv/engine-web`)",

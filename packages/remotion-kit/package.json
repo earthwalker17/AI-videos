@@ -16,8 +16,8 @@
     "remotion": "catalog:",
     "three": "catalog:",
     "@react-three/fiber": "catalog:",
-    "@react-three/postprocessing": "catalog:",
     "postprocessing": "catalog:",
+    "@fontsource-variable/inter": "catalog:",
     "@remotion/three": "catalog:"
   }
 }

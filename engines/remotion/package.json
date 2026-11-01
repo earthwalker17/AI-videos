@@ -16,5 +16,11 @@
     "remotion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@aiv/remotion-kit": "workspace:*",
+    "@react-three/fiber": "catalog:",
+    "postprocessing": "catalog:",
+    "three": "catalog:"
   }
 }
