@@ -1,0 +1,22 @@
+# REUSE 3.3 licensing annotations (https://reuse.software/spec-3.3/).
+# Human-readable matrix: docs/LICENSING.md. When several annotations match a file,
+# the last one wins; a file's own SPDX header (e.g. adapted code) wins over all of them.
+version = 1
+
+# Default: code, configuration, schemas and metadata.
+[[annotations]]
+path = "**"
+SPDX-FileCopyrightText = "2026 earthwalker17"
+SPDX-License-Identifier = "MIT"
+
+# Prose (docs, knowledge, series/style guides, references, scripts, prompts, skills) and captions.
+[[annotations]]
+path = ["**/*.md", "**/*.srt", "**/*.vtt", "prompts/**"]
+SPDX-FileCopyrightText = "2026 earthwalker17"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Original media made for videos and styles.
+[[annotations]]
+path = ["videos/**/assets/**", "styles/**/*.png", "styles/**/*.jpg", "styles/**/*.webp"]
+SPDX-FileCopyrightText = "2026 earthwalker17"
+SPDX-License-Identifier = "CC-BY-4.0"
