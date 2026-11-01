@@ -89,7 +89,7 @@ export const newVideo: Command = {
     console.log(`created videos/${slug} (#${number}, ${series ? `series ${series.id}` : 'standalone'}, engine ${t.engine}, status idea)`);
     if (d.format && (d.format.width !== t.format.width || d.format.height !== t.format.height || d.format.fps !== t.format.fps))
       console.log(`note: the series format ${d.format.width}x${d.format.height}@${d.format.fps} differs from the template's; make src/ match video.json`);
-    console.log(`next: write videos/${slug}/BRIEF.md · pnpm aiv render ${slug} --profile draft · pnpm aiv check`);
+    console.log(`next: pnpm aiv check --fix (adds the video to the catalog and index) · write videos/${slug}/BRIEF.md · pnpm aiv render ${slug} --profile draft`);
     return EXIT.OK;
   },
 };

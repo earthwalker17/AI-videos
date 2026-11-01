@@ -46,13 +46,18 @@ collides with a real video.
 
 ## Start a video from it
 
-`aiv new <slug> --engine web` (M3) copies this folder to `videos/<slug>/` and sets the
-slug. Then:
-1. Replace `src/scene.ts` and the overlay with your own.
+`aiv new <slug> --engine web` copies this folder to `videos/<slug>/`, writes its
+`video.json` and the stage documents. Then:
+1. Replace `src/scene.ts` (the 3D scene: `PALETTE` for the scattered shapes, the hero's and
+   the ground's material colours, the lights, the background and fog) and the overlay in `src/card.ts` (`drawOverlay`: title, subtitle, progress
+   bar, frame counter) with your own. The test card's label (`drawCard`) and the page
+   `<title>` in `src/index.html` still name the template.
 2. Keep the test card frames, or move the strip: `swatchFrames` in `src/main.ts` and
-   `qa.swatchFrames` in `video.json` must name the same frames (the engine refuses to
-   render otherwise). Without a strip QA records colour as NOT VERIFIED.
+   `qa.swatchFrames` in `video.json` must name the same frames, `[start, end)` with the end
+   excluded (the engine refuses to render otherwise). QA checks the first, middle and last
+   frame of that range. Without a strip QA records colour as NOT VERIFIED.
 3. Replace the `lavfi:` bed with your audio.
+4. Run `pnpm lint` after editing `src/`: the determinism rules are ESLint rules.
 
 The template has no `package.json`. `three`, `@aiv/core`, `@aiv/engine-web/page` and
 `@fontsource-variable/inter` resolve from the repository root, pinned by the lockfile.

@@ -9,6 +9,7 @@ Targets are a video slug or `template:<engine>`. Heavy commands take the machine
 themselves; never run two at once.
 
 ## The loop
+0. After editing frame code: `pnpm lint` (the determinism rules are ESLint rules).
 1. `pnpm aiv render <target> --profile draft`
    - exit `75`: budget spent or lock busy. Run the printed `continue with:` command again.
    - exit `2`: inputs changed under an unfinished run. Add `--force` to replace it.
@@ -16,9 +17,10 @@ themselves; never run two at once.
 2. `pnpm aiv post <target> --profile draft`
 3. `pnpm aiv qa <target> --profile draft` must end with `QA PASSED`.
 4. **Look.** Read `out/<slug>/qa/<profile>/contact.png` (templates: `out/_template-<engine>/…`).
-   Extract full-size frames at key moments into a temporary folder outside the repository
-   and read them:
-   `ffmpeg -v error -ss <seconds> -i out/<slug>/post/<profile>/<slug>.mp4 -frames:v 1 <tmp>/f.png`
+   Extract frames at key moments into a temporary folder outside the repository and read
+   them at their full size (draft deliveries are half size; use `review` or `final` for
+   1080p detail):
+   `ffmpeg -v error -y -ss <seconds> -i out/<slug>/post/<profile>/<slug>.mp4 -frames:v 1 <tmp>/f.png`
    Check text sharpness and size, edges, banding, blank or black frames, colour, framing.
 5. Judge against `BRIEF.md`, `STORYBOARD.md` and the style; for an outside eye, ask the
    `frame-critic` agent.

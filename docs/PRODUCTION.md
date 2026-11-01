@@ -26,9 +26,11 @@ An agent never records an approval the user did not give.
 ## Stage by stage
 
 ### 1. Idea → brief
-`pnpm aiv new <slug> --series <id> --engine <web|remotion>` creates
+`pnpm aiv new <slug> --engine <web|remotion> [--series <id>]` creates
 `videos/<slug>/` from the engine's template, copies the series defaults into
-`video.json`, and allocates the next video `number`. Write `BRIEF.md`:
+`video.json`, and allocates the next video `number` (leave out `--series` for a
+standalone video). Then `pnpm aiv check --fix` adds it to the generated catalog and
+index; deleting a slot needs the same. Write `BRIEF.md`:
 audience, promise, length and formats, deadline (festivals), references, risks
 (facts, rights, technical).
 
@@ -48,8 +50,10 @@ approval.
   (required for factual series).
 - Build in `src/` with the shared packages; small assets in `assets/` with their
   provenance; anything reusable you discover is listed in `video.json` `reusable`.
-- Iterate on drafts: `aiv render <slug> --profile draft`, `aiv post`, `aiv qa`, then
-  **look at the contact sheet and key frames** before changing anything else.
+- Iterate on drafts: `aiv render <slug> --profile draft`, `aiv post` and `aiv qa`
+  (same profile; all three default to `review`), then **look at the contact sheet and
+  key frames** before changing anything else. Run `pnpm lint` after editing `src/`:
+  the determinism rules are ESLint rules, and `aiv check` does not run them.
 - Run at least one adversarial critique and fix round: the `frame-critic` agent
   compares contact sheets against the brief, storyboard and style.
 

@@ -43,7 +43,7 @@ Every frame is a pure function of `useCurrentFrame()`.
 
 ```sh
 pnpm aiv doctor --fix                              # once: Remotion's Chrome Headless Shell (~120 MB)
-pnpm aiv render template:remotion --profile draft  # 960x540, about 35 s on the reference laptop
+pnpm aiv render template:remotion --profile draft  # 960x540, about 35 s on the reference laptop once bundled
 pnpm aiv post   template:remotion --profile draft
 pnpm aiv qa     template:remotion --profile draft  # then look at out/_template-remotion/qa/draft/contact.png
 ```
@@ -71,11 +71,19 @@ kills shells it can attribute to aiv. On this 7.6 GB laptop, do not run both at 
 
 `aiv new <slug> --engine remotion` copies this folder to `videos/<slug>/`, writes its
 `video.json` and the stage documents. Then:
-1. Replace `src/Scene.tsx` and `src/Overlay.tsx` with your own.
+1. Replace `src/Scene.tsx` (its colours are the constants at the top: `PALETTE`, `RING_A`,
+   `RING_B`, `CAP`, plus the lights) and `src/Overlay.tsx` (title, subtitle, progress bar,
+   frame counter) with your own. The test card's label in `src/Main.tsx` still names the
+   template.
 2. Keep the test card frames, or move them. `swatchFrames` in `src/Root.tsx` and
-   `qa.swatchFrames` in `video.json` must name the same frames. Without a strip, QA records
-   colour as NOT VERIFIED.
+   `qa.swatchFrames` in `video.json` must name the same frames, `[start, end)` with the end
+   excluded. QA checks the first, middle and last frame of that range. Without a strip, QA
+   records colour as NOT VERIFIED.
 3. Replace the `lavfi:` bed with your audio.
+4. Run `pnpm lint` after editing `src/`: the determinism rules are ESLint rules.
+
+The first render of a new video builds its bundle from scratch (one to two minutes here);
+later renders reuse it or rebuild in seconds.
 
 Rules for scene code: pose from the frame in JSX props or `useLayoutEffect`, never in
 `useEffect` and never with `useFrame`. Post-process only through `PostChain`. Load nothing

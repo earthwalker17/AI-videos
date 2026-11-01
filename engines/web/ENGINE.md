@@ -50,7 +50,7 @@ installCapture({
   setup: fontsLoaded,           // optional: the page's own async boot
   fonts: ['650 72px "AIV Inter"'],
   gpu: 'webgl',                 // 'webgl' | 'webgpu' | 'none': which software fallback to refuse
-  swatchFrames: [0, 15],        // optional: frames showing the @aiv/core swatch strip
+  swatchFrames: [0, 15],        // optional: [start, end) frames showing the @aiv/core swatch strip
 });
 ```
 
@@ -203,6 +203,10 @@ Scene: `templates/web` (three.js, shadows, MSAA, 160 instances, a Canvas 2D over
 - **Load fonts with `FontFace` under a family name no system font has** (the template uses
   `"AIV Inter"`). The runtime checks that text measured with the font ignores the
   fallback. A fallback cannot then pass for the real face.
+- **A shader-compiler warning in the render log is not an error.** On Windows, ANGLE
+  compiles three.js shaders to HLSL, and the template prints `THREE.WebGLProgram: Program
+  Info Log: … warning X4122: sum of … cannot be represented accurately in double precision`.
+  It is harmless; the harness fails a render on page errors, never on these warnings.
 
 ## Files
 
