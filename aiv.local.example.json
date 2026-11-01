@@ -1,0 +1,6 @@
+{
+  "$comment": "Copy to aiv.local.json (gitignored) and keep only what you need. Every key is optional. docs/ENVIRONMENT.md explains each one.",
+  "minFreeMB": 1500,
+  "abortFreeMB": 500,
+  "sweepApps": []
+}

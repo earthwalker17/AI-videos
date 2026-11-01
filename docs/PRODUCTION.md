@@ -88,7 +88,15 @@ never edited to follow upgrades.
 
 ## Gates
 <!-- aiv:generated gates -->
-The machine-checked version of the lifecycle is generated here by `aiv check --fix`.
+| Status | Requires, on top of every earlier status |
+|---|---|
+| `idea` | `video.json`, `README.md` |
+| `brief` | `BRIEF.md` written; `README.md` written |
+| `treatment` | `TREATMENT.md` written (three candidates and the choice) |
+| `production` | the **treatment approval** |
+| `review` | `SCRIPT.md` and `STORYBOARD.md` written; `FACTS.md` written and `sources.jsonl` non-empty (series with `factsRequired`); the entry file exists |
+| `locked` | the **review approval**; `CREDITS.md` written |
+| `published` | the **final approval**; `release.version` with its manifest `release/v<N>.json`; `youtube.id` |
 <!-- /aiv:generated -->
 
 ## Working with agents
