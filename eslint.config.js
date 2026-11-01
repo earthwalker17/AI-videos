@@ -51,11 +51,17 @@ export default tseslint.config(
     rules: {
       'no-restricted-syntax': [
         'error',
-        { selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']", message: SEEDED },
-        { selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']", message: FRAME_TIME },
+        // Member expressions, not calls, so aliasing (`const r = Math.random`) is caught too.
+        { selector: "MemberExpression[object.name='Math'][property.name='random']", message: SEEDED },
+        { selector: "MemberExpression[object.name='crypto'][property.name=/^(getRandomValues|randomUUID)$/]", message: SEEDED },
+        { selector: "MemberExpression[object.name='MathUtils'][property.name=/^(randFloat|randFloatSpread|randInt|generateUUID|seededRandom)$/]", message: SEEDED },
+        { selector: "MemberExpression[object.name='Date'][property.name='now']", message: FRAME_TIME },
+        { selector: "CallExpression[callee.name='Date']", message: FRAME_TIME },
         { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: FRAME_TIME },
-        { selector: "CallExpression[callee.object.name='performance'][callee.property.name='now']", message: FRAME_TIME },
-        { selector: "CallExpression[callee.name=/^(setTimeout|setInterval|requestAnimationFrame)$/]", message: FRAME_TIME },
+        { selector: "MemberExpression[object.name='performance'][property.name=/^(now|timeOrigin)$/]", message: FRAME_TIME },
+        { selector: "CallExpression[callee.name=/^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback)$/]", message: FRAME_TIME },
+        { selector: "CallExpression[callee.property.name=/^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback)$/]", message: FRAME_TIME },
+        { selector: "MemberExpression[object.name='document'][property.name='timeline']", message: FRAME_TIME },
         { selector: "NewExpression[callee.name='Clock'], NewExpression[callee.property.name='Clock']", message: FRAME_TIME },
         { selector: "MemberExpression[property.name=/^(getElapsedTime|getDelta)$/]", message: FRAME_TIME },
       ],
