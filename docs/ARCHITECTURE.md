@@ -52,7 +52,10 @@ videos/<slug>/src ──engine──▶ out/<slug>/render/<profile>/mezzanine.mk
 - **Engines** produce frames. The runner in `@aiv/pipeline` owns everything around them:
   chunking, the input hash, resume, time budgets, the heavy lock and the mezzanine. A
   streaming engine hands over RGBA frames; the runner hashes each frame and writes a
-  lossless FFV1 RGB mezzanine.
+  lossless FFV1 RGB mezzanine. Both current engines stream: `web` reads the canvas back in
+  the page, and `remotion` decodes the lossless PNG that Remotion captures for each frame.
+  An engine that can only write video files itself (a future Blender or Manim adapter)
+  uses the runner's file style instead.
 - **Post** mixes the audio bed (two-pass loudness normalisation to -14 LUFS) and makes the
   single RGB → BT.709 limited-range conversion, with explicit colour tags. Profiles:
   `draft` (half size, hardware preview encode), `review` and `final` (full size; final adds
@@ -131,8 +134,9 @@ lives in the gitignored `aiv.local.json`.
 
 One toolchain at HEAD: every third-party version is pinned once in the pnpm catalog
 (`pnpm-workspace.yaml`). Video and template code has no `package.json` and resolves from the
-repository root, so creating a video never changes the lockfile. Browsers are pinned too
-(Chrome for Testing in `.cache/browsers` for the web engine). `render.json` records the
+repository root, so creating a video never changes the lockfile. Browsers are pinned too:
+Chrome for Testing in `.cache/browsers` for the web engine, and Remotion's own Chrome Headless
+Shell in `node_modules/.remotion`. `aiv doctor --fix` installs both; a render never downloads. `render.json` records the
 toolchain (Node, pnpm, FFmpeg version and build hash, browser, OS, GPU family) without host
 names or paths. [ENVIRONMENT.md](ENVIRONMENT.md) lists versions, reference hosts and optional
 modules.
@@ -177,3 +181,14 @@ new entry that supersedes it, not editing history.
 14. **2026-11-01 · The repository model lives in the CLI.** `video.json` and `series.json`
     schemas, gates and generators are in `tools/aiv`; `@aiv/core` holds only what engines and
     the pipeline need, so repository bookkeeping never changes a render's input hash.
+15. **2026-11-01 · Remotion streams PNG frames into the shared runner.** The engine calls
+    Remotion's `renderFrames` per chunk and decodes each lossless PNG, rather than letting
+    `renderMedia` encode video. Remotion frames then get the same per-frame hashes, mezzanine
+    and single BT.709 conversion as every other engine, and `render.json` v1 did not change.
+    The cost is a PNG encode and decode per frame (about 40 ms at 1080p on the reference host).
+    The bundle is cached by its inputs, and webpack must report every bundled file under the
+    hashed roots or the render refuses.
+16. **2026-11-01 · No `@react-three/postprocessing`.** It assembles its composer after the
+    first render, so every chunk starts with unprocessed frames. `@aiv/remotion-kit`'s
+    `PostChain` builds a `postprocessing` composer synchronously instead, and the wrapper
+    package is not installed.

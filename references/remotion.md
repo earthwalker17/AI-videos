@@ -83,10 +83,20 @@ Always passed: `--ignore-gpu-blocklist`, `--enable-unsafe-webgpu`; the headless 
 - TypeScript: `@remotion/eslint-config-flat@4.0.539` *depends* on typescript 5.9.3 and typescript-eslint 8.71.2; the "TS 7 for templates" issue #9004 is open.
 - `template-three` config: Rspack on, OpenGL renderer `angle`, JPEG frames.
 
+**Verified while building the engine** (2026-11-01, Remotion 4.0.539, webpack 5.105.0, three 0.186.1, win64) [V]
+- `renderFrames` awaits `onFrameBuffer` before it seeks the next frame, so a slow consumer gives backpressure.
+- `remotion gpu --gl=angle` fails with the headless shell 157.0.8080.0 (`chrome://gpu` gives `net::ERR_FAILED`). A WebGL context probe in the same browser is the GPU evidence instead.
+- On Windows, `openBrowser`'s temp profiles (`puppeteer_dev_chrome_profile-*`) are left behind: deletion races Chrome's exit.
+- Remotion bundles in production mode, and webpack's module concatenation removes each merged module's root from `compilation.modules`. To list every bundled file, read the modules at `finishModules` or walk `ConcatenatedModule.modules`.
+- After a crash, `renderFrames` replaces the browser through its own `browserExecutable`, `chromeMode` and `onBrowserDownload` options, not through `puppeteerInstance`. Pass them, or the replacement may resolve or download another browser.
+- Remotion's version check warns about zod 4.6.7 versus 4.5.4 (harmless when no Remotion zod schemas are used).
+- The webpack cache in `node_modules/.cache/webpack` grows past 1 GB.
+- three r186 ignores a material's `envMapIntensity` when its light comes only from `scene.environment` (it uses `scene.environmentIntensity`). Give a material its own `envMap` to set its intensity.
+
 ## What we adopted / adapted (homes per the foundation plan)
 - Exact catalog pins for every Remotion package (root `pnpm-workspace.yaml`); upgrades move all active videos together.
 - Video and template code have no `package.json`, and all renders run from the repo root through `engines/remotion`, so there is one headless-shell download.
-- `engines/remotion`: bundle once, `renderMedia` per frame-range chunk through the shared runner; `gl=angle` locally, `swangle` in CI; `colorSpace bt709`; every option passed explicitly (v5-ready).
+- `engines/remotion`: bundle once, then `renderFrames` per frame-range chunk with lossless PNG frames streamed into the shared runner (not `renderMedia` with `colorSpace bt709`, as first planned: this way the RGB→BT.709 conversion happens once, in post, as for every engine); `gl=angle` locally, `swangle` in CI; every option passed explicitly (v5-ready).
 - `@aiv/remotion-kit` `Stage3D` wraps `<ThreeCanvas>`; ESLint bans `useFrame`, clocks and unseeded random in video/template code.
 - Remotion notice in README, `ENGINE.md` and the template; official skills documented as an opt-in plugin install (see `claude-code-packaging.md`).
 - Post stays outside Remotion: render picture, master audio and mux with system FFmpeg, so audio changes don't re-render frames.
