@@ -15,9 +15,11 @@
  *     Remotion awaits onFrameBuffer before it seeks the next frame (backpressure); the adapter
  *     still asserts strict order and no overlap, so a Remotion change cannot reorder frames.
  *
- * If the shell crashes mid-chunk, Remotion replaces it with a new browser (same executable, but
- * unprobed and without our profile marker). The adapter notices the old one closing, discards the
- * chunk and fails the session; close() sweeps the replacement (a shell this process launched).
+ * If the shell or its page crashes mid-chunk, Remotion would replace the browser with a new one:
+ * unprobed, without our profile marker, and opened in the background after renderFrames has
+ * already rejected, so nothing would close it. Its replacement starts by closing the session
+ * browser; that close fails the session and never settles (browser.ts onReplace), so no new
+ * browser starts. The chunk is discarded and the session fails (run again).
  *
  * The runner holds the heavy-job lock around all of this (aiv render takes it). Closing sweeps
  * the attributable headless shells of this repo (host/orphans.ts): ours, never a Studio render.
@@ -58,8 +60,9 @@ async function openSession(ctx: EngineOpenContext, opts: RemotionAdapterOptions)
   let opened: OpenedBrowser | null = null;
   let cancelActive: (() => void) | null = null;
   let closed = false;
-  // the session browser closed under us: Remotion replaced it after a crash
+  // the shell or its page crashed: the session stays failed
   let lost: Error | null = null;
+  const crashed = () => new Error('the headless shell or its page crashed: the chunk is discarded and no replacement browser is opened. Run again; if it repeats, check memory and pnpm aiv doctor');
   // the page's last console lines, for every error message
   const lines: string[] = [];
   const tail = () => lines.slice(-20).join('\n');
@@ -92,15 +95,14 @@ async function openSession(ctx: EngineOpenContext, opts: RemotionAdapterOptions)
     const bundle = await bundleTarget({ target, inputRoots: ctx.inputRoots, inputs: () => ENGINE_INPUTS, log });
     // the device scale factor follows video.json's format; the composition is checked against it below
     const deviceScale = width / target.config.format.width;
-    opened = await openRemotionBrowser({ root, gl, scale: deviceScale, dropSignalHandlers: true, log });
-    const browser = opened.browser;
-    const onLost = () => {
+    // Remotion's crash replacement starts by closing the session browser: fail the session there
+    const onReplace = () => {
       if (closed || lost) return;
-      lost = new Error('the headless shell crashed and Remotion replaced it with an unprobed browser: the chunk is discarded. Run again; if it repeats, check memory and pnpm aiv doctor');
+      lost = crashed();
       cancelActive?.();
     };
-    browser.on('closed', onLost);
-    browser.on('closed-silent', onLost);
+    opened = await openRemotionBrowser({ root, gl, scale: deviceScale, dropSignalHandlers: true, onReplace, log });
+    const browser = opened.browser;
 
     const webgl = await probeWebGl(browser);
     if (!webgl.renderer) throw new Error(`WebGL is unavailable in the headless shell with --gl=${gl} (${webgl.error ?? 'no context'}): check the GPU driver and pnpm aiv doctor`);
@@ -117,7 +119,7 @@ async function openSession(ctx: EngineOpenContext, opts: RemotionAdapterOptions)
       serveUrl: bundle.serveUrl,
       puppeteerInstance: browser,
       chromiumOptions,
-      // what Remotion's crash replacement (makeBrowser) opens: this shell, never a resolved or downloaded one
+      // what a crash replacement would open (onReplace stops it first): this shell, never a downloaded one
       browserExecutable: opened.executable,
       chromeMode: 'headless-shell' as const,
       onBrowserDownload: (): never => {
@@ -178,7 +180,7 @@ async function openSession(ctx: EngineOpenContext, opts: RemotionAdapterOptions)
             onFrameUpdate: () => {},
             onFrameBuffer: async (buf, frame) => {
               try {
-                // no frame of a replacement browser is accepted
+                // no frame after a crash is accepted
                 if (lost) throw lost;
                 if (busy) throw new Error(`Remotion delivered frame ${frame} before frame ${next} was consumed (no backpressure)`);
                 busy = true;

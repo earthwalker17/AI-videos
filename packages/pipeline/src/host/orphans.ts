@@ -10,11 +10,11 @@
  *  - Remotion engine: a process whose executable lies under THIS repo's node_modules/.remotion
  *    (the one Chrome Headless Shell Remotion downloads per repo) AND that is attributable:
  *    its temp profile (puppeteer_dev_chrome_profile-*, a prefix puppeteer and other tools share)
- *    carries the engine's owner marker for this repo; or this process launched it (a browser
- *    Remotion replaced after a crash has no marker); or its parent process is gone (an orphan
- *    nobody drives); or its parent is one of these (Chrome's children). A Studio render of this
- *    repo has a live parent and no marker, so it is left alone. Only the profiles of the shells
- *    killed here, and unused profiles carrying the marker, are deleted.
+ *    carries the engine's owner marker for this repo; or this process launched it (an unmarked
+ *    shell, such as a crash replacement, which the engine prevents); or its parent process is
+ *    gone (an orphan nobody drives); or its parent is one of these (Chrome's children). A Studio
+ *    render of this repo has a live parent and no marker, so it is left alone. Only the profiles
+ *    of the shells killed here, and unused profiles carrying the marker, are deleted.
  * Call it only while holding the heavy-job lock, so it never kills another job's live capture.
  */
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync } from 'node:fs';

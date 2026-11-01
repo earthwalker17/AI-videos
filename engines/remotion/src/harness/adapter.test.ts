@@ -199,13 +199,15 @@ describe('remotion adapter through the runner', () => {
       } catch (e) {
         got = e;
       }
-      // Remotion noticed the dead target and replaced the browser; the adapter refused to go on
-      expect(String(got)).toMatch(/Remotion replaced it with an unprobed browser/);
-      // no frame from the replacement browser was accepted, and the session stays failed
+      // only onReplace sets this error: Remotion went for its crash replacement and was stopped
+      expect(String(got)).toMatch(/headless shell or its page crashed/);
+      // no frame after the crash was accepted, and the session stays failed
       expect(seen).toEqual([0, 1, 2, 3]);
-      await expect(session.renderFrames!([0, 2], async () => {})).rejects.toThrow(/replaced it/);
-      // close() sweeps the replacement too: a shell this process launched
+      await expect(session.renderFrames!([0, 2], async () => {})).rejects.toThrow(/crashed/);
       await session.close();
+      // a replacement would start in the background after renderFrames rejected (Linux CI saw one
+      // appear after close()): give it time, then expect none
+      await new Promise((r) => setTimeout(r, 3000));
       expect(await findOrphanBrowsers(root)).toEqual([]);
     },
     SLOW,

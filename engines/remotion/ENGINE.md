@@ -94,12 +94,18 @@ resolve from the repository root. A video has no `package.json`.
    `--gl=angle` and the render scale, then reused for every chunk (`puppeteerInstance`).
    - The executable is always passed explicitly, so Remotion never downloads mid-render. A
      missing or outdated shell fails with `run pnpm aiv doctor --fix`.
-   - If the shell crashes, Remotion opens a replacement and retries the frame. The adapter
-     passes the same executable and `chromeMode` for that replacement, and an
-     `onBrowserDownload` that throws. A replacement is unprobed and unmarked, so the adapter
-     notices the session browser closing, discards the chunk and fails the call: run again.
-     `close()` sweeps the replacement, which is a shell this process launched.
-     `adapter.test.ts` kills the shell mid-chunk to check this.
+   - If the shell or its page crashes, Remotion would open a replacement browser and retry the
+     frame. That replacement would be unprobed and unmarked, and it starts in the background
+     after the chunk has already failed, so nothing would close it. Remotion's replacement
+     begins by closing the browser it was given, and a passed-in browser is closed for nothing
+     else (read in `replace-browser.js` at 4.0.539). So the engine makes that close fail the
+     session and never settle: no replacement starts. The chunk is discarded and the call
+     fails: run again. The replacement would still get this shell and an `onBrowserDownload`
+     that throws, never a download. `adapter.test.ts` kills the shell mid-chunk, then checks
+     that no shell appears afterwards.
+     - Why not point the replacement at a missing executable: Remotion chains every
+       `ensureBrowser` call on one promise, so a single rejection fails every later
+       `openBrowser` in that process.
 4. **Probe the GPU.** A page of that same browser creates a WebGL context and reads
    `WEBGL_debug_renderer_info`.
    - Software renderers (SwiftShader, llvmpipe, Microsoft Basic Render) are refused unless
@@ -150,7 +156,8 @@ Remotion's `openBrowser` makes a fresh profile in the OS temp folder
   attribute:
   - the shell's profile carries the owner marker for this repo (an aiv render, live or
     killed);
-  - or this process launched it (a crash replacement);
+  - or this process launched it (an unmarked shell, such as a crash replacement, which the
+    adapter prevents);
   - or its parent process is gone (an orphan nobody drives);
   - and the children of any of these.
 

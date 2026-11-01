@@ -131,7 +131,7 @@ export interface OpenedBrowser {
   browser: HeadlessBrowser;
   /** e.g. "chrome-headless-shell 157.0.8080.0" */
   label: string;
-  /** the shell's executable (also what a crash replacement must open) */
+  /** the shell's executable */
   executable: string;
   /** the temp profile, when it could be attributed (marker written) */
   profile: string | null;
@@ -148,6 +148,13 @@ export interface OpenOptions {
    * a render's own abort handler then closes the encoder, the browser and the lock in order
    */
   dropSignalHandlers?: boolean;
+  /**
+   * Remotion's crash replacement (replace-browser.js) closes the browser it was given, then opens
+   * a new one: unprobed, unmarked, and started after renderFrames has already rejected, so nothing
+   * would close it. With this set, a close that is not this module's calls it and never settles,
+   * so no replacement starts. Remotion closes a passed-in browser for nothing else.
+   */
+  onReplace?: () => void;
   log: Log;
 }
 
@@ -178,6 +185,14 @@ export async function openRemotionBrowser(o: OpenOptions): Promise<OpenedBrowser
       profile = null;
     }
   }
+  const closeBrowser = browser.close.bind(browser);
+  if (o.onReplace) {
+    const onReplace = o.onReplace;
+    browser.close = (() => {
+      onReplace();
+      return new Promise<void>(() => {});
+    }) as typeof browser.close;
+  }
   let version = shell.installed ?? 'unknown';
   try {
     const v = (await (browser.connection as unknown as CdpSend).send('Browser.getVersion')).value as { product?: string };
@@ -201,7 +216,7 @@ export async function openRemotionBrowser(o: OpenOptions): Promise<OpenedBrowser
         timer = setTimeout(r, CLOSE_TIMEOUT_MS);
         timer.unref();
       });
-      await Promise.race([browser.close({ silent: true }), cap])
+      await Promise.race([closeBrowser({ silent: true }), cap])
         .catch(() => {})
         .finally(() => clearTimeout(timer));
       // Remotion deletes the profile while Chrome is still exiting; on Windows that leaves Default/
