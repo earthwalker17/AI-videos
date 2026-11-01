@@ -1,6 +1,8 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { tempRepo, type TempRepo } from '../testing.ts';
-import { computeInputHash, renderSettings } from './inputHash.ts';
+import { computeInputHash, filesOutsideHash, renderSettings } from './inputHash.ts';
 import { PROFILES } from './profiles.ts';
 import { resolveTarget } from './target.ts';
 
@@ -66,5 +68,42 @@ describe('inputHash', () => {
     expect(hashOf(repo).hash).toBe(base);
     repo.write('videos/demo/video.json', JSON.stringify({ slug: 'demo', title: 'Renamed', engine: 'fake', entry: 'src/index.ts', format: { width: 320, height: 180, fps: 25 } }));
     expect(hashOf(repo).hash).not.toBe(base);
+  });
+});
+
+describe('filesOutsideHash', () => {
+  it('reports exactly the files whose edits leave the input hash unchanged', () => {
+    repo = tempRepo();
+    const files = [
+      'videos/demo/src/sub/a.tsx',
+      'videos/demo/assets/img.png',
+      'styles/look.css',
+      'packages/kit/src/k.ts',
+      'engines/fake/page/h.ts',
+      'videos/demo/src/dist/b.ts',
+      'videos/demo/src/out/c.ts',
+      'videos/demo/src/.gen/d.ts',
+      'videos/demo/src/deep/.cache/e.ts',
+      'videos/demo/src/x.test.ts',
+      'videos/demo/src/.hidden.ts',
+      'videos/demo/src/node_modules/f.js',
+      'videos/demo/other/g.ts',
+      'packages/kit/package.json',
+    ];
+    for (const f of files) repo.write(f, 'a');
+    // pinned by the lockfile line (outside every root): neither hashed as a file nor reported
+    repo.write('node_modules/.pnpm/three@1/node_modules/three/index.js', 'a');
+    const abs = (rel: string) => join(repo.root, ...rel.split('/'));
+    const { roots } = hashOf(repo);
+    for (const f of [...files, 'videos/demo/src/index.ts']) {
+      const before = hashOf(repo).hash;
+      const text = readFileSync(abs(f), 'utf8');
+      writeFileSync(abs(f), `${text}b`);
+      const hashed = hashOf(repo).hash !== before;
+      writeFileSync(abs(f), text);
+      expect(filesOutsideHash([abs(f)], repo.root, roots).length === 0, `${f}: hashed=${hashed}`).toBe(hashed);
+    }
+    expect(filesOutsideHash([abs('node_modules/.pnpm/three@1/node_modules/three/index.js')], repo.root, roots)).toEqual([]);
+    expect(filesOutsideHash([join(repo.root, '..', 'elsewhere.ts')], repo.root, roots)).toHaveLength(1);
   });
 });

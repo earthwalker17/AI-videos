@@ -13,15 +13,15 @@
  * its entry file, styles/ (shared looks), every packages/<name>/src that frame code can import
  * (all but the node-only @aiv/pipeline, see framePackages) and whatever the adapter declares
  * (its harness, its page runtime, a kit). Tests (*.test.*), node_modules and dot-files are
- * skipped. An engine that serves files to a page checks that every served file lies under these
- * roots (the web engine reads Vite's module graph), so a page can not pull in an unhashed file.
+ * skipped. An engine checks every file it loads with filesOutsideHash (the web engine reads
+ * Vite's module graph, the Remotion engine webpack's), so a page can not pull in an unhashed file.
  *
  * Deliberately NOT included: the git commit (a docs-only commit must not invalidate a run),
  * video.json as a file (its pixel-relevant fields are in the settings; title or status edits
  * are not), absolute paths and timestamps (the same inputs anywhere hash the same).
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 import { canonicalJson, sha256 } from '../util/hash.ts';
 import { fromRepo, repoRel } from '../util/paths.ts';
 import type { EngineAdapter, FrameSpan } from './engine.ts';
@@ -62,6 +62,39 @@ export function renderSettings(target: Target, profile: Profile, size: { width: 
 
 const SKIP_DIR = new Set(['node_modules', '.remotion', 'dist', '.vite', '.cache', 'out']);
 const skipFile = (name: string) => name.startsWith('.') || /\.test\.[cm]?[jt]sx?$/.test(name);
+
+/** Whether the walk over these repo-relative roots hashes the repo-relative file (the walk's own skip rules). */
+export function hashedBy(rel: string, roots: readonly string[]): boolean {
+  return roots.some((r) => {
+    // a file root (the entry) is hashed whatever its name
+    if (rel === r) return true;
+    if (!rel.startsWith(`${r}/`)) return false;
+    const dirs = rel.slice(r.length + 1).split('/');
+    const name = dirs.pop()!;
+    return !skipFile(name) && dirs.every((d) => !SKIP_DIR.has(d) && !d.startsWith('.'));
+  });
+}
+
+const under = (f: string, dir: string) => {
+  const rel = relative(dir, f);
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+};
+
+/**
+ * Files an engine loaded (absolute paths) that the input hash over `roots` does not cover:
+ * outside every root, or inside one but skipped by the walk (dot-folders, dist/, out/,
+ * *.test.*). Third-party files (node_modules) are pinned by the lockfile line instead, unless
+ * they lie inside an input root (no lockfile entry, and the walk skips them). Engines refuse
+ * to render with such files: an edit to one would change pixels without changing the hash.
+ */
+export function filesOutsideHash(files: readonly string[], root: string, roots: readonly string[]): string[] {
+  return files.filter((f) => {
+    const rel = under(f, root) ? relative(root, f).split(sep).join('/') : null;
+    if (rel !== null && hashedBy(rel, roots)) return false;
+    const inRoot = rel !== null && roots.some((r) => rel.startsWith(`${r}/`));
+    return inRoot || !f.split(/[\\/]/).includes('node_modules');
+  });
+}
 
 function walk(abs: string, out: string[]): void {
   const st = statSync(abs);

@@ -16,7 +16,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { EXIT, ExitError } from '@aiv/core';
-import { sha256, sweepOrphans, type EngineAdapter, type EngineInfo, type EngineOpenContext, type EngineSession, type FrameSpan } from '@aiv/pipeline';
+import { filesOutsideHash, sha256, sweepOrphans, type EngineAdapter, type EngineInfo, type EngineOpenContext, type EngineSession, type FrameSpan } from '@aiv/pipeline';
 import type { BrowserContext } from 'playwright-core';
 import type { FrameResult, PageMeta } from '../page/index.ts';
 import { gcSession, guarded, launchBrowser, watchPage, type BrowserChoice, type LaunchedBrowser, type PageWatch } from './browser.ts';
@@ -56,20 +56,12 @@ async function driverVersion(context: BrowserContext): Promise<string | undefine
 }
 
 /**
- * Served files the input hash does not cover. Third-party files (node_modules, and Vite's
- * pre-bundle of them) are pinned by the lockfile line of the hash.
+ * Served files the input hash does not cover (@aiv/pipeline filesOutsideHash). Vite's pre-bundle
+ * of third-party code (the cache folder) is pinned by the lockfile line, like node_modules.
  */
 export function unhashedFiles(files: readonly string[], root: string, roots: readonly string[], cacheDir: string): string[] {
-  const under = (f: string, dir: string) => {
-    const rel = relative(dir, f);
-    return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
-  };
-  return files.filter((f) => {
-    if (f.split(/[\\/]/).includes('node_modules') || under(f, cacheDir)) return false;
-    if (!under(f, root)) return true;
-    const rel = relative(root, f).split(sep).join('/');
-    return !roots.some((r) => rel === r || rel.startsWith(`${r}/`));
-  });
+  const rel = (f: string) => relative(cacheDir, f);
+  return filesOutsideHash(files, root, roots).filter((f) => rel(f).startsWith('..') || isAbsolute(rel(f)));
 }
 
 async function openSession(ctx: EngineOpenContext, opts: WebAdapterOptions): Promise<EngineSession> {

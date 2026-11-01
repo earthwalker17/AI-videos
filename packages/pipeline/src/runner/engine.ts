@@ -4,10 +4,10 @@
  * the mezzanine; an engine only produces frames for a frame range.
  *
  * Two styles, so both kinds of engine fit without adapters of adapters:
- *  - frame streaming (web): renderFrames calls onFrame(i, rgba) for each frame in order; the
- *    runner hashes the RGBA and streams it into a lossless FFV1 RGB chunk.
- *  - file producing (Remotion): renderChunkFile writes the range to a video file itself; the
- *    runner verifies its frame count and hashes its decoded frames.
+ *  - frame streaming (web, Remotion): renderFrames calls onFrame(i, rgba) for each frame in
+ *    order; the runner hashes the RGBA and streams it into a lossless FFV1 RGB chunk.
+ *  - file producing (future engines such as Blender or Manim): renderChunkFile writes the range
+ *    to a video file itself; the runner verifies its frame count and hashes its decoded frames.
  */
 import type { ColorInfo } from '@aiv/core';
 import type { Log } from '../util/log.ts';

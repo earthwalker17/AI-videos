@@ -29,7 +29,21 @@ export {
   type LockResult,
   type AcquireOptions,
 } from './host/lock.ts';
-export { sweepOrphans, findOrphanBrowsers, browserProfilesDir, userDataDir, type OrphanProcess } from './host/orphans.ts';
+export {
+  sweepOrphans,
+  findOrphanBrowsers,
+  browserProfilesDir,
+  userDataDir,
+  remotionBrowserDir,
+  staleRemotionProfiles,
+  REMOTION_PROFILE_PREFIX,
+  REMOTION_PROFILE_MARKER,
+  profileOwner,
+  ownedProfile,
+  type ClassifyOptions,
+  type OrphanProcess,
+} from './host/orphans.ts';
+export { gpuFamily, isSoftwareRenderer, softwareAllowed } from './host/gpu.ts';
 export { keepAwake } from './host/keepAwake.ts';
 export { readLocalConfig, LocalConfig, LOCAL_CONFIG_FILE } from './host/localConfig.ts';
 export { acquireHeavy, runHeavy, DEFAULT_MIN_FREE_MB, type HeavyOptions, type HeavySlot, type RunHeavyOptions } from './host/heavy.ts';
@@ -62,7 +76,7 @@ export { encodeDelivery, deliveryArgs, type EncodeDeliveryOptions, type EncodeDe
 export type { EngineAdapter, EngineSession, EngineOpenContext, EngineInfo, FrameMeta, FrameSpan } from './runner/engine.ts';
 export { PROFILES, getProfile, renderSize, type Profile, type ProfileName } from './runner/profiles.ts';
 export { resolveTarget, type Target } from './runner/target.ts';
-export { computeInputHash, renderSettings, inputRoots, type InputHash, type RenderSettings } from './runner/inputHash.ts';
+export { computeInputHash, renderSettings, inputRoots, hashedBy, filesOutsideHash, type InputHash, type RenderSettings } from './runner/inputHash.ts';
 export { runRender, chunkList, type RunOptions, type RunOutcome } from './runner/runner.ts';
 
 // qa
