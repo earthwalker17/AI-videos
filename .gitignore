@@ -26,6 +26,11 @@ out/
 aiv.local.json
 .claude/settings.local.json
 .claude/worktrees/
+CLAUDE.local.md
+# third-party agent skills installers write here; such skills are never committed
+.agents/
+*.log
+coverage/
 
 # --- OS / editor noise ---
 .DS_Store
@@ -36,9 +41,13 @@ desktop.ini
 .vscode/*
 !.vscode/extensions.json
 
-# --- per-video heavy inputs ---
+# --- per-video heavy inputs (docs/ARCHITECTURE.md, "A video folder") ---
 # Large or non-redistributable inputs live outside git. A video's assets/ keeps
 # only small committed files; anything heavy is listed in a manifest instead.
 # (git cannot re-include a file inside an ignored directory, so ignore contents.)
 videos/*/media/*
 !videos/*/media/manifest.json
+# generated material: only the provenance sidecars are committed; a redistributable
+# (class A/B) file under 2 MiB that a video uses is copied into assets/ with its sidecar
+videos/*/gen/*
+!videos/*/gen/*.provenance.json

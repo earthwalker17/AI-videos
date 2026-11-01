@@ -2,18 +2,21 @@
 
 This repository mixes code, prose, original media and third-party material. Each
 kind has its own licence. The machine-readable version of this page is
-[`REUSE.toml`](../REUSE.toml) (REUSE 3.3); `reuse lint` checks it in CI.
+[`REUSE.toml`](../REUSE.toml) (REUSE 3.3); `reuse lint` checks it in CI. The one
+thing `REUSE.toml` cannot express is the extra MIT permission for code snippets
+inside Markdown (below).
 
 ## The matrix
 
 | What | Where | Licence |
 |---|---|---|
-| Code, configuration, schemas, templates, CLI, CI | `packages/`, `engines/`, `tools/`, `templates/`, `schemas/`, `.github/`, `.githooks/`, root config, all `*.json` metadata | [MIT](../LICENSE) |
-| Code blocks inside Markdown files | anywhere | MIT, same as the code |
-| Prose: docs, knowledge cards, series and style guides, reference notes, scripts, storyboards, captions, prompts and agent skills | `**/*.md`, `**/*.srt`, `**/*.vtt`, `prompts/` | [CC BY 4.0](../LICENSES/CC-BY-4.0.txt) |
-| Original media made for this repo (stills, posters, audio, small renders) | `videos/*/assets/`, `styles/*/` media | CC BY 4.0 unless annotated otherwise |
+| Code, configuration, schemas, CLI, CI, and the code of templates | `packages/`, `engines/`, `tools/`, `templates/` (code), `schemas/`, `.github/`, `.githooks/`, root config, all `*.json` metadata | [MIT](../LICENSE) |
+| Prose: docs, knowledge cards, series and style guides, reference notes, template READMEs and stage documents, scripts, storyboards, captions, prompts, agent skills and agents | every `*.md`, `*.srt`, `*.vtt`; `prompts/` | [CC BY 4.0](../LICENSES/CC-BY-4.0.txt) |
+| Code snippets inside Markdown files | anywhere | CC BY 4.0 with their file, and also MIT: the authors grant that extra permission so snippets can be pasted into code |
+| Original media made for this repo (stills, thumbnails, posters, audio, textures, small renders) | any image, audio, video or 3D file (`REUSE.toml` lists the extensions) | CC BY 4.0 unless annotated otherwise |
 | Third-party assets (fonts, samples, textures, models) | wherever they are used | their own licence, recorded next to the file and in `REUSE.toml` |
-| Generated AI output | per video (`gen/`) | see [AI-generated material](#ai-generated-material) |
+| Large or non-redistributable inputs | `videos/*/media/` (gitignored; `media/manifest.json` is committed) | their own licence, recorded in the manifest |
+| Generated AI output | `videos/*/gen/` (gitignored; provenance sidecars are committed) | see [AI-generated material](#ai-generated-material) |
 | Finished videos | YouTube / GitHub Releases, not in git | per video, stated in its `video.json` (`license`) |
 
 **Attribution** for CC BY material: "*Title*" by earthwalker17, CC BY 4.0, with a
@@ -52,9 +55,9 @@ version, prompt, date, terms, cost) and a **rights class**:
 
 | Class | Meaning | In git? | Licence we apply |
 |---|---|---|---|
-| A | Redistributable without conditions (e.g. outputs of permissively licensed models, paid API outputs whose terms grant the user the rights) | small files only | no copyright claimed; marked `LicenseRef-AI-Output` |
-| B | Redistributable with conditions (attribution, AI disclosure) | small files only | as A, plus the stated conditions |
-| C | Usable in the finished video only (e.g. provider music or voices whose terms forbid redistribution, stock media) | never; hash only | none: not redistributed |
+| A | Redistributable without conditions (e.g. outputs of permissively licensed models, paid API outputs whose terms grant the user the rights) | small files only, copied into `assets/` with their sidecar | no copyright claimed; marked `LicenseRef-AI-Output` |
+| B | Redistributable with conditions (attribution, AI disclosure) | as A | as A, plus the stated conditions |
+| C | Usable in the finished video only (e.g. provider music or voices whose terms forbid redistribution, stock media) | never; the sidecar records its hash | none: not redistributed |
 | D | Not allowed in published work for this channel (non-commercial weights, free tiers without commercial rights, terms we could not verify) | never | none |
 
 Purely AI-generated material may not be protected by copyright at all, so we do

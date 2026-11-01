@@ -15,8 +15,15 @@ path = ["**/*.md", "**/*.srt", "**/*.vtt", "prompts/**"]
 SPDX-FileCopyrightText = "2026 earthwalker17"
 SPDX-License-Identifier = "CC-BY-4.0"
 
-# Original media made for videos and styles.
+# Original media made for this repository (anywhere: assets, publish/ thumbnails, styles).
 [[annotations]]
-path = ["videos/**/assets/**", "styles/**/*.png", "styles/**/*.jpg", "styles/**/*.webp"]
+path = [
+  "videos/**/assets/**",
+  "**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.webp", "**/*.gif", "**/*.svg", "**/*.avif",
+  "**/*.exr", "**/*.hdr", "**/*.ktx2", "**/*.cube",
+  "**/*.wav", "**/*.flac", "**/*.mp3", "**/*.ogg", "**/*.opus", "**/*.m4a",
+  "**/*.mp4", "**/*.webm", "**/*.mov",
+  "**/*.glb", "**/*.gltf",
+]
 SPDX-FileCopyrightText = "2026 earthwalker17"
 SPDX-License-Identifier = "CC-BY-4.0"

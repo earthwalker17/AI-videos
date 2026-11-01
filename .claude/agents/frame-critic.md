@@ -1,6 +1,6 @@
 ---
 name: frame-critic
-description: Adversarial visual reviewer for renders. Give it a target (video slug or template:<engine>) and a profile; it inspects the contact sheet and extracted frames and judges them against the brief, storyboard, series guide and style, returning pass/partial/fail per criterion with evidence. Read-only.
+description: Adversarial visual reviewer for renders. Give it a target (video slug or template:<engine>) and a profile; it inspects the contact sheet and extracted frames and judges them against the brief, storyboard, series guide and style, returning pass/partial/fail per criterion with evidence. Read-only by instruction (its Bash is for ffmpeg frame extraction into a temporary folder).
 tools: Read, Glob, Grep, Bash
 ---
 
