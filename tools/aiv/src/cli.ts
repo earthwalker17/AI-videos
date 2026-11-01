@@ -15,7 +15,7 @@ function help(): string {
     '',
     ...COMMANDS.map((c) => `  ${c.name.padEnd(w)}  ${c.summary}`),
     '',
-    'exit codes: 0 ok · 1 error/failed checks · 2 refused · 3 low memory · 64 usage · 75 run again',
+    'exit codes: 0 ok · 1 error/failed checks · 2 refused · 3 low memory · 64 usage · 75 run again · 130 interrupted',
   ].join('\n');
 }
 
@@ -30,7 +30,8 @@ export async function main(argv: string[]): Promise<number> {
   if (!name || name === '--help' || name === '-h' || name === 'help') {
     const cmd = name === 'help' ? COMMANDS.find((c) => c.name === rest[0]) : undefined;
     console.log(cmd ? cmd.usage : help());
-    return name ? EXIT.OK : EXIT.USAGE;
+    // `aiv help <unknown>` is a usage error like `aiv <unknown>`
+    return name && (name !== 'help' || !rest[0] || cmd) ? EXIT.OK : EXIT.USAGE;
   }
   const cmd: Command | undefined = COMMANDS.find((c) => c.name === name);
   if (!cmd) {

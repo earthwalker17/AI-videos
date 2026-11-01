@@ -1,4 +1,7 @@
-/** A tiny tagged logger: info to stdout, warnings and errors to stderr. AIV_QUIET=1 hides info. */
+/**
+ * A tiny tagged logger: info to stdout (stderr with `infoToStderr`, when stdout carries JSON),
+ * warnings and errors to stderr. AIV_QUIET=1 hides info.
+ */
 export interface Log {
   info(msg: string): void;
   warn(msg: string): void;
@@ -6,15 +9,15 @@ export interface Log {
   child(tag: string): Log;
 }
 
-export function createLog(tag = 'aiv'): Log {
+export function createLog(tag = 'aiv', o: { infoToStderr?: boolean } = {}): Log {
   const quiet = process.env.AIV_QUIET === '1';
   return {
     info: (m) => {
-      if (!quiet) console.log(`[${tag}] ${m}`);
+      if (!quiet) (o.infoToStderr ? console.error : console.log)(`[${tag}] ${m}`);
     },
     warn: (m) => console.warn(`[${tag}] WARNING: ${m}`),
     error: (m) => console.error(`[${tag}] ${m}`),
-    child: (t) => createLog(`${tag}:${t}`),
+    child: (t) => createLog(`${tag}:${t}`, o),
   };
 }
 

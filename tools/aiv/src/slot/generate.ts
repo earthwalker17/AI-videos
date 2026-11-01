@@ -41,7 +41,7 @@ export const SCHEMAS = [
 
 const json = (v: unknown) => `${JSON.stringify(v, null, 2)}\n`;
 
-function schemaFile(s: (typeof SCHEMAS)[number]): string {
+export function schemaFile(s: (typeof SCHEMAS)[number]): string {
   const body = z.toJSONSchema(s.schema, { target: 'draft-2020-12', io: 'input' }) as Record<string, unknown>;
   delete body.$schema;
   return json({ $schema: 'https://json-schema.org/draft/2020-12/schema', $id: `${REPO_URL}/blob/main/${s.file}`, title: s.title, $comment: GENERATED_NOTE, ...body });
@@ -74,6 +74,7 @@ function catalog(m: RepoModel): string {
       languages: v.languages,
       path: dir,
       watch: watch(v),
+      reusable: v.reusable.map((x) => ({ path: `${dir}/${x.path}`, what: x.what })),
     })),
     series: m.series
       .filter((s) => s.data)
@@ -157,6 +158,10 @@ function indexMd(m: RepoModel): string {
   L.push(...(m.styles.length ? m.styles.map((s) => item(s.title, s.path, s.summary, ` (\`${s.id}\`)`)) : ['_None yet: a style is added when a second video reuses a look ([styles/README.md](../styles/README.md), template [STYLE.md](../styles/_template/STYLE.md))._']));
   L.push('', '## Knowledge');
   L.push(...(m.knowledge.length ? m.knowledge.map((k) => item(k.title, k.path, k.summary)) : ['_None yet._']));
+  // the rule of two starts here: what one video built that a second one may need
+  const reusable = videosOf(m).flatMap(({ dir, v }) => v.reusable.map((x) => ({ x, dir, slug: v.slug })));
+  L.push('', '## Reusable parts of videos');
+  L.push(...(reusable.length ? reusable.map(({ x, dir, slug }) => `- ${link(x.what, fromDocs(`${dir}/${x.path}`))} (\`${slug}\`)`) : ['_None declared yet: a video lists parts worth promoting in its `video.json` `reusable`._']));
   L.push('', '## References');
   for (const f of mdFiles(r, 'references', ['README.md'])) L.push(item(mdTitle(join(r, 'references', f)) ?? f, `references/${f}`, describe(join(r, 'references', f))));
   const skills = existsSync(join(r, '.claude/skills'))
@@ -218,7 +223,12 @@ const blockRe = (name: string) => new RegExp(`(<!-- aiv:generated ${name} -->)[\
 /** The file's text with the generated part in place, or null when the block marker is missing. */
 export function render(g: Generated, current: string | null): string | null {
   if (g.jsonField) {
-    const obj = JSON.parse(current ?? '{}') as Record<string, unknown>;
+    let obj: Record<string, unknown>;
+    try {
+      obj = JSON.parse(current ?? '{}') as Record<string, unknown>;
+    } catch (e) {
+      throw new Error(`${g.path} must stay plain JSON (no comments): aiv check --fix rewrites its '${g.jsonField}' list. ${(e as Error).message}`, { cause: e });
+    }
     const value = JSON.parse(g.content) as unknown[];
     if (value.length) obj[g.jsonField] = value;
     else delete obj[g.jsonField];

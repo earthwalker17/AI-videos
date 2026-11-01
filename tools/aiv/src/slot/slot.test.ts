@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { gatesTable, STUB_MARKER, unmetGates } from './gates.ts';
-import { render, SCHEMAS, type Generated } from './generate.ts';
+import { render, schemaFile, SCHEMAS, type Generated } from './generate.ts';
 import { mdSummary } from './md.ts';
 import { SeriesConfig, VideoSlot, type VideoSlot as Slot } from './schema.ts';
 
@@ -73,7 +73,11 @@ describe('video.json v1', () => {
   });
 
   it('every schema exports to JSON Schema', () => {
-    for (const s of SCHEMAS) expect(() => render({ path: s.file, content: '' }, null)).not.toThrow();
+    for (const s of SCHEMAS) {
+      const out = JSON.parse(schemaFile(s)) as { $id: string; properties?: object };
+      expect(out.$id.endsWith(s.file)).toBe(true);
+      expect(Object.keys(out.properties ?? {}).length).toBeGreaterThan(0);
+    }
   });
 });
 

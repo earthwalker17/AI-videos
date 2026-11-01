@@ -1,5 +1,6 @@
-import { EXIT } from '@aiv/core';
-import { createLog, getProfile, repoRel, resolveTarget, runRender, type FrameSpan } from '@aiv/pipeline';
+import { readFileSync } from 'node:fs';
+import { EXIT, ExitError } from '@aiv/core';
+import { createLog, exec, getProfile, repoRel, resolveTarget, runRender, type FrameSpan, type Target } from '@aiv/pipeline';
 import { parse, usageError, type Command } from '../command.ts';
 import { engineAdapter } from '../engines.ts';
 import { withHeavySlot } from '../heavySlot.ts';
@@ -24,8 +25,22 @@ one heavy job and never waits for the lock (exit 75 while another heavy job runs
   --browser       web engine: pinned (default: Chrome for Testing in .cache/browsers) or system
                   (the installed Chrome; not pinned, warned, not releasable by default)
 
-exit: 0 done · 1 error · 2 refused (run differs, see --force) · 3 low memory · 64 usage
+A published or archived video is frozen: it renders only from a checkout of its release tag
+video/<slug>/v<N> (docs/PRODUCTION.md, 'Rebuild a frozen video'), never at a later commit.
+
+exit: 0 done · 1 error · 2 refused (an existing run differs: see --force; the composition
+      contradicts video.json; or the video is frozen) · 3 low memory · 64 usage
       · 75 budget used or machine busy: run the printed command`;
+
+/** A frozen video renders only at its release tag: at a later commit the shared code has moved on. */
+async function refuseFrozen(target: Target): Promise<void> {
+  if (target.kind !== 'video') return;
+  const status = (JSON.parse(readFileSync(target.configPath, 'utf8')) as { status?: string }).status;
+  if (status !== 'published' && status !== 'archived') return;
+  const r = await exec('git', ['tag', '--points-at', 'HEAD'], { cwd: target.root, timeoutMs: 30_000 });
+  if (r.stdout.split(/\r?\n/).some((t) => t.startsWith(`video/${target.slug}/v`))) return;
+  throw new ExitError(EXIT.REFUSED, `${target.slug} is ${status}, so it is frozen: rebuild it from a worktree at its tag video/${target.slug}/v<N> (docs/PRODUCTION.md, 'Rebuild a frozen video'), not at this commit`);
+}
 
 function frameRange(v: string | undefined): FrameSpan | undefined {
   if (v === undefined) return undefined;
@@ -63,6 +78,7 @@ export const render: Command = {
     }
     const range = frameRange(values.frames);
     const target = resolveTarget(positionals[0]);
+    await refuseFrozen(target);
     const profile = getProfile(values.profile);
     const adapter = await engineAdapter(target.config.engine, { browser });
     const log = createLog('render');

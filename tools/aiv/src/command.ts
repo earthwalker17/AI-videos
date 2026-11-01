@@ -26,7 +26,7 @@ export function parse<O extends Options>(argv: string[], options: O, usage: stri
   }
 }
 
-/** A positive integer flag value, or a usage error. */
+/** A whole-number flag value (0 or more), or a usage error. */
 export function intFlag(v: string | undefined, name: string, usage: string): number | undefined {
   if (v === undefined) return undefined;
   const n = Number(v);

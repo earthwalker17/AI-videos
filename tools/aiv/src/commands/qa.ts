@@ -89,6 +89,6 @@ export const qa: Command = {
       }
       if (values.json) console.log(JSON.stringify(reports.length === 1 ? reports[0] : reports, null, 2));
       return reports.every((r) => r.passed) ? EXIT.OK : EXIT.ERROR;
-    });
+    }, { json: values.json });
   },
 };

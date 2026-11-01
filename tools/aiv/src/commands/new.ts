@@ -90,6 +90,7 @@ export const newVideo: Command = {
     if (d.format && (d.format.width !== t.format.width || d.format.height !== t.format.height || d.format.fps !== t.format.fps))
       console.log(`note: the series format ${d.format.width}x${d.format.height}@${d.format.fps} differs from the template's; make src/ match video.json`);
     console.log(`next: pnpm aiv check --fix (adds the video to the catalog and index) · write videos/${slug}/BRIEF.md · pnpm aiv render ${slug} --profile draft`);
+    console.log(`the copied template still shows its test card and labels: templates/${engine}/README.md, "Start a video from it"`);
     return EXIT.OK;
   },
 };
