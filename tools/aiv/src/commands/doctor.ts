@@ -10,7 +10,8 @@ the pipeline needs, Python/uv (advisory), PATH traps, free memory and disk, the 
 and engine sections (browser, GPU path). Every problem comes with its fix.
 
   --fix    repair what can be repaired in place: install the pinned Chrome for Testing into
-           .cache/browsers (about 170 MB download)
+           .cache/browsers (about 170 MB download) and Remotion's Chrome Headless Shell into
+           node_modules/.remotion (about 120 MB download)
   --json   print the results as JSON
 
 exit: 0 nothing failed (warnings allowed) · 1 something failed`;
