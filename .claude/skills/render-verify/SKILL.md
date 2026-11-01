@@ -28,7 +28,9 @@ themselves; never run two at once.
 ## Extra checks
 - **Determinism** (after touching shared code, or when something flickers): render
   `--fresh` twice and compare `out/<slug>/render/<profile>/frames.sha256`: identical or a bug.
-- **Chunk independence**: `--frames <a>-<b> --fresh` must reproduce the same lines of
-  `frames.sha256` as the full render.
+- **Chunk independence**: save the full render's `frames.sha256`, then `--frames <a>-<b>
+  --fresh` must reproduce the same lines. Pick `<a>` that is not a multiple of the profile's
+  chunk size (draft 60), so a page really starts at a new frame; otherwise the comparison is
+  like with like and proves nothing.
 - **Final**: `--profile final --budget-min 9`, repeated until exit 0; then post and qa (the
   delivery and the archive master). Release only from a clean, committed tree.
