@@ -5,6 +5,7 @@
     "engines/*/src",
     "tools/*/src",
     "templates/*/src",
+    "videos/*/src",
     "*.config.ts"
   ]
 }

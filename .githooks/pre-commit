@@ -1,0 +1,5 @@
+#!/bin/sh
+# Repository checks on what is about to be committed: schemas, gates, generated files, and the
+# staged files' size, names, privacy and provenance. Enable once per clone:
+#   git config core.hooksPath .githooks
+exec pnpm -s aiv check --staged

@@ -1,9 +1,15 @@
 // ESLint flat config. The determinism block encodes the frame contract
 // (docs/ARCHITECTURE.md, decision 7): every frame must be a pure function of its
 // index, so frame code may not read clocks, timers or unseeded randomness.
+import { existsSync, readFileSync } from 'node:fs';
 import js from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+
+// Published videos are frozen: rebuilt from their release tag, never linted against today's rules.
+// The list is generated into catalog.json by `pnpm aiv check --fix` (tsconfig.json gets the same).
+const catalogFile = new URL('./catalog.json', import.meta.url);
+const FROZEN = existsSync(catalogFile) ? JSON.parse(readFileSync(catalogFile, 'utf8')).frozen.map((p) => `${p}/**`) : [];
 
 const FRAME_CODE = [
   'packages/core/src/**',
@@ -34,7 +40,7 @@ const FRAME_TIME = 'Derive time from the frame index (renderFrame(i) / useCurren
 
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/**', 'out/**', '.cache/**', '**/dist/**', '**/.remotion/**'],
+    ignores: ['**/node_modules/**', 'out/**', '.cache/**', '**/dist/**', '**/.remotion/**', ...FROZEN],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
