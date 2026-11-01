@@ -25,7 +25,9 @@ outside contributions belong to the second part.
   terms forbid redistribution.
 
 ## How
-1. Node `>=24.11` and pnpm (the version pinned in `package.json`). Then `pnpm install`.
+1. Node `>=24.11`, pnpm (the version pinned in `package.json`) and FFmpeg 8. Then
+   `pnpm install` and `git config core.hooksPath .githooks` (runs `aiv check --staged`
+   before each commit). [ENVIRONMENT](docs/ENVIRONMENT.md) has the details.
 2. Read `CLAUDE.md` for the principles and `docs/ARCHITECTURE.md` for where things go.
 3. Before opening a pull request: `pnpm typecheck`, `pnpm lint`, `pnpm test` and
    `pnpm aiv check`. If you changed rendering code, render a template and run
