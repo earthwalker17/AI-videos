@@ -1,31 +1,49 @@
 name: setup
-description: Node, pnpm (version from package.json), dependencies from the lockfile, and FFmpeg 8.0 on PATH.
+description: Node (.nvmrc), pnpm (the version in package.json), dependencies from the lockfile, and a static FFmpeg ≥ 8 on PATH.
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v4
-    - uses: actions/setup-node@v4
+    - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version-file: .nvmrc
         cache: pnpm
     - run: pnpm install --frozen-lockfile
       shell: bash
-    # A static FFmpeg from the 8.0 release branch (the reference host runs 8.0.1). The exact
-    # version lands in every render.json, so a drift is visible.
-    - name: FFmpeg 8.0 (Linux)
+    # FFmpeg is not pinned by the repository (docs/ENVIRONMENT.md): its exact version lands in every
+    # render.json, so a drift is visible. CI takes BtbN's static build of the oldest maintained
+    # release branch at or above 8 (the reference host runs 8.0); BtbN retires old branches, so the
+    # asset is picked from the current list rather than named here.
+    - name: FFmpeg (Linux)
       if: runner.os == 'Linux'
       shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
-        curl -fsSL -o "$RUNNER_TEMP/ffmpeg.tar.xz" https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.0-latest-linux64-gpl-8.0.tar.xz
-        mkdir -p "$RUNNER_TEMP/ffmpeg" && tar -xJf "$RUNNER_TEMP/ffmpeg.tar.xz" -C "$RUNNER_TEMP/ffmpeg" --strip-components=1
+        name=$(gh release view latest -R BtbN/FFmpeg-Builds --json assets --jq '.assets[].name' \
+          | grep -E '^ffmpeg-n[0-9]+\.[0-9]+-latest-linux64-gpl-[0-9.]+\.tar\.xz$' | sort -V \
+          | while read -r n; do v=${n#ffmpeg-n}; if [ "${v%%.*}" -ge 8 ]; then echo "$n"; break; fi; done)
+        if [ -z "$name" ]; then echo "no BtbN release build >= 8 found"; exit 1; fi
+        echo "FFmpeg build: $name"
+        gh release download latest -R BtbN/FFmpeg-Builds -p "$name" -D "$RUNNER_TEMP"
+        mkdir -p "$RUNNER_TEMP/ffmpeg" && tar -xJf "$RUNNER_TEMP/$name" -C "$RUNNER_TEMP/ffmpeg" --strip-components=1
         echo "$RUNNER_TEMP/ffmpeg/bin" >> "$GITHUB_PATH"
-    - name: FFmpeg 8.0 (Windows)
+    - name: FFmpeg (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
-        Invoke-WebRequest -Uri https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.0-latest-win64-gpl-8.0.zip -OutFile "$env:RUNNER_TEMP\ffmpeg.zip"
-        Expand-Archive "$env:RUNNER_TEMP\ffmpeg.zip" -DestinationPath "$env:RUNNER_TEMP\ffmpeg"
-        $bin = (Get-ChildItem "$env:RUNNER_TEMP\ffmpeg" -Directory | Select-Object -First 1).FullName + '\bin'
+        $names = gh release view latest -R BtbN/FFmpeg-Builds --json assets --jq '.assets[].name'
+        $name = $names |
+          Where-Object { $_ -match '^ffmpeg-n(\d+)\.(\d+)-latest-win64-gpl-[\d.]+\.zip$' -and [int]$Matches[1] -ge 8 } |
+          Sort-Object { [version]($_ -replace '^ffmpeg-n([\d.]+)-.*$', '$1') } |
+          Select-Object -First 1
+        if (-not $name) { throw 'no BtbN release build >= 8 found' }
+        Write-Output "FFmpeg build: $name"
+        gh release download latest -R BtbN/FFmpeg-Builds -p $name -D $env:RUNNER_TEMP
+        Expand-Archive (Join-Path $env:RUNNER_TEMP $name) -DestinationPath (Join-Path $env:RUNNER_TEMP 'ffmpeg')
+        $bin = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ffmpeg') -Directory | Select-Object -First 1).FullName + '\bin'
         Add-Content -Path $env:GITHUB_PATH -Value $bin
     - run: ffmpeg -hide_banner -version | head -1
       shell: bash

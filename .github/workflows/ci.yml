@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,6 +13,7 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Third-party actions are pinned to a commit (the comment names its release); Dependabot keeps them current.
 jobs:
   check:
     name: check (${{ matrix.os }})
@@ -21,24 +23,32 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm aiv check
-      # browser integration tests skip themselves here (no pinned browsers installed)
+      # browser integration tests skip themselves here (no pinned browsers installed); the
+      # render job runs them
       - run: pnpm test
 
   licences-and-secrets:
     runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: fsfe/reuse-action@v5
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+      # The whole history on every run (it is small): a push-range scan misses the first push.
+      - name: gitleaks (full history)
+        run: |
+          curl -fsSL --retry 5 -o "$RUNNER_TEMP/gitleaks.tar.gz" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --verbose .
 
   # The templates end to end on a GPU-less runner: software GL, so pixels differ from a GPU host.
   # QA judges ranges (swatches within ±3, loudness, tags, durations), never bytes.
@@ -48,7 +58,7 @@ jobs:
     env:
       AIV_ALLOW_SOFTWARE_GL: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - name: Browser system libraries
         run: pnpm --filter @aiv/engine-web exec playwright-core install-deps chromium
@@ -64,7 +74,10 @@ jobs:
           pnpm aiv render template:remotion --profile draft
           pnpm aiv post template:remotion --profile draft
           pnpm aiv qa template:remotion --profile draft
-      - uses: actions/upload-artifact@v4
+      # the engines' integration tests need the browsers installed above
+      - name: engine integration tests
+        run: pnpm exec vitest run engines
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: contact-sheets

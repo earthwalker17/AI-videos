@@ -1,0 +1,8 @@
+# Keeps the commit-pinned GitHub Actions current. npm dependencies are pinned in the pnpm
+# catalog and upgraded together on purpose (docs/ARCHITECTURE.md, decision 3), not by bots.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories: ['/', '/.github/actions/setup']
+    schedule:
+      interval: monthly
