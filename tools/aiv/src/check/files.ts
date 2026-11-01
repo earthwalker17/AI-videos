@@ -109,6 +109,7 @@ export function privacy(root: string, files: readonly string[]): Issue[] {
   return issues;
 }
 
+// REUSE-IgnoreStart: this function names the SPDX tags it looks for
 /** Adapted code keeps its SPDX header and is listed (by full path) in NOTICE.md. */
 export function provenance(root: string, files: readonly string[], allFiles: readonly string[]): Issue[] {
   const issues: Issue[] = [];
@@ -126,6 +127,7 @@ export function provenance(root: string, files: readonly string[], allFiles: rea
     if (!known.has(m[1]) && !existsSync(join(root, m[1]))) issues.push({ group: 'provenance', file: 'NOTICE.md', message: `lists ${m[1]}, which does not exist` });
   return issues;
 }
+// REUSE-IgnoreEnd
 
 /** Code spans and fenced blocks of a Markdown text (where commands are written). */
 function codeText(md: string): string {

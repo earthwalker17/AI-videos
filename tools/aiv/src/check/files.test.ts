@@ -71,6 +71,7 @@ describe('privacy', () => {
   });
 });
 
+// REUSE-IgnoreStart: fixtures with SPDX tags
 describe('provenance', () => {
   it('needs an SPDX header and a NOTICE entry by full path; NOTICE paths must exist', () => {
     put('NOTICE.md', '| `packages/x/src/listed.ts` | up |\n| `packages/x/src/gone.ts` | up |\n');
@@ -84,6 +85,8 @@ describe('provenance', () => {
     ]);
   });
 });
+
+// REUSE-IgnoreEnd
 
 describe('docs', () => {
   it('flags unknown aiv commands in code and broken relative links, not external ones', () => {
