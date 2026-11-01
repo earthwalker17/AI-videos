@@ -56,7 +56,7 @@ expects; the Remotion engine's is the Chrome Headless Shell that the pinned
 of its build configuration are recorded in every `render.json`.
 
 ## Reference host
-The measured numbers in the docs come from this laptop unless they say otherwise. It is a
+The measured numbers in the docs come from this host unless they say otherwise. It is a
 deliberately modest machine: what works here works on most.
 
 | | |
@@ -93,6 +93,10 @@ means "call again"), one heavy job at a time.
 | `AIV_PREVIEW_ENCODER` | Force the draft encoder (`libx264`, `h264_qsv`, `h264_nvenc`, …). |
 | `AIV_DEBUG=1` | Print stack traces. |
 | `AIV_QUIET=1` | Less progress output. |
+| `FFMPEG_BIN`, `FFPROBE_BIN` | Use these FFmpeg binaries instead of the ones on `PATH`. |
+| `AIV_ROOT` | Treat this folder as the repository root (tests). |
+| `AIV_MEM_GUARD=0` | Turn the free-memory guard off (tests and CI only: on a small machine it is what stops a render from exhausting memory). |
+| `AIV_HEAVY_SLOT` | Set by `aiv heavy` for the command it runs, so that command uses its parent's lock instead of waiting for it. Not set by hand. |
 
 `aiv.local.json` (gitignored) holds the per-machine settings that should not be environment
 variables: `lockPath` (share one lock with another repository so the two never render at
@@ -100,7 +104,9 @@ once), `minFreeMB`, `abortFreeMB`, and `sweepApps`, an opt-in list of background
 may be stopped, only while they have no open window, when memory runs short.
 
 ## Platform notes
-- **Windows.** Use a short repository path without spaces. Set `core.longpaths` true. A
+- **All platforms.** Use a short repository path without spaces: ffmpeg filter arguments,
+  TeX and the process scan that finds orphaned browsers all break on spaces.
+- **Windows.** Set `core.longpaths` true. A
   `python` on `PATH` may be another application's virtual environment, and `convert` is a
   Windows system tool rather than ImageMagick: tools in this repository never rely on either
   name. Consoles with a non-UTF-8 code page need `PYTHONIOENCODING=utf-8` for Python tools.
@@ -119,4 +125,4 @@ lands.
 | Manim Community + a TeX distribution | mathematical animation | deferred until the first video that needs it |
 | Blender 5 (headless, `BLENDER_BIN`) | offline 3D | deferred |
 | Speech: Whisper-class recognition, a local TTS voice | narration checks, drafts | deferred |
-| Cloud rendering | renders this laptop cannot finish in reasonable time | deferred; needs the user's approval for any cost |
+| Cloud rendering | renders the reference host cannot finish in reasonable time | deferred; needs the user's approval for any cost |

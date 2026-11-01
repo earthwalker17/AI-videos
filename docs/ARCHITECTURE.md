@@ -8,14 +8,14 @@ its home here first, then write the code.
 
 | Layer | Folder | Holds | Grows when |
 |---|---|---|---|
-| Content | `videos/<slug>/` | One folder per video: `video.json`, stage documents, `src/`, small `assets/`, `release/` manifests. Flat: the series is metadata. | every video |
+| Content | `videos/<slug>/` | One folder per video (layout below). Flat: the series is metadata. | every video |
 | Content | `series/<id>/` | `series.json` (id, summary, facts policy, defaults) and `SERIES.md` (identity, editorial principles, craft hypotheses). | a series is added or learns something |
 | Library | `styles/<id>/` | `STYLE.md` (palette, type, motion and composition rules) plus tokens, for looks shared by several videos. | a second video reuses a look |
 | Library | `knowledge/` | Technique cards: method first, then "in this repo", each with the evidence that verified it. | something is learned and verified |
 | Library | `references/` | Pinned notes on external projects, platforms and licences, plus `sources.json`. Maps, not copies. | research |
 | Library | `prompts/<modality>/` | Versioned prompt templates for generated assets (created with the first one). | the first generated asset |
 | Code | `packages/` | `@aiv/core` (browser-safe: seeded rng, easing, swatches, render contracts), `@aiv/pipeline` (Node: host safety, encode, chunk runner, QA, release), `@aiv/remotion-kit` (React/R3F building blocks). | code is promoted (rule of two) |
-| Code | `engines/<id>/` | One adapter per renderer: turns a video's source into a mezzanine plus `render.json`. `ENGINE.md` documents it. | a video needs another renderer |
+| Code | `engines/<id>/` | One adapter per renderer: produces a video's frames for the shared runner, which writes the mezzanine and `render.json`. `ENGINE.md` documents it. | a video needs another renderer |
 | Code | `templates/<engine>/` | A runnable scaffold per engine, which doubles as that engine's end-to-end fixture. `templates/_video/` holds the stage-document stubs. | an engine is added |
 | Code | `tools/aiv/` | The `aiv` CLI, including the repository model (slot and series schemas, gates, generators, checks). | a workflow becomes a command |
 | Contract | `schemas/` | JSON Schema generated from the zod sources, one file per contract version. | a contract version is added |
@@ -29,16 +29,50 @@ Root files: `README.md`, `CLAUDE.md` (rules for agents), `CONTRIBUTING.md`, `LIC
 
 | You have | It goes |
 |---|---|
-| A new video | `pnpm aiv new <slug> --engine <id> --series <id>` creates `videos/<slug>/`. |
+| A new video | `pnpm aiv new <slug> --engine <id> [--series <id>]` creates `videos/<slug>/` (layout below). |
 | Code only one video needs | `videos/<slug>/src/`. |
-| Code a second video needs | Promote it, never copy it: frame maths and contracts → `@aiv/core`; React, Remotion or R3F components → `@aiv/remotion-kit`; Node-side media work → `@aiv/pipeline`; a look → `styles/<id>/`. |
-| A new renderer (Manim, Blender, …) | `engines/<id>/` with `ENGINE.md`, plus `templates/<id>/` that passes render → post → qa. It must emit `render.json` v1. |
+| Code a second video needs | Promote it, never copy it: frame maths and contracts → `@aiv/core`; React, Remotion or R3F components → `@aiv/remotion-kit`; plain three.js or page helpers → a new `packages/web-kit` (created with the first promotion); Node-side media work → `@aiv/pipeline`; a look → `styles/<id>/`. |
+| A new renderer (Manim, Blender, …) | `engines/<id>/`; see [Adding an engine](#adding-an-engine). |
 | A verified technique | `knowledge/<topic>.md`, method first, with the evidence. |
 | Notes on an outside project or rule | `references/<topic>.md` and an entry in `references/sources.json`. |
 | A small original asset (≤ 2 MiB) | `videos/<slug>/assets/` with its provenance in `CREDITS.md`. |
-| Large media, delivery files, masters | GitHub Release assets with a sha256 manifest (see Storage). |
+| A large input (music, voice, footage, a big texture or model) | `videos/<slug>/media/`, listed in `media/manifest.json` (see Storage). |
+| Generated material (images, audio, video from a model) | `videos/<slug>/gen/` with a provenance sidecar per file ([LICENSING](LICENSING.md#ai-generated-material)). |
+| Delivery files and masters | GitHub Release assets with a sha256 manifest (see Storage). |
 | Machine-specific settings | `aiv.local.json` (gitignored; copy `aiv.local.example.json`). |
 | Raw research, renders, caches | `.cache/` and `out/`. |
+
+### A video folder
+
+| Path | Holds | In git | Input hash |
+|---|---|---|---|
+| `video.json` | The slot: number, status, approvals, engine, format, audio tracks, QA settings, licence, links ([schema](../schemas/video.v1.json)). | yes | only its render fields |
+| `README.md` | What it is, how to watch it, how it was made, lessons. | yes | no |
+| `BRIEF.md`, `TREATMENT.md`, `SCRIPT.md`, `STORYBOARD.md`, `FACTS.md`, `CREDITS.md` | The stage documents ([PRODUCTION](PRODUCTION.md)). | yes | no |
+| `sources.jsonl` | One line per factual source (factual series). | yes | no |
+| `src/` | The video's code; the engine entry lives here. | yes | yes |
+| `assets/` | Small original or licensed files the code loads (≤ 2 MiB each). | yes | yes |
+| `media/` | Large inputs; only `media/manifest.json` (path, sha256, bytes, source, licence, where the file is kept) is committed. | manifest only | yes |
+| `gen/` | Generated material; only the `*.provenance.json` sidecars are committed. A redistributable file the code loads is copied into `assets/`. | sidecars only | no |
+| `publish/` | Upload texts per language: description, chapters, captions (`<lang>.srt`), AI disclosure, thumbnail. | yes | no |
+| `release/v<N>.json` | Release manifests written by `aiv release`. | yes | no |
+
+Every subfolder except `src/` is optional and appears when first needed.
+
+## Adding an engine
+
+An engine is an `EngineAdapter` (`packages/pipeline/src/runner/engine.ts`) that renders a
+frame range; the runner does the rest. Adding one touches:
+1. `engines/<id>/`: the adapter package (`src/`, its tests) and `ENGINE.md`.
+2. `tools/aiv/src/engines.ts` (the registry) and `tools/aiv/package.json` (the dependency).
+3. A doctor section in `tools/aiv/src/doctor/` for its tools and GPU path.
+4. `templates/<id>/`: a runnable scaffold that passes render → post → qa, which is also the
+   engine's end-to-end fixture.
+5. A render step in `.github/workflows/ci.yml`, and `catalog.json`/`docs/INDEX.md` via
+   `pnpm aiv check --fix`.
+
+Post, QA, release and `render.json` v1 do not change. If an engine needs browser-specific host
+care (the orphan sweep in `host/orphans.ts` knows the web and Remotion browsers), it extends it.
 
 ## The pipeline
 
@@ -46,7 +80,8 @@ Root files: `README.md`, `CLAUDE.md` (rules for agents), `CONTRIBUTING.md`, `LIC
 videos/<slug>/src ──engine──▶ out/<slug>/render/<profile>/mezzanine.mkv + render.json
                   ──aiv post──▶ out/<slug>/post/<profile>/<slug>.mp4 (+ archive.mkv) + post.json
                   ──aiv qa────▶ out/<slug>/qa/<profile>/report.json + contact.png
-                  ──aiv release▶ videos/<slug>/release/v<N>.json + GitHub release video/<slug>/v<N>
+                  ──aiv release▶ videos/<slug>/release/v<N>.json + out/<slug>/release/v<N>/ (uploaded to
+                                 the GitHub release video/<slug>/v<N>; PRODUCTION.md, "Publish")
 ```
 
 - **Engines** produce frames. The runner in `@aiv/pipeline` owns everything around them:
@@ -104,10 +139,11 @@ edited to keep up.
 - Every frame's RGBA sha256 is recorded. On the same host, the same inputs give the same frame
   hashes and, verified, byte-identical mezzanines, delivery files and archive masters. Across
   hosts and GPUs, compare with SSIM, not bytes.
-- The **input hash** covers what pixels depend on: the video's `src/` and `assets/`, `styles/`,
-  every frame-side package, the engine's runtime, the render settings and the lockfile. A
-  resumed render refuses (exit 2) when it changed, so stale chunks cannot survive an edit.
-  Engines refuse to load files outside the hashed roots.
+- The **input hash** covers what pixels depend on: the video's `src/`, `assets/` and `media/`,
+  `styles/`, every frame-side package, the engine's runtime, the render settings and the
+  lockfile (Markdown and tests excluded). A resumed render refuses (exit 2) when it changed,
+  so stale chunks cannot survive an edit. Engines refuse to load files the hash does not
+  cover.
 
 ## Storage
 
@@ -117,8 +153,16 @@ edited to keep up.
 | T1 | GitHub Releases | Delivery file and archive master per release, listed in the manifest with sha256 | 2 GiB per asset |
 | T2 | local or private storage | Masters too large for T1, material that may not be redistributed | hash only in git |
 
-Generated AI material carries a provenance sidecar and a rights class (A–D, see
-[LICENSING.md](LICENSING.md)); classes C and D never enter git.
+Large inputs (`videos/<slug>/media/`) are T1 or T2: the file stays out of git, and
+`media/manifest.json` records its sha256, size, source, licence and where it is kept, so a
+rebuild can fetch it and the input hash proves it is the same file. Generated AI material
+carries a provenance sidecar and a rights class (A–D, see [LICENSING.md](LICENSING.md));
+classes C and D never enter git.
+
+`out/` grows with every render: a lossless 1080p mezzanine is about 1.2 MiB per frame, so a
+five-minute final needs about 10 GiB, twice that while its chunks are joined. Once a release
+is verified, its `out/<slug>/render/` and `post/` folders may be deleted; the release folder
+and the manifest are what count.
 
 ## Host safety
 
@@ -192,3 +236,17 @@ new entry that supersedes it, not editing history.
     first render, so every chunk starts with unprocessed frames. `@aiv/remotion-kit`'s
     `PostChain` builds a `postprocessing` composer synchronously instead, and the wrapper
     package is not installed.
+17. **2026-11-01 · Large inputs live beside the video, out of git.** `videos/<slug>/media/` is
+    gitignored except its `manifest.json`, and is part of the input hash. Music, voice,
+    footage and large textures then have a home without Git LFS. The manifest check and
+    engine access to media files are built with the first video that needs them.
+18. **2026-11-01 · Frozen is enforced, not only promised.** `aiv render` refuses a published
+    or archived video unless the checkout is at its release tag, and `aiv check` no longer
+    requires the styles and engines a frozen video named to exist at HEAD: it is rebuilt from
+    its tag, so HEAD may retire them.
+19. **2026-11-01 · The pre-commit check judges the commit.** `aiv check --staged` reads staged
+    contents and builds the repository model from tracked slots only, so a secret fixed in
+    the working tree but still staged is caught, and an untracked work-in-progress video
+    does not block an unrelated commit.
+20. **2026-11-01 · Prose is not a render input.** The input hash skips Markdown files, so
+    editing a style guide or a README never invalidates a resumable render.
