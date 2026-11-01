@@ -73,7 +73,8 @@ with the GPU, typically ~3.5 GB free. FFmpeg `testsrc2` → null, 120 frames [V]
 | 4K60 hevc_qsv Main10 | ~29 fps | 1.83 GiB |
 
 - Quick Sync works for H.264, HEVC (incl. Main10) and VP9; **AV1 hardware encode and decode do not** on Gen11 [V]. Remotion cannot use Quick Sync at all (NVENC/VideoToolbox only) [V].
-- Remotion + R3F measured at about 1 s/frame at concurrency 1; MAP's final tier about 0.55 s per sub-sample [S, from the foundation plan].
+- Remotion + R3F measured at about 1 s/frame at concurrency 1 (THE AI STACK); MAP's final tier about 0.55 s per sub-sample [S; see `videos/the-ai-stack/README.md` and `map-of-middle-earth.md`].
+- Remotion's headless shell gets hardware WebGL (ANGLE D3D11) on the reference host; `aiv doctor` probes it [V; see `engines/remotion/ENGINE.md`].
 - Chrome's WebGPU blocklist has no Intel D3D12 entry, so headless WebGPU may work on Gen11; MAP observed hardware WebGPU in new headless Chrome on this host class [V for MAP's observation, U for Remotion's headless shell].
 
 ## Windows traps (generic, any Windows dev host) [V]
@@ -84,7 +85,7 @@ with the GPU, typically ~3.5 GB free. FFmpeg `testsrc2` → null, 120 frames [V]
 - Proprietary system fonts look right locally and are absent on Linux renderers.
 - Docker Desktop on an 8 GB Windows Home host is costly; use GitHub's Linux runners for Linux parity.
 
-## What we adopted (per the plan)
+## What we adopted
 Exact pins above in the root catalog with reasons beside them; Node and pnpm kept at the
 proven host versions for now (upgrades deferred, `aiv doctor` prints the fix); a pinned
 Chrome for Testing in `.cache/` for the web engine, system Chrome only by explicit flag;
@@ -97,4 +98,4 @@ Theatre.js, Motion Canvas, Revideo, sox (unmaintained), Inkscape (Chrome/resvg r
 SVG), DVC, Git LFS; Docker on this host class.
 
 ## Not read
-Release notes of Node 26 and pnpm 12 beyond the breaking points listed; FFmpeg 9.0 changelog; Chrome for Testing channel details; GPU driver update channel for Gen11; the hardware-GL probe of Remotion's headless shell on the reference host (not run in the sweep).
+Release notes of Node 26 and pnpm 12 beyond the breaking points listed; FFmpeg 9.0 changelog; Chrome for Testing channel details; GPU driver update channel for Gen11.

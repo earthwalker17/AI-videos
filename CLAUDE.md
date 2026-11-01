@@ -20,8 +20,9 @@ Do not read the whole repo. The docs are maps; detail lives in code and in each 
 - **Shared infrastructure, thin videos.** A video folder holds only what is specific to it.
   Code needed by a second video is promoted to `packages/`, `engines/` or `styles/` (rule of two);
   never copy a helper between videos.
-- **The engine boundary is a file.** Any engine (Remotion, web pages, later Manim/Blender/…)
-  emits a mezzanine + `render.json`; post, QA and release only read those files.
+- **The engine boundary is a file.** Every engine (Remotion, web pages, later Manim/Blender/…)
+  is an adapter driven by the shared runner, which writes the mezzanine + `render.json`; post,
+  QA and release only read those files.
 - **Determinism.** A frame is a pure function of its index: no wall clocks, timers, unseeded
   randomness or clock-driven helpers in frame code (ESLint enforces it). Same host, same inputs,
   same pixels.
@@ -29,8 +30,9 @@ Do not read the whole repo. The docs are maps; detail lives in code and in each 
   through `aiv qa`, and its contact sheet / frames were actually looked at. Report what was
   verified and what was not; never claim quality you have not seen or heard.
 - **Repair the environment; do not lower the bar.** A missing or broken tool is fixed (or the
-  user is asked to approve the fix), not designed around. Heavy work that this laptop cannot do
-  well is routed to a documented alternative (chunked overnight render, cloud), not dropped.
+  user is asked to approve the fix), not designed around. Heavy work that the reference host
+  (`docs/ENVIRONMENT.md`) cannot do well is routed to a documented alternative (chunked
+  overnight render, cloud), not dropped.
 - **Reproducible and frozen.** Exact pins at HEAD; a published video is frozen at its git tag
   and rebuilt from that tag, never edited to keep up with upgrades.
 - **Research deliberately.** Check `references/` before researching; write back what you
@@ -40,7 +42,7 @@ Do not read the whole repo. The docs are maps; detail lives in code and in each 
 
 ## Rules
 - Generated outputs never enter git: `out/` (renders, QA, releases) and `.cache/` are local.
-  Committed binaries are small (≤ 2 MB each); larger media goes to GitHub Releases with a
+  Committed binaries are small (≤ 2 MiB each); larger media goes to GitHub Releases with a
   sha256 manifest. No Git LFS.
 - Heavy jobs (renders, encodes, Blender, audio renders) run through `pnpm aiv heavy` / the
   engines, one at a time machine-wide. Keep foreground calls under ~10 minutes; long renders

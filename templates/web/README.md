@@ -35,7 +35,7 @@ and every frame is a pure function of its index.
 
 ```sh
 pnpm aiv doctor --fix                          # once: the pinned browser (~440 MB on disk)
-pnpm aiv render template:web --profile draft   # 960x540, about 20 s on the reference laptop
+pnpm aiv render template:web --profile draft   # 960x540, about 20 s on the reference host
 pnpm aiv post   template:web --profile draft
 pnpm aiv qa     template:web --profile draft   # then look at out/_template-web/qa/draft/contact.png
 ```
@@ -64,6 +64,7 @@ The template has no `package.json`. `three`, `@aiv/core`, `@aiv/engine-web/page`
 
 ## Licences
 
-The code is MIT, like everything under `templates/`. Inter is used from the
+The code is MIT; this README is CC BY 4.0, like all prose
+([LICENSING](../../docs/LICENSING.md)). Inter is used from the
 `@fontsource-variable/inter` npm package under the SIL Open Font License 1.1; it is not
 copied into this repository.

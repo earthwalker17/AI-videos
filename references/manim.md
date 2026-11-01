@@ -25,7 +25,7 @@ typesetting (LaTeX now optional) and the CLI that agents have memorised.
 - Defaults (`manim/_config/default.cfg`): Cairo CPU renderer, 1920×1080 at **60 fps**. `--renderer opengl` exists.
 - `config.seed` seeds both `random` and numpy (`manim/scene/scene.py`); partial movie files are cached by hash.
 - v0.21.0 (2026-08-10): first-class Typst text and math (`Typst`, `MathTypst` — renamed from `TypstMath`), optional extra `manim[typst]` (typst ≥ 0.14). LaTeX is now optional; `MathTex` still needs a TeX install.
-- v0.22.0 (2026-10-08): output unified under `--format {auto,mp4,mov,webm,gif,png,png-sequence,none}`; added `--video-codec`, `--pixel-format`, repeatable `--encoder-option`; **removed** `--write_to_movie`, `-g/--save_pngs`, `-i/--save_as_gif`, `--force_window`, `--flush_cache` (and `--custom_folders` per the sweep). A `Manager` class starts a render-lifecycle rewrite: expect more API churn.
+- v0.22.0 (2026-10-08): output unified under `--format {auto,mp4,mov,webm,gif,png,png-sequence,none}`; added `--video-codec`, `--pixel-format`, repeatable `--encoder-option`; **removed** `--write_to_movie`, `-g/--save_pngs`, `-i/--save_as_gif`, `--force_window`, `--flush_cache` (and `--custom_folders` [S]). A `Manager` class starts a render-lifecycle rewrite: expect more API churn.
 - The docs' example gallery (`docs/source/examples.rst`, 27 `.. manim::` directives) is rendered at docs build time, so examples cannot rot.
 - `manim-voiceover` 0.4.0 (MIT) syncs animations to TTS or recorded narration with bookmarks.
 - No official agent skills or llms.txt, but heavy coverage in model training data.
@@ -36,8 +36,8 @@ typesetting (LaTeX now optional) and the CLI that agents have memorised.
 
 **Python baseline when Manim lands** [V]: 3.13 is the only interpreter every planned Python tool accepts (see `toolchain-2026-11.md`); pin `requires-python = ">=3.13,<3.14"` and a `.python-version`.
 
-## What we adopted / adapted (per the plan)
-- Nothing installed yet. When added: `engines/manim/` emits a mezzanine + `render.json` like every engine, and the adapter (not the agent) builds the exact CLI command for the pinned version.
+## What we adopted / adapted
+- Nothing installed yet. When added: `engines/manim/` is a file-producing adapter driven by the shared runner like every engine (the runner writes the mezzanine + `render.json`), and the adapter (not the agent) builds the exact CLI command for the pinned version.
 - CE only; `MathTypst` as the default math path (no TeX install); `MathTex` opt-in with a pinned TinyTeX package list if ever needed.
 - Seed via `config.seed`; fps from the video's `video.json`, not Manim's 60 fps default.
 
@@ -52,4 +52,4 @@ typesetting (LaTeX now optional) and the CLI that agents have memorised.
 - 1080p60 Cairo is slow on a 4-core laptop: draft at low quality, and keep heavy 3D out of Cairo.
 
 ## Not read
-Colour tags and pixel format of PyAV-encoded output (assumed to need post conversion, not verified); OpenGL renderer stability; Typst coverage of complex notation; a real Windows install (not executed in the sweep).
+Colour tags and pixel format of PyAV-encoded output (assumed to need post conversion, not verified); OpenGL renderer stability; Typst coverage of complex notation; a real Windows install (not executed).

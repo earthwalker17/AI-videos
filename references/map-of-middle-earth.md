@@ -1,9 +1,11 @@
 # map-of-middle-earth — our earlier film repo
 
+Called **MAP** in these notes.
+
 | | |
 |---|---|
 | Upstream | https://github.com/earthwalker17/map-of-middle-earth (film: "Journey Through Middle-Earth", https://youtu.be/kRuPq4GjhGc) |
-| Pin | `696e968e9d550327beda9e663ef5aec6961583c9`. Paths below are relative to that commit, e.g. https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/tools/capture/gpuLock.ts |
+| Pin | `696e968e9d550327beda9e663ef5aec6961583c9`. Paths below are relative to that commit, e.g. https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/tools/capture/gpuLock.ts. The film's release is tag `v1.0.0` (annotated 2026-10-06, commit `eb36690`); `696e968` is two commits later, the state the adapted code was taken from. Those two commits change docs, the README poster and `tools/capture/showcase.ts`, none of the adapted files [V, 2026-11-01]. |
 | Licence | MIT (code). Renders derived from data of uncertain licence were published as "not MIT, no reuse licence granted". |
 | Accessed | 2026-11-01 (tooling harvest for this repo) |
 | Stale after | Does not go stale at the pin (the film is finished). Re-check only if work resumes upstream. |
@@ -82,17 +84,17 @@ hashes and release provenance. It also records what went wrong, with commits.
 - Synthetic 1080p encodes: ffv1 ~20 fps, prores_ks HQ ~6.5 fps, libx264 slow CRF 16 ~3.4 fps, h264_qsv ~62 fps; final re-encode of 227.75 s took 32–33 min.
 - Deliverables: mp4 1080p24 BT.709, 492.7 MB (17.3 Mb/s); ProRes 422 HQ master 5.28 GB. A 1080p RGBA8 readback is 8.3 MB.
 
-## What we adopted / adapted (homes per the foundation plan)
+## What we adopted / adapted
 - Lock, memory guard, `heavy`, orphan sweep → `@aiv/pipeline` host safety with win32/linux/darwin backends; `aiv heavy`. `aiv.local.json` may point our lock at MAP's so the two repos never render at once.
 - Browser, session, sink, encoder → `engines/web` (`@aiv/engine-web`); page side → `./page` runtime `window.__aiv` with integer frame indices.
-- BT.709 conversion arguments and presets → `@aiv/pipeline` media (youtube-1080p / archive / preview-hw); the single RGB→YUV conversion happens in post.
+- BT.709 conversion arguments and presets → `@aiv/pipeline` media (youtube / archive / preview-hw); the single RGB→YUV conversion happens in post.
 - `run.json`, per-frame sha256, input-hash resume refusal, exit 75 → `@aiv/pipeline` chunk runner.
 - Stateless rng → `@aiv/core`; determinism rules → ESLint config and CLAUDE.md.
 - Contact sheets from the final mp4, frame-count checks, release manifest + verify → `@aiv/pipeline` QA/release.
 - Exit-code protocol 0/1/2/3/64/75, standardised across every CLI.
 - Doc set (constitution / rolling state / contracts / historical research with a verification legend) → CLAUDE.md, ROADMAP, ARCHITECTURE, `references/`.
 - Agent protocol: ≤ 2 implementers, read-only reviewer and visual critic, main agent views every render.
-- Later (not M1): fetch manifests, music engine (first Python module), Blender runner, lookdev/typography as knowledge cards.
+- Deferred until a video needs them: fetch manifests, music engine (first Python module), Blender runner, lookdev/typography as knowledge cards.
 
 ## What we deliberately did NOT adopt, and why
 - three WebGPU offline accumulation (jitter, aperture DOF, adaptive spp ladder): three-specific; promote only when a video needs it.
@@ -116,4 +118,4 @@ hashes and release provenance. It also records what went wrong, with commits.
 - The score read the picture timeline directly, bypassing the cue sheet; `report.json` lacked the score-code commit. Put everything music needs in the cue sheet and record the commit.
 
 ## Not read
-`src/` world, terrain and tour code beyond the capture, timeline and rng contracts; most research briefs except the music and lookdev ones; CI workflow details; whether the release notes file and docs exist identically at the public commit; whether a `v1.0.0` tag points at `696e968` (the foundation plan's NOTICE names v1.0.0; not checked).
+`src/` world, terrain and tour code beyond the capture, timeline and rng contracts; most research briefs except the music and lookdev ones; CI workflow details; whether the release notes file and docs exist identically at the public commit.

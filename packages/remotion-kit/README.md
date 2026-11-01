@@ -41,9 +41,9 @@ render. Under Remotion, the first frames of every page then come out blank or un
 - the composer, with HalfFloat buffers and 4x MSAA;
 - the render pass;
 - one merged effect pass, with a `ToneMappingEffect` last. It dithers its 8-bit output by
-  default (`dithering`). Without it, dark gradients such as a vignette or fog band, and
-  YouTube's re-encode makes the bands worse. three's dither is a fixed hash of the pixel
-  position (±0.5 code value), so it is the same in every render.
+  default (`dithering`). Without it, dark gradients such as a vignette or fog show banding
+  in 8 bits, and YouTube's re-encode makes the bands worse. three's dither is a fixed hash
+  of the pixel position (±0.5 code value), so it is the same in every render.
 
 It sizes the composer in `useLayoutEffect` and renders from the very first R3F advance.
 

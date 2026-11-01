@@ -29,7 +29,7 @@ from code: change a line of copy or a colour and re-render every format in minut
 ## Policies
 - Third-party brands, logos and trademarks appear only with permission or under a
   clear editorial use; the clearance is recorded in the video's `CREDITS.md`.
-- Paid or sponsored work is marked as such, on YouTube and in `video.json`.
+- Paid or sponsored work is marked as such, on YouTube and in the video's `CREDITS.md`.
 - Generative AI: allowed for backgrounds and abstract plates; never to fabricate
   product screenshots or results.
 

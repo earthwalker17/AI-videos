@@ -23,21 +23,21 @@ and (later) AI output; it is public and agent-written, and calls paid APIs.
 - `reuse lint` checks that every file has copyright and licence information; the tool needs Python ≥ 3.10 (install as an isolated tool, e.g. `uvx reuse lint`).
 
 **Provenance headers in this repo** (project rules, recorded here for lookup)
-- Adapted from the user's MAP repo: an SPDX licence header (MIT) plus `// Adapted from https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/<path>`.
+- Adapted from map-of-middle-earth (same author): an SPDX licence header (MIT) plus `// Adapted from https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/<path>`.
 - Adapted from lemo-opuscar: additionally an SPDX copyright header naming LemoLab (2026) and an Adapted-from URL at `bebbbe1`.
 - Apache-2.0 sources (e.g. video-shotcraft text, Wan2.2 prompts, HyperFrames code) require keeping their NOTICE/attribution if text or code is copied [V].
 
 **gitleaks** [V]
 - Pre-commit hook id `gitleaks` (language golang) runs `gitleaks git --pre-commit --redact --staged --verbose`.
 - Default rules include OpenAI, GCP API keys, Hugging Face tokens, Alibaba access key ids, Anthropic and Cloudflare keys; they do **not** include ElevenLabs, DashScope `sk-` keys, Replicate `r8_` tokens or fal keys.
-- Extend with a `.gitleaks.toml` using `[extend] useDefault = true` plus custom rules. Candidate patterns from the sweep, unconfirmed against real keys [U]: ElevenLabs `sk_[a-f0-9]{48}`, DashScope `sk-[a-f0-9]{32}`, Replicate `r8_[A-Za-z0-9]{37}`.
+- Extend with a `.gitleaks.toml` using `[extend] useDefault = true` plus custom rules. Candidate patterns from research, unconfirmed against real keys [U]: ElevenLabs `sk_[a-f0-9]{48}`, DashScope `sk-[a-f0-9]{32}`, Replicate `r8_[A-Za-z0-9]{37}`.
 - GitHub secret scanning for public repos covers OpenAI, Hugging Face and Replicate (push-protected), but Google API keys are **not** push-protected: a local or CI scan is the only block [V].
 
 **Other hooks** [V]: pre-commit-hooks `check-added-large-files --maxkb=N` (default 500 kB, `--enforce-all`) and `detect-private-key`; check-jsonschema validates JSON files against a schema at commit time.
 
 **Fonts** [V]
 - OFL-1.1 only; a modified or subset font that has a Reserved Font Name must be renamed (e.g. Cinzel Decorative reserves "Cinzel").
-- `@fontsource/noto-sans-sc` 5.3.1 is OFL-1.1 (npm licence field checked); `@fontsource-variable/inter` 5.3.0 is listed as OFL in the sweep's tool table [S]. Windows system fonts (Microsoft YaHei, SimHei, Segoe UI) are proprietary: never commit them, never depend on them in renders.
+- `@fontsource/noto-sans-sc` 5.3.1 is OFL-1.1 (npm licence field checked); `@fontsource-variable/inter` 5.3.0 is listed as OFL by a secondary source [S]. Windows system fonts (Microsoft YaHei, SimHei, Segoe UI) are proprietary: never commit them, never depend on them in renders.
 
 **Licence traps seen in the research** (never copy code or text from these into this repo) [V]
 | Upstream | Licence | Consequence |
@@ -50,7 +50,7 @@ and (later) AI output; it is public and agent-written, and calls paid APIs.
 | Twick | npm says MIT; repo "Sustainable Use License" | Skip |
 | Shadertoy code | CC BY-NC-SA 3.0 unless stated | Check each shader |
 | ComfyUI | GPL-3.0 | Pattern only |
-| pedalboard | GPL-3.0 | MAP replaced it with own DSP |
+| pedalboard | GPL-3.0 | map-of-middle-earth replaced it with own DSP |
 | espeak-ng (via espeakng-loader) | GPL-3.0 | Dependency only, not vendored |
 | soxr | LGPL-2.1+ | Dependency only |
 | edge-tts | LGPLv3 per one report / NOASSERTION per GitHub; no rights to output | Scratch audio only |
@@ -64,15 +64,15 @@ and (later) AI output; it is public and agent-written, and calls paid APIs.
 - Purely AI-generated media likely has no US copyright (Thaler v. Perlmutter cert denied 2026-03-02) [S]; label it honestly rather than covering it with CC BY.
 - Other projects' branding (sign-offs, end cards, gallery identity) is product identity, not reusable content, whatever the code licence says [U, our reading].
 
-## What we adopted / adapted (per the plan)
-- REUSE path-by-type matrix: MIT for code, templates, schemas, `.claude/`, `.github/`, prompt templates and code blocks in Markdown; CC BY 4.0 for prose (docs, knowledge, SERIES/STYLE, scripts, captions) and original media; `LicenseRef-AI-Output` for gen-AI output (later). `LICENSES/` already holds MIT and CC-BY-4.0 texts.
+## What we adopted / adapted
+- REUSE path-by-type matrix (`REUSE.toml`; human-readable in `docs/LICENSING.md`): MIT for code, configuration, schemas, `.github/` and code blocks in Markdown; CC BY 4.0 for every Markdown file (docs, knowledge, SERIES/STYLE, reference notes, scripts, template READMEs, `.claude/` skills and agents), captions, `prompts/` and original media; `LicenseRef-AI-Output` for gen-AI output (later). `LICENSES/` holds the MIT and CC-BY-4.0 texts.
 - `NOTICE.md` listing upstream sources; SPDX + Adapted-from headers on adapted files.
 - `aiv check`: privacy scan (local paths, PII), key patterns, NOTICE/SPDX presence; `.githooks/pre-commit` runs `aiv check --staged`.
-- CI (M4): `reuse lint` and a gitleaks scan; GitHub secret scanning and push protection enabled at publish.
-- Prior-film entries are text and links only, carrying MAP's non-affiliation and trademark notice.
+- CI runs `reuse lint` and a gitleaks scan; GitHub secret scanning and push protection enabled at publish.
+- Prior-film entries are text and links only, carrying map-of-middle-earth's non-affiliation and trademark notice.
 
 ## What we deliberately did NOT adopt, and why
-- The pre-commit framework as a hard dependency: the plan uses a plain `.githooks/` hook calling `aiv check`; gitleaks and reuse run in CI.
+- The pre-commit framework as a hard dependency: this repo uses a plain `.githooks/` hook calling `aiv check`; gitleaks and reuse run in CI.
 - DEP5: REUSE.toml supersedes it and the two cannot be combined.
 - Any content from the trap table above.
 

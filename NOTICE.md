@@ -10,10 +10,14 @@ How this repository is licensed: [`docs/LICENSING.md`](docs/LICENSING.md).
 
 ## Upstream projects
 
+<!-- REUSE-IgnoreStart: upstream holders, not notices for this file -->
+
 | Project | Commit | Licence | Copyright |
 |---|---|---|---|
 | [earthwalker17/map-of-middle-earth](https://github.com/earthwalker17/map-of-middle-earth) | [`696e968`](https://github.com/earthwalker17/map-of-middle-earth/tree/696e968e9d550327beda9e663ef5aec6961583c9) | MIT | earthwalker17 (same author) |
 | [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) | [`bebbbe1`](https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00) | MIT | Copyright (c) 2026 LemoLab |
+
+<!-- REUSE-IgnoreEnd -->
 
 The MIT licence text that applies to both is in [`LICENSES/MIT.txt`](LICENSES/MIT.txt).
 

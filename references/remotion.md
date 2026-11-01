@@ -11,7 +11,7 @@
 
 ## What it is
 A React framework that renders compositions frame by frame in a headless Chrome, with
-`@remotion/three` wrapping React Three Fiber. Our second engine (`engines/remotion`, M2).
+`@remotion/three` wrapping React Three Fiber. Our second engine (`engines/remotion`).
 
 ## Why it matters here
 It is the engine of the prior film THE AI STACK and of the planned 3D concept series. Its
@@ -93,12 +93,12 @@ Always passed: `--ignore-gpu-blocklist`, `--enable-unsafe-webgpu`; the headless 
 - The webpack cache in `node_modules/.cache/webpack` grows past 1 GB.
 - three r186 ignores a material's `envMapIntensity` when its light comes only from `scene.environment` (it uses `scene.environmentIntensity`). Give a material its own `envMap` to set its intensity.
 
-## What we adopted / adapted (homes per the foundation plan)
+## What we adopted / adapted
 - Exact catalog pins for every Remotion package (root `pnpm-workspace.yaml`); upgrades move all active videos together.
 - Video and template code have no `package.json`, and all renders run from the repo root through `engines/remotion`, so there is one headless-shell download.
 - `engines/remotion`: bundle once, then `renderFrames` per frame-range chunk with lossless PNG frames streamed into the shared runner (not `renderMedia` with `colorSpace bt709`, as first planned: this way the RGB→BT.709 conversion happens once, in post, as for every engine); `gl=angle` locally, `swangle` in CI; every option passed explicitly (v5-ready).
 - `@aiv/remotion-kit` `Stage3D` wraps `<ThreeCanvas>`; ESLint bans `useFrame`, clocks and unseeded random in video/template code.
-- Remotion notice in README, `ENGINE.md` and the template; official skills documented as an opt-in plugin install (see `claude-code-packaging.md`).
+- Remotion notice in README, `ENGINE.md` and the template; official skills documented as an opt-in plugin install in `ENGINE.md` (see `claude-code-packaging.md`).
 - Post stays outside Remotion: render picture, master audio and mux with system FFmpeg, so audio changes don't re-render frames.
 
 ## What we deliberately did NOT adopt, and why
@@ -117,4 +117,4 @@ Always passed: `--ignore-gpu-blocklist`, `--enable-unsafe-webgpu`; the headless 
 - `npx remotion skills add` creates a `.claude/skills` symlink; Windows checks symlinks out as text unless symlinks are enabled.
 
 ## Not read
-Remotion Elements, `@remotion/media` internals, the `remotion-license` skill (4.0.540), Studio interactivity APIs. Not run in the sweep: `remotion gpu`, `remotion benchmark` on the reference host. Unanswered: the team-threshold question for outside contributors; when 5.0 ships; whether the Windows headless shell (stock Chrome for Testing, issue #12638) limits HTML-in-canvas effects.
+Remotion Elements, `@remotion/media` internals, the `remotion-license` skill (4.0.540), Studio interactivity APIs. Not run: `remotion benchmark` on the reference host (`remotion gpu` was run and fails there; see `engines/remotion/ENGINE.md`, Gotchas). Unanswered: the team-threshold question for outside contributors; when 5.0 ships; whether the Windows headless shell (stock Chrome for Testing, issue #12638) limits HTML-in-canvas effects.

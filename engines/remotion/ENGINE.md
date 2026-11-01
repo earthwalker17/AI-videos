@@ -1,6 +1,6 @@
 # Remotion engine (`@aiv/engine-remotion`)
 
-**Status: active** (M2). Verified on the reference host (Windows 11, Intel UHD iGPU) with
+**Status: active.** Verified on the reference host (Windows 11, Intel UHD iGPU) with
 Remotion 4.0.539 and its pinned Chrome Headless Shell 157.0.8080.0, `--gl=angle`.
 
 The Remotion engine renders a React/Remotion composition, frame by frame and
@@ -24,7 +24,7 @@ Use the web engine instead for raw three.js, WebGPU-only work or offline accumul
 
 ```sh
 pnpm aiv doctor --fix                              # once: Remotion's headless shell (~120 MB download, 283 MB on disk)
-pnpm aiv render template:remotion --profile draft  # 960x540; about 35 s here once bundled
+pnpm aiv render template:remotion --profile draft  # 960x540; about 35 s on the reference host once bundled
 pnpm aiv post   template:remotion --profile draft
 pnpm aiv qa     template:remotion --profile draft  # then look at out/_template-remotion/qa/draft/contact.png
 ```
@@ -141,9 +141,10 @@ in the local `run.json`.
 Remotion's `openBrowser` makes a fresh profile in the OS temp folder
 (`puppeteer_dev_chrome_profile-*`).
 - **Cleanup on close.** On Windows, Remotion's own cleanup races Chrome's exit and leaves
-  `Default/` behind. We saw 1,041 such folders in this host's temp folder from earlier Remotion
-  and puppeteer use. The engine therefore attributes its profile, writes an owner marker into
-  it, and deletes it after closing the browser.
+  `Default/` behind, so such folders pile up in the temp folder (earlier Remotion and
+  puppeteer use had left over a thousand on the reference host). The engine therefore
+  attributes its profile, writes an owner marker into it, and deletes it after closing the
+  browser.
 - **Orphan sweep.** The heavy-job orphan sweep (`@aiv/pipeline` `host/orphans.ts`) also
   kills headless shells under THIS repo's `node_modules/.remotion`, but only those it can
   attribute:
@@ -157,7 +158,8 @@ Remotion's `openBrowser` makes a fresh profile in the OS temp folder
   uses. It never touches the user's Chrome, other repos' shells or unmarked profiles. A
   Remotion Studio render or a `pnpm exec remotion render` of this repo has a live parent and
   no marker, so an aiv render does not kill it. Those renders do not take the heavy-job lock
-  either: do not run them while an aiv render runs on this 7.6 GB host.
+  either: on a small machine such as the 8 GB reference host, do not run them while an aiv
+  render runs.
 - **Interruptions.** `openBrowser` installs SIGINT/SIGTERM/SIGHUP handlers that
   `process.exit` at once. In a render session the engine removes them, so the runner's abort
   handler runs instead: it stops the encoder, cancels the chunk (`makeCancelSignal`), closes
@@ -190,7 +192,7 @@ A frame is a pure function of `useCurrentFrame()`. The ESLint determinism block 
 - **Fonts** are registered under a family name no system font has, and each frame is held
   until the font is loaded (the kit's `useInter()`).
 
-Verified on the reference laptop (template, draft 960x540 unless noted):
+Verified on the reference host (template, draft 960x540 unless noted):
 - **Fresh renders.** Three `--fresh` draft renders gave identical `frames.sha256` (sha256
   `4721e995…` over the 150 lines) and byte-identical FFV1 mezzanines (sha256 `2f7dd288…`).
   Two `--fresh` final (1920x1080) renders gave identical frame hashes (`603424b9…`) and
@@ -213,10 +215,10 @@ Verified on the reference laptop (template, draft 960x540 unless noted):
 
 ## Measured on the reference host
 
-Host: i5-1035G1, Intel UHD, 7.6 GB RAM. Chrome Headless Shell 157.0.8080.0, `--gl=angle`
-(ANGLE D3D11). Scene: `templates/remotion` (R3F, shadows, a physical iridescent material,
-4x MSAA HalfFloat composer, bloom, vignette, dithered output, 2x168 instances, a DOM overlay
-in Inter).
+Host: 4-core 10th-gen Intel Core i5, Intel UHD iGPU, 8 GB RAM. Chrome Headless Shell
+157.0.8080.0, `--gl=angle` (ANGLE D3D11). Scene: `templates/remotion` (R3F, shadows, a
+physical iridescent material, 4x MSAA HalfFloat composer, bloom, vignette, dithered output,
+2x168 instances, a DOM overlay in Inter).
 
 | Profile | Size | Per frame (render + PNG + decode + FFV1) | PNG decode | 150 frames (chunks) | Run wall time (`render.json` timing) |
 |---|---|---|---|---|---|
@@ -266,6 +268,10 @@ not an OSI open-source licence.
 - No Remotion source, documentation or skills text is copied here. The adapter uses the public
   API, and reads the pinned Chrome version from the renderer's shipped file because it is
   not exported.
+- Remotion's official agent skills are not included: they are unlicensed. To use them, install
+  the Claude Code plugin `remotion@remotion` from the `remotion-dev/claude-code-plugin`
+  marketplace ([claude-code-packaging](../../references/claude-code-packaging.md)). Never run
+  `npx remotion skills add` in this repo: it writes into `.agents/` and `.claude/skills`.
 
 ## Files
 

@@ -1,5 +1,5 @@
 {
-  "$comment": "Pinned external sources behind references/*.md. Curated from the 2026-11-01 research sweep; facts are restated in our own words in the notes. 'note' paths are relative to references/. 'license' is the licence of the upstream material, not of this file. excerpt_policy: link-only = cite the URL, copy nothing; facts-paraphrased = restate facts in our words; short-quote = quotes of 25 words or fewer, attributed with URL and access date; cc-by-excerpt = CC BY material, excerpts allowed with attribution; vendorable = permissive licence, files may be adapted with SPDX and Adapted-from headers. status: verified = read at the primary source on the access date; unverified = not read at source or only through secondary summaries.",
+  "$comment": "Pinned external sources behind references/*.md. Written from research done on 2026-11-01; facts are restated in our own words in the notes. 'note' paths are relative to references/. 'license' is the licence of the upstream material, not of this file. excerpt_policy: link-only = cite the URL, copy nothing; facts-paraphrased = restate facts in our words; short-quote = quotes of 25 words or fewer, attributed with URL and access date; cc-by-excerpt = CC BY material, excerpts allowed with attribution; vendorable = permissive licence, files may be adapted with SPDX and Adapted-from headers. status: verified = read at the primary source on the access date; unverified = not read at source or only through secondary summaries.",
   "schemaVersion": 1,
   "accessed": "2026-11-01",
   "sources": [
@@ -8,7 +8,7 @@
       "title": "lemomo-ai/lemo-opuscar: style library, page-contract capture engine, director method",
       "url": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00",
       "pin": "bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00",
-      "license": "MIT (Copyright (c) 2026 LemoLab) for code and docs; demo films CC BY 4.0 with three voice tracks excluded; fonts OFL-1.1; sample packs CC0 / CC BY 3.0 / CC BY 4.0",
+      "license": "MIT (LemoLab 2026) for code and docs; demo films CC BY 4.0 with three voice tracks excluded; fonts OFL-1.1; sample packs CC0 / CC BY 3.0 / CC BY 4.0",
       "excerpt_policy": "vendorable",
       "why": "Closest prior art: render(t) page contract, readcheck, ASR round-trip QA, two-pass loudnorm mastering, STYLE/DEMO/TREATMENT method with numeric quality bars, CREDITS/FACTS/SOURCES.jsonl provenance, marker-based catalog generator, release hygiene check, plugin marketplace.",
       "note": "lemo-opuscar.md",
@@ -175,7 +175,7 @@
       "pin": "accessed 2026-11-01",
       "license": "Google help content (proprietary)",
       "excerpt_policy": "facts-paraphrased",
-      "why": "Container, GOP, B-frames, bitrates, audio and the BT.709 interpretation rules behind the youtube-1080p preset.",
+      "why": "Container, GOP, B-frames, bitrates, audio and the BT.709 interpretation rules behind the youtube preset.",
       "note": "youtube-publishing.md",
       "status": "verified"
     },

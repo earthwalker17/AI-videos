@@ -39,13 +39,13 @@ decides when it loads; a plugin source type decides whether users must clone 100
 
 **What skills are worth** [S]: a 2026-10-11 third-party test found a no-skill baseline passing the same basic checks as 16 published video skills; skills pay off by encoding a look, a workflow or verification, not generic framework knowledge.
 
-**Agent protocol from MAP** [V]: work in a worktree; allowed/forbidden command lists; a final report with branch, commits, files touched, gates run, renders, visual assessment, contract requests, known issues; a reviewer verdict schema (approve/changes with severity-ranked findings) and an adversarial visual-critic schema (pass/partial/fail per criterion with evidence).
+**Agent protocol from map-of-middle-earth** [V]: work in a worktree; allowed/forbidden command lists; a final report with branch, commits, files touched, gates run, renders, visual assessment, contract requests, known issues; a reviewer verdict schema (approve/changes with severity-ranked findings) and an adversarial visual-critic schema (pass/partial/fail per criterion with evidence).
 
-## What we adopted / adapted (per the plan)
+## What we adopted / adapted
 - Root `CLAUDE.md` is a short, stable router; sessions start from `docs/INDEX.md` and `docs/ROADMAP.md`.
 - `.claude/settings.json` denies reading `.env`; `.claude/settings.local.json` and worktrees stay gitignored.
 - Skills `make-video` and `render-verify` as thin routers to `aiv` and `docs/PRODUCTION.md`; an adversarial `frame-critic` agent with a verdict schema.
-- Remotion's official skills documented as an opt-in plugin install, never vendored.
+- Remotion's official skills documented as an opt-in plugin install (`engines/remotion/ENGINE.md`, Licence), never vendored.
 - A `plugin/` subfolder published through a `git-subdir` marketplace entry is reserved for later (after 5–10 videos prove which skills are reusable).
 - Subagent rules: at most two heavy implementers, no git or dependency changes, main agent integrates and views every render.
 

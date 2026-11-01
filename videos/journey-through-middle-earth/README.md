@@ -4,7 +4,7 @@ A west-to-east grand tour of a floating miniature Middle-earth over one day of l
 from dawn in the Shire to moonlit Mordor, rendered entirely in code.
 
 ▶ **Watch:** https://youtu.be/kRuPq4GjhGc
-**Source:** [earthwalker17/map-of-middle-earth](https://github.com/earthwalker17/map-of-middle-earth) (tag `v1.0.0`)
+**Source:** [earthwalker17/map-of-middle-earth](https://github.com/earthwalker17/map-of-middle-earth/tree/v1.0.0), tag `v1.0.0` (commit `eb36690`, the film's release)
 
 This is a **metadata-only entry**. The film was made in its own repository before
 this one existed; its code, data and renders stay there. It is listed here because
@@ -26,6 +26,9 @@ much of this repository's shared tooling was lifted from it.
   Twelve sample frames re-rendered afterwards were bit-identical to the film.
 
 ## What this repository took from it
+The code was adapted from commit `696e968`, two commits after `v1.0.0`;
+[NOTICE](../../NOTICE.md) lists each adapted file.
+
 - Host safety for a small machine: free-RAM guard, machine-wide lock, orphan
   browser sweep (`packages/pipeline`).
 - The deterministic browser capture harness and frame sink (`engines/web`).
@@ -36,9 +39,11 @@ much of this repository's shared tooling was lifted from it.
 See the [map-of-middle-earth reference note](../../references/map-of-middle-earth.md).
 
 ## Licence and trademarks
+<!-- REUSE-IgnoreStart: third-party rights, not notices for this file -->
 This entry's text is CC BY 4.0. The film, its score and its renders are **not**
 licensed for reuse: they are a non-commercial fan work. *The Lord of the Rings*,
 *The Hobbit* and Middle-earth are trademarks of Middle-earth Enterprises; the books
 are © The Tolkien Estate. The film is not affiliated with or endorsed by the Tolkien
 Estate, Middle-earth Enterprises, HarperCollins, New Line Cinema, Warner Bros.,
 Wētā Workshop, or any data author or artist credited in the source repository.
+<!-- REUSE-IgnoreEnd -->

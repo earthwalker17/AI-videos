@@ -44,7 +44,7 @@ source of concrete lessons (LFS patterns, eol, Windows CI).
 - Proposed, not planned: an optional `hf-seek` listener in the `engines/web` page runtime that calls our frame renderer, so a page could also be captured by HyperFrames.
 
 ## What we deliberately did NOT adopt, and why
-- HyperFrames as a first-class engine: pre-1.0 churn, experimental adapter API, and two engines (web, Remotion) already cover M1–M2.
+- HyperFrames as a first-class engine: pre-1.0 churn, experimental adapter API, and the two engines here (web, Remotion) already cover current needs.
 - GSAP inside reusable library components: proprietary, with a Prohibited Uses clause. Prefer WAAPI, CSS or Anime.js (MIT) for shared code.
 - Its upstream skills/plugin vendored into the repo: install-only if ever used.
 - Its "vs Remotion" marketing page as evidence: decide on our own fixture renders.

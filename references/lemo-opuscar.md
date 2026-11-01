@@ -1,13 +1,17 @@
 # lemo-opuscar — engine and method
 
+<!-- REUSE-IgnoreStart: the upstream's holder, not a notice for this file -->
+
 | | |
 |---|---|
 | Upstream | https://github.com/lemomo-ai/lemo-opuscar |
 | Pin | `bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00` (commit 2026-10-31T14:52Z) |
 | Licence | MIT, "Copyright (c) 2026 LemoLab" (code and docs). Demo films and stills CC BY 4.0, except three voice tracks (macOS `say`, Edge TTS, Doubao). Fonts OFL-1.1; sample packs CC0 / CC BY 3.0 / CC BY 4.0; Poly Haven assets CC0. |
-| Accessed | 2026-11-01 (2026-11-01 research sweep) |
+| Accessed | 2026-11-01 |
 | Stale after | 2026-12-01. The project was about 5 weeks old at the pin and pushed daily: re-diff any file before adapting it. |
 | Our use | Ideas and method; any adapted file carries SPDX licence (MIT) and copyright (2026 LemoLab) headers and an Adapted-from URL at `bebbbe1` (see `NOTICE.md`). |
+
+<!-- REUSE-IgnoreEnd -->
 
 ## What it is
 A library of 66 film styles (plus `styles/_template`) that Claude Code agents use to make
@@ -54,15 +58,15 @@ answer questions we would otherwise research again.
 - **Distribution** [V]: root `.claude-plugin/marketplace.json` → `./plugin`; a thin skill runs a setup script that sparse-clones the library into the user's home and installs dependency tiers; an orphan `directory` branch carries a self-contained edition.
 - **Derivation flow** (MY-STYLES.md) [V]: sections sorted into safe to change / changes the character / can't change; up to 5 changes per round; `CHANGES.md` plus `based_on`, `borrows`, `library_version` lineage fields.
 
-## What we adopted / adapted (homes per the foundation plan)
+## What we adopted / adapted
 - The *idea* of a tiny framework-free page contract → `engines/web` `./page` runtime (`window.__aiv`: ready, fps, durationFrames, renderFrame(i), readback POST). We use integer frame indices and pixel readback from MAP instead of screenshots (see `map-of-middle-earth.md`).
-- Fail-fast page errors and a software-GL warning → `engines/web` harness; M1 must confirm hardware ANGLE.
+- Fail-fast page errors and a software-GL warning → `engines/web` harness, which goes further and refuses software GL; hardware ANGLE (D3D11) is confirmed on the reference host (`engines/web/ENGINE.md`).
 - Two-pass loudnorm to −14 LUFS plus post-measurement → `@aiv/pipeline` media/QA.
 - Numeric quality bars, TREATMENT-first ordering, "one fix round" → `docs/PRODUCTION.md` and the video slot stage files (TREATMENT: 3 candidates, then the chosen one).
-- STYLE.md section idea → `styles/_template/STYLE.md` (front matter + invariants), with headings linted.
+- STYLE.md section idea → `styles/_template/STYLE.md` (fixed sections ending in checkable invariants). Heading lint is not built yet; add it to `aiv check` when the second style exists.
 - CREDITS / FACTS + `sources.jsonl` → video slot stage files.
 - Marker-based generation with a CI freshness check → `aiv check --fix` (catalog.json, docs/INDEX.md, README table).
-- Hygiene checks → `aiv check` caps and privacy scan (our cap is 2 MB, not 5 MB).
+- Hygiene checks → `aiv check` caps and privacy scan (our cap is 2 MiB, not 5 MB).
 - Releases + sha256 manifest, no LFS → storage tiers (see `github-storage-limits.md`).
 - Plugin marketplace layout → reserved for later (see `claude-code-packaging.md`).
 

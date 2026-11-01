@@ -39,8 +39,8 @@ these pages; getting colour or GOP wrong is invisible until it ships.
 - Labels triggered by C2PA metadata in the upload are applied automatically and cannot be changed; the "captured with a camera" label needs C2PA ≥ 2.1 capture with no edits (15446725) — never applicable to code-made video.
 - **Inauthentic content** (1311392, renamed 2025-07-15): content made with generic or unoriginal templates giving the impression of mass production, or templated storylines, is not eligible for monetisation; a series where each video has a distinct storyline, focus or concept is fine.
 
-## What we adopted / adapted (per the plan)
-- `@aiv/pipeline` preset `youtube-1080p`: H.264 High, yuv420p, 2 B-frames, closed GOP, `+faststart`, AAC 48 kHz; one RGB→YUV **BT.709 limited-range conversion** in post, with explicit `color_primaries`/`color_trc`/`colorspace`/`color_range` tags.
+## What we adopted / adapted
+- `@aiv/pipeline` preset `youtube`: H.264 High, yuv420p, 2 B-frames, closed GOP, `+faststart`, AAC 48 kHz; one RGB→YUV **BT.709 limited-range conversion** in post, with explicit `color_primaries`/`color_trc`/`colorspace`/`color_range` tags.
 - QA gate: ffprobe asserts size, fps, frames, BT.709 tags, AAC 48 kHz; −14 ±1 LUFS integrated; ≤ −1 dBTP; A/V duration within one frame; no black or frozen frames; swatches decoded from the final mp4 within ±3.
 - `publish/` per video: description, chapters, captions per language, ai-disclosure; thumbnails per the spec.
 - CC BY 4.0 for original media, consistent with YouTube's CC option (only when nothing in the video is claimed or NC/SA).
@@ -52,7 +52,7 @@ these pages; getting colour or GOP wrong is invisible until it ships.
 - Committing Audio Library or stock MP3s: keep a music ledger instead.
 
 ## Gotchas
-- MAP's delivery preset used a 2 s GOP; the spec asks for a GOP of half the frame rate. Decide per preset and test.
+- map-of-middle-earth's delivery preset used a 2 s GOP; the spec asks for a GOP of half the frame rate. Decide per preset and test.
 - Retagging BT.601 output as BT.709 without converting the matrix shifts colours; convert, then tag.
 - x264 4K60 medium on the reference host class peaked near 3 GiB RSS at ~11 fps (see `toolchain-2026-11.md`).
 

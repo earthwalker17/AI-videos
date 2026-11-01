@@ -51,14 +51,14 @@ most of the mistakes available to us.
 - **Duplicated agent config**: one repo keeps three identical skill copies in `.claude/`, `.cursor/`, `.opencode/` [V].
 - **No licence**: several creator repos say "reference only" or have no LICENSE, so nothing can be reused [V].
 
-## What we adopted / adapted (per the plan)
+## What we adopted / adapted
 - Monorepo, one flat folder per video (`videos/<slug>/`), series as metadata, ASCII lowercase-kebab slugs immutable from `production`, sequential `number`; CI rejects case collisions, reserved Windows names and overlong paths.
 - Thin shared layer promoted by the rule of two; never copy helpers between videos.
 - One machine-readable `video.json` per video; catalog, INDEX and README table generated and freshness-checked in CI.
 - Per-video `README.md` (watch link, how made, how to reproduce, reusable bits, lessons), stage files (BRIEF, TREATMENT, SCRIPT, STORYBOARD, FACTS + sources.jsonl, CREDITS), `publish/` (description, chapters, captions, ai-disclosure).
 - Freeze on publish: tag `video/<slug>/v<N>`, rebuild from the tag in a worktree, release manifest snapshots toolchain.
 - Technique cards (`knowledge/`) that point to verified evidence; style invariants in `styles/`.
-- Storage: no LFS, ≤ 2 MB committed binaries, Releases with sha256 manifests; `.gitattributes` `eol=lf` from day one.
+- Storage: no LFS, ≤ 2 MiB committed binaries, Releases with sha256 manifests; `.gitattributes` `eol=lf` from day one.
 - Machine QC gates instead of prose rules; one canonical `.claude/` (no duplicated agent folders).
 - Explicit licences split by file type (MIT code, CC BY 4.0 prose/media).
 
@@ -71,7 +71,7 @@ most of the mistakes available to us.
 
 ## Gotchas
 - Notebooks: strip outputs or keep them out of git.
-- Planning files that are schema-validated YAML vs free Markdown: too much schema drifts towards the mega-framework failure; the plan keeps stage files as Markdown with required headings.
+- Planning files that are schema-validated YAML vs free Markdown: too much schema drifts towards the mega-framework failure; this repo keeps stage files as Markdown, with the headings given by `templates/_video/`.
 - Captions aligned to the script text avoid ASR mishearing product names (e.g. "Remotion" → "remote") [V, from digitalsamba].
 
 ## Not read

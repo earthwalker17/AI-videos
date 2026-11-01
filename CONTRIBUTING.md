@@ -11,15 +11,18 @@ outside contributions belong to the second part.
   project or document (see `references/README.md` for the policy).
 - **Fixes and improvements to shared tooling** (`packages/`, `engines/`, `tools/`),
   with tests.
-- **New engine adapters** (`engines/<id>/`), when they come with a fixture template,
-  an `ENGINE.md`, and pass the render contract checks.
-- **Styles** (`styles/<id>/`) that are original, documented and used by at least one
-  video.
+- **New engine adapters** (`engines/<id>/`): follow the checklist in
+  [Adding an engine](docs/ARCHITECTURE.md#adding-an-engine). An adapter comes with a
+  fixture template and an `ENGINE.md`, and passes the render contract checks.
+- **Fixes to styles** (`styles/<id>/`). A new style is created only when a second video
+  reuses a look (the rule of two, see [`styles/README.md`](styles/README.md)), so new
+  styles come from the channel's own videos; in a fork, the same rule applies.
 
 ## What is not
 - New videos for the channel's series: `videos/` is the channel's own production
-  record. You are welcome to fork the repository and make your own.
-- Large binaries. Committed files stay at or under 2 MB each, and there is no Git
+  record. You are welcome to fork the repository and make your own
+  ([Make your own](README.md#make-your-own)).
+- Large binaries. Committed files stay at or under 2 MiB each, and there is no Git
   LFS. Heavy media goes to release assets with a sha256 manifest.
 - Material you do not have the rights to share, including model outputs whose
   terms forbid redistribution.

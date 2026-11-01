@@ -7,7 +7,7 @@
 | Licence | Google developer docs CC BY 4.0 (code Apache-2.0); OpenAI, Suno, ElevenLabs, Google terms pages proprietary (facts only, short quotes); model licences as stated per model |
 | Accessed | 2026-11-01 |
 | Stale after | **2026-12-01**. Several dates below fall inside a month (Gemini TTS previews end 2026-11-17; GPT Image 1.5 removed 2026-12-01). Re-check every provider page before any paid run. |
-| Status here | Plan: gen-AI outputs are immutable, content-addressed inputs with a sidecar and a rights class; the tool is deferred to the first hybrid video. Spending money needs the user's approval or a preset budget. |
+| Status here | Plan: gen-AI outputs are immutable, content-addressed inputs with a sidecar and a rights class; the tool is deferred to the first hybrid video. Spending money needs the maintainer's approval or a preset budget. |
 
 ## What it is
 The state of hosted and open-weight generators for video, image, voice and music, the
@@ -27,7 +27,7 @@ differ by plan tier. A video must never depend on calling an API again to rebuil
 
 ## Key facts — terms and licences
 - Google Gemini API Additional Terms [V]: Google does not claim ownership of generated content but may generate similar content for others; unpaid tiers use prompts/responses to improve products with human review; 18+; no building competing models. Veo results were stored server-side for only 2 days; Gemini image, Omni and Veo outputs carry SynthID.
-- OpenAI [S]: users own output (Terms of Use effective 2026-01-01; page returned 403 to the sweep). The TTS guide requires telling listeners the voice is AI-generated [V].
+- OpenAI [S]: users own output (Terms of Use effective 2026-01-01; the page returned 403 on 2026-11-01). The TTS guide requires telling listeners the voice is AI-generated [V].
 - Suno [V]: Free/Basic output is for lawful, personal, non-commercial use only; Pro/Premier get an assignment, but commercial use is limited to output downloaded through approved channels within its conditions of access; users may not remove fingerprints, watermarks or metadata; no warranty that copyright vests in output.
 - ElevenLabs Music [V]: standard media rights exclude film, TV, radio and Studio Games; Free has no downloads and requires attribution; Free and Starter may not distribute to streaming platforms; "music libraries" and model resale prohibited on self-serve plans; prompts may not name artists, songs, labels or substantial lyrics. General help: Free is non-commercial with an `elevenlabs.io`/`11.ai` credit in the title; beta-service output is non-commercial.
 - FLUX [dev] Non-Commercial License v2.0 [V]:
@@ -47,7 +47,7 @@ differ by plan tier. A video must never depend on calling an API again to rebuil
 - YouTube disclosure and monetisation rules: see `youtube-publishing.md`.
 
 ## Key facts — provenance and cost practice
-- Rights classes (sweep proposal, adopted by the plan) [U as policy]: **A** openly redistributable (code renders, Apache-weight outputs, paid Google/OpenAI outputs) → CC0 / no rights asserted; **B** redistributable with conditions (attribution, AI disclosure; e.g. FLUX-dev outputs, CC BY third-party content); **C** final video only, bytes kept private, sidecar committed (Suno, ElevenLabs music/voice, stock); **D** blocked for this channel (HunyuanVideo, NC weights, free tiers, beta services).
+- Rights classes (adopted in `docs/LICENSING.md`) [U as policy]: **A** openly redistributable (code renders, Apache-weight outputs, paid Google/OpenAI outputs) → CC0 / no rights asserted; **B** redistributable with conditions (attribution, AI disclosure; e.g. FLUX-dev outputs, CC BY third-party content); **C** final video only, bytes kept private, sidecar committed (Suno, ElevenLabs music/voice, stock); **D** blocked for this channel (HunyuanVideo, NC weights, free tiers, beta services).
 - Sidecar fields worth recording per asset [U as design]: asset sha256/bytes/media type/dims; provider, surface, model requested **and** model resolved, SDK version, request id, created time, seed and whether the API honours it, params, prompt template ref + hash + rendered text + any provider-revised prompt, input hashes, candidate index, request hash, repo commit + dirty flag; cost with price source and date; terms ref with date, plan tier, commercial flag, attribution, redistribute-in-repo flag, rights class, SPDX; IPTC digital source type, watermarks, whether C2PA was in the original; disclosure flags (realistic, real person, real place/event, AI music); storage location.
 - Request hash = sha256 of canonical {provider, resolved model, rendered prompt, params, input hashes, seed}; a cache hit skips the paid call. Seeds do not make hosted APIs reproducible (ignored seeds, server-side prompt rewriting, silent alias changes): reproducibility means a replayable request plus cached bytes [V reasoning from provider behaviour; U per provider].
 - Download long-running results immediately (Veo kept them 2 days) [V].
@@ -57,9 +57,9 @@ differ by plan tier. A video must never depend on calling an API again to rebuil
 - Secrets: see `licensing-tooling.md` (gitleaks custom rules; Google API keys are not push-protected by GitHub).
 - Storage for generated media: see `github-storage-limits.md` (Hugging Face datasets/buckets, Cloudflare R2, Releases; never LFS).
 - Prompt guides that may be adapted: Google's video/Omni/image/Lyria/speech guides (CC BY 4.0, change often: dated notes), OpenAI Cookbook prompting notebooks (MIT, @`f5819076643583e2c2a77268e7fe522e927499d0`), Wan2.2 prompt-expansion system prompts (Apache-2.0, `wan/utils/system_prompt.py` @`1ea34ff48f87168174e12956e200b1d908b1c5ff`). Runway, Kling, Seedance and ElevenLabs guides: proprietary, link only [V].
-- SDKs drift: the sweep found installed google-genai 1.60 vs latest 2.34.0, openai 2.11 vs 3.42.0, dashscope 1.16 vs 2.0.3; pin per project and record the SDK version in each sidecar [V].
+- SDKs drift: on 2026-11-01 an existing install had google-genai 1.60 vs latest 2.34.0, openai 2.11 vs 3.42.0, dashscope 1.16 vs 2.0.3; pin per project and record the SDK version in each sidecar [V].
 
-## What we adopted / adapted (per the plan)
+## What we adopted / adapted
 - Gen-AI outputs as immutable, content-addressed inputs with a sidecar and a rights class A–D (tooling deferred to the first hybrid video).
 - `prompts/<modality>/` versioned templates, created at first use.
 - `LicenseRef-AI-Output` for gen-AI output in the REUSE matrix (later).

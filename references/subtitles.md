@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Upstream | Netflix Simplified Chinese Timed Text Style Guide https://partnerhelp.netflixstudios.com/hc/en-us/articles/215986007 · Netflix English (USA) Timed Text Style Guide https://partnerhelp.netflixstudios.com/hc/en-us/articles/217350977 · YouTube caption formats https://support.google.com/youtube/answer/2734698 |
-| Pin | zh-Hans guide change log dated 2025-07-04; en-US guide change log dated 2025-12-19; accessed 2026-11-01. Article IDs are as recorded by the research sweep: confirm the page title when re-reading. |
+| Pin | zh-Hans guide change log dated 2025-07-04; en-US guide change log dated 2025-12-19; accessed 2026-11-01. Article IDs are as recorded on 2026-11-01: confirm the page title when re-reading. |
 | Licence | Netflix guides proprietary (facts and numbers only); YouTube help proprietary (paraphrase) |
 | Accessed | 2026-11-01 |
 | Stale after | 2027-11-01, or when either guide's change log moves. |
@@ -41,7 +41,7 @@ punctuation a TTS engine needs.
 - Aligning captions to the script text (not raw ASR) keeps product names intact (e.g. "Remotion" heard as "remote").
 - If one text file feeds TTS, ASR checking and Chinese subtitles, either narration loses prosody cues (no commas) or subtitles break the style guide.
 
-## What we adopted / adapted (per the plan)
+## What we adopted / adapted
 - Languages per video in `video.json`; captions per language under `publish/` (English first, zh-Hans when added).
 - Narration text (punctuated, spoken form, numbers spelled out) is kept separate from subtitle text per language (Netflix-style spacing for zh-Hans, digits).
 - A subtitle linter with per-language profiles (line length, line count, characters per second, punctuation transform) next to an on-screen readcheck: planned, not yet built.

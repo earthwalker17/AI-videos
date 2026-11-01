@@ -42,9 +42,9 @@ cannot be undone without recreating the repo; Pages has a hard size cap.
 
 **Evidence from other repos** [V] (see `multi-video-repos.md`): incomplete LFS patterns letting ~98 MiB `.MOV` files into plain git; 700–870 MB repos from committed media and notebooks; HyperFrames notes that non-recursive LFS patterns leaked binaries into history permanently.
 
-## What we adopted / adapted (per the plan)
-- Storage tiers, no Git LFS: **T0** git = text plus binaries ≤ 2 MB each; **T1** GitHub Releases = delivery file and archival master, each ≤ 2 GiB, tracked by a sha256 release manifest; **T2** local or private = ProRes, non-redistributable files, recorded by hash only.
-- `aiv check` enforces the 2 MB cap; generated outputs (`out/`, `.cache/`) never enter git.
+## What we adopted / adapted
+- Storage tiers, no Git LFS: **T0** git = text plus binaries ≤ 2 MiB each; **T1** GitHub Releases = delivery file and archival master, each ≤ 2 GiB, tracked by a sha256 release manifest; **T2** local or private = ProRes, non-redistributable files, recorded by hash only.
+- `aiv check` enforces the 2 MiB cap; generated outputs (`out/`, `.cache/`) never enter git.
 - Pages (if used) holds posters and stills and embeds YouTube or links Release assets.
 - CI runs on free runners: typecheck, lint, tests, checks and tiny `swangle` smoke renders asserting ranges, not bytes.
 

@@ -1,6 +1,6 @@
 # Web engine (`@aiv/engine-web`)
 
-**Status: active** (M1). Verified on the reference host (Windows 11, Intel UHD iGPU) with
+**Status: active.** Verified on the reference host (Windows 11, Intel UHD iGPU) with
 the pinned Chrome for Testing 156.0.8078.4 from playwright-core 1.64.1.
 
 The web engine captures any page that installs the page contract, frame by frame and
@@ -19,13 +19,14 @@ It suits work where you want full control of the render loop, a WebGPU-only feat
 offline accumulation (many samples per frame, as in Journey Through Middle-Earth).
 
 Use the Remotion engine instead for React/R3F compositions, sequencing and timelines,
-captions and video/audio layering.
+captions and layered video overlays. With either engine, audio comes from the
+`video.json` tracks, mixed by `aiv post`.
 
 ## Quick start
 
 ```sh
 pnpm aiv doctor --fix                         # once: installs the pinned browser (~440 MB on disk)
-pnpm aiv render template:web --profile draft  # 960x540, about 20 s here
+pnpm aiv render template:web --profile draft  # 960x540, about 20 s on the reference host
 pnpm aiv post   template:web --profile draft
 pnpm aiv qa     template:web --profile draft  # then look at out/_template-web/qa/draft/contact.png
 ```
@@ -105,7 +106,7 @@ A frame is a pure function of its index. The ESLint determinism block applies to
 - **No network access while rendering.** Load everything in `setup`. A failed request for
   a document, script, style, font, image, media or fetch fails the run.
 
-Verified on the reference laptop with the template (pinned Chrome for Testing 156.0.8078.4):
+Verified on the reference host with the template (pinned Chrome for Testing 156.0.8078.4):
 - draft: two `--fresh` renders, the second after deleting its browser profile (cold shader
   cache), gave identical SHA-256 for all 150 frames;
 - draft: a run stopped by its budget (exit 75), refused after an input edit (exit 2) and
@@ -151,10 +152,10 @@ memory.
 
 | Flag | Why |
 |---|---|
-| new headless (`channel: 'chromium'`) | The full browser, not the headless shell. It gets the hardware GPU path: on this host, ANGLE D3D11 WebGL and hardware WebGPU. |
+| new headless (`channel: 'chromium'`) | The full browser, not the headless shell. It gets the hardware GPU path: on the reference host, ANGLE D3D11 WebGL and hardware WebGPU. |
 | `--use-angle=d3d11` (Windows), `metal` (macOS) | Forces the hardware ANGLE backend that Remotion's `--gl=angle` also uses. |
 | `--ignore-gpu-blocklist` | An iGPU on the blocklist would fall back to SwiftShader. |
-| `--enable-unsafe-webgpu`, `--enable-webgpu-developer-features` | Exposes WebGPU in headless on Windows (MAP's experience). |
+| `--enable-unsafe-webgpu`, `--enable-webgpu-developer-features` | Exposes WebGPU in headless on Windows (as found in [map-of-middle-earth](../../references/map-of-middle-earth.md)). |
 | `--disable-features=<Playwright's list + CalculateNativeWinOcclusion>` | Chrome honours only the **last** `--disable-features`. Ours must be a superset of Playwright's, or it silently re-enables Translate, OptimizationHints and others. `browser.test.ts` fails when a playwright-core upgrade adds features. |
 | `--disable-renderer-backgrounding`, `--disable-background-timer-throttling`, `--disable-backgrounding-occluded-windows` | A capture page is never "in the background". |
 | `--force-color-profile=srgb`, `--force-device-scale-factor=1` | Pixels exactly as written, whatever the display. |
@@ -166,7 +167,8 @@ path. `AIV_ALLOW_SOFTWARE_GL=1` allows it, and is meant only for GPU-less CI run
 
 ## Measured on the reference host
 
-Host: i5-1035G1, Intel UHD, 7.6 GB RAM, Chrome for Testing 156, new headless, ANGLE D3D11.
+Host: 4-core 10th-gen Intel Core i5, Intel UHD iGPU, 8 GB RAM; Chrome for Testing 156, new
+headless, ANGLE D3D11.
 Scene: `templates/web` (three.js, shadows, MSAA, 160 instances, a Canvas 2D overlay).
 
 | Profile | Size | Per frame (render + readback + FFV1) | 150 frames | Whole `aiv render` call |
@@ -192,7 +194,7 @@ Scene: `templates/web` (three.js, shadows, MSAA, 160 instances, a Canvas 2D over
 - **The `--disable-features` superset**: see the flags table above.
 - **POST frames as a Blob**: see "How frames leave the browser" above.
 - **GC every 24 frames.** The harness calls `HeapProfiler.collectGarbage` over CDP.
-  Readback ArrayBuffers otherwise pile up on a 7.6 GB host.
+  Readback ArrayBuffers otherwise pile up on an 8 GB host.
 - **Never use wall-clock time.** Not even for "just a little" animation noise.
 - **Vite's dependency cache is keyed on the lockfile, not on your imports.** A stale cache
   missed a new `three/addons` import, re-bundled during a session and gave the page two

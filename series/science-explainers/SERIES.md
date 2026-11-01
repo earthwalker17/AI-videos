@@ -14,8 +14,9 @@ which parts were simplified.
 - **Show the reasoning.** Derivations, constructions and proofs are animated step by
   step; nothing important is asserted off-screen.
 - **One idea per beat, at reading speed.** On-screen text and formulas stay long
-  enough to read (the readcheck QA gate), and a new idea waits until the last one
-  has landed.
+  enough to read (the readable-text bar in
+  [PRODUCTION](../../docs/PRODUCTION.md#quality-bars-every-video); an automated readcheck
+  is planned), and a new idea waits until the last one has landed.
 - **Consistent notation.** One symbol, one meaning, for the whole video; a notation
   card when a video needs more than a handful of symbols.
 - **Credit precisely.** Who discovered what, when, and in which paper. No

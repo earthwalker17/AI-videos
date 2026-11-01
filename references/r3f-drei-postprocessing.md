@@ -46,7 +46,7 @@ Its peer ranges fix our pins, and several popular helpers read the wall clock or
 
 **Pixels across machines** [V]: ANGLE backends differ (D3D11 on Intel vs SwiftShader vs Vulkan), so frames are not bit-identical across hosts; same-host renders can be.
 
-## What we adopted / adapted (homes per the foundation plan)
+## What we adopted / adapted
 - Catalog pins exactly as above in the root `pnpm-workspace.yaml` (with the reason written next to them).
 - ESLint determinism rules in `packages/core/src`, `engines/web/src/page`, `templates/*/src`, `videos/*/src`: ban `useFrame`, `Date.now`, `performance.now`, `Math.random`, timers and the clock-driven drei helpers.
 - `@aiv/remotion-kit` `Stage3D` (synchronously built postprocessing, title, swatch strip) over `<ThreeCanvas>`.

@@ -20,7 +20,8 @@ asks, culturally accurate, and fresh every year.
 - **Respect over spectacle.** No stereotypes or caricatures; religious and
   traditional symbols are used in their proper sense.
 - **Calendar discipline.** Production starts early enough to publish ahead of the
-  date (and ahead of the search peak); the dates live in each `video.json`.
+  date (and ahead of the search peak); the deadline lives in each video's `BRIEF.md`
+  (under Shape).
 
 ## Craft hypotheses (to confirm with the first festival piece)
 - Engines: the web engine (particles, shaders, light) and Remotion (typography,

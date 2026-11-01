@@ -8,6 +8,10 @@ Manim or Blender. Every video lives in one folder on top of shared, tested infra
 deterministic rendering, resumable chunked renders, colour-correct encoding, loudness
 mastering, automated QA and reproducible releases.
 
+**Status: the foundation.** The shared tooling, both engines and their templates work end
+to end. No film has been made here yet: the two films below were made before this
+repository and are catalogued as records.
+
 ## Videos
 
 <!-- aiv:generated catalog -->
@@ -27,16 +31,17 @@ Series: [3D Concept Visualizations](series/concept-viz/SERIES.md) ·
 
 | … | Start here |
 |---|---|
-| see how a video was made | its folder under [`videos/`](videos/): README, brief, treatment, script, storyboard, sources, code |
+| see how a video was made | its folder under [`videos/`](videos/): README, brief, treatment, script, storyboard, sources and code, once a film is made here. Today the two records link to their own sources, and [`templates/`](templates/) holds the runnable examples |
 | learn a technique | [`knowledge/`](knowledge/README.md) (verified cards) and [`references/`](references/README.md) (pinned notes on outside tools) |
 | render a template on my machine | [Quick start](#quick-start) |
-| make my own videos with this toolchain | fork it, then read [ARCHITECTURE](docs/ARCHITECTURE.md) and [PRODUCTION](docs/PRODUCTION.md) |
+| make my own videos with this toolchain | fork it ([Make your own](#make-your-own)), then read [ARCHITECTURE](docs/ARCHITECTURE.md) and [PRODUCTION](docs/PRODUCTION.md) |
 | add an engine, fix a tool or write a card | [CONTRIBUTING](CONTRIBUTING.md) |
 | work on it with an AI agent | [CLAUDE.md](CLAUDE.md), then the generated map [docs/INDEX.md](docs/INDEX.md) |
 
 ## Quick start
 
-Needs Node 24, pnpm, Git and FFmpeg 8 on `PATH` ([ENVIRONMENT](docs/ENVIRONMENT.md)).
+Needs Node `>=24.11`, pnpm (`corepack enable`), Git, FFmpeg 8 on `PATH`, and a hardware
+GPU with WebGL: both engines refuse software rendering ([ENVIRONMENT](docs/ENVIRONMENT.md)).
 
 ```sh
 pnpm install
@@ -49,6 +54,19 @@ pnpm aiv qa     template:web --profile draft   # probe, colour swatches, loudnes
 The contact sheet lands in `out/_template-web/qa/draft/contact.png`. `pnpm aiv --help`
 lists every command.
 
+## Make your own
+
+Fork the repository, then make it your channel's:
+1. Replace or delete the records in `videos/` and the guides in `series/` to suit your
+   channel. `aiv new` numbers a video after the highest existing number, so delete the
+   records first if your first video should be number 1.
+2. Update the identity text in this README and in `CLAUDE.md`.
+3. Keep `NOTICE.md`, `LICENSE` and `LICENSES/`: MIT and CC BY 4.0 require the existing
+   notices and attribution. Add your own name beside them (`LICENSE`, `REUSE.toml`) for
+   your own work.
+4. Run `pnpm aiv check --fix` to regenerate the catalog, `docs/INDEX.md` and the generated
+   tables.
+
 ## How it works
 
 ```text
@@ -56,8 +74,9 @@ videos/<slug>/src ─engine→ lossless mezzanine + render.json ─post→ deliv
 ```
 
 - **Engines** turn a video's source into frames: `web` (three.js/WebGL/WebGPU pages driven
-  by a pinned Chrome) and `remotion` (React, React Three Fiber). Any engine that writes a
-  mezzanine and a `render.json` fits; post, QA and release never know which one ran.
+  by a pinned Chrome) and `remotion` (React, React Three Fiber). Every engine is an adapter
+  driven by the shared runner, which writes the mezzanine and `render.json`; post, QA and
+  release never know which one ran.
 - **Determinism.** A frame is a pure function of its index. Renders are chunked, resumable
   and keyed to a hash of their inputs; the same machine produces byte-identical files.
 - **Quality gates.** Colour swatches are decoded from the final file and must match within

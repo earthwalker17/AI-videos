@@ -1,14 +1,14 @@
 # references/ — pinned notes on external sources
 
 These notes preserve what research has already established about upstream projects,
-platform rules and licences, so a session can consult them instead of repeating broad
+platform rules and licences, so later work can consult them instead of repeating broad
 research. Each note is pinned (commit, version or access date), tagged by how well each
 fact was verified, and says what this repo took, what it refused and what nobody read.
 `sources.json` lists every source with its licence and excerpt policy.
 
-The first set was curated from the 2026-11-01 research sweep (seven research reports, a
-critic pass that re-checked contradictions at primary sources, and a harvest of the
-map-of-middle-earth tooling). The raw reports are local and never published.
+The first set was written from research done on 2026-11-01: primary sources where
+possible, contradictions re-checked at the source, and a review of the map-of-middle-earth
+tooling.
 
 ## Policy: notes are maps, not copies
 - No source dumps and no vendored third-party text. A note says what a source contains,
@@ -38,7 +38,7 @@ map-of-middle-earth tooling). The raw reports are local and never published.
 | [U] | Unverified: inference, estimate or design proposal |
 
 A tag after a group heading applies to every bullet in that group unless a bullet carries
-its own tag. Tags reflect the 2026-11-01 sweep; this curation pass did not re-fetch sources.
+its own tag. Tags reflect each source as read on the note's access date.
 
 ## How to use
 1. **Read the note for your topic first** (index below; `sources.json` for URLs and licences).
@@ -64,7 +64,7 @@ rests on it. Version pins at repo HEAD live in the root config; when they change
 | File | Topic | Pin | Upstream licence | Stale after |
 |---|---|---|---|---|
 | [lemo-opuscar.md](lemo-opuscar.md) | Page-contract capture, readcheck, ASR QA, mastering; STYLE/DEMO/TREATMENT method, DIRECTOR quality bars, provenance files, catalog generator, plugin layout | `bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00` | MIT (films CC BY 4.0; fonts OFL; packs CC0/CC BY) | 2026-12-01 |
-| [map-of-middle-earth.md](map-of-middle-earth.md) | Our earlier film repo: readback capture, host safety, chunked resumable renderer, BT.709 encode presets, QA/lock, music engine, Blender runner, provenance, lookdev numbers | `696e968e9d550327beda9e663ef5aec6961583c9` | MIT (renders not MIT) | frozen at pin |
+| [map-of-middle-earth.md](map-of-middle-earth.md) | Our earlier film repo ("MAP" in these notes): readback capture, host safety, chunked resumable renderer, BT.709 encode presets, QA/lock, music engine, Blender runner, provenance, lookdev numbers | `696e968e9d550327beda9e663ef5aec6961583c9` | MIT (renders not MIT) | frozen at pin |
 | [remotion.md](remotion.md) | Versions, licence obligations, v5 checklist, ThreeCanvas semantics, `--gl`, bt601 default, headless-shell location, Windows iGPU issues, skills | v4.0.539 (`e50b41a4`); licence at `fe9ffaa7` | Remotion License (source-available); `@remotion/three` MIT | next upgrade / 2026-12-01 |
 | [r3f-drei-postprocessing.md](r3f-drei-postprocessing.md) | Peer constraints (three < 0.187, React < 19.4), R3F 10 / WebGPU, clock-driven helpers to ban, deterministic replacements | three 0.186.1, R3F 9.8.2, drei 10.7.9 (`bf6f4add`), postprocessing 6.39.5 | MIT; postprocessing Zlib | 2026-12-01 |
 | [hyperframes.md](hyperframes.md) | Candidate HTML engine: seek determinism, `hf-seek`, FrameAdapter, Windows CI, telemetry, GSAP licence | `ee50cd2fc0d0fe4a4eac22683ed23b6066289ab3` (0.8.225) | Apache-2.0 (GSAP proprietary) | 2026-11-15 |

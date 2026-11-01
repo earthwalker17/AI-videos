@@ -20,8 +20,8 @@ optional or out, so the question isn't re-researched per video.
 ## Key facts — verdicts
 | Engine | State on 2026-11-01 | Licence | Verdict |
 |---|---|---|---|
-| `engines/web` page contract (ours) | M1 | MIT | **First-class** |
-| Remotion 4.0.539 | active | Remotion License | **First-class** (M2), see `remotion.md` |
+| `engines/web` page contract (ours) | active | MIT | **First-class** |
+| Remotion 4.0.539 | active | Remotion License | **First-class**, see `remotion.md` |
 | HyperFrames 0.8.225 | very active, pre-1.0 | Apache-2.0 (+ proprietary GSAP) | Optional, see `hyperframes.md` [V] |
 | Manim CE 0.22.1 | active | MIT | Deferred first-class for math, see `manim.md` [V] |
 | ManimGL | master unreleased since 1.7.2 | MIT | Skip [V] |
@@ -39,7 +39,7 @@ optional or out, so the question isn't re-researched per video.
 | mediabunny 1.65.0 | WebCodecs muxer/encoder with `CanvasSource`, has llms.txt | MPL-2.0 | Optional in-page encoding for drafts [V] |
 
 ## Key facts — capture techniques
-- **Seek + capture** (page exposes a pure function of time, harness seeks then captures) is the common pattern across HyperFrames, lemo-opuscar, community agent toolkits and our MAP harness [V].
+- **Seek + capture** (page exposes a pure function of time, harness seeks then captures) is the common pattern across HyperFrames, lemo-opuscar, community agent toolkits and our map-of-middle-earth harness [V].
 - **Playwright `page.clock`** (since 1.45) fakes `Date`, `Temporal.Now`, timers, `requestAnimationFrame`, `requestIdleCallback`, `performance` and `Event.timeStamp` (`install`, `pauseAt`, `runFor`, `fastForward`, `setFixedTime`). It does **not** control compositor-driven CSS animations or media playback; a harness for third-party pages must also pause and seek `document.getAnimations()` [V].
 - **CDP `HeadlessExperimental.beginFrame`**: experimental, works only in chrome-headless-shell (not `--headless=new`), needs flags such as `--deterministic-mode`, `--enable-begin-frame-control`, `--run-all-compositor-stages-before-draw`. puppeteer-capture (MIT, npm 1.69.0, https://github.com/alexey-pelykh/puppeteer-capture) rates its deprecation risk as moderate over 1–3 years. Do not make a contract depend on it [V].
 - **Real-time capture** (screencast, MediaRecorder, OBS-style) drops frames and yields variable frame rate: never for finals [V].
@@ -53,8 +53,8 @@ optional or out, so the question isn't re-researched per video.
 - FFmpeg converts RGB→YUV with the BT.601 matrix unless told otherwise; Chrome, Blender, matplotlib and canvas output are sRGB. Convert explicitly to BT.709 limited range and tag it (see `youtube-publishing.md`) [V].
 - Almost every engine outputs silent or engine-specific audio: keep the audio timeline outside engines and mux once in post [V].
 
-## What we adopted / adapted (per the plan)
-- Engine boundary as a file: every adapter emits a mezzanine + `render.json`; `render.v1` is derived from the first real output rather than specified up front (the sweep proposed a full RenderRequest/RenderResult schema; we deliberately wait).
+## What we adopted / adapted
+- Engine boundary as a file: every engine is an adapter driven by the shared runner, which writes the mezzanine + `render.json`; `render.v1` is derived from the first real output rather than specified up front (a full RenderRequest/RenderResult schema was proposed; we deliberately wait).
 - Engines get an adapter only when a video needs them (rule of two for promotion); `engines/web` + `engines/remotion` first.
 - Mezzanines stay RGB or visually lossless where feasible; post owns every delivery encode.
 - Pages expose a pure frame function; RNG seeded; fonts bundled and awaited; no network mid-render.
@@ -62,7 +62,7 @@ optional or out, so the question isn't re-researched per video.
 ## What we deliberately did NOT adopt, and why
 - Motion Canvas, Revideo, Theatre.js, editly, FFCreator, Twick, Etro, WebVideoCreator: dormant, telemetry by default, native GL deps, or licence problems.
 - beginFrame-based capture: experimental and Linux/headless-shell only.
-- A per-scene multi-engine manifest and content-addressed scene cache (sweep proposals): speculative until a video mixes engines.
+- A per-scene multi-engine manifest and content-addressed scene cache (both proposed in research): speculative until a video mixes engines.
 - Blender for frame rendering on the reference host: Cycles has no GPU path on a Gen11 iGPU (oneAPI needs Arc), so it is CPU-only and slow [V]; MAP used Blender for assets only.
 
 ## Gotchas
