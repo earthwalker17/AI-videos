@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "engine": {
+    "name": "web",
+    "version": "0.1.0",
+    "adapterVersion": "1"
+  },
+  "target": {
+    "slug": "_template-web",
+    "entry": "src/index.html"
+  },
+  "profile": "final",
+  "frames": {
+    "start": 0,
+    "end": 150,
+    "count": 150
+  },
+  "composition": {
+    "durationFrames": 150
+  },
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "color": {
+    "space": "rgb",
+    "range": "pc"
+  },
+  "mezzanine": {
+    "path": "out/_template-web/render/final/mezzanine.mkv",
+    "codec": "ffv1",
+    "pixFmt": "bgr0",
+    "bytes": 98830576,
+    "sha256": "efa805d57b8f14c0747f6f9b90422060c76dc9f1309beb4566c90a35586e53b8"
+  },
+  "inputHash": "caf18186e09c679541028dd8952e1121073200a4cbcaf5bf64ad961248f953db",
+  "git": {
+    "commit": "2bc5c32e5c5efdb520b5947c9f169f388c9b6fde",
+    "dirty": true
+  },
+  "toolchain": {
+    "node": "v24.19.0",
+    "pnpm": "11.1.3",
+    "ffmpeg": "8.0.1-full_build-www.gyan.dev",
+    "ffmpegBuildconfHash": "74073287e9d549c9",
+    "browser": "chrome-for-testing 156.0.8078.4",
+    "os": "win32",
+    "arch": "x64",
+    "gpu": "ANGLE (Intel, Intel(R) UHD Graphics, D3D11)"
+  },
+  "timing": {
+    "startedAt": "2026-11-01T01:07:33.147Z",
+    "endedAt": "2026-11-01T01:08:10.290Z",
+    "wallS": 35.82
+  },
+  "frameHashes": "out/_template-web/render/final/frames.sha256",
+  "warnings": [
+    "rendered from uncommitted inputs (git status shows changes under the input paths)"
+  ]
+}
