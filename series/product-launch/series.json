@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/series.v1.json",
+  "schemaVersion": 1,
+  "id": "product-launch",
+  "title": "Product & Launch",
+  "summary": "Polished code-generated motion graphics: product demos, launch films and UI animation.",
+  "status": "active",
+  "factsRequired": true,
+  "defaults": {}
+}

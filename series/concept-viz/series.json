@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/series.v1.json",
+  "schemaVersion": 1,
+  "id": "concept-viz",
+  "title": "3D Concept Visualizations",
+  "summary": "Complex technical systems explained as physical, spatial machines you can see working.",
+  "status": "active",
+  "factsRequired": true,
+  "defaults": {}
+}

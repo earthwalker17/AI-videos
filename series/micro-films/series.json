@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/series.v1.json",
+  "schemaVersion": 1,
+  "id": "micro-films",
+  "title": "Micro Films",
+  "summary": "Short conceptual and philosophical films about consciousness, humanity, AI and the future.",
+  "status": "active",
+  "factsRequired": false,
+  "defaults": {}
+}

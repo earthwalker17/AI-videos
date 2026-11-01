@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schemas/video.v1.json",
+  "schemaVersion": 1,
+  "number": 2,
+  "slug": "the-ai-stack",
+  "title": "THE AI STACK",
+  "series": "concept-viz",
+  "status": "published",
+  "approvals": [],
+  "languages": [
+    "en"
+  ],
+  "styles": [],
+  "reproducibility": "metadata-only",
+  "format": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "reusable": [],
+  "license": {
+    "film": "none",
+    "note": "Published on YouTube; the film is not part of this repository and its source was not preserved."
+  },
+  "youtube": {
+    "id": "LDH7UhHeKG4"
+  },
+  "release": null,
+  "source": null
+}

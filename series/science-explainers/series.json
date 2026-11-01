@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/series.v1.json",
+  "schemaVersion": 1,
+  "id": "science-explainers",
+  "title": "Science & Knowledge Explainers",
+  "summary": "Dense, honest explanations of hard ideas in mathematics and physics, from open problems to prize-winning work.",
+  "status": "active",
+  "factsRequired": true,
+  "defaults": {}
+}

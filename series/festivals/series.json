@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/series.v1.json",
+  "schemaVersion": 1,
+  "id": "festivals",
+  "title": "Festival & Celebration",
+  "summary": "Visual pieces for traditional and seasonal celebrations, built on workflows that return every year.",
+  "status": "active",
+  "factsRequired": true,
+  "defaults": {}
+}

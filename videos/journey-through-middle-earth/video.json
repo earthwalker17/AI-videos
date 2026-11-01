@@ -1,0 +1,33 @@
+{
+  "$schema": "../../schemas/video.v1.json",
+  "schemaVersion": 1,
+  "number": 1,
+  "slug": "journey-through-middle-earth",
+  "title": "Journey Through Middle-Earth",
+  "series": null,
+  "status": "published",
+  "approvals": [],
+  "languages": [
+    "en"
+  ],
+  "styles": [],
+  "reproducibility": "metadata-only",
+  "format": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 24
+  },
+  "reusable": [],
+  "license": {
+    "film": "none",
+    "note": "Non-commercial fan work: the film, score and renders carry no reuse licence (see README)."
+  },
+  "youtube": {
+    "id": "kRuPq4GjhGc"
+  },
+  "release": null,
+  "source": {
+    "repo": "https://github.com/earthwalker17/map-of-middle-earth",
+    "ref": "v1.0.0"
+  }
+}
