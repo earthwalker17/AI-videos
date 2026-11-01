@@ -8,7 +8,9 @@ It must stay understandable after 100 videos and as many sessions.
 1. Read `docs/INDEX.md` (generated map of what exists) and `docs/ROADMAP.md` (what is next).
 2. Read `docs/ARCHITECTURE.md` when the task touches structure, contracts or a new kind of thing.
 3. For video work, read the video's `video.json` + `README.md`, its series' `SERIES.md`,
-   and `docs/PRODUCTION.md` for the workflow and gates.
+   and `docs/PRODUCTION.md` for the workflow and gates. The `make-video` skill routes the
+   stages, `render-verify` the render-and-look loop, and the `frame-critic` agent gives an
+   adversarial review of frames.
 Do not read the whole repo. The docs are maps; detail lives in code and in each slot.
 
 ## Principles
@@ -44,7 +46,9 @@ Do not read the whole repo. The docs are maps; detail lives in code and in each 
   engines, one at a time machine-wide. Keep foreground calls under ~10 minutes; long renders
   run chunked and resumable.
 - Never edit generated files by hand (`catalog.json`, `docs/INDEX.md`, `schemas/*.json`,
-  marked regions in README/docs). Run `pnpm aiv check --fix`.
+  marked regions in README/docs). Run `pnpm aiv check --fix`. The pre-commit hook
+  (`git config core.hooksPath .githooks`) runs `aiv check --staged`.
+- Record a human approval in `video.json` only when the user gave it.
 - Spending money (paid generation APIs, cloud renders) needs the user's approval or a preset budget.
 - Subagents and workflows: use them for research, review and bounded parallel work. At most two
   heavy implementers at once; they never run git or change dependencies; the main agent
@@ -55,5 +59,6 @@ Do not read the whole repo. The docs are maps; detail lives in code and in each 
 
 ## Commands
 `pnpm aiv --help` lists every command. Core loop for a video:
-`aiv new` → `aiv render` → `aiv post` → `aiv qa` → `aiv release`; `aiv check` before committing.
+`aiv new <slug> --engine <id> --series <id>` → `aiv render` → `aiv post` → `aiv qa` → `aiv release`;
+`aiv check` before committing, `aiv doctor` when the machine misbehaves.
 Also: `pnpm typecheck`, `pnpm lint`, `pnpm test`.
