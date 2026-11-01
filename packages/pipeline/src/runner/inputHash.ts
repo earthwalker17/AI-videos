@@ -9,11 +9,12 @@
  *   settings <canonical JSON of RenderSettings>
  *   file <repo-relative path> <sha256>        one line per file, sorted by path
  *
- * The files are everything under the declared inputs: the target's src/ and assets/ folders and
- * its entry file, styles/ (shared looks), every packages/<name>/src that frame code can import
+ * The files are everything under the declared inputs: the target's src/, assets/ and media/
+ * (large inputs, gitignored, listed in media/manifest.json) folders and its entry file, styles/
+ * (shared looks), every packages/<name>/src that frame code can import
  * (all but the node-only @aiv/pipeline, see framePackages) and whatever the adapter declares
- * (its harness, its page runtime, a kit). Tests (*.test.*), node_modules and dot-files are
- * skipped. An engine checks every file it loads with filesOutsideHash (the web engine reads
+ * (its harness, its page runtime, a kit). Tests (*.test.*), Markdown (prose never shapes
+ * pixels), node_modules and dot-files are skipped. An engine checks every file it loads with filesOutsideHash (the web engine reads
  * Vite's module graph, the Remotion engine webpack's), so a page can not pull in an unhashed file.
  *
  * Deliberately NOT included: the git commit (a docs-only commit must not invalidate a run),
@@ -61,7 +62,7 @@ export function renderSettings(target: Target, profile: Profile, size: { width: 
 }
 
 const SKIP_DIR = new Set(['node_modules', '.remotion', 'dist', '.vite', '.cache', 'out']);
-const skipFile = (name: string) => name.startsWith('.') || /\.test\.[cm]?[jt]sx?$/.test(name);
+const skipFile = (name: string) => name.startsWith('.') || /\.test\.[cm]?[jt]sx?$/.test(name) || /\.md$/i.test(name);
 
 /** Whether the walk over these repo-relative roots hashes the repo-relative file (the walk's own skip rules). */
 export function hashedBy(rel: string, roots: readonly string[]): boolean {
@@ -126,7 +127,7 @@ function framePackages(root: string): string[] {
 
 /** The repo-relative input roots of a target + adapter (existing ones only), for hashing and git status. */
 export function inputRoots(target: Target, adapter: Pick<EngineAdapter, 'inputs'>): string[] {
-  const own = [`${target.relDir}/src`, `${target.relDir}/assets`, `${target.relDir}/${target.config.entry}`];
+  const own = [`${target.relDir}/src`, `${target.relDir}/assets`, `${target.relDir}/media`, `${target.relDir}/${target.config.entry}`];
   const roots = [...own, 'styles', ...framePackages(target.root), ...(adapter.inputs?.(target) ?? [])];
   return [...new Set(roots.map((r) => r.replace(/\\/g, '/').replace(/\/+$/, '')))].filter((r) => existsSync(fromRepo(r, target.root))).sort();
 }

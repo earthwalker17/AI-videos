@@ -77,6 +77,9 @@ describe('filesOutsideHash', () => {
     const files = [
       'videos/demo/src/sub/a.tsx',
       'videos/demo/assets/img.png',
+      'videos/demo/media/bed.wav',
+      'videos/demo/src/notes.md',
+      'styles/look/STYLE.md',
       'styles/look.css',
       'packages/kit/src/k.ts',
       'engines/fake/page/h.ts',
