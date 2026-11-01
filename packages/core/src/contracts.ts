@@ -103,8 +103,9 @@ export type LoudnessTarget = z.infer<typeof LoudnessTarget>;
 const FrameSpan = z.tuple([z.int().nonnegative(), z.int().nonnegative()]).refine(([a, b]) => b > a, { message: 'expected [start, end) with end > start' });
 
 /**
- * video.json — the minimal pre-schema subset the pipeline reads (M1). The full video slot schema
- * (number, status, approvals, series, …) arrives in M3; unknown keys pass through untouched.
+ * video.json — the render-relevant subset the pipeline reads; unknown keys pass through untouched.
+ * The full slot schema (number, status, approvals, series, …) is VideoSlot in
+ * tools/aiv/src/slot/schema.ts, exported to schemas/video.v1.json.
  */
 export const VideoConfig = z.looseObject({
   slug: z.string().regex(/^[a-z0-9][a-z0-9-]*$|^_template-[a-z0-9-]+$/, 'expected lowercase-kebab ASCII'),

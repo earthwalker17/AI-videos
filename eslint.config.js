@@ -18,6 +18,8 @@ const FRAME_CODE = [
   'templates/*/src/**',
   'videos/*/src/**',
   'styles/**',
+  // the engines' test compositions are rendered and compared to exact pixels
+  'engines/*/src/fixtures/**',
 ];
 
 // drei helpers that animate from the wall clock or Math.random. They look fine in a
@@ -41,7 +43,7 @@ const FRAME_TIME = 'Derive time from the frame index (renderFrame(i) / useCurren
 
 export default tseslint.config(
   {
-    ignores: ['**/node_modules/**', 'out/**', '.cache/**', '**/dist/**', '**/.remotion/**', ...FROZEN],
+    ignores: ['**/node_modules/**', 'out/**', '.cache/**', '**/dist/**', '**/.remotion/**', '.claude/worktrees/**', ...FROZEN],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -58,19 +60,25 @@ export default tseslint.config(
     rules: {
       'no-restricted-syntax': [
         'error',
-        // Member expressions, not calls, so aliasing (`const r = Math.random`) is caught too.
+        // Member expressions, not calls, so aliasing (`const r = Math.random`) is caught too; each
+        // also in its qualified form (`globalThis.Math.random`, `THREE.MathUtils.randFloat`).
         { selector: "MemberExpression[object.name='Math'][property.name='random']", message: SEEDED },
+        { selector: "MemberExpression[object.property.name='Math'][property.name='random']", message: SEEDED },
         { selector: "MemberExpression[object.name='crypto'][property.name=/^(getRandomValues|randomUUID)$/]", message: SEEDED },
+        { selector: "MemberExpression[object.property.name='crypto'][property.name=/^(getRandomValues|randomUUID)$/]", message: SEEDED },
         { selector: "MemberExpression[object.name='MathUtils'][property.name=/^(randFloat|randFloatSpread|randInt|generateUUID|seededRandom)$/]", message: SEEDED },
+        { selector: "MemberExpression[object.property.name='MathUtils'][property.name=/^(randFloat|randFloatSpread|randInt|generateUUID|seededRandom)$/]", message: SEEDED },
         { selector: "MemberExpression[object.name='Date'][property.name='now']", message: FRAME_TIME },
+        { selector: "MemberExpression[object.property.name='Date'][property.name='now']", message: FRAME_TIME },
         { selector: "CallExpression[callee.name='Date']", message: FRAME_TIME },
         { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: FRAME_TIME },
         { selector: "MemberExpression[object.name='performance'][property.name=/^(now|timeOrigin)$/]", message: FRAME_TIME },
+        { selector: "MemberExpression[object.property.name='performance'][property.name=/^(now|timeOrigin)$/]", message: FRAME_TIME },
         { selector: "CallExpression[callee.name=/^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback)$/]", message: FRAME_TIME },
         { selector: "CallExpression[callee.property.name=/^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback)$/]", message: FRAME_TIME },
         { selector: "MemberExpression[object.name='document'][property.name='timeline']", message: FRAME_TIME },
         { selector: "NewExpression[callee.name='Clock'], NewExpression[callee.property.name='Clock']", message: FRAME_TIME },
-        { selector: "MemberExpression[property.name=/^(getElapsedTime|getDelta)$/]", message: FRAME_TIME },
+        { selector: "MemberExpression[property.name=/^(getElapsedTime|getDelta|elapsedTime)$/]", message: FRAME_TIME },
       ],
       'no-restricted-imports': [
         'error',
@@ -87,6 +95,8 @@ export default tseslint.config(
               message: 'This drei helper animates from the wall clock or Math.random; build a frame-driven equivalent.',
             },
           ],
+          // frame code runs in a page (and @aiv/core everywhere): no Node built-ins
+          patterns: [{ group: ['node:*'], message: 'Frame code runs in the browser: no Node built-ins.' }],
         },
       ],
     },

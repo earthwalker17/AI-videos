@@ -2,4 +2,13 @@
 # Repository checks on what is about to be committed: schemas, gates, generated files, and the
 # staged files' size, names, privacy and provenance. Enable once per clone:
 #   git config core.hooksPath .githooks
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pre-commit: pnpm is not on this PATH (GUI git clients often start hooks without your shell's PATH)." >&2
+  echo "pre-commit: commit from a terminal where pnpm works, or run 'pnpm aiv check --staged' yourself and commit with --no-verify." >&2
+  exit 1
+fi
+if [ ! -d node_modules ]; then
+  echo "pre-commit: node_modules is missing in this checkout (a fresh clone or a worktree): run 'pnpm install' first." >&2
+  exit 1
+fi
 exec pnpm -s aiv check --staged
