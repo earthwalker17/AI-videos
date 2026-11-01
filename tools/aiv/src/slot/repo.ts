@@ -81,13 +81,20 @@ function docEntries(root: string, dir: string, doc: string, skip: (name: string)
     });
 }
 
-export function loadRepo(root: string): RepoModel {
+export interface LoadOptions {
+  /** keep only these video and series folders (repo-relative, e.g. 'videos/<slug>'): the pre-commit check passes the tracked ones */
+  only?: (relDir: string) => boolean;
+}
+
+export function loadRepo(root: string, o: LoadOptions = {}): RepoModel {
+  const keep = o.only ?? (() => true);
   const videos: Loaded<VideoSlot>[] = [];
-  for (const n of dirs(join(root, 'videos'))) {
+  for (const n of dirs(join(root, 'videos')).filter((n) => keep(`videos/${n}`))) {
     // a folder without video.json is a broken slot, reported by the caller
     videos.push(load(root, 'videos', n, 'video.json', VideoSlot) ?? { name: n, dir: `videos/${n}`, file: `videos/${n}/video.json`, data: null, error: 'video.json is missing' });
   }
   const series = dirs(join(root, 'series'))
+    .filter((n) => keep(`series/${n}`))
     .map((n) => load(root, 'series', n, 'series.json', SeriesConfig) ?? { name: n, dir: `series/${n}`, file: `series/${n}/series.json`, data: null, error: 'series.json is missing' });
   // templates/_video holds stage stubs, not an engine scaffold
   const templates = dirs(join(root, 'templates'))

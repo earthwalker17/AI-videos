@@ -14,7 +14,8 @@
         "en"
       ],
       "path": "videos/journey-through-middle-earth",
-      "watch": "https://youtu.be/kRuPq4GjhGc"
+      "watch": "https://youtu.be/kRuPq4GjhGc",
+      "reusable": []
     },
     {
       "number": 2,
@@ -28,7 +29,8 @@
         "en"
       ],
       "path": "videos/the-ai-stack",
-      "watch": "https://youtu.be/LDH7UhHeKG4"
+      "watch": "https://youtu.be/LDH7UhHeKG4",
+      "reusable": []
     }
   ],
   "series": [

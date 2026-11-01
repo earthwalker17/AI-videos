@@ -96,14 +96,18 @@ describe('aiv new', () => {
     expect(JSON.parse(read('catalog.json')).videos.map((x: { slug: string }) => x.slug)).toEqual(['first-light', 'second-one']);
   });
 
-  it('--staged checks the staged copy of generated files, not only the working tree', async () => {
+  it('--staged checks the staged copy of generated files against the slots the commit holds', async () => {
     expect((await exec('git', ['add', '-A'], { cwd: root })).code).toBe(0);
     expect((await run('check', '--staged')).code).toBe(EXIT.OK);
     expect((await run('new', 'third-one', '--engine', 'web')).code).toBe(EXIT.OK);
     expect((await run('check', '--fix')).code).toBe(EXIT.OK);
+    // an untracked work-in-progress slot does not block an unrelated commit
+    expect((await run('check', '--staged')).code).toBe(EXIT.OK);
+    // a staged slot without its regenerated catalog does
+    expect((await exec('git', ['add', 'videos/third-one'], { cwd: root })).code).toBe(0);
     const r = await run('check', '--staged');
     expect(r.code).toBe(EXIT.ERROR);
-    expect(r.out).toMatch(/catalog.json is regenerated but not staged/);
+    expect(r.out).toMatch(/catalog.json in the commit does not match the slots it holds/);
     expect((await exec('git', ['add', '-A'], { cwd: root })).code).toBe(0);
     expect((await run('check', '--staged')).code).toBe(EXIT.OK);
   });

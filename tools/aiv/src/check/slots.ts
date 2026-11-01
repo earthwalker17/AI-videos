@@ -1,13 +1,16 @@
 /**
  * The repository model is consistent: every video.json, series.json, template and release
  * manifest matches its schema; slugs match folders; numbers are unique; series, styles and
- * engines named by a video exist; every video meets the gates of the status it claims.
+ * engines named by a video exist (for a frozen video only its series: it is rebuilt from its tag,
+ * so HEAD may retire the styles and engines it used); every video meets the gates of the status
+ * it claims.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ReleaseManifest } from '@aiv/core';
 import type { Issue } from './files.ts';
 import { unmetGates } from '../slot/gates.ts';
+import { isFrozen } from '../slot/schema.ts';
 import type { RepoModel } from '../slot/repo.ts';
 import { STAGE_DOCS } from '../slot/stages.ts';
 
@@ -36,13 +39,21 @@ export function slots(m: RepoModel): Issue[] {
     if (twin) add(l.file, `number ${v.number} is also used by ${twin}`);
     numbers.set(v.number, l.dir);
     if (v.series !== null && !series.has(v.series)) add(l.file, `series '${v.series}' does not exist (series/${v.series}/series.json)`);
-    for (const st of v.styles) if (!styles.has(st)) add(l.file, `style '${st}' does not exist (styles/${st}/STYLE.md)`);
-    if (v.engine && v.reproducibility !== 'metadata-only' && !engines.has(v.engine)) add(l.file, `engine '${v.engine}' does not exist (engines/${v.engine}/ENGINE.md)`);
+    const frozen = isFrozen(v.status);
+    if (!frozen) for (const st of v.styles) if (!styles.has(st)) add(l.file, `style '${st}' does not exist (styles/${st}/STYLE.md)`);
+    if (!frozen && v.engine && v.reproducibility !== 'metadata-only' && !engines.has(v.engine)) add(l.file, `engine '${v.engine}' does not exist (engines/${v.engine}/ENGINE.md)`);
     for (const msg of unmetGates(v, { dir: join(m.root, l.dir), series: v.series ? (series.get(v.series) ?? null) : null })) add(l.dir, `status '${v.status}' needs: ${msg}`);
     const relDir = join(m.root, l.dir, 'release');
     if (existsSync(relDir))
       for (const f of readdirSync(relDir).filter((x) => /^v\d+\.json$/.test(x))) {
-        const r = ReleaseManifest.safeParse(JSON.parse(readFileSync(join(relDir, f), 'utf8')));
+        let raw: unknown;
+        try {
+          raw = JSON.parse(readFileSync(join(relDir, f), 'utf8'));
+        } catch (e) {
+          add(`${l.dir}/release/${f}`, `not valid JSON: ${(e as Error).message}`);
+          continue;
+        }
+        const r = ReleaseManifest.safeParse(raw);
         if (!r.success) add(`${l.dir}/release/${f}`, r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
         else if (r.data.slug !== v.slug) add(`${l.dir}/release/${f}`, `manifest is for '${r.data.slug}'`);
       }

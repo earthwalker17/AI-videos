@@ -53,6 +53,9 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [Master to -14 LUFS with a two-pass, linear loudnorm](../knowledge/loudness-two-pass.md): Platforms turn loud uploads down and leave quiet ones quiet, so a mix should arrive at the platform's reference loudness with headroom for true peaks.
 - [Render React Three Fiber under Remotion so every chunk start looks the same](../knowledge/r3f-under-remotion.md): Remotion renders a 3D scene one frame at a time, in chunks, and each chunk usually starts on a fresh page.
 
+## Reusable parts of videos
+_None declared yet: a video lists parts worth promoting in its `video.json` `reusable`._
+
 ## References
 - [Claude Code packaging — skills, CLAUDE.md, plugins, marketplaces](../references/claude-code-packaging.md): How Claude Code finds and loads instructions, skills and plugins, and how third parties (Remotion, HyperFrames, lemo-opuscar) package theirs.
 - [Code-driven video engines — survey and verdicts (2026-11)](../references/code-video-engines-survey.md): A comparison of 16+ code-driven video engines and capture techniques other than Remotion (see remotion.md), checked against live repos and registries.
@@ -73,4 +76,4 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 ## Agent skills and agents (Claude Code)
 - [skill `make-video`](../.claude/skills/make-video/SKILL.md): Start or continue a video in this repository, from idea to release (new slot, brief, treatment, script, storyboard, facts, scene code, review cut, final, release). Use for any work under videos/<slug>/ or when the user wants a new video. Routes to the aiv commands and docs/PRODUCTION.md, keeps the lifecycle gates and stops at the user's approval points.
 - [skill `render-verify`](../.claude/skills/render-verify/SKILL.md): Render, encode and verify a video or template, and actually look at the result (aiv render, post, qa, contact sheet, frame crops, determinism and resume checks). Use after changing scene or shared rendering code, before saying a render works, and before any review cut or release.
-- [agent `frame-critic`](../.claude/agents/frame-critic.md): Adversarial visual reviewer for renders. Give it a target (video slug or template:<engine>) and a profile; it inspects the contact sheet and extracted frames and judges them against the brief, storyboard, series guide and style, returning pass/partial/fail per criterion with evidence. Read-only.
+- [agent `frame-critic`](../.claude/agents/frame-critic.md): Adversarial visual reviewer for renders. Give it a target (video slug or template:<engine>) and a profile; it inspects the contact sheet and extracted frames and judges them against the brief, storyboard, series guide and style, returning pass/partial/fail per criterion with evidence. Read-only by instruction (its Bash is for ffmpeg frame extraction into a temporary folder).
