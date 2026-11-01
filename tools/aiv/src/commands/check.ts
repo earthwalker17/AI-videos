@@ -1,10 +1,10 @@
 import { join } from 'node:path';
 import { EXIT } from '@aiv/core';
-import { repoRoot, writeFileAtomic } from '@aiv/pipeline';
+import { exec, repoRoot, writeFileAtomic } from '@aiv/pipeline';
 import { candidateFiles, docs, hygiene, privacy, provenance, type Issue } from '../check/files.ts';
 import { slots } from '../check/slots.ts';
 import { parse, usageError, type Command } from '../command.ts';
-import { freshness, generatedFiles } from '../slot/generate.ts';
+import { freshness, generatedFiles, render } from '../slot/generate.ts';
 import { loadRepo } from '../slot/repo.ts';
 
 const usage = `usage: aiv check [--fix] [--staged] [--json]
@@ -44,6 +44,12 @@ export const check: Command = {
         writeFileAtomic(join(root, g.path), expected!);
         fixed.push(what);
       } else if (state === 'stale') issues.push({ group: 'generated', file: g.path, message: `${what} is stale: run pnpm aiv check --fix` });
+      else if (values.staged) {
+        // the commit holds the staged copy: a file regenerated in the working tree but not staged would slip through
+        const r = await exec('git', ['show', `:${g.path}`], { cwd: root, timeoutMs: 30_000 });
+        const staged = r.code === 0 ? r.stdout.replace(/\r\n/g, '\n') : null;
+        if (staged !== null && render(g, staged) !== staged) issues.push({ group: 'generated', file: g.path, message: `${what} is regenerated but not staged: git add ${g.path}` });
+      }
     }
 
     const all = await candidateFiles(root, false);

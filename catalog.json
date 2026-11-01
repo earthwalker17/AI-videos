@@ -76,7 +76,28 @@
     }
   ],
   "styles": [],
-  "knowledge": [],
+  "knowledge": [
+    {
+      "id": "bt709-from-rgb",
+      "title": "Convert RGB frames to BT.709 once, explicitly, and check it from the final file",
+      "path": "knowledge/bt709-from-rgb.md"
+    },
+    {
+      "id": "deterministic-frames",
+      "title": "Make every frame a pure function of its index",
+      "path": "knowledge/deterministic-frames.md"
+    },
+    {
+      "id": "headless-gpu-windows",
+      "title": "Capture WebGL and WebGPU on a Windows laptop GPU with headless Chrome",
+      "path": "knowledge/headless-gpu-windows.md"
+    },
+    {
+      "id": "loudness-two-pass",
+      "title": "Master to -14 LUFS with a two-pass, linear loudnorm",
+      "path": "knowledge/loudness-two-pass.md"
+    }
+  ],
   "engines": [
     {
       "id": "web",

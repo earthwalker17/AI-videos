@@ -96,6 +96,18 @@ describe('aiv new', () => {
     expect(JSON.parse(read('catalog.json')).videos.map((x: { slug: string }) => x.slug)).toEqual(['first-light', 'second-one']);
   });
 
+  it('--staged checks the staged copy of generated files, not only the working tree', async () => {
+    expect((await exec('git', ['add', '-A'], { cwd: root })).code).toBe(0);
+    expect((await run('check', '--staged')).code).toBe(EXIT.OK);
+    expect((await run('new', 'third-one', '--engine', 'web')).code).toBe(EXIT.OK);
+    expect((await run('check', '--fix')).code).toBe(EXIT.OK);
+    const r = await run('check', '--staged');
+    expect(r.code).toBe(EXIT.ERROR);
+    expect(r.out).toMatch(/catalog.json is regenerated but not staged/);
+    expect((await exec('git', ['add', '-A'], { cwd: root })).code).toBe(0);
+    expect((await run('check', '--staged')).code).toBe(EXIT.OK);
+  });
+
   it('a claimed status must meet its gates', async () => {
     const file = 'videos/second-one/video.json';
     writeFileSync(join(root, file), read(file).replace('"status": "idea"', '"status": "brief"'));
