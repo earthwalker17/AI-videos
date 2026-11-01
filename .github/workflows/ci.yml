@@ -26,7 +26,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm aiv check
-      # browser integration tests skip themselves here (no pinned browser installed)
+      # browser integration tests skip themselves here (no pinned browsers installed)
       - run: pnpm test
 
   licences-and-secrets:
@@ -58,6 +58,12 @@ jobs:
           pnpm aiv render template:web --profile draft
           pnpm aiv post template:web --profile draft
           pnpm aiv qa template:web --profile draft
+      # --gl=swangle (SwiftShader) under AIV_ALLOW_SOFTWARE_GL; the first bundle is a cold webpack build
+      - name: remotion template
+        run: |
+          pnpm aiv render template:remotion --profile draft
+          pnpm aiv post template:remotion --profile draft
+          pnpm aiv qa template:remotion --profile draft
       - uses: actions/upload-artifact@v4
         if: always()
         with:
