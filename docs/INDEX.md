@@ -44,7 +44,7 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 - `@aiv/cli` ([tools/aiv](../tools/aiv)): The aiv command line: new, doctor, check, render, post, qa, release, heavy.
 
 ## Styles
-_None yet: a style is added when a second video reuses a look ([ARCHITECTURE.md](ARCHITECTURE.md#where-things-go))._
+_None yet: a style is added when a second video reuses a look ([styles/README.md](../styles/README.md), template [STYLE.md](../styles/_template/STYLE.md))._
 
 ## Knowledge
 - [Convert RGB frames to BT.709 once, explicitly, and check it from the final file](../knowledge/bt709-from-rgb.md): Rendered frames are sRGB-encoded RGB. Video delivery is YUV with a colour matrix and a range.

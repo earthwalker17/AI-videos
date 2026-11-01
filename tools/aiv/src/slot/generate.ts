@@ -154,7 +154,7 @@ function indexMd(m: RepoModel): string {
   L.push('', '## Packages');
   for (const p of m.packages) L.push(`- \`${p.name}\` (${link(p.path, fromDocs(p.path))})${p.description ? `: ${p.description}` : ''}`);
   L.push('', '## Styles');
-  L.push(...(m.styles.length ? m.styles.map((s) => item(s.title, s.path, s.summary, ` (\`${s.id}\`)`)) : ['_None yet: a style is added when a second video reuses a look ([ARCHITECTURE.md](ARCHITECTURE.md#where-things-go))._']));
+  L.push(...(m.styles.length ? m.styles.map((s) => item(s.title, s.path, s.summary, ` (\`${s.id}\`)`)) : ['_None yet: a style is added when a second video reuses a look ([styles/README.md](../styles/README.md), template [STYLE.md](../styles/_template/STYLE.md))._']));
   L.push('', '## Knowledge');
   L.push(...(m.knowledge.length ? m.knowledge.map((k) => item(k.title, k.path, k.summary)) : ['_None yet._']));
   L.push('', '## References');

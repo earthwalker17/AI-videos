@@ -24,7 +24,7 @@ beforeAll(async () => {
   put('package.json', '{ "engines": { "node": ">=24.11" }, "packageManager": "pnpm@11.1.3" }\n');
   put('tsconfig.json', '{\n  "extends": "./tsconfig.base.json"\n}\n');
   put('README.md', '# R\n\n<!-- aiv:generated catalog -->\n<!-- /aiv:generated -->\n');
-  for (const d of ['CLAUDE.md', 'docs/ROADMAP.md', 'docs/ARCHITECTURE.md', 'docs/LICENSING.md', 'knowledge/README.md']) put(d, '# Doc\n');
+  for (const d of ['CLAUDE.md', 'docs/ROADMAP.md', 'docs/ARCHITECTURE.md', 'docs/LICENSING.md', 'knowledge/README.md', 'styles/README.md', 'styles/_template/STYLE.md']) put(d, '# Doc\n');
   put('docs/PRODUCTION.md', '# P\n\n<!-- aiv:generated gates -->\n<!-- /aiv:generated -->\n');
   put('docs/ENVIRONMENT.md', '# E\n\n<!-- aiv:generated versions -->\n<!-- /aiv:generated -->\n');
   put('engines/web/ENGINE.md', '# Web engine\n\nCaptures pages.\n');

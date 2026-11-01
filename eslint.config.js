@@ -17,6 +17,7 @@ const FRAME_CODE = [
   'engines/web/src/page/**',
   'templates/*/src/**',
   'videos/*/src/**',
+  'styles/**',
 ];
 
 // drei helpers that animate from the wall clock or Math.random. They look fine in a
