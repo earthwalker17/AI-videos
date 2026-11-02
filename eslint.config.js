@@ -38,8 +38,43 @@ const CLOCK_DRIVEN_DREI = [
   'useAnimations',
 ];
 
+// drei helpers that fetch from a CDN at render time (fonts, HDRIs, decoders, textures): a page
+// may only load files the input hash covers, and a fetch can change or fail between renders.
+const CDN_DREI = ['Text', 'Text3D', 'Environment', 'useEnvironment', 'useGLTF', 'MatcapTexture', 'useMatcapTexture', 'NormalTexture', 'useNormalTexture', 'useKTX2'];
+
+// postprocessing classes that build their noise textures with Math.random: every page (every
+// chunk start) gets different noise, so frames differ by where a chunk began.
+const RANDOM_POSTPROCESSING = ['SSAOEffect', 'GlitchEffect', 'NoiseTexture'];
+
+// The score of a video (videos/<slug>/audio) and the audio stage's synthesis runtime: the same
+// determinism rules as frame code, because the bytes of a track are a pure function of its inputs.
+const AUDIO_CODE = ['videos/*/audio/**', 'packages/pipeline/src/audio/runtime/**'];
+
 const SEEDED = 'Use the seeded rng from @aiv/core (or remotion random(seed)).';
 const FRAME_TIME = 'Derive time from the frame index (renderFrame(i) / useCurrentFrame()).';
+
+// Clocks, timers and unseeded randomness. Member expressions, not calls, so aliasing
+// (`const r = Math.random`) is caught too; each also in its qualified form
+// (`globalThis.Math.random`, `THREE.MathUtils.randFloat`).
+const NONDETERMINISM = [
+  { selector: "MemberExpression[object.name='Math'][property.name='random']", message: SEEDED },
+  { selector: "MemberExpression[object.property.name='Math'][property.name='random']", message: SEEDED },
+  { selector: "MemberExpression[object.name='crypto'][property.name=/^(getRandomValues|randomUUID)$/]", message: SEEDED },
+  { selector: "MemberExpression[object.property.name='crypto'][property.name=/^(getRandomValues|randomUUID)$/]", message: SEEDED },
+  { selector: "MemberExpression[object.name='MathUtils'][property.name=/^(randFloat|randFloatSpread|randInt|generateUUID|seededRandom)$/]", message: SEEDED },
+  { selector: "MemberExpression[object.property.name='MathUtils'][property.name=/^(randFloat|randFloatSpread|randInt|generateUUID|seededRandom)$/]", message: SEEDED },
+  { selector: "MemberExpression[object.name='Date'][property.name='now']", message: FRAME_TIME },
+  { selector: "MemberExpression[object.property.name='Date'][property.name='now']", message: FRAME_TIME },
+  { selector: "CallExpression[callee.name='Date']", message: FRAME_TIME },
+  { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: FRAME_TIME },
+  { selector: "MemberExpression[object.name='performance'][property.name=/^(now|timeOrigin)$/]", message: FRAME_TIME },
+  { selector: "MemberExpression[object.property.name='performance'][property.name=/^(now|timeOrigin)$/]", message: FRAME_TIME },
+  { selector: "CallExpression[callee.name=/^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback)$/]", message: FRAME_TIME },
+  { selector: "CallExpression[callee.property.name=/^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback)$/]", message: FRAME_TIME },
+  { selector: "MemberExpression[object.name='document'][property.name='timeline']", message: FRAME_TIME },
+  { selector: "NewExpression[callee.name='Clock'], NewExpression[callee.property.name='Clock']", message: FRAME_TIME },
+  { selector: "MemberExpression[property.name=/^(getElapsedTime|getDelta|elapsedTime)$/]", message: FRAME_TIME },
+];
 
 export default tseslint.config(
   {
@@ -58,28 +93,7 @@ export default tseslint.config(
   {
     files: FRAME_CODE,
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        // Member expressions, not calls, so aliasing (`const r = Math.random`) is caught too; each
-        // also in its qualified form (`globalThis.Math.random`, `THREE.MathUtils.randFloat`).
-        { selector: "MemberExpression[object.name='Math'][property.name='random']", message: SEEDED },
-        { selector: "MemberExpression[object.property.name='Math'][property.name='random']", message: SEEDED },
-        { selector: "MemberExpression[object.name='crypto'][property.name=/^(getRandomValues|randomUUID)$/]", message: SEEDED },
-        { selector: "MemberExpression[object.property.name='crypto'][property.name=/^(getRandomValues|randomUUID)$/]", message: SEEDED },
-        { selector: "MemberExpression[object.name='MathUtils'][property.name=/^(randFloat|randFloatSpread|randInt|generateUUID|seededRandom)$/]", message: SEEDED },
-        { selector: "MemberExpression[object.property.name='MathUtils'][property.name=/^(randFloat|randFloatSpread|randInt|generateUUID|seededRandom)$/]", message: SEEDED },
-        { selector: "MemberExpression[object.name='Date'][property.name='now']", message: FRAME_TIME },
-        { selector: "MemberExpression[object.property.name='Date'][property.name='now']", message: FRAME_TIME },
-        { selector: "CallExpression[callee.name='Date']", message: FRAME_TIME },
-        { selector: "NewExpression[callee.name='Date'][arguments.length=0]", message: FRAME_TIME },
-        { selector: "MemberExpression[object.name='performance'][property.name=/^(now|timeOrigin)$/]", message: FRAME_TIME },
-        { selector: "MemberExpression[object.property.name='performance'][property.name=/^(now|timeOrigin)$/]", message: FRAME_TIME },
-        { selector: "CallExpression[callee.name=/^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback)$/]", message: FRAME_TIME },
-        { selector: "CallExpression[callee.property.name=/^(setTimeout|setInterval|requestAnimationFrame|requestIdleCallback)$/]", message: FRAME_TIME },
-        { selector: "MemberExpression[object.name='document'][property.name='timeline']", message: FRAME_TIME },
-        { selector: "NewExpression[callee.name='Clock'], NewExpression[callee.property.name='Clock']", message: FRAME_TIME },
-        { selector: "MemberExpression[property.name=/^(getElapsedTime|getDelta|elapsedTime)$/]", message: FRAME_TIME },
-      ],
+      'no-restricted-syntax': ['error', ...NONDETERMINISM],
       'no-restricted-imports': [
         'error',
         {
@@ -94,11 +108,46 @@ export default tseslint.config(
               importNames: CLOCK_DRIVEN_DREI,
               message: 'This drei helper animates from the wall clock or Math.random; build a frame-driven equivalent.',
             },
+            {
+              name: '@react-three/drei',
+              importNames: CDN_DREI,
+              message: 'This drei helper fetches from a CDN at render time; load files from the video (assets/, a pinned package) and draw text on a CanvasTexture or in the DOM.',
+            },
+            {
+              name: 'postprocessing',
+              importNames: RANDOM_POSTPROCESSING,
+              message: 'This postprocessing class seeds its noise with Math.random: frames would differ at every chunk start. Write a frame-driven equivalent.',
+            },
           ],
-          // frame code runs in a page (and @aiv/core everywhere): no Node built-ins
-          patterns: [{ group: ['node:*'], message: 'Frame code runs in the browser: no Node built-ins.' }],
+          patterns: [
+            // frame code runs in a page (and @aiv/core everywhere): no Node built-ins
+            { group: ['node:*'], message: 'Frame code runs in the browser: no Node built-ins.' },
+            { group: ['@aiv/pipeline', '@aiv/pipeline/*'], message: '@aiv/pipeline is Node-only: a page cannot load it.' },
+          ],
         },
       ],
+    },
+  },
+  {
+    // a score reads its inputs only through the stage's context (cues, verified sample files), so
+    // the audio input hash sees every file the bytes depend on: no Node built-ins here
+    files: ['videos/*/audio/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'worker_threads'], message: 'A score reads files only through its context (ctx.library, ctx.cues): no Node built-ins.' },
+            { group: ['@aiv/remotion-kit', '@aiv/remotion-kit/*', 'remotion', '@remotion/*', 'react', 'three'], message: 'A score runs in Node, not in the page.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: AUDIO_CODE,
+    rules: {
+      'no-restricted-syntax': ['error', ...NONDETERMINISM.map((r) => (r.message === FRAME_TIME ? { ...r, message: 'Derive time from the sample index (ctx.sampleRate), never a clock.' } : r))],
     },
   },
 );

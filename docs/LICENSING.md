@@ -16,6 +16,7 @@ inside Markdown (below).
 | Original media made for this repo (stills, thumbnails, posters, audio, textures, small renders) | any image, audio, video or 3D file (`REUSE.toml` lists the extensions) | CC BY 4.0 unless annotated otherwise |
 | Third-party assets (fonts, samples, textures, models) | wherever they are used | their own licence, recorded next to the file and in `REUSE.toml` |
 | Large or non-redistributable inputs | `videos/*/media/` (gitignored; `media/manifest.json` is committed) | their own licence, recorded in the manifest |
+| Sample libraries a score plays | `.cache/libraries/` (never committed); pinned per video in `videos/*/audio/library.json` | their own licence, recorded in that manifest (CC0 or CC BY only) |
 | Generated AI output | `videos/*/gen/` (gitignored; provenance sidecars are committed) | see [AI-generated material](#ai-generated-material) |
 | Finished videos | YouTube / GitHub Releases, not in git | per video, stated in its `video.json` (`license`) |
 
@@ -63,6 +64,21 @@ version, prompt, date, terms, cost) and a **rights class**:
 Purely AI-generated material may not be protected by copyright at all, so we do
 not claim CC BY on it. A finished video that contains class C or D material, or any
 non-commercial or share-alike component, is not offered under CC BY.
+
+## Third-party characters, brands and parody
+Our licences never cover other people's characters, brands or trademarks. A film may show
+them only with permission, or as commentary or parody that no viewer could mistake for the
+owner's own material. The basis is recorded in the video's `CREDITS.md`.
+
+- **Never:** logos and wordmarks; verbatim official notices, emails or UI templates; real
+  addresses, URLs or account data (use none, or reserved `.example` names); anything that
+  implies endorsement; copies of another work's protected designs, lettering or music.
+- **Always:** a non-affiliation notice in the video's README (inside `REUSE-IgnoreStart` /
+  `REUSE-IgnoreEnd`), in `publish/description.*` and on the end card; and every implied fact
+  listed under "Not claimed" in `FACTS.md`.
+- A film whose central character belongs to someone else is `license.film: none`, with a
+  note. Its code, prose and original score stay under this repository's licences; the film
+  as a whole carries no reuse licence, since CC BY 4.0 cannot license someone else's marks.
 
 ## Prior films
 The two films listed as metadata-only entries (`videos/journey-through-middle-earth`,

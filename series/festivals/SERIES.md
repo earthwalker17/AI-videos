@@ -35,6 +35,10 @@ asks, culturally accurate, and fresh every year.
 - Generative AI: allowed for backgrounds and textures with provenance; never for
   culturally significant artefacts presented as authentic.
 - Music: only sources whose licence allows publishing (and monetization) on YouTube.
+- Satire of real companies, products or policies follows the parody rule in
+  [LICENSING](../../docs/LICENSING.md#third-party-characters-brands-and-parody). No nationality
+  or group is the butt of a joke; people stand for themselves (a silhouette, a costume),
+  never drawn with ethnic features, and cultural details are used in their proper sense.
 
 ## Reusable resources
 Indexed in `docs/INDEX.md` once videos in this series declare `reusable` items.

@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 // tests spawn ffmpeg.
 export default defineConfig({
   test: {
-    include: ['packages/*/src/**/*.test.ts', 'engines/*/src/**/*.test.ts', 'tools/*/src/**/*.test.ts'],
+    include: ['packages/*/src/**/*.test.ts', 'engines/*/src/**/*.test.ts', 'tools/*/src/**/*.test.ts', 'videos/*/audio/**/*.test.ts'],
     fileParallelism: false,
     maxWorkers: 1,
     testTimeout: 60_000,

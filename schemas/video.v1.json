@@ -154,7 +154,8 @@
         "width",
         "height",
         "fps"
-      ]
+      ],
+      "additionalProperties": false
     },
     "audio": {
       "type": "object",
@@ -172,7 +173,11 @@
                   },
                   {
                     "type": "string",
-                    "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*\\\\)(?!(?:.*\\/)?\\.\\.(?:\\/|$)).+$"
+                    "pattern": "^audio:[a-z0-9][a-z0-9-]*$"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(?![/\\\\])(?!.*[\\\\:])(?!(?:.*\\/)?\\.\\.(?:\\/|$)).+$"
                   }
                 ]
               },
@@ -186,13 +191,15 @@
             },
             "required": [
               "source"
-            ]
+            ],
+            "additionalProperties": false
           }
         }
       },
       "required": [
         "tracks"
-      ]
+      ],
+      "additionalProperties": false
     },
     "qa": {
       "type": "object",
@@ -233,7 +240,8 @@
             "integrated",
             "tolerance",
             "truePeakMax"
-          ]
+          ],
+          "additionalProperties": false
         },
         "allowBlack": {
           "type": "array",
@@ -277,7 +285,8 @@
             "maxItems": 2
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "reusable": {
       "type": "array",

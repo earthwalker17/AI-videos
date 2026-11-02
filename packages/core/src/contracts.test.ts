@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { AudioTrack, parseContract, ReleaseManifest, RenderResult, RepoPath, VideoConfig } from './contracts.ts';
+import { AudioTrack, audioTrackName, CueSheet, parseContract, ReleaseManifest, RenderResult, RepoPath, VideoConfig } from './contracts.ts';
 import realRelease from './fixtures/release.v1.json' with { type: 'json' };
 import realRender from './fixtures/render.v1.json' with { type: 'json' };
 
@@ -41,6 +41,41 @@ describe('contracts', () => {
     for (const ok of ['lavfi:sine=f=440', 'videos/demo/assets/bed.wav']) expect(AudioTrack.safeParse({ source: ok }).success, ok).toBe(true);
     for (const bad of ['C:/Users/someone/music.wav', '/home/someone/music.wav', '../other/bed.wav', 'videos/demo/../../x.wav', 'lavfi:', ''])
       expect(AudioTrack.safeParse({ source: bad }).success, bad).toBe(false);
+  });
+
+  it('audio:<name> names a built track; a mistyped prefix or key is an error, not a missing file', () => {
+    expect(AudioTrack.safeParse({ source: 'audio:mix' }).success).toBe(true);
+    expect(audioTrackName('audio:score-a')).toBe('score-a');
+    expect(audioTrackName('lavfi:sine')).toBeNull();
+    for (const bad of ['audio:Mix', 'audio:', 'lavif:sine=f=440', 'audio:mix/x', 'videos/a:b.wav']) expect(AudioTrack.safeParse({ source: bad }).success, bad).toBe(false);
+    // strict: a misspelt key fails instead of being dropped
+    expect(AudioTrack.safeParse({ source: 'audio:mix', gain: -6 }).success).toBe(false);
+    const base = { slug: 'v', title: 'T', engine: 'web', entry: 'src/index.html', format: { width: 2, height: 2, fps: 24 } };
+    expect(VideoConfig.safeParse({ ...base, qa: { swatchFrame: [0, 12] } }).success).toBe(false);
+    expect(VideoConfig.safeParse({ ...base, format: { ...base.format, fsp: 30 } }).success).toBe(false);
+  });
+
+  it('a cue sheet: unique ids, spans with ends, nothing past the film', () => {
+    const ok = {
+      schemaVersion: 1,
+      fps: 24,
+      filmFrames: 1440,
+      leaderFrames: 12,
+      grid: { bpm: 120, beatsPerBar: 3 },
+      events: [
+        { id: 'knock-1', kind: 'hit', frame: 612 },
+        { id: 'silence-1', kind: 'silence', frame: 648, end: 684 },
+        { id: 'title', kind: 'card', frame: 0, end: 108, text: { en: 'A Halloween Gift', 'zh-Hans': '万圣节礼物' } },
+      ],
+    };
+    const s = parseContract(CueSheet, ok, 'cues');
+    expect(s.grid?.offsetFrames).toBe(0);
+    const bad = (events: unknown[]) => CueSheet.safeParse({ ...ok, events }).success;
+    expect(bad([...ok.events, { id: 'knock-1', kind: 'hit', frame: 1 }])).toBe(false);
+    expect(bad([{ id: 'r', kind: 'rest', frame: 10 }])).toBe(false);
+    expect(bad([{ id: 'r', kind: 'rest', frame: 10, end: 10 }])).toBe(false);
+    expect(bad([{ id: 'late', kind: 'hit', frame: 1440 }])).toBe(false);
+    expect(bad([{ id: 'Bad Id', kind: 'hit', frame: 1 }])).toBe(false);
   });
 
   it('rejects an inconsistent frame range', () => {

@@ -6,6 +6,7 @@
     "tools/*/src",
     "templates/*/src",
     "videos/*/src",
+    "videos/*/audio",
     "styles",
     "*.config.ts"
   ]

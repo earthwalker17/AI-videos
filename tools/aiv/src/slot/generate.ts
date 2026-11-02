@@ -54,8 +54,11 @@ const videosOf = (m: RepoModel): { dir: string; v: Slot }[] =>
 
 const watch = (v: Slot) => (v.youtube ? `https://youtu.be/${v.youtube.id}` : null);
 
-/** Source folders of frozen videos: out of the typecheck and lint scope (decision 4). */
-export const frozenSources = (m: RepoModel): string[] => videosOf(m).filter(({ dir, v }) => isFrozen(v.status) && existsSync(join(m.root, dir, 'src'))).map(({ dir }) => `${dir}/src`);
+/** Code folders of frozen videos (src/ and the score's audio/): out of the typecheck and lint scope (decision 4). */
+export const frozenSources = (m: RepoModel): string[] =>
+  videosOf(m)
+    .filter(({ v }) => isFrozen(v.status))
+    .flatMap(({ dir }) => ['src', 'audio'].filter((f) => existsSync(join(m.root, dir, f))).map((f) => `${dir}/${f}`));
 
 function catalog(m: RepoModel): string {
   const videos = videosOf(m);

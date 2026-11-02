@@ -29,6 +29,8 @@
     "@aiv/engine-web": "workspace:*",
     "@aiv/remotion-kit": "workspace:*",
     "@fontsource-variable/inter": "catalog:",
+    "@fontsource-variable/noto-serif-sc": "catalog:",
+    "@fontsource/im-fell-english": "catalog:",
     "@react-three/drei": "catalog:",
     "@react-three/fiber": "catalog:",
     "@remotion/cli": "catalog:",
