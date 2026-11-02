@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBlack, parseEbur128, parseFreeze, parseSilence, unexpected } from './detect.ts';
+import { parseAstatsPeak, parseBlack, parseEbur128, parseFreeze, parseSilence, unexpected } from './detect.ts';
 import { parseFramehash } from './frames.ts';
 import { loudnessChecks } from './qa.ts';
 
@@ -45,6 +45,16 @@ describe('detector parsers', () => {
     expect(loudnessChecks({ i: -14.2, lra: 3, tp: -0.5 }, target).map((c) => c.passed)).toEqual([true, false]);
     // without a target it is information, never a verdict
     expect(loudnessChecks(null, null)).toEqual([expect.objectContaining({ id: 'loudness', info: true })]);
+  });
+
+  it('reads the overall sample peak from astats (measure_overall=Peak_level only)', () => {
+    // trimmed from real ffmpeg 8.0.1 output: the analysis pass's last lines
+    const astats = `${STDERR}[Parsed_astats_2 @ 000002875b408680] Overall\n[Parsed_astats_2 @ 000002875b408680] Peak level dB: -18.979070\n[out#0/null @ 000002875b37dc80] video:0KiB audio:188KiB\n`;
+    expect(parseAstatsPeak(astats)).toBeCloseTo(-18.97907, 6);
+    expect(parseAstatsPeak('[Parsed_astats_0 @ 0001] Overall\n[Parsed_astats_0 @ 0001] Peak level dB: -inf\n')).toBe(-Infinity);
+    // a float over (decoded AAC can exceed full scale)
+    expect(parseAstatsPeak('[Parsed_astats_0 @ 0001] Overall\n[Parsed_astats_0 @ 0001] Peak level dB: 0.512000\n')).toBeCloseTo(0.512, 6);
+    expect(parseAstatsPeak(STDERR)).toBeNull();
   });
 
   it('keeps only segments outside the allowed spans', () => {

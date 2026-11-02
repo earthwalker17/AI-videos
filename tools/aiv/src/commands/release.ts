@@ -12,9 +12,11 @@ release: copies the profile's deliverables (post.json: delivery mp4 + archive ma
 out/<slug>/release/v<N>/ and writes the manifest (sha256, probe facts, render provenance,
 post, build tree, loudness, QA) to videos/<slug>/release/v<N>.json (templates:
 out/<slug>/release/v<N>/manifest.json). N defaults to the next. Refused (exit 2) when v<N>
-exists, post.json was made from an older render, a file lacks a QA report for its exact bytes
-(delivery and archive), the render is partial (--frames) or used the system browser, a file is
-over 2 GiB (GitHub Releases), the render, mix or build tree has uncommitted changes, or QA failed.
+exists, post.json was made from an older render, the picture's inputs changed since the render
+(its hash recomputed from inputs.json), an audio:<name> track is stale, a file lacks a QA report
+for its exact bytes (delivery and archive), the render is partial (--frames) or used the system
+browser, a file is over 2 GiB (GitHub Releases), the render, mix or build tree has uncommitted
+changes, or QA failed. The manifest lists every audio file the mix read, by sha256.
 
 verify: re-hashes and re-probes the release files against the manifest (default: latest).
 

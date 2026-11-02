@@ -8,13 +8,17 @@ const usage = `usage: aiv post <target> [--profile draft|review|final] [--no-wai
 Reads out/<slug>/render/<profile>/render.json + its mezzanine and video.json's audio tracks;
 writes out/<slug>/post/<profile>/: <slug>.mp4 (the profile's delivery preset), archive.mkv
 (final only), audio.wav (the mastered bed) and post.json. The audio is mixed at 48 kHz stereo
-to the picture's exact length and loudness-normalised in two passes (default -14 LUFS).
+to the picture's exact length and loudness-normalised in two passes (default -14 LUFS); a
+--frames render gets the bed from its first frame on. An audio:<name> track is the audio
+stage's out/<slug>/audio/<name>.wav (aiv audio): refused (exit 2) when its inputs changed since,
+when the file is not the one audio.json describes, when its length is not the composition's, or
+when the picture was rendered from another src/cues.ts. post.json pins every audio file by sha256.
 
   <target>     a video slug (videos/<slug>) or template:<engine>
   --profile    default review
   --no-wait    exit 75 at once if another heavy job runs
 
-exit: 0 ok · 1 error · 3 low memory · 64 usage · 75 busy`;
+exit: 0 ok · 1 error · 2 refused (stale audio:<name> tracks) · 3 low memory · 64 usage · 75 busy`;
 
 export const post: Command = {
   name: 'post',

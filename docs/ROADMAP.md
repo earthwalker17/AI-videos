@@ -15,10 +15,12 @@ Decisions section of `docs/ARCHITECTURE.md`.
 
 ## Next: the first film
 Built when the first film needs them, not before:
+- [x] **Audio from code** (decisions 21-25, with *A Halloween Gift*): the audio stage
+  (`aiv audio`), the cue sheet, pinned sample libraries, per-track sha256 in `post.json` and
+  the release manifest, stale-picture and stale-audio refusals, audio QA.
 - **Large inputs** (`videos/<slug>/media/`, decision 17): the `media/manifest.json` schema,
   an `aiv check` that verifies listed files and hashes, and engine access to media files
-  (Remotion's `staticFile` serves `assets/` only). Record a sha256 per audio track in
-  `post.json` and the release manifest.
+  (Remotion's `staticFile` serves `assets/` only). Still deferred: the first film needed none.
 - **Generated material** (`gen/`): the provenance sidecar schema and a check of rights
   classes against `video.json` `license.film`.
 - **Colour on the final**: a test-card leader that QA measures and post trims from the

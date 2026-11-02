@@ -62,7 +62,8 @@ Do not read the whole repo. The docs are maps; detail lives in code and in each 
 ## Commands
 `pnpm aiv --help` lists every command. Core loop for a video:
 `aiv new <slug> --engine <id> [--series <id>]`, then `aiv check --fix` → edit `src/`, `pnpm lint` →
-`aiv render <slug> --profile draft` → `aiv post` and `aiv qa` with the same profile → look at the
-contact sheet → … → `aiv release`. Render, post and qa default to the full-size `review` profile.
+`aiv render <slug> --profile draft` (and `aiv audio <slug>` for a video with a score) → `aiv post`
+and `aiv qa` with the same profile → look at the contact sheet (and the audio sheet) → … →
+`aiv release`. Render, post and qa default to the full-size `review` profile.
 `aiv check` before committing, `aiv doctor` when the machine misbehaves.
 Also: `pnpm typecheck`, `pnpm lint`, `pnpm test`.

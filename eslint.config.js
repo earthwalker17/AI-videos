@@ -51,6 +51,7 @@ const RANDOM_POSTPROCESSING = ['SSAOEffect', 'GlitchEffect', 'NoiseTexture'];
 const AUDIO_CODE = ['videos/*/audio/**', 'packages/pipeline/src/audio/runtime/**'];
 
 const SEEDED = 'Use the seeded rng from @aiv/core (or remotion random(seed)).';
+const SCORE_PROCESS = 'A score is a function of its context (ctx.cues, ctx.seed, ctx.library): never of process state or the environment.';
 const FRAME_TIME = 'Derive time from the frame index (renderFrame(i) / useCurrentFrame()).';
 
 // Clocks, timers and unseeded randomness. Member expressions, not calls, so aliasing
@@ -136,12 +137,19 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
+          paths: [{ name: '@aiv/pipeline', message: 'A score imports @aiv/pipeline/audio (the score API), never the pipeline itself: the stage refuses it.' }],
           patterns: [
             { group: ['node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'worker_threads'], message: 'A score reads files only through its context (ctx.library, ctx.cues): no Node built-ins.' },
             { group: ['@aiv/remotion-kit', '@aiv/remotion-kit/*', 'remotion', '@remotion/*', 'react', 'three'], message: 'A score runs in Node, not in the page.' },
+            // a path into packages/ would reach the stage's internals (opening a library's store directly)
+            { group: ['**/packages/**'], message: 'Import shared code by package name (@aiv/core, @aiv/pipeline/audio), never by a path into packages/.' },
           ],
         },
       ],
+      // process.env, pid, hrtime, argv…: state of the machine or the run, not of the inputs
+      // (the stage also starts the score with an almost empty environment)
+      'no-restricted-globals': ['error', { name: 'process', message: SCORE_PROCESS }],
+      'no-restricted-properties': ['error', { object: 'globalThis', property: 'process', message: SCORE_PROCESS }, { object: 'global', property: 'process', message: SCORE_PROCESS }],
     },
   },
   {

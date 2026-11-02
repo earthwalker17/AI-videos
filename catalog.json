@@ -179,7 +179,7 @@
     {
       "name": "@aiv/cli",
       "path": "tools/aiv",
-      "description": "The aiv command line: new, doctor, check, render, post, qa, release, heavy.",
+      "description": "The aiv command line: new, doctor, check, render, audio, post, qa, release, heavy.",
       "usedBy": []
     }
   ],

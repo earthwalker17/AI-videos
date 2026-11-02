@@ -6,12 +6,16 @@ import { SECTIONS, type DoctorItem } from '../doctor/index.ts';
 const usage = `usage: aiv doctor [--fix] [--json]
 
 Checks the environment: Node and pnpm against the repo pins, ffmpeg and the encoders/filters
-the pipeline needs, Python/uv (advisory), PATH traps, free memory and disk, the heavy-job lock
+the pipeline needs, Python/uv (advisory), PATH traps, free memory and disk, the heavy-job lock,
+the sample-library store (every file a video pins in audio/library.json, by bytes and sha256)
 and engine sections (browser, GPU path). Every problem comes with its fix.
 
   --fix    repair what can be repaired in place: install the pinned Chrome for Testing into
            .cache/browsers (about 170 MB download) and Remotion's Chrome Headless Shell into
-           node_modules/.remotion (about 120 MB download)
+           node_modules/.remotion (about 120 MB download); fill missing pinned library files in
+           .cache/libraries/<id>@<commit>/ from aiv.local.json librarySeeds (copied only when
+           the sha256 matches) or else download them from GitHub at the pinned commit (never
+           on CI, where a missing library file is a warning: CI runs no score)
   --json   print the results as JSON
 
 exit: 0 nothing failed (warnings allowed) · 1 something failed`;

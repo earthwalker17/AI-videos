@@ -12,6 +12,7 @@ the rule of two.
 | `useRoomEnvironment()` | Image-based light from three's procedural `RoomEnvironment`, prefiltered once (PMREM), with no network. |
 | `TestCard`, `SwatchStrip` | The DOM test card and the `@aiv/core` swatch strip, laid out at the render size. |
 | `Title`, `useInter()`, `INTER` | Text in Inter. Each frame is held until the font is loaded. |
+| `useFont(spec)`, `loadFont(spec)` | Any other font, from its files and the film's strings. Each frame is held until the font is loaded, and the render fails if the font lacks a character (see [Fonts](#fonts)). |
 | `useRenderScale()`, `useRenderSize()` | Output pixels per CSS pixel (0.5 for draft), and the output size. |
 
 ## Stage3D
@@ -40,10 +41,11 @@ render. Under Remotion, the first frames of every page then come out blank or un
 `PostChain` instead creates its parts in `useMemo`:
 - the composer, with HalfFloat buffers and 4x MSAA;
 - the render pass;
-- one merged effect pass, with a `ToneMappingEffect` last. It dithers its 8-bit output by
-  default (`dithering`). Without it, dark gradients such as a vignette or fog show banding
-  in 8 bits, and YouTube's re-encode makes the bands worse. three's dither is a fixed hash
-  of the pixel position (±0.5 code value), so it is the same in every render.
+- one merged effect pass: the `effects`, a `ToneMappingEffect`, then the optional
+  `afterToneMapping` effects. It dithers its 8-bit output by default (`dithering`). Without
+  it, dark gradients such as a vignette or fog show banding in 8 bits, and YouTube's
+  re-encode makes the bands worse. three's dither is a fixed hash of the pixel position
+  (±0.5 code value), so it is the same in every render.
 
 It sizes the composer in `useLayoutEffect` and renders from the very first R3F advance.
 
@@ -53,10 +55,28 @@ It sizes the composer in `useLayoutEffect` and renders from the very first R3F a
 because both are wall-clock based. It calls `composer.render(0)`.
 
 **Rules for effects:**
-- Pass a **stable** `effects` factory (module scope or `useCallback`). A new function each
-  render rebuilds the composer every frame.
+- Pass **stable** `effects` and `afterToneMapping` factories (module scope or
+  `useCallback`). A new function each render rebuilds the composer every frame.
 - Effects get delta 0, so nothing may accumulate time. An effect that animates (noise,
-  glitch, grain) needs a uniform set from `useCurrentFrame()`.
+  glitch, grain) needs its time from the frame: a uniform set from `useCurrentFrame()`, or
+  the `time` prop (below).
+- **One convolution effect per chain.** postprocessing merges the pass's effects into one
+  shader and throws `Convolution effects cannot be merged` when the chain is built with two
+  effects that sample neighbouring pixels. In postprocessing 6.39.5 those are
+  `ChromaticAberrationEffect`, `SMAAEffect`, `BokehEffect` and `RealisticBokehEffect`.
+
+**`afterToneMapping`.** Effects that must act on display values (film grain, a paper
+texture, a final colour wash) run after the `ToneMappingEffect`, in the same pass. They see
+tone-mapped linear values in [0, 1], before the sRGB encode and the dither. postprocessing
+sorts a pass's effects by their attributes, highest first (`EffectPass.setEffects`:
+`effects.sort((a, b) => b.attributes - a.attributes)`; the sort is stable). Only effects with
+`EffectAttribute.NONE` therefore stay after the tone mapping, so `PostChain` throws for a
+depth or convolution effect there instead of letting it run before the tone mapping.
+
+**`time`.** Seconds, from the frame index (`frame / fps`). Before each render `PostChain`
+sets the effect pass's shared `time` uniform (`EffectMaterial.time`), which `NoiseEffect`
+and custom effect shaders read; with delta 0 that value is exactly what the shaders get.
+Without `time` the uniform stays 0, as before, so existing chains render the same pixels.
 
 Verified (`engines/remotion/ENGINE.md`): in the template, frames 20-59 rendered on a page
 that starts at 20, and frames 75-119 on a page that starts at 75, hash the same as in the
@@ -100,3 +120,50 @@ file URL through Remotion's bundler. It is registered with `FontFace` under the 
 `"AIV Inter"`, a name no system font has, so a fallback face cannot pass for it.
 `useInter()` holds the frame with `delayRender` until the face is loaded and usable. A failed
 load cancels the render.
+
+### Any other font: `useFont(spec)`
+
+```tsx
+import fellUrl from '@fontsource/im-fell-english/files/im-fell-english-latin-400-normal.woff2';
+import { useFont, type FontSpec } from '@aiv/remotion-kit';
+
+// the latin file's unicode-range, copied from the package's index.css
+const LATIN = 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD';
+
+// module scope: the spec may not change after the first render
+const FELL: FontSpec = {
+  family: 'IM Fell English',
+  sources: [{ url: fellUrl, unicodeRange: LATIN, weight: '400' }],
+  sample: 'Happy Halloween · The End', // every string the film shows in this font
+};
+
+const { family, ready } = useFont(FELL); // family = '"AIV IM Fell English"'
+```
+
+- **Coverage.** Every character of `sample` except whitespace must lie in the
+  `unicodeRange` of a source, or the render fails and names the characters
+  (`U+8282 '节'`). A source **without** `unicodeRange` counts as covering every character,
+  because the loader cannot look inside a font file. So give every subset file its range,
+  and put every string the film shows in that font into the sample, in every language.
+- **Loading.** Each source becomes a `FontFace` of the family `AIV <family>` with its
+  range. The sources whose range holds a sample character, spaces included, are loaded
+  before the frame is released; the browser picks the face per character. A space need not
+  be covered, but the file that holds it is loaded, or the browser would fetch it during the
+  render and early frames would lay text out with another space width. So keep the film's
+  real spacing (`' '`, `'　'`) in the sample. `loadFont(spec)` does the same outside React and
+  resolves to the font-family value.
+- **`ready`.** React state. The frame is held until the font is loaded, and the hold is
+  released in the commit in which `ready` became true. The hold is taken at commit (a layout
+  effect), so a render React discards cannot leave it open. A component that draws text into a
+  `CanvasTexture` redraws when `ready` flips, in that same commit. Inside a `Stage3D`,
+  though, R3F draws when the frame changes (`@remotion/three` advances it in an effect keyed
+  on the frame), not when state changes. So call `useFont` outside the `Stage3D` and render
+  the `Stage3D` only once `ready` is true; its first draw then has the font. This follows
+  from the code and is not yet verified by a render.
+- **A CJK font.** fontsource splits it into subset files, one per unicode-range:
+  `unicode.json` maps each subset (`[N]`, `latin`, …) to the range of
+  `files/<name>-<subset>-wght-normal.woff2` (`@fontsource-variable/noto-serif-sc` 5.3.1:
+  101 subsets, 97 of them numbered CJK chunks). Give each subset the film needs
+  as a source, with its range from `unicode.json` and the variable weight (`'200 900'`).
+  Only the subsets the sample touches are loaded. When a subset is missing, the coverage
+  error names the character, and `unicode.json` tells which subset holds it.

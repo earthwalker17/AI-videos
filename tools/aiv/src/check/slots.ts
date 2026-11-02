@@ -3,16 +3,49 @@
  * manifest matches its schema; slugs match folders; numbers are unique; series, styles and
  * engines named by a video exist (for a frozen video only its series: it is rebuilt from its tag,
  * so HEAD may retire the styles and engines it used); every video meets the gates of the status
- * it claims.
+ * it claims; its audio tracks have their inputs (audioIssues).
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ReleaseManifest } from '@aiv/core';
+import { audioTrackName, ReleaseManifest, type AudioTrack } from '@aiv/core';
+import { LibraryManifest } from '@aiv/pipeline';
 import type { Issue } from './files.ts';
 import { unmetGates } from '../slot/gates.ts';
 import { isFrozen } from '../slot/schema.ts';
 import type { RepoModel } from '../slot/repo.ts';
 import { STAGE_DOCS } from '../slot/stages.ts';
+
+/**
+ * A video's audio inputs, as [file, message] issues: an `audio:<name>` track needs the score
+ * (audio/index.ts) and the cue sheet (src/cues.ts); a file track must lie inside the video's own
+ * folder (a rebuild from the tag must find it; generated files in out/ never count) and exist,
+ * unless it is under media/: those files are gitignored (listed in media/manifest.json), so a
+ * fresh clone or CI never has them, and post refuses a missing one where the mix needs it. A
+ * library.json must match its schema, sorted (aiv audio --pin writes it that way).
+ */
+export function audioIssues(root: string, dir: string, tracks: readonly AudioTrack[]): [string, string][] {
+  const out: [string, string][] = [];
+  const file = `${dir}/video.json`;
+  for (const t of tracks) {
+    if (t.source.startsWith('lavfi:')) continue;
+    if (audioTrackName(t.source) !== null) {
+      for (const need of ['audio/index.ts', 'src/cues.ts'])
+        if (!existsSync(join(root, dir, need))) out.push([file, `track '${t.source}' needs ${dir}/${need} (${need.startsWith('audio') ? 'the score' : 'the cue sheet it plays to'})`]);
+    } else if (t.source === 'out' || t.source.startsWith('out/')) out.push([file, `track '${t.source}' reads generated output: build it with the audio stage (audio:<name>) instead`]);
+    else if (!t.source.startsWith(`${dir}/`)) out.push([file, `track '${t.source}' lies outside the video folder: keep its audio files under ${dir}/`]);
+    else if (!t.source.startsWith(`${dir}/media/`) && !existsSync(join(root, t.source))) out.push([file, `track '${t.source}' does not exist`]);
+  }
+  const lib = `${dir}/audio/library.json`;
+  if (existsSync(join(root, lib))) {
+    try {
+      const r = LibraryManifest.safeParse(JSON.parse(readFileSync(join(root, lib), 'utf8')));
+      if (!r.success) out.push([lib, r.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')]);
+    } catch (e) {
+      out.push([lib, `not valid JSON: ${(e as Error).message}`]);
+    }
+  }
+  return out;
+}
 
 export function slots(m: RepoModel): Issue[] {
   const issues: Issue[] = [];
@@ -43,6 +76,7 @@ export function slots(m: RepoModel): Issue[] {
     if (!frozen) for (const st of v.styles) if (!styles.has(st)) add(l.file, `style '${st}' does not exist (styles/${st}/STYLE.md)`);
     if (!frozen && v.engine && v.reproducibility !== 'metadata-only' && !engines.has(v.engine)) add(l.file, `engine '${v.engine}' does not exist (engines/${v.engine}/ENGINE.md)`);
     for (const msg of unmetGates(v, { dir: join(m.root, l.dir), series: v.series ? (series.get(v.series) ?? null) : null })) add(l.dir, `status '${v.status}' needs: ${msg}`);
+    for (const [file, msg] of audioIssues(m.root, l.dir, v.audio?.tracks ?? [])) add(file, msg);
     const relDir = join(m.root, l.dir, 'release');
     if (existsSync(relDir))
       for (const f of readdirSync(relDir).filter((x) => /^v\d+\.json$/.test(x))) {

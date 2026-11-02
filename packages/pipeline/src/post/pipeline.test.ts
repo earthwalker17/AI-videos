@@ -1,5 +1,5 @@
 // The engine-agnostic slice end to end with a fake engine: render → post → qa → release.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { EXIT, type QaReport, type RenderResult } from '@aiv/core';
@@ -7,7 +7,7 @@ import { ffmpeg } from '../media/bin.ts';
 import { probe } from '../media/probe.ts';
 import { encodeDelivery } from '../media/mux.ts';
 import { runQa, type QaOptions } from '../qa/qa.ts';
-import { readManifest, verifyRelease, writeRelease } from '../release/release.ts';
+import { readManifest, refuseStalePicture, verifyRelease, writeRelease } from '../release/release.ts';
 import { PROFILES, type Profile } from '../runner/profiles.ts';
 import { runRender } from '../runner/runner.ts';
 import { resolveTarget, type Target } from '../runner/target.ts';
@@ -44,7 +44,8 @@ beforeAll(async () => {
   const r = await runRender({ target, profile, adapter: fakeAdapter({ frames: 60, swatchFrames: [10, 20] }), log: silentLog(), keepAwake: false, minDiskMB: 1 });
   expect(r.exit, r.message).toBe(EXIT.OK);
   post = await runPost({ target, profile, log: silentLog() });
-});
+  // a render and a final post (two encodes, two loudness passes): beyond the 10 s hook default on a slow host
+}, 120_000);
 afterAll(() => repo?.cleanup());
 
 describe('render → post → qa → release', () => {
@@ -125,6 +126,9 @@ describe('render → post → qa → release', () => {
     expect(m.files[0]).toMatchObject({ role: 'delivery', vcodec: 'h264', acodec: 'aac', width: 320, height: 180, fps: 30, frames: 60, color: { space: 'bt709', primaries: 'bt709', transfer: 'bt709', range: 'tv' } });
     expect(m.files[1]).toMatchObject({ role: 'archive', acodec: 'pcm_s24le', frames: 60 });
     expect(m.audio.lufs).toBeCloseTo(-14, 0);
+    // generated (lavfi) tracks read no file
+    expect(m.audio.sources).toEqual([]);
+    expect(post.post.audio.masterSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(m.qa).toEqual({ passed: true, failed: [] });
     expect(m.post).toMatchObject({ dirty: true, deliveryPreset: 'youtube', encoder: 'libx264', archivePreset: 'archive' });
     expect(m.tree.dirty).toBe(true);
@@ -142,6 +146,33 @@ describe('render → post → qa → release', () => {
     const v = await verifyRelease(again, outDir);
     expect(v.passed).toBe(false);
     expect(v.checks.find((c) => c.name === 'demo-v1.mp4')!.detail).toMatch(/sha256/);
+  });
+
+  it('release refuses a stale picture: inputs edited after the render, named, even with --allow-dirty', async () => {
+    const renderJson: RenderResult = JSON.parse(readFileSync(join(repo.root, 'out', 'demo', 'render', 'final', 'render.json'), 'utf8'));
+    const outDir = join(repo.root, 'out', 'demo', 'release', 'v2');
+    const manifestPath = join(repo.root, 'videos', 'demo', 'release', 'v2.json');
+    const o = { target, version: 2, renderJson, qa: { delivery: report, archive: archiveReport }, postJson: post.post, outDir, manifestPath, allowDirty: true };
+    const extra = repo.write('videos/demo/src/extra.ts', 'export const later = 1;\n');
+    await expect(writeRelease(o)).rejects.toMatchObject({ exit: EXIT.REFUSED, message: expect.stringMatching(/picture is stale: .*added videos\/demo\/src\/extra\.ts.*Re-render \(aiv render demo --profile final\)/) });
+    rmSync(extra);
+    // video.json is no hashed file, but the settings it gives are: an edit there is a stale picture too
+    const videoJson = join(repo.root, 'videos', 'demo', 'video.json');
+    const video = readFileSync(videoJson);
+    writeFileSync(videoJson, JSON.stringify({ ...JSON.parse(video.toString('utf8')), format: { width: 320, height: 180, fps: 25 } }));
+    await expect(writeRelease({ ...o, target: resolveTarget('demo', repo.root) })).rejects.toMatchObject({ exit: EXIT.REFUSED, message: expect.stringMatching(/video\.json changed since the render \(format, fps\)/) });
+    // a title is no render setting
+    writeFileSync(videoJson, JSON.stringify({ ...JSON.parse(video.toString('utf8')), title: 'Retitled' }));
+    expect(() => refuseStalePicture(resolveTarget('demo', repo.root), post.post.render.path, renderJson)).not.toThrow();
+    writeFileSync(videoJson, video);
+    // prose is no input: a README edit leaves the picture releasable
+    repo.write('videos/demo/README.md', '# demo\n');
+    const inputs = join(repo.root, 'out', 'demo', 'render', 'final', 'inputs.json');
+    const saved = readFileSync(inputs);
+    rmSync(inputs);
+    await expect(writeRelease(o)).rejects.toMatchObject({ exit: EXIT.REFUSED, message: expect.stringMatching(/inputs\.json is missing \(the render predates it\): run aiv render demo --profile final\. A render that is up to date only writes inputs\.json, so post and qa stand/) });
+    writeFileSync(inputs, saved);
+    expect(existsSync(manifestPath)).toBe(false);
   });
 
   it('release refuses deliverables made from an older render (re-rendered after post)', async () => {

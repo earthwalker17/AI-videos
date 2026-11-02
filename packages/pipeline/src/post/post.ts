@@ -1,15 +1,18 @@
 /**
  * Post: render.json + mezzanine in, deliverables out. Reads only the engine's files (the engine
- * boundary is a file) and video.json's audio section:
+ * boundary is a file), video.json's audio section and, for `audio:<name>` tracks, the audio
+ * stage's files (out/<slug>/audio/, refused when stale: audio/verify.ts):
  *   out/<slug>/post/<profile>/<slug>.mp4      delivery (profile encode preset)
  *   out/<slug>/post/<profile>/archive.mkv     archival master (profiles with archive)
  *   out/<slug>/post/<profile>/audio.wav       the mastered bed (48 kHz, 24-bit)
- *   out/<slug>/post/<profile>/post.json       PostResult
+ *   out/<slug>/post/<profile>/post.json       PostResult (every audio file the mix read, by sha256)
+ * A --frames partial render gets the bed from the same point: every track moves by -start/fps.
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { EXIT, ExitError, parseContract, PostResult, RenderResult } from '@aiv/core';
-import { buildAudioBed, DEFAULT_LOUDNESS, masterAudio } from '../media/audio.ts';
+import { audioTrackName, EXIT, ExitError, parseContract, PostResult, RenderResult } from '@aiv/core';
+import { verifyGeneratedTracks } from '../audio/verify.ts';
+import { AUDIO_RATE, buildAudioBed, DEFAULT_LOUDNESS, masterAudio } from '../media/audio.ts';
 import { encodeDelivery } from '../media/mux.ts';
 import type { Profile } from '../runner/profiles.ts';
 import type { Target } from '../runner/target.ts';
@@ -57,12 +60,27 @@ export async function runPost(o: PostOptions): Promise<PostOutcome> {
   const target = { i: qaLoud?.integrated ?? DEFAULT_LOUDNESS.i, tp: qaLoud ? qaLoud.truePeakMax - TP_MARGIN_DB : DEFAULT_LOUDNESS.tp, lra: DEFAULT_LOUDNESS.lra };
   const warnings: string[] = [];
   if (!tracks.length) warnings.push('video.json has no audio tracks: the deliverable carries silence');
+  // audio:<name> tracks: fresh, the files audio.json describes, as long as the composition, same cues
+  const generated = await verifyGeneratedTracks({ target: o.target, render, renderDir, tracks });
+  const files: NonNullable<PostResult['audio']['files']> = [];
+  for (const t of tracks) {
+    if (t.source.startsWith('lavfi:')) continue;
+    const g = generated?.described.find((d) => d.source === t.source);
+    if (g) files.push(g);
+    else if (audioTrackName(t.source) === null) {
+      const abs = fromRepo(t.source, root);
+      if (!existsSync(abs)) throw new ExitError(EXIT.ERROR, `audio track ${t.source} does not exist`);
+      files.push({ source: t.source, path: t.source, bytes: statSync(abs).size, sha256: await sha256File(abs) });
+    }
+  }
+  // a --frames a-b render shows the picture from frame a: the bed starts there too
+  const offsetSamples = Math.round((render.frames.start * AUDIO_RATE) / render.fps);
 
   mkdirSync(dir, { recursive: true });
   const bed = join(dir, 'audio-bed.wav');
   const master = join(dir, 'audio.wav');
-  log.info(`audio: ${tracks.length} track(s) → ${durationS.toFixed(3)} s bed, loudnorm to ${target.i} LUFS / ${target.tp} dBTP`);
-  await buildAudioBed({ tracks, durationS, out: bed, root });
+  log.info(`audio: ${tracks.length} track(s) → ${durationS.toFixed(3)} s bed${offsetSamples ? ` from ${(offsetSamples / AUDIO_RATE).toFixed(3)} s` : ''}, loudnorm to ${target.i} LUFS / ${target.tp} dBTP`);
+  await buildAudioBed({ tracks, durationS, out: bed, root, offsetSamples, files: generated?.files });
   const mastered = await masterAudio({ input: bed, out: master, durationS, target });
   rmSync(bed, { force: true });
   if (mastered.mode === 'dynamic') warnings.push('loudnorm fell back to dynamic mode (target not reachable with one gain): listen to the mix');
@@ -76,7 +94,9 @@ export async function runPost(o: PostOptions): Promise<PostOutcome> {
   else rmSync(join(dir, 'archive.mkv'), { force: true });
 
   const describe = async (file: string, preset: string, encoder: string, frames: number) => ({ path: repoRel(file, root), preset, encoder, bytes: statSync(file).size, sha256: await sha256File(file), frames, durationS: Math.round(durationS * 1e6) / 1e6 });
-  const audioPaths = tracks.filter((t) => !t.source.startsWith('lavfi:')).map((t) => t.source);
+  // repo files only: audio:<name> tracks come from out/, their inputs (audio/, cues) are in the video folder
+  const audioPaths = tracks.filter((t) => !t.source.startsWith('lavfi:') && audioTrackName(t.source) === null).map((t) => t.source);
+  const masterSha256 = await sha256File(master);
   const post = parseContract(
     PostResult,
     {
@@ -92,6 +112,9 @@ export async function runPost(o: PostOptions): Promise<PostOutcome> {
         before: mastered.before,
         after: mastered.after,
         mode: mastered.mode,
+        files,
+        ...(generated ? { generated: { audioJson: generated.audioJson, audioJsonSha256: generated.audioJsonSha256, inputHash: generated.result.inputHash, cuesSha256: generated.result.cues.sha256 } } : {}),
+        masterSha256,
       },
       // the mix and the encode: the video folder, its audio files, the presets/mux/audio code
       git: await gitState(root, [o.target.relDir, ...audioPaths, 'packages/pipeline/src', 'pnpm-lock.yaml']),

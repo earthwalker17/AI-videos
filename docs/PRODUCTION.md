@@ -50,6 +50,14 @@ approval.
   (required for factual series).
 - Build in `src/` with the shared packages; small assets in `assets/` with their
   provenance; anything reusable you discover is listed in `video.json` `reusable`.
+- **Timing first.** A video with a score writes `src/cues.ts` (a `CueSheet`: length, leader,
+  bar grid, cuts, hits, rests, silences, text and cards) before animating; picture and score
+  both read it, so they cannot drift (ARCHITECTURE decision 22).
+- **Sound.** The score lives in `audio/` (entry `audio/index.ts`, `defineScore` from
+  `@aiv/pipeline/audio`); `video.json` mixes it as `{"source": "audio:<name>"}`. Build it with
+  `aiv audio <slug>` (`--pin` records the sample files it reads in `audio/library.json`,
+  `--verify` renders it twice and compares bytes), then post and qa as usual. An audio edit
+  never re-renders the picture; post refuses tracks that went stale.
 - Iterate on drafts: `aiv render <slug> --profile draft`, `aiv post` and `aiv qa`
   (same profile; all three default to `review`), then **look at the contact sheet and
   key frames** before changing anything else. Run `pnpm lint` after editing `src/`:
@@ -101,7 +109,8 @@ upgrades, and `aiv render` refuses it at any other commit.
 ```sh
 git worktree add ../rebuild-<slug> video/<slug>/v<N>
 cd ../rebuild-<slug>
-pnpm install --frozen-lockfile && pnpm aiv doctor --fix   # that tag's toolchain and browsers
+pnpm install --frozen-lockfile && pnpm aiv doctor --fix   # that tag's toolchain, browsers and sample libraries
+pnpm aiv audio <slug>                                     # videos with a score
 pnpm aiv render <slug> --profile final && pnpm aiv post <slug> --profile final && pnpm aiv qa <slug> --profile final
 ```
 Large inputs listed in `media/manifest.json` are fetched from where the manifest says
@@ -113,8 +122,10 @@ compare with SSIM. Remove the worktree with `git worktree remove` when done.
 - **Readable text:** on-screen text stays at least `max(1.8 s, reading time + 0.6 s)`,
   sits inside the title-safe area, and is at least 1/30 of the frame height.
 - **Rest:** at least one deliberate moment of quiet or stillness.
-- **Sound:** -14 LUFS integrated (±1 LU), true peak ≤ -1 dBTP; music ducks under
-  narration; narration intelligible on laptop speakers.
+- **Sound:** -14 LUFS integrated (±1 LU), true peak ≤ -1 dBTP, no clipping; music ducks
+  under narration; narration intelligible on laptop speakers. The intended silences and rests
+  of the cue sheet are measured by QA; how it sounds is judged by a person who listened
+  (an agent cannot), before the review approval.
 - **Picture:** BT.709 limited range, correctly tagged; no unintended black or frozen
   frames; no flicker from non-deterministic code.
 - **Determinism:** on the same machine, re-rendering any frame gives identical pixels.

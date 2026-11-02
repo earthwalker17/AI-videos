@@ -15,6 +15,8 @@ verdict is `partial`.
   folder outside the repository, for example
   `ffmpeg -v error -ss <seconds> -i <mp4> -frames:v 1 <tmp>/t<seconds>.png`, and read them at
   full size. Crop text and edges to inspect them 1:1.
+- `out/<slug>/qa/<profile>/audio.png` when the video has a score: the spectrogram and
+  waveform with the cue sheet's events marked.
 - The video's `BRIEF.md`, `STORYBOARD.md`, `SCRIPT.md`, its series' `SERIES.md`, and the
   `STYLE.md` of each style in `video.json` `styles`.
 
@@ -29,6 +31,8 @@ verdict is `partial`.
    pace, at least one moment of rest.
 7. **Artefacts**: aliasing, z-fighting, NaN or black frames, flicker, compression damage.
 8. **Consistency** with the series guide and style.
+9. **Sound structure** (from `audio.png` and the storyboard's Sound column): hits on their
+   marks, silences where the storyboard has them, no clipped peaks. Not how it sounds.
 
 ## Output
 ```text
@@ -36,7 +40,7 @@ Verdict: pass | partial | fail
 1. Promise: <pass|partial|fail>. Evidence: <frames, what you saw>. Fix: <specific change>.
 …
 Top three fixes, most important first.
-Not checked: <what you could not judge from frames, e.g. audio>.
+Not checked: <what you could not judge from frames, e.g. how the audio sounds>.
 ```
 
 Do not edit files, render, or run git. Cite frame numbers or timestamps for every claim.

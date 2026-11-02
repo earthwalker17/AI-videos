@@ -5,7 +5,8 @@
 // (two-pass loudnorm with measured values and linear=true, exact-length padding/trimming)
 /**
  * The audio bed: every track of video.json mixed at 48 kHz stereo to exactly the picture's
- * length, then mastered with a two-pass loudnorm. Pass 1 measures; pass 2 applies the measured
+ * length (from the picture's first frame: a partial render's bed starts where its frames do),
+ * then mastered with a two-pass loudnorm. Pass 1 measures; pass 2 applies the measured
  * values with linear=true, which is a single gain (no dynamics change) whenever the target is
  * reachable without breaking the true-peak ceiling.
  */
@@ -29,20 +30,36 @@ export const DEFAULT_LOUDNESS: LoudnessTargetSpec = { i: -14, tp: -1.5, lra: 11 
 
 const samples = (s: number) => Math.round(s * AUDIO_RATE);
 
+export interface AudioBedOptions {
+  /**
+   * where the bed starts in the video, in samples: a partial render (--frames a-b) delivers the
+   * picture from frame a, so every track moves by -a/fps to stay in sync (default 0)
+   */
+  offsetSamples?: number;
+  /** absolute files for sources that are not repo paths (audio:<name> → out/<slug>/audio/<name>.wav) */
+  files?: Readonly<Record<string, string>>;
+}
+
 /**
  * The ffmpeg arguments that mix `tracks` into a 48 kHz stereo float WAV of exactly durationS.
- * Exported for tests; buildAudioBed runs it.
+ * Exported for tests; buildAudioBed runs it. Without an offset the arguments are what they
+ * always were, so an existing lavfi mix stays byte-identical.
  */
-export function audioBedArgs(tracks: readonly AudioTrack[], durationS: number, out: string, root?: string): string[] {
+export function audioBedArgs(tracks: readonly AudioTrack[], durationS: number, out: string, root?: string, o: AudioBedOptions = {}): string[] {
   const n = samples(durationS);
+  const off = o.offsetSamples ?? 0;
   const inputs: string[] = [];
   const chains: string[] = [];
   tracks.forEach((t, i) => {
-    if (t.source.startsWith('lavfi:')) inputs.push('-f', 'lavfi', '-t', durationS.toFixed(6), '-i', t.source.slice(6));
-    else inputs.push('-i', fromRepo(t.source, root));
+    // a generated source runs from the video's start, so it must also cover the skipped part
+    if (t.source.startsWith('lavfi:')) inputs.push('-f', 'lavfi', '-t', (durationS + off / AUDIO_RATE).toFixed(6), '-i', t.source.slice(6));
+    else inputs.push('-i', o.files?.[t.source] ?? fromRepo(t.source, root));
     const steps = [`aresample=${AUDIO_RATE}`, 'aformat=sample_fmts=fltp:channel_layouts=stereo'];
     if (t.gainDb) steps.push(`volume=${t.gainDb}dB`);
-    if (t.start) steps.push(`adelay=delays=${samples(t.start)}S:all=1`);
+    // where this track starts in the delivered bed: before it, trim its head instead
+    const at = samples(t.start ?? 0) - off;
+    if (at < 0) steps.push(`atrim=start_sample=${-at}`, 'asetpts=PTS-STARTPTS');
+    else if (t.start || off) steps.push(`adelay=delays=${at}S:all=1`);
     chains.push(`[${i}:a]${steps.join(',')}[a${i}]`);
   });
   const mix = tracks.length > 1 ? `${tracks.map((_, i) => `[a${i}]`).join('')}amix=inputs=${tracks.length}:normalize=0:duration=longest[m]` : '[a0]anull[m]';
@@ -52,9 +69,9 @@ export function audioBedArgs(tracks: readonly AudioTrack[], durationS: number, o
 }
 
 /** Mix the tracks (or silence when there are none) into a float WAV of exactly durationS. */
-export async function buildAudioBed(o: { tracks: readonly AudioTrack[]; durationS: number; out: string; root?: string }): Promise<void> {
+export async function buildAudioBed(o: { tracks: readonly AudioTrack[]; durationS: number; out: string; root?: string } & AudioBedOptions): Promise<void> {
   const tracks = o.tracks.length ? o.tracks : [{ source: `lavfi:anullsrc=r=${AUDIO_RATE}:cl=stereo` }];
-  await ffmpeg(audioBedArgs(tracks, o.durationS, o.out, o.root), 'audio bed', { timeoutMs: 10 * 60_000 });
+  await ffmpeg(audioBedArgs(tracks, o.durationS, o.out, o.root, { offsetSamples: o.offsetSamples, files: o.files }), 'audio bed', { timeoutMs: 10 * 60_000 });
 }
 
 /** The JSON block loudnorm prints at the end of its run (print_format=json). */

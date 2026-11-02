@@ -14,7 +14,7 @@ its home here first, then write the code.
 | Library | `knowledge/` | Technique cards: method first, then "in this repo", each with the evidence that verified it. | something is learned and verified |
 | Library | `references/` | Pinned notes on external projects, platforms and licences, plus `sources.json`. Maps, not copies. | research |
 | Library | `prompts/<modality>/` | Versioned prompt templates for generated assets (created with the first one). | the first generated asset |
-| Code | `packages/` | `@aiv/core` (browser-safe: seeded rng, easing, swatches, render contracts), `@aiv/pipeline` (Node: host safety, encode, chunk runner, QA, release), `@aiv/remotion-kit` (React/R3F building blocks). | code is promoted (rule of two) |
+| Code | `packages/` | `@aiv/core` (browser-safe: seeded rng, easing, swatches, the file contracts and the cue sheet), `@aiv/pipeline` (Node: host safety, encode, chunk runner, the audio stage, QA, release), `@aiv/remotion-kit` (React/R3F building blocks). | code is promoted (rule of two) |
 | Code | `engines/<id>/` | One adapter per renderer: produces a video's frames for the shared runner, which writes the mezzanine and `render.json`. `ENGINE.md` documents it. | a video needs another renderer |
 | Code | `templates/<engine>/` | A runnable scaffold per engine, which doubles as that engine's end-to-end fixture. `templates/_video/` holds the stage-document stubs. | an engine is added |
 | Code | `tools/aiv/` | The `aiv` CLI, including the repository model (slot and series schemas, gates, generators, checks). | a workflow becomes a command |
@@ -30,7 +30,9 @@ Root files: `README.md`, `CLAUDE.md` (rules for agents), `CONTRIBUTING.md`, `LIC
 | You have | It goes |
 |---|---|
 | A new video | `pnpm aiv new <slug> --engine <id> [--series <id>]` creates `videos/<slug>/` (layout below). |
-| Code only one video needs | `videos/<slug>/src/`. |
+| Code only one video needs | `videos/<slug>/src/` (picture) or `videos/<slug>/audio/` (score and sound effects). |
+| The timing a video's picture and sound share | `videos/<slug>/src/cues.ts`: one `CueSheet` (`@aiv/core`), imported by both (decision 22). |
+| A sample library a score plays | Pinned per video in `audio/library.json` (files, sha256, upstream commit); the files live in `.cache/libraries/` and are never committed (decision 23). |
 | Code a second video needs | Promote it, never copy it: frame maths and contracts → `@aiv/core`; React, Remotion or R3F components → `@aiv/remotion-kit`; plain three.js or page helpers → a new `packages/web-kit` (created with the first promotion); Node-side media work → `@aiv/pipeline`; a look → `styles/<id>/`. |
 | A new renderer (Manim, Blender, …) | `engines/<id>/`; see [Adding an engine](#adding-an-engine). |
 | A verified technique | `knowledge/<topic>.md`, method first, with the evidence. |
@@ -50,7 +52,8 @@ Root files: `README.md`, `CLAUDE.md` (rules for agents), `CONTRIBUTING.md`, `LIC
 | `README.md` | What it is, how to watch it, how it was made, lessons. | yes | no |
 | `BRIEF.md`, `TREATMENT.md`, `SCRIPT.md`, `STORYBOARD.md`, `FACTS.md`, `CREDITS.md` | The stage documents ([PRODUCTION](PRODUCTION.md)). | yes | no |
 | `sources.jsonl` | One line per factual source (factual series). | yes | no |
-| `src/` | The video's code; the engine entry lives here. | yes | yes |
+| `src/` | The video's picture code; the engine entry lives here, and `src/cues.ts` (the shared timeline) when the video has a score. | yes | yes (`cues.ts` also in the audio hash) |
+| `audio/` | The score: code that builds the video's audio tracks with `aiv audio` (entry `audio/index.ts`), and `library.json`, the sample files it reads. | yes | the audio hash only |
 | `assets/` | Small original or licensed files the code loads (≤ 2 MiB each). | yes | yes |
 | `media/` | Large inputs; only `media/manifest.json` (path, sha256, bytes, source, licence, where the file is kept) is committed. | manifest only | yes |
 | `gen/` | Generated material; only the `*.provenance.json` sidecars are committed. A redistributable file the code loads is copied into `assets/`. | sidecars only | no |
@@ -77,6 +80,7 @@ care (the orphan sweep in `host/orphans.ts` knows the web and Remotion browsers)
 ## The pipeline
 
 ```text
+videos/<slug>/audio ─aiv audio─▶ out/<slug>/audio/<name>.wav + audio.json   (videos with a score)
 videos/<slug>/src ──engine──▶ out/<slug>/render/<profile>/mezzanine.mkv + render.json
                   ──aiv post──▶ out/<slug>/post/<profile>/<slug>.mp4 (+ archive.mkv) + post.json
                   ──aiv qa────▶ out/<slug>/qa/<profile>/report.json + contact.png
@@ -91,8 +95,21 @@ videos/<slug>/src ──engine──▶ out/<slug>/render/<profile>/mezzanine.mk
   the page, and `remotion` decodes the lossless PNG that Remotion captures for each frame.
   An engine that can only write video files itself (a future Blender or Manim adapter)
   uses the runner's file style instead.
+- **The audio stage** (`aiv audio`) runs a video's score, the code in `videos/<slug>/audio/`,
+  and writes its tracks with `audio.json`: the stage's own input hash (the score, the cue sheet,
+  `@aiv/core`, the stage's synthesis runtime, the pinned sample files, the lockfile, Node), the
+  sha256 of each track and the cue sheet it was built against. The score runs in a fresh Node
+  process with almost no environment, and the stage refuses it if it loaded any repository file
+  outside those inputs. Picture and sound are separate builds of one timeline: an edit to the
+  score never invalidates a picture render.
+- **The runner** also writes `inputs.json` next to `render.json`: the picture hash's per-file
+  hashes and settings, so post can tell which cue sheet a picture was rendered against and
+  release can recompute the picture hash against the tree it releases.
 - **Post** mixes the audio bed (two-pass loudness normalisation to -14 LUFS) and makes the
-  single RGB → BT.709 limited-range conversion, with explicit colour tags. Profiles:
+  single RGB → BT.709 limited-range conversion, with explicit colour tags. A track named
+  `audio:<name>` is the stage's output; post refuses it when its hash is stale or when it was
+  built against a different cue sheet than the picture, and records the sha256 of every
+  file it mixed. Profiles:
   `draft` (half size, hardware preview encode), `review` and `final` (full size; final adds
   the archive master).
 - **QA** judges the final files, not the intermediates: probe facts, colour tags, swatch
@@ -109,9 +126,10 @@ videos/<slug>/src ──engine──▶ out/<slug>/render/<profile>/mezzanine.mk
 | release manifest v1 | `packages/core/src/contracts.ts` | `schemas/release.v1.json` |
 | `video.json` v1 (a video slot) | `tools/aiv/src/slot/schema.ts` | `schemas/video.v1.json` |
 | `series.json` v1 | `tools/aiv/src/slot/schema.ts` | `schemas/series.v1.json` |
+| cue sheet v1 (`src/cues.ts`, picture and score) | `packages/core/src/contracts.ts` | none: a TypeScript module, validated when it is built |
 
 `render.json` and the release manifest were derived from the first real render and release
-(pinned as test fixtures). `post.json` and the QA report are working files in `out/`.
+(pinned as test fixtures). `post.json`, `audio.json` and the QA report are working files in `out/`.
 
 Every metadata file carries `schemaVersion` (and `$schema` for editor validation). A change
 that existing files still pass (a new optional field) keeps the version. A change that an
@@ -144,6 +162,9 @@ edited to keep up.
   lockfile (Markdown and tests excluded). A resumed render refuses (exit 2) when it changed,
   so stale chunks cannot survive an edit. Engines refuse to load files the hash does not
   cover.
+- The **audio input hash** does the same for a video's tracks (decision 21). The cue sheet is
+  in both hashes, so a timing change invalidates picture and sound together; post and release
+  refuse a mix whose tracks or picture went stale.
 
 ## Storage
 
@@ -250,3 +271,40 @@ new entry that supersedes it, not editing history.
     does not block an unrelated commit.
 20. **2026-11-01 · Prose is not a render input.** The input hash skips Markdown files, so
     editing a style guide or a README never invalidates a resumable render.
+21. **2026-11-03 · Audio is a build stage with its own input hash.** A video's score lives in
+    `videos/<slug>/audio/`, outside the picture's inputs, and `aiv audio` builds it into
+    `out/<slug>/audio/` with `audio.json`. A track names its output `audio:<name>`; post and
+    release refuse stale tracks, a track built against another cue sheet, and (release) a stale
+    picture. The stage's synthesis runtime is in `@aiv/pipeline` and in the audio hash; musical
+    content (instruments, sound design, the mix) stays in the video until a second scored film
+    needs it (rule of two). Why: the first film had no way to build sound from code, and score
+    code under `src/` would have forced a full picture re-render for every audio edit. Cost: a
+    second build step (seconds) before post, and a rebuild recipe with one more command.
+22. **2026-11-03 · One cue sheet per video.** `src/cues.ts` exports a `CueSheet`: the film's
+    length, the test-card leader, an optional bar grid and its events (cuts, hits, rests,
+    silences, black and held spans, text and cards). Picture and score import it; QA reads its
+    events from `audio.json` to check rests, silences and intentional black or held spans,
+    and `aiv audio` checks cuts against bar lines, text hold times and card lengths. Why:
+    MAP's score once bypassed its cue sheet and drifted. Cost: timing lives in one module
+    that both hashes cover.
+23. **2026-11-03 · Pinned sample libraries.** A score that plays samples pins exactly the files
+    it reads in `audio/library.json` (path, bytes, sha256, upstream repository and commit,
+    licence). The files sit in a shared store, `.cache/libraries/<id>@<commit>/`, filled by
+    `aiv doctor --fix` from a local seed (`aiv.local.json` `librarySeeds`: a git checkout of
+    the library that git confirms is at the pinned commit, unmodified) or downloaded from
+    upstream at that commit, and verified (bytes and sha256) on every read. Libraries are never
+    committed and never part of `media/` (a picture input). Cost: a rebuild on a new machine
+    fetches the pinned files first.
+24. **2026-11-03 · The leader is a cue-sheet constant.** Frames and samples count from the end
+    of the test-card leader (`leaderFrames`), so removing it for the final shifts picture and
+    sound together; `render-verify` proves the final equals the approved review cut shifted by
+    the leader. Post does not trim a leader (the roadmap item stays deferred).
+25. **2026-11-03 · Audio QA for an agent that cannot hear.** `aiv qa` draws the sound
+    (spectrogram and waveform with the cue sheet's events), fails on clipping and on intended
+    silences or rests that are not quiet, reports hit timing, and lists where a person must
+    listen. Reports say what was not heard; a person listens before the review approval.
+26. **2026-11-03 · Third-party characters and parody.** Others' characters, brands and marks
+    appear only with permission or as parody a viewer cannot mistake for the real thing: no
+    logos, wordmarks, verbatim official notices or real addresses, and a non-affiliation
+    notice. A film whose central character belongs to someone else is `license.film: none`
+    ([LICENSING](LICENSING.md#third-party-characters-brands-and-parody)).

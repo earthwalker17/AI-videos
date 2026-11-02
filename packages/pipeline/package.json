@@ -6,7 +6,8 @@
   "license": "MIT",
   "description": "Node pipeline stages shared by every engine: host safety, ffmpeg/encode presets, chunk runner, QA and release.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./audio": "./src/audio/runtime/index.ts"
   },
   "dependencies": {
     "@aiv/core": "workspace:*",

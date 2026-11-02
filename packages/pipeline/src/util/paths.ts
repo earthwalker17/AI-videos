@@ -24,10 +24,18 @@ export function repoRoot(start?: string): string {
   }
 }
 
-export type OutKind = 'render' | 'post' | 'qa' | 'release';
+export type OutKind = 'render' | 'post' | 'qa' | 'release' | 'audio';
 
-/** out/<slug>/<kind>/<profile> (absolute). Generated output only; never committed. */
-export const outDir = (slug: string, kind: OutKind, profile: string, root = repoRoot()): string => join(root, 'out', slug, kind, profile);
+/**
+ * out/<slug>/<kind>/<profile> (absolute). Generated output only; never committed. The audio
+ * stage's tracks have no profile (every profile mixes the same tracks): out/<slug>/audio, and
+ * its `profile` argument must be null.
+ */
+export function outDir(slug: string, kind: OutKind, profile: string | null, root = repoRoot()): string {
+  if (kind === 'audio') return join(root, 'out', slug, 'audio');
+  if (!profile) throw new Error(`out/${slug}/${kind} needs a profile`);
+  return join(root, 'out', slug, kind, profile);
+}
 
 /**
  * A repo-relative POSIX path for anything that gets recorded (render.json, manifests): committed

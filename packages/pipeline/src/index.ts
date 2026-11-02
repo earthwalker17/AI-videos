@@ -76,19 +76,63 @@ export { encodeDelivery, deliveryArgs, type EncodeDeliveryOptions, type EncodeDe
 export type { EngineAdapter, EngineSession, EngineOpenContext, EngineInfo, FrameMeta, FrameSpan } from './runner/engine.ts';
 export { PROFILES, getProfile, renderSize, type Profile, type ProfileName } from './runner/profiles.ts';
 export { resolveTarget, type Target } from './runner/target.ts';
-export { computeInputHash, renderSettings, inputRoots, hashedBy, filesOutsideHash, type InputHash, type RenderSettings } from './runner/inputHash.ts';
+export {
+  computeInputHash,
+  renderSettings,
+  inputRoots,
+  hashedBy,
+  filesOutsideHash,
+  hashFiles,
+  hashLines,
+  lockSha,
+  describeFileChanges,
+  PictureInputs,
+  pictureInputsOf,
+  recomputePictureHash,
+  videoSettingsChanges,
+  type FileHash,
+  type InputHash,
+  type RenderSettings,
+} from './runner/inputHash.ts';
 export { runRender, chunkList, type RunOptions, type RunOutcome } from './runner/runner.ts';
 
 // qa
 export { runQa, loudnessChecks, measureSwatches, contactSheet, formatQaTable, type QaOptions, type SwatchResult } from './qa/qa.ts';
 export { decodedFrameHashes, allFrameHashes, parseFramehash, toRgbFilter, type HashPixFmt } from './qa/frames.ts';
-export { parseEbur128, parseBlack, parseFreeze, parseSilence, unexpected, type Segment, type Ebur128Summary } from './qa/detect.ts';
+export { parseEbur128, parseAstatsPeak, parseBlack, parseFreeze, parseSilence, unexpected, type Segment, type Ebur128Summary } from './qa/detect.ts';
+export {
+  deliveryCues,
+  deliveryFrame,
+  allowedSpans,
+  cueSheetMisfit,
+  audioCueChecks,
+  listeningPoints,
+  intentQaChecks,
+  clippingCheck,
+  SILENCE_MAX_DB,
+  REST_UNDER_DB,
+  HIT_SEARCH_MS,
+  CLIP_MAX_DBFS,
+  type DeliveryCue,
+  type Span,
+} from './qa/audio.ts';
+export { readGeneratedAudio, decodePower, powerExpr, audioSheet, sheetMarks, type SheetMark } from './qa/audioMedia.ts';
 
 // release
-export { writeRelease, verifyRelease, readManifest, describeFile, releaseName, buildPaths, buildTreeState, type ReleaseOptions, type VerifyResult } from './release/release.ts';
+export { writeRelease, verifyRelease, readManifest, describeFile, releaseName, buildPaths, buildTreeState, refuseStalePicture, type ReleaseOptions, type VerifyResult } from './release/release.ts';
+
+// audio stage (the score's own API is the ./audio export: src/audio/runtime/index.ts)
+export { runAudioStage, audioJsonFile, childEnv, SILENCE_DB, type AudioStageOptions, type AudioStageOutcome } from './audio/stage.ts';
+export { computeAudioHash, audioRoots, describeAudioChanges, modulesOutsideAudioHash, sharedCodeMismatches, AUDIO_HASH_VERSION, SHARED_AUDIO_ROOTS, type AudioHash } from './audio/hash.ts';
+export { intentChecks, failedChecks, readingSeconds, requiredHoldS, cutsOnBars, textHeld, cardsLongEnough, type IntentCheck } from './audio/intent.ts';
+export { verifyGeneratedTracks, readAudioResult, refuseStaleAudio, pictureCuesSha, type GeneratedAudio } from './audio/verify.ts';
+export { pinnedLibraries, storeFileState, fillStoreFile, githubUrls, seedProblem, type PinnedLibrary, type PinScan, type StoreState, type FillResult, type Fetcher } from './audio/store.ts';
+export { LibraryManifest, LibraryEntry, LibraryFile, formatLibraryManifest, libraryDir } from './audio/runtime/library.ts';
+export { readWav, encodeWav, samplePeak, type WavData } from './audio/runtime/wav.ts';
+export { SAMPLE_RATE } from './audio/runtime/types.ts';
 
 // post (shared by the CLI and tests)
 export { runPost, type PostOptions, type PostOutcome } from './post/post.ts';
 
 // test fixtures (engine tests reuse the fake adapter and temp repo)
-export { tempRepo, fakeAdapter, syntheticFrame, type TempRepo, type FakeAdapter, type FakeAdapterOptions } from './testing.ts';
+export { tempRepo, withAudioRuntime, fakeAdapter, syntheticFrame, type TempRepo, type FakeAdapter, type FakeAdapterOptions } from './testing.ts';

@@ -42,7 +42,7 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 - `@aiv/remotion-kit` ([packages/remotion-kit](../packages/remotion-kit)): Deterministic React/Remotion building blocks: a Stage3D for R3F under Remotion, titles, test swatches.
 - `@aiv/engine-remotion` ([engines/remotion](../engines/remotion)): Remotion engine adapter: bundles a video's Remotion entry and renders compositions to a mezzanine plus render.json.
 - `@aiv/engine-web` ([engines/web](../engines/web)): Web engine: Playwright harness that captures page-contract pages (canvas, WebGL, WebGPU, SVG) deterministically, plus the in-page runtime.
-- `@aiv/cli` ([tools/aiv](../tools/aiv)): The aiv command line: new, doctor, check, render, post, qa, release, heavy.
+- `@aiv/cli` ([tools/aiv](../tools/aiv)): The aiv command line: new, doctor, check, render, audio, post, qa, release, heavy.
 
 ## Styles
 _None yet: a style is added when a second video reuses a look ([styles/README.md](../styles/README.md), template [STYLE.md](../styles/_template/STYLE.md))._

@@ -102,8 +102,21 @@ means "call again"), one heavy job at a time.
 
 `aiv.local.json` (gitignored) holds the per-machine settings that should not be environment
 variables: `lockPath` (share one lock with another repository so the two never render at
-once), `minFreeMB`, `abortFreeMB`, and `sweepApps`, an opt-in list of background apps that
-may be stopped, only while they have no open window, when memory runs short.
+once), `minFreeMB`, `abortFreeMB`, `sweepApps`, an opt-in list of background apps that
+may be stopped, only while they have no open window, when memory runs short, and
+`librarySeeds`, a map from a sample-library id to a local git checkout of that library.
+
+**Sample libraries.** A score's pinned files (`videos/<slug>/audio/library.json`) live in
+`.cache/libraries/<id>@<commit>/`; `aiv doctor` reports missing or altered files and
+`aiv doctor --fix` fills them, from a seed when one is configured, otherwise by download at
+the pinned commit. A seed must be a git checkout at the pinned commit with no modified tracked
+files (git is what vouches for its bytes). An existing local copy becomes a seed without
+downloading the large files: make a blobless clone at the commit
+(`git clone --filter=blob:none --no-checkout --branch <branch> <repo>`), `git read-tree HEAD`,
+copy the needed files in from the copy, mark every other path
+`git update-index --skip-worktree`, then check that `git status` shows nothing modified (it
+hashes every copied file against the commit's blob ids; restore any text file that differs
+only in line endings with `git checkout -- <path>`). CI never fetches libraries.
 
 ## Platform notes
 - **All platforms.** Use a short repository path without spaces: ffmpeg filter arguments,
@@ -123,7 +136,7 @@ lands.
 
 | Module | For | Status |
 |---|---|---|
-| Python 3.13 via a standalone `uv` | sample-based music, speech synthesis and recognition | deferred until the first Python tool |
+| Python 3.13 via a standalone `uv` | speech synthesis and recognition | deferred until the first Python tool (sample-based music is TypeScript: the audio stage, decision 21) |
 | Manim Community + a TeX distribution | mathematical animation | deferred until the first video that needs it |
 | Blender 5 (headless, `BLENDER_BIN`) | offline 3D | deferred |
 | Speech: Whisper-class recognition, a local TTS voice | narration checks, drafts | deferred |

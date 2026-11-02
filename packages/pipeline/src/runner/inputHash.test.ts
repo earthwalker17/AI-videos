@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { tempRepo, type TempRepo } from '../testing.ts';
-import { computeInputHash, filesOutsideHash, renderSettings } from './inputHash.ts';
+import { computeInputHash, filesOutsideHash, PictureInputs, pictureInputsOf, recomputePictureHash, renderSettings } from './inputHash.ts';
 import { PROFILES } from './profiles.ts';
 import { resolveTarget } from './target.ts';
 
@@ -68,6 +68,23 @@ describe('inputHash', () => {
     expect(hashOf(repo).hash).toBe(base);
     repo.write('videos/demo/video.json', JSON.stringify({ slug: 'demo', title: 'Renamed', engine: 'fake', entry: 'src/index.ts', format: { width: 320, height: 180, fps: 25 } }));
     expect(hashOf(repo).hash).not.toBe(base);
+  });
+});
+
+describe('inputs.json: recomputing the picture hash', () => {
+  it('gives the render hash on an unchanged tree and names what changed otherwise', () => {
+    repo = tempRepo();
+    const ih = hashOf(repo);
+    const recorded = PictureInputs.parse(JSON.parse(JSON.stringify(pictureInputsOf(ih))));
+    expect(JSON.stringify(recorded)).not.toMatch(/[A-Za-z]:[\\/]|\/tmp\//);
+    expect(recomputePictureHash(repo.root, recorded)).toEqual({ hash: ih.hash, changes: '' });
+    repo.write('videos/demo/src/index.ts', 'export const scene = 3;\n');
+    // a root that did not exist at render time counts too
+    repo.write('videos/demo/assets/logo.svg', '<svg/>');
+    repo.write('pnpm-lock.yaml', "lockfileVersion: '9.2'\n");
+    const now = recomputePictureHash(repo.root, recorded);
+    expect(now.hash).toBe(hashOf(repo).hash);
+    expect(now.changes).toBe('pnpm-lock.yaml changed; changed videos/demo/src/index.ts; added videos/demo/assets/logo.svg');
   });
 });
 

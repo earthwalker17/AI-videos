@@ -12,6 +12,7 @@ render time per frame, total render time).
 
 ## Reproduce it
 ```sh
+pnpm aiv audio {{slug}}            # videos with a score (audio/)
 pnpm aiv render {{slug}} --profile final
 pnpm aiv post {{slug}} --profile final
 pnpm aiv qa {{slug}} --profile final

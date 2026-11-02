@@ -5,6 +5,9 @@
  *  - the version already exists (versions are immutable);
  *  - post.json was not made from the current render.json (re-rendered since: the manifest would
  *    describe another picture than the files);
+ *  - the picture is stale: its input hash, recomputed from inputs.json (the render's own
+ *    settings and roots) against the current tree, differs (an edit after the render);
+ *  - an audio:<name> track is stale: the audio input hash differs from the one post mixed;
  *  - a file is not the one post.json describes, or has no QA report for its exact bytes (the
  *    delivery AND the archive master);
  *  - the render is a --frames sub-range or used the unpinned system browser (unless allowed);
@@ -14,8 +17,9 @@
  *    (unless allowed).
  */
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
-import { basename, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import {
+  AudioResult,
   EXIT,
   ExitError,
   parseContract,
@@ -27,17 +31,20 @@ import {
   type ReleaseFile,
   type RenderResult,
 } from '@aiv/core';
+import { computeAudioHash, describeAudioChanges } from '../audio/hash.ts';
+import { audioJsonFile } from '../audio/stage.ts';
 import { countFrames, probe } from '../media/probe.ts';
+import { PictureInputs, recomputePictureHash, videoSettingsChanges } from '../runner/inputHash.ts';
 import type { Target } from '../runner/target.ts';
 import { gitState } from '../util/git.ts';
-import { sha256File } from '../util/hash.ts';
+import { sha256, sha256File } from '../util/hash.ts';
 import type { Log } from '../util/log.ts';
-import { fromRepo, writeJson } from '../util/paths.ts';
+import { fromRepo, repoRel, writeJson } from '../util/paths.ts';
 
 type Role = ReleaseFile['role'];
 
 export interface ReleaseOptions {
-  target: Pick<Target, 'slug' | 'relDir' | 'root'>;
+  target: Pick<Target, 'slug' | 'spec' | 'relDir' | 'root' | 'config'>;
   version: number;
   /** post.json: which files to release and how they were made */
   postJson: PostResult;
@@ -107,6 +114,46 @@ function refuse(message: string): never {
   throw new ExitError(EXIT.REFUSED, message);
 }
 
+/**
+ * Refuse a picture whose inputs changed after it was rendered: the hash recomputed from the
+ * render's inputs.json (its settings and roots, never today's environment) over the current tree
+ * must still be render.json's, and the settings video.json gives (engine, entry, composition,
+ * format) must still be the recorded ones. The tree is what gets tagged, so the tag must rebuild
+ * this picture.
+ */
+export function refuseStalePicture(target: Pick<Target, 'root' | 'slug' | 'spec' | 'config'>, renderJsonPath: string, render: RenderResult): void {
+  const root = target.root;
+  const rerender = `aiv render ${target.spec} --profile ${render.profile}`;
+  const file = join(dirname(fromRepo(renderJsonPath, root)), 'inputs.json');
+  if (!existsSync(file)) refuse(`${repoRel(file, root)} is missing (the render predates it): run ${rerender}. A render that is up to date only writes inputs.json, so post and qa stand; then release`);
+  const recorded = parseContract(PictureInputs, JSON.parse(readFileSync(file, 'utf8')), repoRel(file, root));
+  if (recorded.inputHash !== render.inputHash) refuse(`${repoRel(file, root)} belongs to another render than ${renderJsonPath}: run ${rerender}, then post, qa and release`);
+  const fields = videoSettingsChanges(recorded.header, target);
+  if (fields.length) refuse(`the picture is stale: video.json changed since the render (${fields.join(', ')}). Re-render (${rerender}), then post, qa and release`);
+  const now = recomputePictureHash(root, recorded);
+  if (now.hash !== render.inputHash) refuse(`the picture is stale: its inputs changed since the render (${now.changes || 'the hash differs'}). Re-render (${rerender}), then post, qa and release`);
+}
+
+/**
+ * Refuse audio:<name> tracks whose audio input hash moved on since post mixed them, naming what
+ * changed and the step that is behind: the tracks themselves (run aiv audio), or only the mix
+ * (audio.json is current, post is older: re-run post).
+ */
+function refuseStaleGeneratedAudio(target: Pick<Target, 'slug' | 'spec' | 'relDir' | 'root'>, post: PostResult): void {
+  const g = post.audio.generated;
+  if (!g) return;
+  const now = computeAudioHash(target);
+  if (now.hash === g.inputHash) return;
+  const file = audioJsonFile(target.slug, target.root);
+  const bytes = existsSync(file) ? readFileSync(file) : null;
+  const current = bytes ? parseContract(AudioResult, JSON.parse(bytes.toString('utf8')), 'audio.json') : null;
+  if (current?.inputHash === now.hash)
+    refuse(`post mixed older audio tracks (input hash ${g.inputHash.slice(0, 12)}; audio.json is now at ${now.hash.slice(0, 12)}): re-run aiv post ${target.spec} --profile ${post.profile}, then qa and release`);
+  // name the files when the audio.json post mixed is still there to compare with
+  const why = bytes && current && sha256(bytes) === g.audioJsonSha256 ? describeAudioChanges(current, now) : `input hash ${g.inputHash.slice(0, 12)} → ${now.hash.slice(0, 12)}`;
+  refuse(`the audio tracks are stale (${why}): run aiv audio ${target.spec}, then post, qa and release`);
+}
+
 export async function writeRelease(o: ReleaseOptions): Promise<ReleaseManifest> {
   const { slug, root } = o.target;
   const manifestPath = o.manifestPath ?? join(o.outDir, 'manifest.json');
@@ -118,6 +165,8 @@ export async function writeRelease(o: ReleaseOptions): Promise<ReleaseManifest> 
   if (r.frames.count !== r.composition.durationFrames && !o.allowPartial)
     refuse(`the render holds frames ${r.frames.start}-${r.frames.end - 1} of ${r.composition.durationFrames}: render the whole composition (or --allow-partial deliberately)`);
   if (/not pinned/.test(r.toolchain.browser ?? '') && !o.allowUnpinned) refuse(`the render used ${r.toolchain.browser}: render with the pinned browser (or --allow-unpinned deliberately)`);
+  refuseStalePicture(o.target, post.render.path, r);
+  refuseStaleGeneratedAudio(o.target, post);
 
   const files = [
     { role: 'delivery' as const, rec: post.delivery },
@@ -174,7 +223,13 @@ export async function writeRelease(o: ReleaseOptions): Promise<ReleaseManifest> 
       },
       post: { dirty: post.git.dirty, deliveryPreset: post.delivery.preset, encoder: post.delivery.encoder, archivePreset: post.archive?.preset ?? null },
       tree,
-      audio: { lufs: loud?.i ?? null, truePeak: loud?.tp ?? null },
+      audio: {
+        lufs: loud?.i ?? null,
+        truePeak: loud?.tp ?? null,
+        ...(post.audio.files
+          ? { sources: post.audio.files.map((f) => ({ source: f.source, bytes: f.bytes, sha256: f.sha256, ...(f.source.startsWith('audio:') && post.audio.generated ? { inputHash: post.audio.generated.inputHash } : {}) })) }
+          : {}),
+      },
       qa: { passed: qaPassed, failed },
       storage: { tier: 'T1', limitBytes: T1_LIMIT_BYTES },
     },

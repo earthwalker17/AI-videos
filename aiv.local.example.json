@@ -1,6 +1,7 @@
 {
-  "$comment": "Copy to aiv.local.json (gitignored) and keep only what you need. Every key is optional. docs/ENVIRONMENT.md explains each one.",
+  "$comment": "Copy to aiv.local.json (gitignored) and keep only what you need. Every key is optional. docs/ENVIRONMENT.md explains each one. librarySeeds maps a sample-library id to the absolute path of a local checkout at the commit a video pins (for example \"vsco2-ce\": \"<absolute path of your VSCO-2-CE checkout>\"); aiv doctor --fix then copies pinned files from it instead of downloading them.",
   "minFreeMB": 1500,
   "abortFreeMB": 500,
-  "sweepApps": []
+  "sweepApps": [],
+  "librarySeeds": {}
 }

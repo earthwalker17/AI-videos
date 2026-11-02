@@ -3,7 +3,7 @@
  * defaults. Unknown keys are an error so a typo never silently disables a safety setting.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { z } from 'zod';
 import { repoRoot } from '../util/paths.ts';
 
@@ -17,6 +17,13 @@ export const LocalConfig = z.strictObject({
   abortFreeMB: z.number().positive().optional(),
   /** opt-in: background apps (process names) that may be stopped when memory is short, only while they have no open window */
   sweepApps: z.array(z.string().regex(/^[\w.\- ]+$/, 'a process name (letters, digits, . _ - space)')).optional(),
+  /**
+   * sample libraries already on this machine: library id → absolute path of a local checkout at
+   * the pinned commit, whose root maps 1:1 onto the library's upstream paths. `aiv doctor --fix`
+   * copies pinned files from it (only when the sha256 matches) instead of downloading them, and
+   * `aiv audio --pin` reads new files from it. The path stays in this gitignored file.
+   */
+  librarySeeds: z.record(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'a library id (lowercase-kebab)'), z.string().refine(isAbsolute, 'expected an absolute path')).optional(),
 });
 export type LocalConfig = z.infer<typeof LocalConfig>;
 

@@ -14,7 +14,8 @@ themselves; never run two at once.
    - exit `75`: budget spent or lock busy. Run the printed `continue with:` command again.
    - exit `2`: inputs changed under an unfinished run. Add `--force` to replace it.
    - exit `3`: low memory. Close something, then continue.
-2. `pnpm aiv post <target> --profile draft`
+2. Videos with a score (`audio/`): `pnpm aiv audio <slug>` (add `--verify` before a review
+   cut). Then `pnpm aiv post <target> --profile draft`.
 3. `pnpm aiv qa <target> --profile draft` must end with `QA PASSED`.
 4. **Look.** Read `out/<slug>/qa/<profile>/contact.png` (templates: `out/_template-<engine>/…`).
    Extract frames at key moments into a temporary folder outside the repository and read
@@ -24,7 +25,11 @@ themselves; never run two at once.
    Check text sharpness and size, edges, banding, blank or black frames, colour, framing.
 5. Judge against `BRIEF.md`, `STORYBOARD.md` and the style; for an outside eye, ask the
    `frame-critic` agent.
-6. Report the profile, frame count, seconds per frame, the QA numbers, what you looked at and
+6. **Sound.** Read `out/<slug>/qa/<profile>/audio.png` (spectrogram and waveform with the cue
+   sheet's events marked): hits on their lines, silences flat, no clipped peaks. The QA checks
+   prove levels and timing, not taste: say "not listened" and ask the user to listen at the
+   timestamps of the report's `listening` list.
+7. Report the profile, frame count, seconds per frame, the QA numbers, what you looked at and
    what you did not check.
 
 ## Extra checks
@@ -36,3 +41,10 @@ themselves; never run two at once.
   like with like and proves nothing.
 - **Final**: `--profile final --budget-min 9`, repeated until exit 0; then post and qa (the
   delivery and the archive master). Release only from a clean, committed tree.
+- **Leader removed for the final** (decision 24): set the cue sheet's `leaderFrames` to 0 and
+  remove `qa.swatchFrames`; then prove the final is the approved review cut shifted by the
+  leader: line k of the final's `frames.sha256` equals line k + leader of the review's, and the
+  score's samples equal the review's from the leader's sample offset on.
+- **Thin lines** (twigs, fence bars): before a review cut, render the densest such shot at full
+  size with `--frames` and look for shimmer across a few frames; only then decide on extra
+  anti-aliasing.

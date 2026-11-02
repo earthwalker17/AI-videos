@@ -13,6 +13,8 @@
  *                           against the frame hashes
  *   frames.sha256           "<frame> <sha256>" per line
  *   render.json             the engine-boundary contract (RenderResult)
+ *   inputs.json             the input hash's lines and per-file hashes (PictureInputs): post reads
+ *                           the cue sheet the picture saw, release recomputes the hash
  *
  * Chunk i holds frames [i·chunkFrames, (i+1)·chunkFrames) ∩ the range. A call renders chunks
  * until done (exit 0) or until the next chunk's estimate would not fit the per-call budget
@@ -40,7 +42,7 @@ import { createLog, type Log } from '../util/log.ts';
 import { outDir, partPath, repoRel, writeFileAtomic, writeJson } from '../util/paths.ts';
 import { toolchain } from '../util/toolchain.ts';
 import type { EngineAdapter, EngineInfo, EngineSession, FrameSpan } from './engine.ts';
-import { computeInputHash, renderSettings, type RenderSettings } from './inputHash.ts';
+import { computeInputHash, pictureInputsOf, renderSettings, type InputHash, type RenderSettings } from './inputHash.ts';
 import { renderSize, type Profile } from './profiles.ts';
 import type { Target } from './target.ts';
 
@@ -165,7 +167,7 @@ function runDiffs(run: RunJson, hash: string, settings: RenderSettings, adapter:
 }
 
 function wipeRun(dir: string): void {
-  for (const name of ['run.json', 'render.json', 'frames.sha256', 'chunks', 'partial']) rmSync(join(dir, name), { recursive: true, force: true });
+  for (const name of ['run.json', 'render.json', 'inputs.json', 'frames.sha256', 'chunks', 'partial']) rmSync(join(dir, name), { recursive: true, force: true });
   if (existsSync(dir)) for (const f of readdirSync(dir)) if (/^mezzanine(\.part)?\.\w+$/.test(f)) rmSync(join(dir, f), { force: true });
 }
 
@@ -215,13 +217,15 @@ export async function runRender(o: RunOptions): Promise<RunOutcome> {
     const mezz = existing ? join(root, ...existing.mezzanine.path.split('/')) : null;
     if (existing && existing.inputHash === ih.hash && mezz && existsSync(mezz) && statSync(mezz).size === existing.mezzanine.bytes) {
       chunksDone = chunksTotal = chunkList(run.frames, run.settings.chunkFrames).length;
+      // a render finished by an older runner gets its inputs.json now: the hash is the same
+      if (!existsSync(join(dir, 'inputs.json'))) writeJson(join(dir, 'inputs.json'), pictureInputsOf(ih));
       return outcome(EXIT.OK, `up to date: ${repoRel(renderFile, root)}`, { renderJson: existing, renderJsonPath: renderFile });
     }
     const chunks = chunkList(run.frames, run.settings.chunkFrames);
     if (chunks.every((c) => chunkDone(dir, run!, c))) {
       chunksDone = chunksTotal = chunks.length;
       try {
-        const rj = await assemble(dir, run, o, ih.roots, log, elapsed);
+        const rj = await assemble(dir, run, o, ih, log, elapsed);
         return outcome(EXIT.OK, `assembled ${repoRel(renderFile, root)}`, { renderJson: rj, renderJsonPath: renderFile });
       } catch (e) {
         return outcome(EXIT.ERROR, `render failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -364,7 +368,7 @@ export async function runRender(o: RunOptions): Promise<RunOutcome> {
 
     await session.close();
     session = null;
-    const rj = await assemble(dir, r, o, ih.roots, log, elapsed);
+    const rj = await assemble(dir, r, o, ih, log, elapsed);
     return outcome(EXIT.OK, `render complete: ${repoRel(renderFile, root)}`, { renderJson: rj, renderJsonPath: renderFile });
   } catch (e) {
     const exit = exitOf(e);
@@ -405,9 +409,15 @@ async function verifyMezzanine(mezz: string, run: RunJson, chunks: Chunk[], json
   log.info(`mezzanine check: ${got.length} decoded frames match their hashes`);
 }
 
-/** Concat the finished chunks into the mezzanine and write frames.sha256 + render.json. */
-async function assemble(dir: string, run: RunJson, o: RunOptions, roots: string[], log: Log, elapsed: () => number): Promise<RenderResult> {
+/**
+ * Concat the finished chunks into the mezzanine and write frames.sha256, inputs.json and
+ * render.json. `ih` is this call's input hash, which equals run.inputHash: a run whose inputs
+ * changed was refused or replaced before any of its chunks was trusted.
+ */
+async function assemble(dir: string, run: RunJson, o: RunOptions, ih: InputHash, log: Log, elapsed: () => number): Promise<RenderResult> {
   const root = o.target.root;
+  const roots = ih.roots;
+  if (ih.hash !== run.inputHash) throw new Error(`input hash ${ih.hash.slice(0, 12)} ≠ the run's ${run.inputHash.slice(0, 12)}: refusing to assemble`);
   const a0 = elapsed();
   const chunks = chunkList(run.frames, run.settings.chunkFrames);
   const jsons = chunks.map((c) => chunkDone(dir, run, c));
@@ -457,6 +467,7 @@ async function assemble(dir: string, run: RunJson, o: RunOptions, roots: string[
     },
     'render.json',
   );
+  writeJson(join(dir, 'inputs.json'), pictureInputsOf(ih));
   writeJson(join(dir, 'render.json'), rj);
   if (!o.keepChunks) for (const c of chunks) rmSync(chunkFiles(dir, run, c).media, { force: true });
   rmSync(join(dir, 'partial'), { recursive: true, force: true });

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
-  "description": "The aiv command line: new, doctor, check, render, post, qa, release, heavy.",
+  "description": "The aiv command line: new, doctor, check, render, audio, post, qa, release, heavy.",
   "exports": {
     ".": "./src/cli.ts"
   },

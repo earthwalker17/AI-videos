@@ -8,20 +8,30 @@
  *  - black / frozen spans longer than a threshold, unless declared intentional; silence (info);
  *  - swatches: chosen frames decoded with an explicit BT.709 limited-range matrix to rgb24, each
  *    patch's central 50 % mean within ±3 code values of TEST_SWATCHES;
- *    without swatch frames the report records colour as NOT VERIFIED;
- *  - a contact sheet of evenly spaced frames, labelled with their frame numbers.
- * One decode pass does probe-free analysis; swatch and contact frames are decoded separately.
+ *    without swatch frames (or when they lie outside a partial render) the report records colour
+ *    as NOT VERIFIED;
+ *  - a contact sheet of evenly spaced frames, labelled with their frame numbers;
+ *  - the sample peak (audio.clipping, FAILS above -0.1 dBFS).
+ * With the cue sheet of generated audio (audio.json, found through post.json): its black and hold
+ * spans join the allowances; silence, rest and hit cues are measured on the decoded samples'
+ * power (audio.ts); audio.json's intent checks are re-reported; audio.png marks every cue on a
+ * spectrogram over the waveform; and report.listening says where a person should listen.
+ * One decode pass does probe-free analysis; swatch and contact frames, the samples and the audio
+ * sheet are decoded separately.
  */
 import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { centralRegion, parseContract, QaReport, SWATCH_TOLERANCE, swatchLayout, type LoudnessTarget, type QaCheck, type SwatchRect } from '@aiv/core';
+import { centralRegion, parseContract, QaReport, SWATCH_TOLERANCE, swatchLayout, type AudioResult, type CueSheet, type LoudnessTarget, type QaCheck, type SwatchRect } from '@aiv/core';
 import { ffmpeg, ffmpegBin } from '../media/bin.ts';
 import { countFrames, probe, type ProbeResult } from '../media/probe.ts';
 import { sha256File } from '../util/hash.ts';
 import type { Log } from '../util/log.ts';
 import { repoRel, repoRoot, writeJson } from '../util/paths.ts';
 import { execBuffer } from '../util/proc.ts';
-import { parseBlack, parseEbur128, parseFreeze, parseSilence, unexpected, type Ebur128Summary, type Segment } from './detect.ts';
+import { allowedSpans, audioCueChecks, clippingCheck, deliveryCues, deliveryFrame, intentQaChecks, listeningPoints, shiftSpans } from './audio.ts';
+import { audioSheet, decodePower, sheetMarks } from './audioMedia.ts';
+import { check } from './check.ts';
+import { parseAstatsPeak, parseBlack, parseEbur128, parseFreeze, parseSilence, unexpected, type Ebur128Summary, type Segment } from './detect.ts';
 
 export interface QaOptions {
   file: string;
@@ -39,11 +49,20 @@ export interface QaOptions {
   };
   /** null/absent: loudness is measured and reported, not judged */
   loudness?: LoudnessTarget | null;
-  /** frames [start, end) that show the swatch strip; null/absent: no swatch check */
+  /**
+   * composition frames [start, end) that show the swatch strip (video.json qa.swatchFrames;
+   * shifted by startFrame like the allowances); null/absent: no swatch check
+   */
   swatch?: { frames: readonly [number, number]; layout?: SwatchRect[]; tolerance?: number } | null;
-  /** intentional spans, frames [start, end) */
+  /** intentional spans, composition frames [start, end) (video.json qa.allowBlack / allowFreeze) */
   allowBlack?: readonly (readonly [number, number])[];
   allowFreeze?: readonly (readonly [number, number])[];
+  /** the composition frame of the file's first frame (render.frames.start; > 0 for a partial render) */
+  startFrame?: number;
+  /** the cue sheet and intent checks of the generated audio the file was mixed from (audio.json) */
+  cues?: { sheet: CueSheet; intent?: AudioResult['checks'] } | null;
+  /** audio.png, the cues on a spectrogram over the waveform (needs cues and outDir); null/absent: none */
+  audioSheet?: { width?: number } | null;
   /** shortest black / frozen span that fails QA, seconds (default 0.5 / 3) */
   blackMinS?: number;
   freezeMinS?: number;
@@ -56,7 +75,6 @@ export interface QaOptions {
   log?: Log;
 }
 
-const check = (id: string, passed: boolean, detail: string, value?: unknown, info = false): QaCheck => ({ id, passed, detail, ...(value !== undefined ? { value } : {}), ...(info ? { info: true } : {}) });
 const fmtSeg = (s: Segment) => `${s.start.toFixed(2)}-${s.end.toFixed(2)} s`;
 
 function probeChecks(p: ProbeResult, o: QaOptions, frames: number | null): QaCheck[] {
@@ -109,10 +127,11 @@ export function loudnessChecks(ebu: Ebur128Summary | null, target: LoudnessTarge
   ];
 }
 
-/** The analysis pass: black, freeze, loudness, silence in one decode. */
+/** The analysis pass: black, freeze, loudness, silence and the sample peak in one decode. */
 async function analyse(file: string, hasAudio: boolean, o: QaOptions): Promise<string> {
   const vf = `blackdetect=d=${o.blackMinS ?? 0.5}:pix_th=0.10,freezedetect=n=-60dB:d=${o.freezeMinS ?? 3}`;
-  const af = 'ebur128=peak=true:framelog=quiet,silencedetect=n=-60dB:d=2';
+  // astats: the overall sample peak only (its flat factor and the rest are not judged)
+  const af = 'ebur128=peak=true:framelog=quiet,silencedetect=n=-60dB:d=2,astats=measure_perchannel=none:measure_overall=Peak_level';
   return ffmpeg(['-nostats', '-loglevel', 'info', '-i', file, '-map', '0:v:0', ...(hasAudio ? ['-map', '0:a:0', '-af', af] : []), '-vf', vf, '-f', 'null', '-'], 'qa analysis', { timeoutMs: 60 * 60_000 });
 }
 
@@ -187,14 +206,19 @@ export async function contactSheet(file: string, o: { frames: number; fps: numbe
   }
 }
 
-/** Run every check on a final file; writes report.json (+ contact.png) when outDir is given. */
+/** Run every check on a final file; writes report.json (+ contact.png, audio.png) when outDir is given. */
 export async function runQa(o: QaOptions): Promise<QaReport> {
   const root = o.root ?? repoRoot();
   const [p, frames] = await Promise.all([probe(o.file), countFrames(o.file, 'packets')]);
   const checks: QaCheck[] = [...probeChecks(p, o, frames), ...durationChecks(p, o, frames)];
   const durationS = p.video?.durationS ?? p.durationS ?? 0;
   const fps = o.expect.fps;
-  const toSeg = (spans: QaOptions['allowBlack']) => (spans ?? []).map(([a, b]) => ({ start: a / fps, end: b / fps }));
+  const toSeg = (spans: readonly (readonly [number, number])[]) => spans.map(([a, b]) => ({ start: a / fps, end: b / fps }));
+  // the file's place in the composition (a partial render starts later) and the cues that fall in it
+  const total = frames ?? o.expect.frames ?? Math.round(durationS * fps);
+  const startFrame = o.startFrame ?? 0;
+  const cues = o.cues ? deliveryCues(o.cues.sheet, total, startFrame) : [];
+  const allowed = allowedSpans({ allowBlack: o.allowBlack, allowFreeze: o.allowFreeze, cues, startFrame, frames: total });
 
   const err = await analyse(o.file, !!p.audio, o);
   const ebu = p.audio ? parseEbur128(err) : null;
@@ -202,19 +226,36 @@ export async function runQa(o: QaOptions): Promise<QaReport> {
   if (p.audio) checks.push(...loudnessChecks(ebu, o.loudness));
   const slack = 0.5 / fps;
   const black = parseBlack(err);
-  const badBlack = unexpected(black, toSeg(o.allowBlack), slack);
+  const badBlack = unexpected(black, toSeg(allowed.black), slack);
   checks.push(check('black', badBlack.length === 0, badBlack.length ? `unexpected black: ${badBlack.map(fmtSeg).join(', ')}` : `no unexpected black ≥ ${o.blackMinS ?? 0.5} s${black.length ? ` (${black.length} allowed)` : ''}`, black));
   const freeze = parseFreeze(err, durationS);
-  const badFreeze = unexpected(freeze, toSeg(o.allowFreeze), slack);
+  const badFreeze = unexpected(freeze, toSeg(allowed.freeze), slack);
   checks.push(check('freeze', badFreeze.length === 0, badFreeze.length ? `unexpected frozen picture: ${badFreeze.map(fmtSeg).join(', ')}` : `no unexpected freeze ≥ ${o.freezeMinS ?? 3} s${freeze.length ? ` (${freeze.length} allowed)` : ''}`, freeze));
   if (p.audio) {
     const silence = parseSilence(err, p.audio.durationS ?? durationS);
     checks.push(check('silence', true, silence.length ? `silent spans ≥ 2 s: ${silence.map(fmtSeg).join(', ')}` : 'no silence ≥ 2 s', silence, true));
+    checks.push(clippingCheck(parseAstatsPeak(err)));
   }
 
+  // the cue sheet's intent, measured on the samples' power (decoded once) and re-reported from audio.json
+  const sampleRate = 48_000;
+  let power: Float32Array | null = null;
+  if (o.cues && p.audio) {
+    try {
+      power = await decodePower(o.file, p.audio.channels, sampleRate);
+      checks.push(...audioCueChecks(power, cues, { fps, sampleRate }));
+    } catch (e) {
+      checks.push(check('audio.cues', false, `cue checks NOT run: ${(e as Error).message}`));
+    }
+  }
+  if (o.cues) checks.push(...intentQaChecks(o.cues.intent ?? []));
+
   if (!o.swatch) checks.push(check('swatches', true, 'colour NOT VERIFIED: no swatch frames (video.json qa.swatchFrames); only the tags were checked', null, true));
-  if (o.swatch && p.video) {
-    const [a, b] = o.swatch.frames;
+  // composition frames, like the allowances: on a partial render the strip sits startFrame earlier, or outside
+  const swatchSpan = o.swatch ? (shiftSpans([o.swatch.frames], startFrame, total)[0] ?? null) : null;
+  if (o.swatch && !swatchSpan) checks.push(check('swatches', true, `colour NOT VERIFIED: the swatch frames [${o.swatch.frames.join(', ')}) are outside this partial render (composition frames from ${startFrame})`, null, true));
+  if (o.swatch && swatchSpan && p.video) {
+    const [a, b] = swatchSpan;
     const picks = [a, Math.floor((a + b - 1) / 2), b - 1];
     const tol = o.swatch.tolerance ?? SWATCH_TOLERANCE;
     try {
@@ -240,6 +281,20 @@ export async function runQa(o: QaOptions): Promise<QaReport> {
     }
   }
 
+  let sheet: string | null = null;
+  if (o.cues && o.audioSheet && o.outDir && p.audio) {
+    const out = join(o.outDir, o.name ? `audio-${o.name}.png` : 'audio.png');
+    const filmStart = deliveryFrame(o.cues.sheet, 0, startFrame);
+    try {
+      const marks = sheetMarks(cues, fps, filmStart < total ? filmStart : undefined);
+      const { labels } = await audioSheet(o.file, { out, marks, durationS: power ? power.length / sampleRate : (p.audio.durationS ?? durationS), width: o.audioSheet.width, log: o.log });
+      sheet = repoRel(out, root);
+      checks.push(check('audio.sheet', true, `${sheet} (${cues.length} cues${labels ? '' : ', unlabelled'}): look at it`, sheet, true));
+    } catch (e) {
+      checks.push(check('audio.sheet', false, `audio sheet failed: ${(e as Error).message}`));
+    }
+  }
+
   const report = parseContract(
     QaReport,
     {
@@ -251,6 +306,7 @@ export async function runQa(o: QaOptions): Promise<QaReport> {
       checks,
       loudness: ebu && Number.isFinite(ebu.i) && ebu.tp !== null && Number.isFinite(ebu.tp) ? { i: ebu.i, tp: ebu.tp, lra: ebu.lra } : null,
       contactSheet: contact,
+      ...(o.cues ? { audioSheet: sheet, listening: listeningPoints(cues, fps) } : {}),
     },
     'qa report',
   );
@@ -258,9 +314,10 @@ export async function runQa(o: QaOptions): Promise<QaReport> {
   return report;
 }
 
-/** A compact table for the terminal. */
+/** A compact table for the terminal: the checks, where to listen (with a cue sheet), the verdict. */
 export function formatQaTable(r: QaReport): string {
   const w = Math.max(...r.checks.map((c) => c.id.length), 5);
   const lines = r.checks.map((c) => `  ${(c.info ? 'info' : c.passed ? 'PASS' : 'FAIL').padEnd(4)}  ${c.id.padEnd(w)}  ${c.detail}`);
-  return [...lines, `  ${r.passed ? 'QA PASSED' : `QA FAILED (${r.checks.filter((c) => !c.passed && !c.info).map((c) => c.id).join(', ')})`}`].join('\n');
+  const listen = (r.listening ?? []).map((l) => `  listen  ${`${l.t.toFixed(2)} s`.padStart(9)}  ${l.id}: ${l.what}`);
+  return [...lines, ...listen, `  ${r.passed ? 'QA PASSED' : `QA FAILED (${r.checks.filter((c) => !c.passed && !c.info).map((c) => c.id).join(', ')})`}`].join('\n');
 }

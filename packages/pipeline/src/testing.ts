@@ -3,12 +3,15 @@
  * the OS temp folder and a fake engine adapter that synthesises deterministic RGBA frames
  * (optionally with the swatch strip), in both adapter styles.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { paintSwatches, type VideoConfig } from '@aiv/core';
+import { SHARED_AUDIO_ROOTS } from './audio/hash.ts';
 import { ChunkEncoder } from './media/encoder.ts';
 import type { EngineAdapter, EngineSession, FrameSpan } from './runner/engine.ts';
+import { repoRoot } from './util/paths.ts';
 
 export interface TempRepo {
   root: string;
@@ -34,6 +37,17 @@ export function tempRepo(video: Partial<VideoConfig> & { slug?: string } = {}): 
   write(`videos/${slug}/video.json`, `${JSON.stringify(config, null, 2)}\n`);
   write(`videos/${slug}/src/index.ts`, 'export const scene = 1;\n');
   return { root, write, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+/**
+ * Copy this repository's score runtime and @aiv/core into a scratch repo, for tests that run
+ * the audio stage there: the score runs on this repository's runtime, and the stage refuses it
+ * unless the target's hashed copies are the same bytes (audio/hash.ts sharedCodeMismatches).
+ */
+export function withAudioRuntime(repo: TempRepo): TempRepo {
+  const code = repoRoot(dirname(fileURLToPath(import.meta.url)));
+  for (const rel of SHARED_AUDIO_ROOTS) cpSync(join(code, ...rel.split('/')), join(repo.root, ...rel.split('/')), { recursive: true });
+  return repo;
 }
 
 /** A deterministic synthetic frame: moving gradient + frame-index bars; swatches when asked. */

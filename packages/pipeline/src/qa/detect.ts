@@ -1,5 +1,5 @@
 /**
- * Parsers for what ffmpeg's analysis filters print on stderr (ebur128, blackdetect,
+ * Parsers for what ffmpeg's analysis filters print on stderr (ebur128, astats, blackdetect,
  * freezedetect, silencedetect). Pure functions, so the formats are pinned by tests.
  */
 
@@ -32,6 +32,18 @@ export function parseEbur128(stderr: string): Ebur128Summary | null {
   const lra = num(/LRA:\s+(-?[\d.]+)\s+LU/);
   const tp = num(/True peak:\s+Peak:\s+(-?[\d.]+|-inf)\s+dBFS/);
   return i === null ? null : { i, lra: lra ?? 0, tp };
+}
+
+/**
+ * astats' overall sample peak, dBFS: the "Overall" block it prints at the end, "Peak level dB:
+ * -0.512000" (-inf for digital silence; above 0 for float overs). Null without one.
+ */
+export function parseAstatsPeak(stderr: string): number | null {
+  const at = stderr.lastIndexOf('] Overall');
+  if (at < 0) return null;
+  const m = /Peak level dB:\s*(-?inf|-?\d+(?:\.\d+)?)/.exec(stderr.slice(at));
+  if (!m) return null;
+  return m[1] === '-inf' ? -Infinity : m[1] === 'inf' ? Infinity : Number(m[1]);
 }
 
 /** blackdetect: "black_start:0 black_end:1.5 black_duration:1.5". */
