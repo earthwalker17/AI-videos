@@ -1,12 +1,12 @@
 /**
- * The Remotion template: frames [0, swatchFrames[1]) are the kit's test card with the colour
- * swatch strip QA measures; the rest is an R3F scene with a title overlay. Every frame is a
- * pure function of useCurrentFrame().
+ * Frames [0, LEADER_FRAMES) are the kit's test card with the colour swatch strip QA measures
+ * (the review cut's colour evidence); the film follows in a Sequence, so inside it
+ * useCurrentFrame() is the film frame the cue sheet counts in.
  */
 import { TestCard } from '@aiv/remotion-kit';
-import { AbsoluteFill, useCurrentFrame } from 'remotion';
-import { Overlay } from './Overlay.tsx';
-import { BACKGROUND, Scene } from './Scene.tsx';
+import { Sequence, useCurrentFrame } from 'remotion';
+import { FILM_FRAMES, LEADER_FRAMES } from './cues.ts';
+import { Film } from './film/Film.tsx';
 
 export type MainProps = {
   /** frames [start, end) that show the test card; the engine checks them against video.json qa.swatchFrames */
@@ -15,11 +15,10 @@ export type MainProps = {
 
 export function Main({ swatchFrames }: MainProps) {
   const frame = useCurrentFrame();
-  if (frame < swatchFrames[1]) return <TestCard label="AI-videos · remotion engine template" />;
+  if (frame < swatchFrames[1]) return <TestCard label="A Halloween Gift · test card" />;
   return (
-    <AbsoluteFill style={{ background: BACKGROUND }}>
-      <Scene start={swatchFrames[1]} />
-      <Overlay start={swatchFrames[1]} />
-    </AbsoluteFill>
+    <Sequence from={LEADER_FRAMES} durationInFrames={FILM_FRAMES}>
+      <Film />
+    </Sequence>
   );
 }

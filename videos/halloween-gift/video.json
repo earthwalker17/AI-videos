@@ -16,7 +16,7 @@
       "note": "The user selected \"A · Storybook (Recommended)\" from the three candidates, chose \"Bilingual captions\" and the programmer couplet 代码千行一次过 / 账号百年永不封 · 横批 一路绿灯, and approved the production plan."
     }
   ],
-  "next": "Foundation commit (audio stage contracts, fonts, lint), then src/cues.ts and a greybox of every shot at draft.",
+  "next": "Integrate the audio stage and the kit font loader, then the score (audio/), lookdev stills and a 20 s audio sketch for the user to look at and listen to.",
   "languages": [
     "en",
     "zh-Hans"
