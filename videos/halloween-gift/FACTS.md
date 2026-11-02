@@ -7,7 +7,7 @@ Sources are in `sources.jsonl` (one JSON object per line).
 
 | Claim | As said in the video | Source id | Checked |
 |---|---|---|---|
-| Facing a door, the first line of a spring couplet (上联, ending on an oblique tone) hangs on the right, the second (下联, ending on a level tone) on the left; with a 横批 read left to right, the modern order may swap sides | The door shows 代码千行一次过 (ends 过, fourth tone) on the right and 账号百年永不封 (ends 封, first tone) on the left, 横批 一路绿灯 read left to right | couplet-rules | 2026-11-03 |
+| Facing a door, the first line of a spring couplet (上联, ending on an oblique tone) hangs on the right, the second (下联, ending on a level tone) on the left; with a 横批 read left to right, the modern order may swap sides | The 横批 一路绿灯 reads left to right, so 代码千行一次过 (the 上联: ends 过, fourth tone) hangs on the left and 账号百年永不封 (the 下联: ends 封, first tone) on the right | couplet-rules | 2026-11-03 |
 | On a house's main (outer) door the 福 is customarily hung upright; the upside-down 福 belongs on inner doors and household objects | The 福 on the door hangs upright (a diamond, the character upright) | fu-upright | 2026-11-03 |
 | Chopin's funeral march (Piano Sonata No. 2, Op. 35, third movement; published 1840) is in the public domain | A two-bar quotation, newly rendered, plays on the seal | chopin-sonata-2 | 2026-11-03 |
 | "Shave and a haircut, two bits" is a traditional call-and-response rhythm | Clawd knocks the first five notes; the ding answers "two bits" | shave-haircut | 2026-11-03 |

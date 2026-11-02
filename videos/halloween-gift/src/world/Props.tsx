@@ -15,20 +15,22 @@ export function HangingGhost({ position, f, seed, look = 0, drop = 0 }: { positi
     const pts: Vector2[] = [];
     const prof: [number, number][] = [
       [0.0, 0.0],
-      [0.13, -0.04],
-      [0.2, -0.16],
-      [0.21, -0.32],
-      [0.26, -0.6],
-      [0.31, -0.86],
+      [0.1, -0.05],
+      [0.16, -0.17],
+      [0.17, -0.34],
+      [0.21, -0.7],
+      [0.27, -1.1],
     ];
     for (const [x, y] of prof) pts.push(new Vector2(x, y));
     const geo = new LatheGeometry(pts, 32);
     // a tattered hem: drop alternate wedges of the lowest ring
     const p = geo.attributes.position as BufferAttribute;
     for (let i = 0; i < p.count; i++) {
-      if (p.getY(i) < -0.8) {
+      if (p.getY(i) < -1.0) {
+        // a torn hem: irregular strips of different lengths, not a regular scallop
         const a = Math.atan2(p.getZ(i), p.getX(i));
-        p.setY(i, p.getY(i) - 0.08 * Math.max(0, Math.sin(a * 7 + seed)) - 0.04 * rand(seed, i, 0));
+        const strip = Math.floor(((a + Math.PI) / (2 * Math.PI)) * 11);
+        p.setY(i, p.getY(i) - 0.22 * rand(seed, strip, 1) ** 2);
       }
     }
     geo.computeVertexNormals();
@@ -47,7 +49,7 @@ export function HangingGhost({ position, f, seed, look = 0, drop = 0 }: { positi
   geo.computeVertexNormals();
   const [x, y, z] = position;
   return (
-    <group position={[x, y - drop, z]} rotation-z={0.06 * Math.sin(1.3 * t + seed)}>
+    <group position={[x, y - drop, z]} rotation-z={0.06 * Math.sin(1.3 * t + seed) + (seed % 2 ? 0.12 : -0.1)}>
       {/* the thread */}
       <mesh position-y={0.5 + drop / 2}>
         <cylinderGeometry args={[0.004, 0.004, 1 + drop, 4]} />
@@ -57,7 +59,7 @@ export function HangingGhost({ position, f, seed, look = 0, drop = 0 }: { positi
         <meshStandardMaterial color="#8a7a94" roughness={0.95} side={DoubleSide} transparent opacity={0.82} emissive="#4a3d5c" emissiveIntensity={0.9} depthWrite={false} />
       </mesh>
       {([-1, 1] as const).map((s) => (
-        <mesh key={s} position={[s * 0.075 + look * 0.03, -0.2, 0.2]} scale={[0.045, 0.065, 0.01]}>
+        <mesh key={s} position={[s * 0.06 + look * 0.03, -0.21, 0.165]} rotation-z={s * -0.45} scale={[0.022, 0.045, 0.01]}>
           <sphereGeometry args={[1, 10, 8]} />
           <meshBasicMaterial color={[0.7, 2.4, 2.7]} toneMapped={false} />
         </mesh>
@@ -165,5 +167,43 @@ export function SpringBat({ position, f, seed, scale = 1 }: { position: [number,
         </group>
       ))}
     </group>
+  );
+}
+
+/**
+ * Paper bats squeezing out between the closed book's pages (bar 3, the hook): each leaves the
+ * glowing fore-edge on its own seeded beat and flutters up past the camera, wings on twos.
+ */
+export function BatBurst({ f, from, count = 8 }: { f: number; from: number; count?: number }) {
+  const t = twos(f);
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => {
+        const start = from + Math.floor(rand(41, i, 0) * 18) * 2;
+        const k = (t - start) / 26;
+        if (k < 0 || k > 1) return null;
+        const x0 = (rand(41, i, 1) - 0.5) * 8;
+        const x1 = x0 * 1.6 + 4 + rand(41, i, 2) * 4;
+        const e = k * k;
+        const pos: [number, number, number] = [x0 + (x1 - x0) * e, 1.0 + 7.5 * e + 0.4 * Math.sin(k * 9 + i), 4.1 + 6.5 * e];
+        const flap = Math.sin(t * 1.3 + i) * 0.8;
+        return (
+          <group key={i} position={pos} rotation={[0.3, (rand(41, i, 3) - 0.5) * 0.8, 0]} scale={2.6 + 1.2 * rand(41, i, 4)}>
+            <mesh>
+              <sphereGeometry args={[0.06, 10, 8]} />
+              <meshStandardMaterial color="#141016" roughness={0.9} emissive="#0e3a44" emissiveIntensity={0.6} />
+            </mesh>
+            {([-1, 1] as const).map((s) => (
+              <group key={s} rotation-z={s * flap}>
+                <mesh position={[s * 0.16, 0, 0]}>
+                  <boxGeometry args={[0.3, 0.006, 0.14]} />
+                  <meshStandardMaterial color="#141016" roughness={0.9} emissive="#0e3a44" emissiveIntensity={0.5} />
+                </mesh>
+              </group>
+            ))}
+          </group>
+        );
+      })}
+    </>
   );
 }

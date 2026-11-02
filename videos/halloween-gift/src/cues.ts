@@ -34,7 +34,7 @@ const text = (kind: 'text' | 'card', id: string, frame: number, end: number, wor
 /** The on-screen words, per language: the cue sheet's reading-time checks use these strings. */
 export const WORDS = {
   title: { en: 'A Halloween Gift', 'zh-Hans': '万圣节礼物' },
-  caption1: { en: 'On Halloween night, Clawd set out with a gift.', 'zh-Hans': '万圣节之夜，Clawd 带着礼物出门了。' },
+  caption1: { en: 'On Halloween night,\nClawd set out with a gift.', 'zh-Hans': '万圣节之夜，\nClawd 带着礼物出门了。' },
   caption2: { en: 'The last house was still awake.', 'zh-Hans': '最后一户人家，还没睡。' },
   couplet: { 'zh-Hans': '代码千行一次过 账号百年永不封 一路绿灯 福' },
   gift: { en: 'A GIFT FOR YOU' },
@@ -79,7 +79,7 @@ const events: CueEvent[] = [
   hit('ding-1', at(25, 1), 'ding (two)'),
   hit('ding-2', at(25, 2), 'ding (bits): the slats flip'),
   hit('seal-thunk', at(26), 'the 封号 seal; every pumpkin goes out'),
-  text('text', 'email', at(25, 3), at(29, 3) + 2, WORDS.email),
+  text('text', 'email', at(25, 3), at(29) - 2, WORDS.email),
   hit('appeal-snatch', at(27, 3), 'a bat snatches the Appeal tab'),
   // 29-33 · ghosted, the candy, the exit
   mark('pull-back', at(29)),

@@ -74,7 +74,7 @@ function coverArt(fonts: { serif: string; cjk: string }) {
 
 /** The book knocks from inside: the cover jolts up and settles over 4 frames (on twos). */
 function knockLift(t: number): number {
-  for (const k of [at(2, 1), at(2, 3), at(38, 1), at(38, 3)]) if (t >= k && t < k + 6) return 0.045 * (1 - (t - k) / 6);
+  for (const k of [at(2, 1), at(2, 3), at(38, 1), at(38, 3)]) if (t >= k && t < k + 6) return 0.11 * (1 - (t - k) / 6);
   return 0;
 }
 
@@ -130,7 +130,11 @@ export function Book({ f, children, fonts, ready }: { f: number; children?: Reac
       {turn > 0 && turn < 1 && (
         <group position={[0, FLOOR + 0.01, -BOOK_D / 2]} rotation-x={-turn * (Math.PI / 2)}>
           <mesh geometry={geo.sheet} position={[0, 0, BOOK_D / 2]} rotation-x={-Math.PI / 2}>
-            <meshStandardMaterial map={pageArt} roughness={0.95} side={2} />
+            <meshStandardMaterial map={pageArt} roughness={0.95} />
+          </mesh>
+          {/* its back: plain paper, the page seen from behind as it sweeps past */}
+          <mesh geometry={geo.sheet} position={[0, -0.002, BOOK_D / 2]} rotation-x={Math.PI / 2}>
+            <meshStandardMaterial color="#d8ccb0" roughness={0.95} bumpMap={fibreTexture()} bumpScale={0.5} />
           </mesh>
         </group>
       )}

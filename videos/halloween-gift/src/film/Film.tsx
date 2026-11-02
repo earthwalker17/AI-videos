@@ -13,6 +13,8 @@ import { FilmPost } from '../look/Post.tsx';
 import { Overlay } from '../overlay/Overlay.tsx';
 import { Book } from '../world/Book.tsx';
 import { Desk } from '../world/Desk.tsx';
+import { BatBurst } from '../world/Props.tsx';
+import { at } from '../cues.ts';
 import { Clawd, ClawdKey } from '../world/Clawd.tsx';
 import { Sets } from '../world/Sets.tsx';
 import { clawdAt } from './actors.ts';
@@ -48,7 +50,7 @@ export function Film() {
         {/* aerial perspective inside the book; the room around the desk stays clearer */}
         <fogExp2 attach="fog" args={["#163848", onDesk(f) ? 0.012 : 0.035]} />
         <CameraRig f={f} />
-        <hemisphereLight args={['#6fa9c4', '#2a0f12', 0.55]} />
+        <hemisphereLight args={['#6fa9c4', '#2a0f12', 0.72]} />
         <directionalLight
           castShadow
           position={[6, 14, -8]}
@@ -68,6 +70,8 @@ export function Film() {
         <Book f={f} fonts={fonts} ready={ready}>
           <Sets f={f} on={on} fonts={fonts} ready={ready} />
         </Book>
+        {/* the hook: paper bats squeeze out of the closed book */}
+        {f >= at(3) - 2 && f < at(5) && <BatBurst f={f} from={at(3)} />}
         <Clawd pose={clawdAt(f)} f={f} />
         <ClawdKey pose={clawdAt(f)} />
         <FilmPost f={f} />

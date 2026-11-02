@@ -17,22 +17,24 @@ export const twos = (f: number): number => f - (f % 2);
 export function coverOpen(f: number): number {
   const t = twos(f);
   if (t < at(4)) return 0;
-  if (t < at(34, 3)) return progress(t, at(4), at(4) + 14, 'outExpo');
+  if (t < at(34, 3)) return progress(t, at(4), at(4) + 18, 'outCubic');
   return 1 - progress(t, at(34, 3), at(35), 'inCubic');
 }
 
 /** The page turn from the valley to the graveyard: 0 lying .. 1 turned against the backdrop. */
-export const pageTurn = (f: number): number => progress(twos(f), at(9), at(9) + 18, 'inOutCubic');
+export const pageTurn = (f: number): number => progress(twos(f), at(9), at(9) + 14, 'inOutSine');
 
 /** The flats of the graveyard slide off stage on bar 13: 0 in place .. 1 gone. */
 export const slideAway = (f: number): number => progress(twos(f), at(13), at(13) + 16, 'inCubic');
 
-/** A pop-up's rise, 0 flat .. 1 standing, starting at `from` (frames), with a little spring. */
-export function rise(f: number, from: number, dur = 10): number {
+/** A pop-up's rise, 0 flat .. 1 standing, starting at `from` (frames): paper springing up on its
+ * hinge, easing in (no first-drawing pop) and overshooting a little before it settles. */
+export function rise(f: number, from: number, dur = 14): number {
   const t = progress(twos(f), from, from + dur, 'linear');
   if (t <= 0) return 0;
-  // overshoot then settle: paper springing up on its hinge
-  return clamp(1 - Math.exp(-6 * t) * Math.cos(9 * t), 0, 1.12);
+  const c = 1.3;
+  const x = t - 1;
+  return clamp(1 + (c + 1) * x * x * x + c * x * x, 0, 1.1);
 }
 
 // ---- which set is on stage --------------------------------------------------------------------
@@ -107,15 +109,19 @@ const SHOTS: { from: number; keys: Key[] }[] = [
       { f: at(4), pos: [6.8, 7.8, 13.2], look: [0, 1.2, 0], fov: 30, focus: 15, ease: 'linear' },
       { f: at(4) + 20, pos: [1.5, 15.5, 9.0], look: [0, FLOOR, 0.5], fov: 34, focus: 14, ease: 'inOutSine' },
       { f: at(7), pos: [1.0, FLOOR + 1.1, 7.2], look: [-0.3, FLOOR + 2.15, -3.0], fov: 36, focus: 4.9, ease: 'settle' },
-      { f: at(9), pos: [2.1, FLOOR + 0.95, 5.8], look: [1.2, FLOOR + 1.5, -2.0], fov: 34, focus: 4.0 },
+      { f: at(8, 3), pos: [2.1, FLOOR + 0.95, 5.8], look: [1.2, FLOOR + 1.5, -2.0], fov: 34, focus: 4.0 },
+      // crane up and back to watch the page turn sweep over the stage
+      { f: at(9), pos: [1.2, FLOOR + 6.4, 10.5], look: [0, FLOOR + 1.6, -1.0], fov: 34, focus: 11, ease: 'inOutSine' },
     ],
   },
   {
     // 9-12: a lateral truck alongside Clawd through the graveyard
     from: at(9),
     keys: [
-      { f: at(9), pos: [0.9, FLOOR + 1.0, 4.0], look: [0.3, FLOOR + 0.9, 0.0], fov: 30, focus: 3.5 },
-      { f: at(10), pos: [-3.4, FLOOR + 0.75, 3.6], look: [-2.9, FLOOR + 0.7, 0.4], fov: 30, focus: 3.2 },
+      // the page turn, watched from above as it sweeps over the stage, then down into the truck
+      { f: at(9), pos: [1.2, FLOOR + 6.4, 10.5], look: [0, FLOOR + 1.6, -1.0], fov: 34, focus: 11 },
+      { f: at(9) + 16, pos: [-1.2, FLOOR + 3.4, 7.6], look: [-1.0, FLOOR + 1.2, -0.5], fov: 32, focus: 8, ease: 'inOutSine' },
+      { f: at(10), pos: [-3.4, FLOOR + 0.75, 3.6], look: [-2.9, FLOOR + 0.7, 0.4], fov: 30, focus: 3.2, ease: 'inOutCubic' },
       { f: at(13), pos: [2.6, FLOOR + 0.85, 3.6], look: [3.1, FLOOR + 0.8, 0.4], fov: 30, focus: 3.2, ease: 'linear' },
     ],
   },
@@ -133,12 +139,12 @@ const SHOTS: { from: number; keys: Key[] }[] = [
     // the ding; pull back; push in on the wink; follow Clawd out; the cover comes down.
     from: at(17),
     keys: [
-      { f: at(17), pos: [1.05, FLOOR + 0.45, 3.3], look: [-0.05, FLOOR + 1.15, -1.2], fov: 36, focus: 3.2 },
+      { f: at(17), pos: [1.2, FLOOR + 0.55, 3.0], look: [0.0, FLOOR + 1.2, -1.3], fov: 36, focus: 4.1 },
       { f: at(20), pos: [0.95, FLOOR + 0.5, 3.6], look: [-0.15, FLOOR + 1.3, -1.2], fov: 36, focus: 4.7, ease: 'inOutSine' },
       { f: at(21), pos: [0.7, FLOOR + 0.7, 4.4], look: [-0.15, FLOOR + 1.35, -1.0], fov: 36, focus: 5.3 },
       { f: at(24, 3), pos: [0.35, FLOOR + 0.9, 4.1], look: [-0.1, FLOOR + 1.2, -0.4], fov: 34, focus: 4.3, ease: 'inOutSine' },
-      { f: at(25) + BEAT, pos: [-0.05, FLOOR + 1.05, 3.77], look: [-0.05, FLOOR + 1.05, -0.15], fov: 30, focus: 3.92, ease: 'outCubic' },
-      { f: at(29), pos: [-0.03, FLOOR + 1.06, 3.72], look: [-0.05, FLOOR + 1.05, -0.15], fov: 30, focus: 3.87, ease: 'linear' },
+      { f: at(25) + BEAT, pos: [-0.05, FLOOR + 1.15, 3.41], look: [-0.05, FLOOR + 1.15, -0.15], fov: 30, focus: 3.56, ease: 'outCubic' },
+      { f: at(29), pos: [-0.03, FLOOR + 1.16, 3.37], look: [-0.05, FLOOR + 1.15, -0.15], fov: 30, focus: 3.52, ease: 'linear' },
       { f: at(30), pos: [0.7, FLOOR + 0.7, 4.6], look: [-0.15, FLOOR + 1.3, -1.0], fov: 36, focus: 5.0, ease: 'inOutCubic' },
       { f: at(31, 3), pos: [0.68, FLOOR + 0.7, 4.5], look: [-0.15, FLOOR + 1.3, -1.0], fov: 36, focus: 5.0, ease: 'linear' },
       { f: at(32), pos: [0.85, FLOOR + 0.5, 2.6], look: [0.8, FLOOR + 0.45, 0.4], fov: 30, focus: 2.2, ease: 'outCubic' },

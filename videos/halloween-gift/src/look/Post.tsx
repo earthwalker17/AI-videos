@@ -53,7 +53,7 @@ export class StorybookGrade extends Effect {
         ['uNear', new Uniform(new Color('#5a1e22'))],
         ['uFar', new Uniform(new Color('#2a6a7a'))],
         ['uSplit', new Uniform(0.55)],
-        ['uVignette', new Uniform(0.55)],
+        ['uVignette', new Uniform(0.45)],
         ['uFrame', new Uniform(0)],
         ['uGrain', new Uniform(0.16)],
       ]),

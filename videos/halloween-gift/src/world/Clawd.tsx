@@ -19,7 +19,7 @@ const BAND = '#E9862E';
 const BUCKLE = '#DCE6B7';
 
 /** Clawd's own key light: a soft, cool spot from the front right that travels with the puppet (stop-motion practice). */
-export function ClawdKey({ pose, intensity = 7 }: { pose: ClawdPose; intensity?: number }) {
+export function ClawdKey({ pose, intensity = 10 }: { pose: ClawdPose; intensity?: number }) {
   const target = useMemo(() => new Object3D(), []);
   if (!pose.visible) return null;
   const [x, y, z] = pose.pos;
@@ -58,7 +58,7 @@ export function Clawd({ pose, f }: { pose: ClawdPose; f: number }) {
   const eyeShift = pose.eyes === 'left' ? -1 : pose.eyes === 'right' ? 1 : 0;
   const eyeH = (side: -1 | 1) => (pose.eyes === 'closed' || (pose.eyes === 'wink' && side === 1) ? 0.25 : 1);
   return (
-    <group position={pose.pos as [number, number, number]} rotation-y={pose.heading}>
+    <group position={[pose.pos[0], pose.pos[1] + pose.hop, pose.pos[2]]} rotation-y={pose.heading}>
       {/* the pop-up hinge: lies flat (rise 0) and springs up about its front edge */}
       <group position-z={3 * U} rotation-x={-(1 - pose.rise) * (Math.PI / 2)}>
         <group position-z={-3 * U}>
@@ -85,7 +85,7 @@ export function Clawd({ pose, f }: { pose: ClawdPose; f: number }) {
             </mesh>
           ))}
           {/* the witch hat, tilted and crooked */}
-          <group position={[0.6 * U, bodyY + 4 * U, 0]} rotation-z={-0.18}>
+          <group position={[0.6 * U, bodyY + 4 * U + pose.hatTip * 2.5 * U, pose.hatTip * 1.5 * U]} rotation={[pose.hatTip * -0.35, 0, -0.18 + pose.hatTip * 0.25]}>
             <mesh geometry={geo.brim} position-y={0.15 * U} castShadow>
               <meshStandardMaterial color={HAT} roughness={0.9} />
             </mesh>
@@ -99,6 +99,27 @@ export function Clawd({ pose, f }: { pose: ClawdPose; f: number }) {
               <meshStandardMaterial color={BUCKLE} roughness={0.6} />
             </mesh>
           </group>
+          {/* the gift: a black envelope with an orange ribbon and a pumpkin wax seal stamped @, held up */}
+          {pose.envelope > 0.02 && (
+            <group position={[0, bodyY + 12 * U, 0.5 * U]} scale={pose.envelope}>
+              <mesh>
+                <boxGeometry args={[10 * U, 6.5 * U, 0.4 * U]} />
+                <meshStandardMaterial color="#141016" roughness={0.6} />
+              </mesh>
+              <mesh position-z={0.25 * U}>
+                <boxGeometry args={[10.2 * U, 0.7 * U, 0.2 * U]} />
+                <meshStandardMaterial color="#E9862E" roughness={0.6} emissive="#5a2a08" emissiveIntensity={0.4} />
+              </mesh>
+              <mesh position-z={0.25 * U}>
+                <boxGeometry args={[0.7 * U, 6.7 * U, 0.2 * U]} />
+                <meshStandardMaterial color="#E9862E" roughness={0.6} emissive="#5a2a08" emissiveIntensity={0.4} />
+              </mesh>
+              <mesh position-z={0.45 * U} rotation-x={Math.PI / 2}>
+                <cylinderGeometry args={[1.5 * U, 1.5 * U, 0.4 * U, 20]} />
+                <meshStandardMaterial color="#c8322a" roughness={0.45} emissive="#4a0a06" emissiveIntensity={0.5} />
+              </mesh>
+            </group>
+          )}
           {/* the pumpkin pail on the left arm, the wand in the right */}
           <group position={[-9.8 * U, bodyY - 6.5 * U, 1 * U]}>
             <Pumpkin position={[0, 0, 0]} scale={2.8 * U} lit={pose.pailLit} f={f} seed={9} grin="small" light={false} rotation={0.4} />

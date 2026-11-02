@@ -83,11 +83,15 @@ function Graveyard({ f, serif, ready }: { f: number; serif: string; ready: boole
       ).map(([x, z, w, h, kind, tilt], i) => (
         <Card key={x} at={[x, FLOOR, z]} size={[w, h]} rise={r(2 + (i % 3))} tilt={tilt} draw={(g, W, H) => drawStone(g, W, H, kind, '#56666f', x === 1.15 ? 'RIP' : undefined, `${Math.round(H * 0.26)}px ${serif}`)} boil={boil(20 + i)} drawKey={x === 1.15 ? ready : undefined} />
       ))}
-      <Cauldron position={[2.3, FLOOR, -0.5]} f={f} scale={0.8} />
-      <SpringBat position={[1.0, FLOOR + 2.6, -1.6]} f={f} seed={1} />
-      <SpringBat position={[3.1, FLOOR + 3.0, -2.0]} f={f} seed={2} scale={0.8} />
-      <Gauze position={[0, FLOOR + 0.35, -1.7]} size={[11, 0.9]} f={f} seed={1.3} />
-      <Gauze position={[0, FLOOR + 0.25, 1.4]} size={[11, 0.7]} f={f} seed={4.1} opacity={0.22} />
+      {f >= at(9) + 8 && (
+        <>
+          <Cauldron position={[2.3, FLOOR, -0.5]} f={f} scale={0.8} />
+          <SpringBat position={[1.0, FLOOR + 2.6, -1.6]} f={f} seed={1} />
+          <SpringBat position={[3.1, FLOOR + 3.0, -2.0]} f={f} seed={2} scale={0.8} />
+          <Gauze position={[0, FLOOR + 0.35, -1.7]} size={[11, 0.9]} f={f} seed={1.3} />
+          <Gauze position={[0, FLOOR + 0.25, 1.4]} size={[11, 0.7]} f={f} seed={4.1} opacity={0.22} />
+        </>
+      )}
       {/* foreground stones that wipe past the truck */}
       <Card at={[-2.4, FLOOR, 2.1]} size={[0.38, 0.55]} rise={r(5)} tilt={0.15} draw={(g, W, H) => drawStone(g, W, H, 'round', '#3a454c')} boil={boil(30)} />
       <Card at={[2.3, FLOOR, 2.1]} size={[0.32, 0.6]} rise={r(5)} tilt={-0.1} draw={(g, W, H) => drawStone(g, W, H, 'cross', '#3a454c')} boil={boil(31)} />

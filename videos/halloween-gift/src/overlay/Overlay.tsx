@@ -10,7 +10,7 @@ import { AbsoluteFill, useVideoConfig } from 'remotion';
 import { at, cues, WORDS } from '../cues.ts';
 import { FLOOR, twos } from '../film/timeline.ts';
 import { LETTER_AT } from '../world/DoorSet.tsx';
-import { LETTER_H, LETTER_W } from '../world/Letter.tsx';
+import { FACE_B, LETTER_H, LETTER_W } from '../world/Letter.tsx';
 import { screenBox } from './project.ts';
 
 const span = (id: string) => {
@@ -28,7 +28,7 @@ function Caption({ f, id, words, fonts }: { f: number; id: string; words: { en: 
   if (o <= 0) return null;
   return (
     <div style={{ position: 'absolute', left: h * 0.075, top: h * 0.065, opacity: o }}>
-      <div style={{ padding: `${h * 0.014}px ${h * 0.028}px`, background: 'rgba(43, 24, 48, 0.84)', borderRadius: h * 0.006, textAlign: 'left', color: '#DCE6B7' }}>
+      <div style={{ padding: `${h * 0.014}px ${h * 0.028}px`, background: 'rgba(43, 24, 48, 0.8)', borderRadius: h * 0.006, textAlign: 'left', color: '#DCE6B7', whiteSpace: 'pre-line' }}>
         <div style={{ fontFamily: fonts.serif, fontSize: h * 0.046, lineHeight: 1.2 }}>{words.en}</div>
         <div style={{ fontFamily: fonts.cjk, fontSize: h * 0.038, lineHeight: 1.35, fontWeight: 500 }}>{words['zh-Hans']}</div>
       </div>
@@ -40,9 +40,11 @@ function Caption({ f, id, words, fonts }: { f: number; id: string; words: { en: 
 function Email({ f, fonts }: { f: number; fonts: FilmFonts }) {
   const font = fonts.sans;
   const { width: W, height: H } = useVideoConfig();
-  // fade in once the last slat has flipped (at(25, 2) + 18), out as the letter folds down
+  // in once the last slat has flipped (at(25, 2) + 18); out, onto the sealed 3D face, just before
+  // the letter sinks back into the page (at(29)): the camera holds still through both hand-overs
   const flipped = at(25, 2) + 18;
-  const o = Math.min(progress(f, flipped, flipped + 4), 1 - progress(f, at(29, 3) - 6, at(29, 3) + 2));
+  const o = Math.min(progress(f, flipped, flipped + 4), 1 - progress(f, at(29) - 6, at(29) - 2));
+  const L = FACE_B;
   if (o <= 0) return null;
   const x0 = LETTER_AT[0] - LETTER_W / 2;
   const y0 = FLOOR + LETTER_AT[1];
@@ -60,33 +62,33 @@ function Email({ f, fonts }: { f: number; fonts: FilmFonts }) {
   const away = progress(twos(f), grab, grab + 30, 'inCubic');
   // down and out to the lower left: the bat never crosses the words being read
   const tabX = w * 0.05 - away * (box.left + w * 0.4);
-  const tabY = h * 0.83 + away * (H - box.top);
+  const tabY = h * L.tabTop + away * (H - box.top);
   return (
     <div style={{ position: 'absolute', left: box.left, top: box.top + shake, width: w, height: h, opacity: o, background: '#EAF3F4', fontFamily: font, color: '#1a2228', boxShadow: `0 ${h * 0.02}px ${h * 0.06}px rgba(0,0,0,0.35)` }}>
       {/* an envelope glyph and greeked header lines: mail, without saying who from */}
-      <svg style={{ position: 'absolute', left: w * 0.05, top: h * 0.07 }} width={w * 0.06} height={h * 0.07} viewBox="0 0 60 40">
+      <svg style={{ position: 'absolute', left: w * 0.05, top: h * 0.06 }} width={w * 0.06} height={h * 0.07} viewBox="0 0 60 40">
         <rect x="2" y="2" width="56" height="36" fill="none" stroke="#5b6b72" strokeWidth="4" />
         <polyline points="2,2 30,24 58,2" fill="none" stroke="#5b6b72" strokeWidth="4" />
       </svg>
-      <div style={{ position: 'absolute', left: w * 0.14, top: h * 0.08, width: w * 0.3, height: h * 0.018, background: '#c3cfd3' }} />
-      <div style={{ position: 'absolute', left: w * 0.14, top: h * 0.12, width: w * 0.2, height: h * 0.018, background: '#c3cfd3' }} />
-      <div style={{ position: 'absolute', left: w * 0.05, top: h * 0.22, fontSize: h * 0.15, fontWeight: 800, lineHeight: 1.07, letterSpacing: '-0.01em' }}>
+      <div style={{ position: 'absolute', left: w * 0.14, top: h * 0.07, width: w * 0.3, height: h * 0.018, background: '#c3cfd3' }} />
+      <div style={{ position: 'absolute', left: w * 0.14, top: h * 0.11, width: w * 0.2, height: h * 0.018, background: '#c3cfd3' }} />
+      <div style={{ position: 'absolute', left: w * 0.05, top: h * L.headTop, fontSize: h * L.head, fontWeight: 800, lineHeight: 1.07, letterSpacing: '-0.01em' }}>
         ACCOUNT
         <br />
         SUSPENDED
       </div>
-      <div style={{ position: 'absolute', left: w * 0.05, top: h * 0.6, fontSize: h * 0.062, lineHeight: 1.45 }}>
+      <div style={{ position: 'absolute', left: w * 0.05, top: h * L.bodyTop, fontSize: h * L.body, lineHeight: 1.4 }}>
         Suspicious signals detected.
         <br />
         Happy Halloween!
       </div>
       {/* the Appeal tab, cobwebbed; a bat makes off with it */}
-      <div style={{ position: 'absolute', left: tabX, top: tabY, padding: `${h * 0.012}px ${h * 0.03}px`, border: `${Math.max(1, h * 0.004)}px solid #5b6b72`, borderRadius: h * 0.012, fontSize: h * 0.05, color: '#3d4a50', background: '#EAF3F4' }}>
+      <div style={{ position: 'absolute', left: tabX, top: tabY, padding: `${h * 0.012}px ${h * 0.03}px`, border: `${Math.max(1, h * 0.004)}px solid #5b6b72`, borderRadius: h * 0.012, fontSize: h * L.tab, color: '#3d4a50', background: '#EAF3F4' }}>
         Appeal · <span style={{ fontFamily: fonts.cjk }}>申诉</span>
       </div>
-      {f >= grab - 12 && f < grab + 30 && <Bat x={tabX - h * 0.02 - (1 - progress(f, grab - 12, grab, 'outCubic')) * h * 0.9} y={tabY + h * 0.035 + (1 - progress(f, grab - 12, grab, 'outCubic')) * h * 0.35} size={h * 0.2} f={f} />}
+      {f >= grab - 12 && f < grab + 30 && <Bat x={tabX - h * 0.02 - (1 - progress(f, grab - 12, grab, 'outCubic')) * h * 0.9} y={tabY + h * 0.035 + (1 - progress(f, grab - 12, grab, 'outCubic')) * h * 0.35} size={h * 0.42} f={f} />}
       {sealIn && (
-        <div style={{ position: 'absolute', right: w * 0.06, bottom: h * 0.08, width: h * 0.34, height: h * 0.34, background: '#C8322A', color: '#fff7f0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', transform: `rotate(-7deg) scale(${sealScale})`, fontFamily: fonts.cjk, fontSize: h * 0.135, fontWeight: 900, lineHeight: 1.0, boxShadow: `0 ${h * 0.01}px ${h * 0.02}px rgba(60,0,0,0.35)`, borderRadius: h * 0.012 }}>
+        <div style={{ position: 'absolute', right: w * L.sealRight, bottom: h * L.sealBottom, width: h * L.seal, height: h * L.seal, background: '#C8322A', color: '#fff7f0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', transform: `rotate(-7deg) scale(${sealScale})`, fontFamily: fonts.cjk, fontSize: h * L.seal * 0.4, fontWeight: 900, lineHeight: 1.05, boxShadow: `0 ${h * 0.01}px ${h * 0.02}px rgba(60,0,0,0.35)`, borderRadius: h * 0.012 }}>
           <span>封</span>
           <span>号</span>
         </div>
@@ -122,8 +124,8 @@ function EndNotice({ f, fonts }: { f: number; fonts: FilmFonts }) {
           </div>
         )}
       </div>
-      <div style={{ fontFamily: font, fontSize: h * 0.034 }}>Fan parody. Not affiliated with Anthropic. Fictional email.</div>
-      <div style={{ fontFamily: fonts.cjk, fontSize: h * 0.033 }}>粉丝恶搞，与 Anthropic 无关，邮件纯属虚构。</div>
+      <div style={{ fontFamily: font, fontSize: h * 0.048 }}>Fan parody. Not affiliated with Anthropic. Fictional email.</div>
+      <div style={{ fontFamily: fonts.cjk, fontSize: h * 0.042 }}>粉丝恶搞，与 Anthropic 无关，邮件纯属虚构。</div>
     </AbsoluteFill>
   );
 }
