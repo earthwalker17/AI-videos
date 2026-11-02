@@ -24,7 +24,7 @@ export interface LetterFonts {
 function fit(g: CanvasRenderingContext2D, text: string, font: string, maxW: number) {
   g.font = font;
   const w = g.measureText(text).width;
-  if (w > maxW) g.font = font.replace(/(d+)px/, (_, n) => `${Math.floor((Number(n) * maxW) / w)}px`);
+  if (w > maxW) g.font = font.replace(/(\d+)px/, (_, n) => `${Math.floor((Number(n) * maxW) / w)}px`);
 }
 
 function faceA(g: CanvasRenderingContext2D, w: number, h: number, fonts: LetterFonts) {

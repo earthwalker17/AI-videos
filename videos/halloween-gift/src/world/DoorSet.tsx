@@ -11,14 +11,16 @@ import { at } from '../cues.ts';
 import { clawdAt, pailWorld, userAt } from '../film/actors.ts';
 import { FLOOR, rise, twos } from '../film/timeline.ts';
 import { drawDoor, drawFacade, drawRoom } from '../look/house.ts';
+import { drawFarHouse, drawFence, drawTree } from '../look/cutouts.ts';
 import { canvas, cardMaterial } from '../look/paper.ts';
+import { Card } from './Card.tsx';
 import { Ground } from './Ground.tsx';
 import { Letter, type LetterFonts } from './Letter.tsx';
 import { Sheet } from './Sheet.tsx';
 
 /** the door opening, world units: centre x, width, height (the house front stands at z = -1.5) */
 export const DOOR = { x: -0.25, z: -1.5, w: 1.3, h: 2.35 };
-const FRONT = { w: 8.8, h: 5.4 };
+const FRONT = { w: 8.0, h: 5.4 };
 /** the letter's base centre: x, height above the floor of its bottom edge, z */
 export const LETTER_AT: [number, number, number] = [-0.05, 0.06, -0.15];
 
@@ -187,14 +189,14 @@ export function DoorSet({ f, fonts, ready }: { f: number; fonts: LetterFonts & {
       <group position={[LETTER_AT[0], FLOOR, LETTER_AT[2]]}>
         <Letter rise={letterRise} flip={flip} fonts={fonts} ready={ready} />
       </group>
+      {/* the set's right edge: a dead tree and a fence close it (the desk lies beyond the page) */}
+      <Card at={[5.3, FLOOR, 1.6]} size={[2.2, 4.0]} tilt={0.05} draw={(g, w, h) => drawTree(g, w, h, 61, { lean: -0.3 })} />
+      <Card at={[4.9, FLOOR, -2.4]} size={[1.8, 0.9]} yaw={-0.3} draw={(g, w, h) => drawFence(g, w, h, 62)} />
       {/* a far house down the lane: its window flips cold with a faint ding-ding */}
-      <mesh position={[4.4, FLOOR + 1.1, -3.4]}>
-        <planeGeometry args={[0.32, 0.42]} />
+      <Card at={[5.0, FLOOR, -3.3]} size={[1.5, 2.3]} draw={(g, w, h, e) => drawFarHouse(g, e, w, h, 63)} />
+      <mesh position={[5.0, FLOOR + 1.0, -3.25]}>
+        <planeGeometry args={[0.36, 0.5]} />
         <meshBasicMaterial color={farCold ? [0.5, 1.7, 1.9] : [2.0, 1.1, 0.35]} toneMapped={false} />
-      </mesh>
-      <mesh position={[4.4, FLOOR + 0.7, -3.45]}>
-        <boxGeometry args={[1.2, 1.4, 0.05]} />
-        <meshStandardMaterial color="#14262f" roughness={1} />
       </mesh>
     </group>
   );

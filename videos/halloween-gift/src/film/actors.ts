@@ -85,7 +85,7 @@ export function clawdAt(film: number): ClawdPose {
     const tada = f >= at(22) && f < at(23);
     const wink = f >= at(32) && f < at(32, 3);
     const exit = f >= at(33, 2);
-    const w = exit ? walking(f, at(33, 2), at(34, 3), P(0.55, 0.45), P(3.4, 0.6)) : { pos: P(0.55, 0.45), walk: null };
+    const w = exit ? walking(f, at(33, 2), at(34, 3), P(1.05, 0.45), P(2.9, 0.7)) : { pos: P(1.05, 0.45), walk: null };
     let heading = Math.PI + 0.55; // three-quarter: facing the door, seen from the front-right
     if (f >= at(18, 3) && f < at(19, 2)) heading = 0.35; // the glance at the lens in the silence
     if (f >= at(31, 3) && f < at(33, 2)) heading = 0.25; // to camera for the wink

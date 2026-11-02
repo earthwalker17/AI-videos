@@ -12,7 +12,7 @@ import { Cauldron, Gauze, HangingGhost, SpringBat } from './Props.tsx';
 import { Card } from './Card.tsx';
 import { DoorSet } from './DoorSet.tsx';
 import type { LetterFonts } from './Letter.tsx';
-import { Ground } from './Ground.tsx';
+import { Ground, VALLEY_PATH } from './Ground.tsx';
 import { Pumpkin } from './Pumpkin.tsx';
 
 
@@ -21,7 +21,7 @@ function Valley({ f }: { f: number }) {
   const boil = (seed: number) => ({ f, seed });
   return (
     <group>
-      <Ground seed={21} path={[[0.62, 1.0], [0.55, 0.78], [0.66, 0.58], [0.5, 0.4], [0.56, 0.2]]} />
+      <Ground seed={21} path={VALLEY_PATH} />
       {/* the castle on its floating rock, glowing through (far: aerial perspective) */}
       <Card at={[-0.5, FLOOR + 1.55, -3.55]} size={[4.2, 4.0]} rise={r(0)} backlight={0.0} emissiveIntensity={2.2} draw={(g, w, h, e) => drawCastle(g, e, w, h, 11, '#2c6684', '#9fe8f0')} boil={boil(1)} shadow={false} />
       <Card at={[0, FLOOR, -3.1]} size={[12, 2.4]} rise={r(1)} draw={(g, w, h) => drawHills(g, w, h, 3, '#1f5670')} backlight={0.25} glow="#2f7f96" boil={boil(2)} shadow={false} />
@@ -53,7 +53,7 @@ function Valley({ f }: { f: number }) {
   );
 }
 
-function Graveyard({ f }: { f: number }) {
+function Graveyard({ f, serif, ready }: { f: number; serif: string; ready: boolean }) {
   const r = (k: number) => rise(f, at(9) + 8 + k * 3) * (1 - slideAway(f));
   const slide = slideAway(f) * 9;
   const boil = (seed: number) => ({ f, seed });
@@ -70,7 +70,7 @@ function Graveyard({ f }: { f: number }) {
       <Card at={[-1.7, FLOOR, -1.5]} size={[3.8, 5.4]} rise={r(1)} tilt={-0.04} draw={(g, w, h) => drawTree(g, w, h, 14, { lean: 0.25, eyes: true })} boil={boil(13)} />
       <Card at={[4.8, FLOOR, -1.0]} size={[2.8, 4.2]} rise={r(2)} tilt={0.06} draw={(g, w, h) => drawTree(g, w, h, 15, { lean: -0.35 })} boil={boil(14)} />
       {r(1) > 0.95 &&
-        [-0.95, -0.35, 0.25].map((x, i) => <HangingGhost key={x} position={[x, FLOOR + 2.35, -1.25]} f={f} seed={i + 3} look={lookAt(x)} drop={i === 1 ? peek * 0.7 : 0} />)}
+        [-0.95, -0.35, 0.25].map((x, i) => <HangingGhost key={x} position={[x, FLOOR + 2.05, -1.25]} f={f} seed={i + 3} look={lookAt(x)} drop={i === 1 ? peek * 0.7 : 0} />)}
       {(
         [
           [-3.6, -0.9, 0.62, 0.9, 'round', -0.12],
@@ -81,7 +81,7 @@ function Graveyard({ f }: { f: number }) {
           [4.3, -0.4, 0.5, 0.9, 'cross', 0.12],
         ] as const
       ).map(([x, z, w, h, kind, tilt], i) => (
-        <Card key={x} at={[x, FLOOR, z]} size={[w, h]} rise={r(2 + (i % 3))} tilt={tilt} draw={(g, W, H) => drawStone(g, W, H, kind, '#56666f', x === 1.15 ? 'RIP' : undefined, `${Math.round(H * 0.24)}px serif`)} boil={boil(20 + i)} />
+        <Card key={x} at={[x, FLOOR, z]} size={[w, h]} rise={r(2 + (i % 3))} tilt={tilt} draw={(g, W, H) => drawStone(g, W, H, kind, '#56666f', x === 1.15 ? 'RIP' : undefined, `${Math.round(H * 0.26)}px ${serif}`)} boil={boil(20 + i)} drawKey={x === 1.15 ? ready : undefined} />
       ))}
       <Cauldron position={[2.3, FLOOR, -0.5]} f={f} scale={0.8} />
       <SpringBat position={[1.0, FLOOR + 2.6, -1.6]} f={f} seed={1} />
@@ -89,8 +89,8 @@ function Graveyard({ f }: { f: number }) {
       <Gauze position={[0, FLOOR + 0.35, -1.7]} size={[11, 0.9]} f={f} seed={1.3} />
       <Gauze position={[0, FLOOR + 0.25, 1.4]} size={[11, 0.7]} f={f} seed={4.1} opacity={0.22} />
       {/* foreground stones that wipe past the truck */}
-      <Card at={[-2.0, FLOOR, 2.5]} size={[0.6, 0.85]} rise={r(5)} tilt={0.15} draw={(g, W, H) => drawStone(g, W, H, 'round', '#3a454c')} boil={boil(30)} />
-      <Card at={[2.2, FLOOR, 2.6]} size={[0.5, 0.95]} rise={r(5)} tilt={-0.1} draw={(g, W, H) => drawStone(g, W, H, 'cross', '#3a454c')} boil={boil(31)} />
+      <Card at={[-2.4, FLOOR, 2.1]} size={[0.38, 0.55]} rise={r(5)} tilt={0.15} draw={(g, W, H) => drawStone(g, W, H, 'round', '#3a454c')} boil={boil(30)} />
+      <Card at={[2.3, FLOOR, 2.1]} size={[0.32, 0.6]} rise={r(5)} tilt={-0.1} draw={(g, W, H) => drawStone(g, W, H, 'cross', '#3a454c')} boil={boil(31)} />
     </group>
   );
 }
@@ -134,7 +134,7 @@ export function Sets({ f, on, fonts, ready }: { f: number; on: SetId[]; fonts: L
   return (
     <>
       {on.includes('valley') && <Valley f={f} />}
-      {on.includes('graveyard') && <Graveyard f={f} />}
+      {on.includes('graveyard') && <Graveyard f={f} serif={fonts.serif} ready={ready} />}
       {on.includes('lane') && <Lane f={f} />}
       {on.includes('door') && <DoorSet f={f} fonts={fonts} ready={ready} />}
     </>

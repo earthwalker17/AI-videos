@@ -7,7 +7,9 @@ import { useLayoutEffect, useMemo } from 'react';
 import { BoxGeometry, CanvasTexture, PlaneGeometry, SRGBColorSpace } from 'three';
 import { at, FPS } from '../cues.ts';
 import { coverOpen, FLOOR, pageTurn } from '../film/timeline.ts';
+import { drawGround } from '../look/cutouts.ts';
 import { canvas, fibreTexture, seq } from '../look/paper.ts';
+import { VALLEY_PATH } from './Ground.tsx';
 import { skyTime, useSkyMaterial } from '../look/Sky.tsx';
 import { twos } from '../film/timeline.ts';
 
@@ -79,6 +81,17 @@ function knockLift(t: number): number {
 export function Book({ f, children, fonts, ready }: { f: number; children?: React.ReactNode; fonts: { serif: string; cjk: string }; ready: boolean }) {
   const title = useMemo(() => coverArt(fonts), [fonts, ready]);
   useLayoutEffect(() => () => title.dispose(), [title]);
+  // the turning page is the valley's page: its printed ground goes with it
+  const pageArt = useMemo(() => {
+    const W = 1856;
+    const H = Math.round((W * (BOOK_D - 0.3)) / (BOOK_W - 0.4));
+    const { c, g } = canvas(W, H);
+    drawGround(g, W, H, 21, VALLEY_PATH);
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  }, []);
+  useLayoutEffect(() => () => pageArt.dispose(), [pageArt]);
   const geo = useMemo(
     () => ({
       block: new BoxGeometry(BOOK_W - 0.3, FLOOR - 0.04, BOOK_D - 0.25),
@@ -117,7 +130,7 @@ export function Book({ f, children, fonts, ready }: { f: number; children?: Reac
       {turn > 0 && turn < 1 && (
         <group position={[0, FLOOR + 0.01, -BOOK_D / 2]} rotation-x={-turn * (Math.PI / 2)}>
           <mesh geometry={geo.sheet} position={[0, 0, BOOK_D / 2]} rotation-x={-Math.PI / 2}>
-            <meshStandardMaterial color="#d9cdb0" roughness={0.95} side={2} />
+            <meshStandardMaterial map={pageArt} roughness={0.95} side={2} />
           </mesh>
         </group>
       )}

@@ -26,9 +26,11 @@ export interface CardProps extends CardOptions {
   boil?: { f: number; seed: number; amp?: number };
   shadow?: boolean;
   renderOrder?: number;
+  /** redraw the canvas when this changes (e.g. once the fonts are ready) */
+  drawKey?: string | number | boolean;
 }
 
-export function Card({ at, size, ppu = 160, draw, rise = 1, tilt = 0, yaw = 0, boil, shadow = true, renderOrder, ...mat }: CardProps) {
+export function Card({ at, size, ppu = 160, draw, rise = 1, tilt = 0, yaw = 0, boil, shadow = true, renderOrder, drawKey, ...mat }: CardProps) {
   const [w, h] = size;
   const { geometry, material } = useMemo(() => {
     const W = Math.round(w * ppu);
@@ -40,7 +42,7 @@ export function Card({ at, size, ppu = 160, draw, rise = 1, tilt = 0, yaw = 0, b
     const material = cardMaterial(art.c, mat.emissive === undefined && mat.emissiveIntensity ? { ...mat, emissive: em.c } : mat);
     return { geometry, material };
     // the drawing is fixed per mount: deps are the size and density only
-  }, [w, h, ppu]);
+  }, [w, h, ppu, drawKey]);
   useLayoutEffect(
     () => () => {
       geometry.dispose();

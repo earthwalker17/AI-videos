@@ -54,10 +54,10 @@ export function HangingGhost({ position, f, seed, look = 0, drop = 0 }: { positi
         <meshBasicMaterial color="#0d1015" />
       </mesh>
       <mesh geometry={geo} castShadow={false}>
-        <meshStandardMaterial color="#3a2638" roughness={0.95} side={DoubleSide} transparent opacity={0.92} emissive="#1d1024" emissiveIntensity={0.6} />
+        <meshStandardMaterial color="#8a7a94" roughness={0.95} side={DoubleSide} transparent opacity={0.82} emissive="#4a3d5c" emissiveIntensity={0.9} depthWrite={false} />
       </mesh>
       {([-1, 1] as const).map((s) => (
-        <mesh key={s} position={[s * 0.07 + look * 0.03, -0.2, 0.19]} scale={[0.035, 0.05, 0.01]}>
+        <mesh key={s} position={[s * 0.075 + look * 0.03, -0.2, 0.2]} scale={[0.045, 0.065, 0.01]}>
           <sphereGeometry args={[1, 10, 8]} />
           <meshBasicMaterial color={[0.7, 2.4, 2.7]} toneMapped={false} />
         </mesh>

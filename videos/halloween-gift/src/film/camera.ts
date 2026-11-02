@@ -13,8 +13,9 @@ export function shotPose(f: number): Pose {
   // Clawd trots off toward the far window: the camera pans and trucks with him (on ones)
   if (f >= at(33, 2) && f < at(35)) {
     const c = clawdAt(f).pos;
-    const look: [number, number, number] = [c[0] + 0.5, FLOOR + 0.55, c[2] - 0.6];
-    const pos: [number, number, number] = [c[0] - 0.9, FLOOR + 0.75, c[2] + 2.9];
+    // look past him into the set, toward the far house whose window flips cold (the last laugh)
+    const look: [number, number, number] = [c[0] + 0.9, FLOOR + 0.85, c[2] - 2.0];
+    const pos: [number, number, number] = [c[0] - 1.1, FLOOR + 0.8, c[2] + 2.8];
     const k = progress(f, at(33, 2), at(33, 2) + 10, 'inOutSine');
     return {
       pos: [lerp(keyed.pos[0], pos[0], k), lerp(keyed.pos[1], pos[1], k), lerp(keyed.pos[2], pos[2], k)],

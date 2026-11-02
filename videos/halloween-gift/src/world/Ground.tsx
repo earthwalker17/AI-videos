@@ -8,6 +8,9 @@ import { FLOOR } from '../film/timeline.ts';
 import { drawGround } from '../look/cutouts.ts';
 import { canvas, fibreTexture } from '../look/paper.ts';
 
+/** the valley page's path (fractions of the page), shared with the turning page */
+export const VALLEY_PATH: [number, number][] = [[0.62, 1.0], [0.55, 0.78], [0.66, 0.58], [0.5, 0.4], [0.56, 0.2]];
+
 export const PAGE_W = 11.6;
 export const PAGE_D = 7.7;
 

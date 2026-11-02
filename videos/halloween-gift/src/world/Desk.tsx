@@ -6,7 +6,7 @@
 import { useLayoutEffect, useMemo } from 'react';
 import { CanvasTexture, LinearSRGBColorSpace, Object3D, SRGBColorSpace } from 'three';
 import { at } from '../cues.ts';
-import { twos } from '../film/timeline.ts';
+import { onDesk, twos } from '../film/timeline.ts';
 import { canvas, seq } from '../look/paper.ts';
 import { Pumpkin } from './Pumpkin.tsx';
 
@@ -82,9 +82,14 @@ export function Desk({ f }: { f: number }) {
       {/* moonlight through a gothic window, from the back left */}
       <spotLight position={[-9, 14, -10]} target={target} map={gobo} castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004} intensity={420} angle={0.32} penumbra={0.25} decay={2} distance={60} color="#a8d4dc" />
       {lightning > 0 && <directionalLight position={[-8, 12, -4]} intensity={16 * lightning} color="#dff4ff" />}
-      {/* a small jack-o'-lantern beside the book */}
-      <Pumpkin position={[7.2, 0, -3.4]} scale={1.2} lit={1} f={f} seed={12} rotation={-0.9} />
-      <pointLight color="#ff9a3c" intensity={14} distance={12} decay={2} position={[6.7, 1.4, -2.6]} />
+      {/* a small jack-o'-lantern beside the book (only in the desk shots: from inside the book it
+          would loom past the page edge) */}
+      {onDesk(f) && (
+        <>
+          <Pumpkin position={[7.2, 0, -3.4]} scale={1.2} lit={1} f={f} seed={12} rotation={-0.9} />
+          <pointLight color="#ff9a3c" intensity={14} distance={12} decay={2} position={[6.7, 1.4, -2.6]} />
+        </>
+      )}
     </group>
   );
 }

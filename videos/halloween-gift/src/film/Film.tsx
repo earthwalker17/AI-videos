@@ -8,6 +8,7 @@ import { useThree } from '@react-three/fiber';
 import { useLayoutEffect } from 'react';
 import { AbsoluteFill, useCurrentFrame } from 'remotion';
 import type { PerspectiveCamera } from 'three';
+import { useFilmFonts } from '../look/fonts.ts';
 import { FilmPost } from '../look/Post.tsx';
 import { Overlay } from '../overlay/Overlay.tsx';
 import { Book } from '../world/Book.tsx';
@@ -20,8 +21,6 @@ import { onDesk, setsAt } from './timeline.ts';
 
 export const NIGHT = '#0a1118';
 
-// placeholder until the kit's font loader lands: generic families (never captured for review)
-const FONTS = { serif: 'serif', sans: '"AIV Inter", sans-serif', cjk: 'serif' };
 
 function CameraRig({ f }: { f: number }) {
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
@@ -40,6 +39,7 @@ function CameraRig({ f }: { f: number }) {
 
 export function Film() {
   const f = useCurrentFrame();
+  const { fonts, ready } = useFilmFonts();
   const on = setsAt(f);
   return (
     <AbsoluteFill style={{ background: NIGHT }}>
@@ -65,14 +65,14 @@ export function Film() {
         {/* a soft cool fill from the front, so faces and paper read against the moonlit backdrop */}
         <directionalLight position={[-3, 5, 12]} intensity={0.75} color="#8fc3d4" />
         <Desk f={f} />
-        <Book f={f} fonts={FONTS} ready>
-          <Sets f={f} on={on} fonts={FONTS} ready />
+        <Book f={f} fonts={fonts} ready={ready}>
+          <Sets f={f} on={on} fonts={fonts} ready={ready} />
         </Book>
         <Clawd pose={clawdAt(f)} f={f} />
         <ClawdKey pose={clawdAt(f)} />
         <FilmPost f={f} />
       </Stage3D>
-      <Overlay f={f} />
+      <Overlay f={f} fonts={fonts} />
     </AbsoluteFill>
   );
 }
