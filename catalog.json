@@ -31,6 +31,22 @@
       "path": "videos/the-ai-stack",
       "watch": "https://youtu.be/LDH7UhHeKG4",
       "reusable": []
+    },
+    {
+      "number": 3,
+      "slug": "halloween-gift",
+      "title": "A Halloween Gift",
+      "series": "festivals",
+      "status": "production",
+      "engine": "remotion",
+      "reproducibility": "full",
+      "languages": [
+        "en",
+        "zh-Hans"
+      ],
+      "path": "videos/halloween-gift",
+      "watch": null,
+      "reusable": []
     }
   ],
   "series": [
@@ -50,7 +66,9 @@
       "status": "active",
       "summary": "Visual pieces for traditional and seasonal celebrations, built on workflows that return every year.",
       "path": "series/festivals",
-      "videos": []
+      "videos": [
+        "halloween-gift"
+      ]
     },
     {
       "id": "micro-films",
@@ -111,7 +129,9 @@
       "title": "Remotion engine (`@aiv/engine-remotion`)",
       "path": "engines/remotion/ENGINE.md",
       "template": "templates/remotion",
-      "usedBy": []
+      "usedBy": [
+        "halloween-gift"
+      ]
     },
     {
       "id": "web",
@@ -126,7 +146,9 @@
       "name": "@aiv/core",
       "path": "packages/core",
       "description": "Isomorphic determinism helpers (seeded rng, easing, test swatches) and the shared zod contracts.",
-      "usedBy": []
+      "usedBy": [
+        "halloween-gift"
+      ]
     },
     {
       "name": "@aiv/pipeline",
@@ -138,7 +160,9 @@
       "name": "@aiv/remotion-kit",
       "path": "packages/remotion-kit",
       "description": "Deterministic React/Remotion building blocks: a Stage3D for R3F under Remotion, titles, test swatches.",
-      "usedBy": []
+      "usedBy": [
+        "halloween-gift"
+      ]
     },
     {
       "name": "@aiv/engine-remotion",

@@ -1,0 +1,64 @@
+{
+  "$schema": "../../schemas/video.v1.json",
+  "schemaVersion": 1,
+  "number": 3,
+  "slug": "halloween-gift",
+  "title": "A Halloween Gift",
+  "titles": {
+    "zh-Hans": "万圣节礼物"
+  },
+  "series": "festivals",
+  "status": "production",
+  "approvals": [
+    {
+      "gate": "treatment",
+      "date": "2026-11-03",
+      "note": "The user selected \"A · Storybook (Recommended)\" from the three candidates, chose \"Bilingual captions\" and the programmer couplet 代码千行一次过 / 账号百年永不封 · 横批 一路绿灯, and approved the production plan."
+    }
+  ],
+  "next": "Foundation commit (audio stage contracts, fonts, lint), then src/cues.ts and a greybox of every shot at draft.",
+  "languages": [
+    "en",
+    "zh-Hans"
+  ],
+  "styles": [],
+  "reproducibility": "full",
+  "engine": "remotion",
+  "entry": "src/index.ts",
+  "composition": "Main",
+  "format": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 24
+  },
+  "audio": {
+    "tracks": [
+      {
+        "source": "lavfi:aevalsrc=0.10*sin(2*PI*146.83*t)+0.07*sin(2*PI*220*t)+0.05*sin(2*PI*293.66*t)|0.10*sin(2*PI*147.2*t)+0.07*sin(2*PI*220*t)+0.05*sin(2*PI*293.66*t):s=48000,afade=t=in:d=0.6,afade=t=out:st=4.0:d=1.0"
+      },
+      {
+        "source": "lavfi:anoisesrc=c=brown:r=48000:a=0.03:seed=2202,afade=t=in:d=1.0,afade=t=out:st=3.5:d=1.5",
+        "gainDb": -8
+      }
+    ]
+  },
+  "qa": {
+    "swatchFrames": [
+      0,
+      12
+    ],
+    "loudness": {
+      "integrated": -14,
+      "tolerance": 1,
+      "truePeakMax": -1
+    }
+  },
+  "reusable": [],
+  "license": {
+    "film": "none",
+    "note": "Fan parody: its central character, Clawd, belongs to Anthropic, so the film carries no reuse licence. Not affiliated with or endorsed by Anthropic. Code MIT and text CC BY 4.0 as in the rest of the repository."
+  },
+  "youtube": null,
+  "release": null,
+  "source": null
+}

@@ -11,10 +11,11 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 |---|---|---|---|---|
 | 1 | [Journey Through Middle-Earth](../videos/journey-through-middle-earth/README.md) | standalone | published (record only) | [YouTube](https://youtu.be/kRuPq4GjhGc) |
 | 2 | [THE AI STACK](../videos/the-ai-stack/README.md) | [3D Concept Visualizations](../series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
+| 3 | [A Halloween Gift](../videos/halloween-gift/README.md) | [Festival & Celebration](../series/festivals/SERIES.md) | production | — |
 
 ## Series
 - [3D Concept Visualizations](../series/concept-viz/SERIES.md) (`concept-viz`, active, 1 video): Complex technical systems explained as physical, spatial machines you can see working.
-- [Festival & Celebration](../series/festivals/SERIES.md) (`festivals`, active, 0 videos): Visual pieces for traditional and seasonal celebrations, built on workflows that return every year.
+- [Festival & Celebration](../series/festivals/SERIES.md) (`festivals`, active, 1 video): Visual pieces for traditional and seasonal celebrations, built on workflows that return every year.
 - [Micro Films](../series/micro-films/SERIES.md) (`micro-films`, active, 0 videos): Short conceptual and philosophical films about consciousness, humanity, AI and the future.
 - [Product & Launch](../series/product-launch/SERIES.md) (`product-launch`, active, 0 videos): Polished code-generated motion graphics: product demos, launch films and UI animation.
 - [Science & Knowledge Explainers](../series/science-explainers/SERIES.md) (`science-explainers`, active, 0 videos): Dense, honest explanations of hard ideas in mathematics and physics, from open problems to prize-winning work.

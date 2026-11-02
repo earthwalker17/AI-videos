@@ -19,6 +19,7 @@ repository and are catalogued as records.
 |---|---|---|---|---|
 | 1 | [Journey Through Middle-Earth](videos/journey-through-middle-earth/README.md) | standalone | published (record only) | [YouTube](https://youtu.be/kRuPq4GjhGc) |
 | 2 | [THE AI STACK](videos/the-ai-stack/README.md) | [3D Concept Visualizations](series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
+| 3 | [A Halloween Gift](videos/halloween-gift/README.md) | [Festival & Celebration](series/festivals/SERIES.md) | production | — |
 <!-- /aiv:generated -->
 
 Series: [3D Concept Visualizations](series/concept-viz/SERIES.md) ·
