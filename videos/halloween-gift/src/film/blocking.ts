@@ -4,15 +4,15 @@
  *
  * Clawd travels one route: the path from the pop-up spot beside the giant pumpkin, through the
  * graveyard (a stop to shoo the ghost), through the gates and up the lane, bending at its end to
- * V1's knock spot in front of the door. His five walks are the score's (audio/timeline.ts WALKS,
- * same frames, same footfalls), each a hop gait (film/gait.ts) between consecutive stops, so a
+ * V1's knock spot in front of the door. His five walks are the score's (WALK_FRAMES repeats
+ * audio/timeline.ts WALKS: picture and score may not import each other; blocking.test.ts checks
+ * they agree, footfall for footfall), each a hop gait (film/gait.ts) between consecutive stops, so a
  * walk always starts where the last one ended. The door spread (bars 17–34) is V1's approved
  * blocking carried onto the last house by fromV1Door (scaled by DOOR_SCALE), headings turned by
  * the house's yaw, on ones instead of twos; the back-off from the door and the exit trot become
  * hops too (no abs(sin) bob).
  */
 import { clamp, easings, lerp, progress } from '@aiv/core';
-import { WALKS } from '../../audio/timeline.ts';
 import { Curve, type P2 } from '../kit/spline.ts';
 import { DOOR_SCALE, FLOOR, fromV1Door, groundHeight, LAND, PATH, PATH_POINTS, STOPS } from '../world/layout.ts';
 import { at, BEAT, KNOCKS } from '../cues.ts';
@@ -63,7 +63,15 @@ export const ROUTE_STOPS = {
   knock: ROUTE.length,
 } as const;
 
-const [W_VALLEY, W_GRAVE1, W_GRAVE2, W_LANE, W_EXIT] = WALKS;
+/** The walks' frames [start, arrival]: the score's WALKS (audio/timeline.ts), repeated here. */
+export const WALK_FRAMES: readonly (readonly [number, number])[] = [
+  [at(8, 2), at(9) + 8],
+  [at(9) + 18, at(11, 1)],
+  [at(11, 3) + 6, at(13) + 16],
+  [at(14) + 8, at(16, 3)],
+  [at(33, 2), at(34, 3)],
+];
+const [W_VALLEY, W_GRAVE1, W_GRAVE2, W_LANE, W_EXIT] = WALK_FRAMES;
 /** The five walks as hop gaits: the first four along ROUTE; the exit's s runs from WAIT_SPOT to EXIT_SPOT. */
 export const WALK_TABLE: Walk[] = [
   { from: W_VALLEY[0], to: W_VALLEY[1], s0: ROUTE_STOPS.pop, s1: ROUTE_STOPS.valleyEnd },

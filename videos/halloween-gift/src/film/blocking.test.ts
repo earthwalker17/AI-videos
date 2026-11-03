@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { footfalls } from '../../audio/timeline.ts';
+import { footfalls, WALKS } from '../../audio/timeline.ts';
 import { at } from '../cues.ts';
 import { FLOOR, groundHeight } from '../world/layout.ts';
-import { clawdAt, KNOCK_SPOT, ROUTE, ROUTE_STOPS, userAt, WAIT_SPOT, WALK_TABLE } from './blocking.ts';
+import { clawdAt, KNOCK_SPOT, ROUTE, ROUTE_STOPS, userAt, WAIT_SPOT, WALK_FRAMES, WALK_TABLE } from './blocking.ts';
 import { footfallsOf, hopsOf } from './gait.ts';
 
 const angle = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(b - a), Math.cos(b - a)));
@@ -10,6 +10,7 @@ const dist = (a: readonly number[], b: readonly number[]) => Math.hypot(a[0] - b
 
 describe('the V2 blocking', () => {
   it('walks exactly the score’s footfalls', () => {
+    expect(WALK_FRAMES).toEqual(WALKS);
     expect(WALK_TABLE.flatMap((w) => footfallsOf(w))).toEqual(footfalls().map((x) => x.frame));
   });
 

@@ -267,3 +267,6 @@ export const DOOR_FRONT = {
 
 /** The floor height at the house's door, where the door spread's actors stand. */
 export const DOOR_FLOOR = HF.elements[13];
+
+/** The hero view of the valley (bars 5–8): the reference's composition (camera pose, degrees, world units). */
+export const HERO = { pos: [0.3, 3.45, 7.6] as [number, number, number], look: [1.0, 2.4, -4.0] as [number, number, number], fov: 44, focus: 7.0 };

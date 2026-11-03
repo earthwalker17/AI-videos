@@ -10,16 +10,16 @@ import { useLayoutEffect, type ReactNode } from 'react';
 import { AbsoluteFill, useCurrentFrame } from 'remotion';
 import { type PerspectiveCamera } from 'three';
 import { FPS } from '../cues.ts';
-import { CamPath, type CamKey } from '../film/campath.ts';
+import { CamPath, type CamKey, type CamPose } from '../film/campath.ts';
 import { Night } from '../look/Night.tsx';
 import { NightPost, type NightPostOptions } from '../look/NightPost.tsx';
 import { useSkyPortal } from '../look/SkyPortal.tsx';
 import { Grass } from '../world/Grass.tsx';
-import { BOOK, FLOOR } from '../world/layout.ts';
+import { BOOK, FLOOR, HERO as LAYOUT_HERO } from '../world/layout.ts';
 import { Terrain } from '../world/Terrain.tsx';
 
-/** The hero view of the valley (bars 5–8): the reference's composition. */
-export const HERO: Omit<CamKey, 'f'> = { pos: [0.3, 3.45, 7.6], look: [1.0, 2.4, -4.0], fov: 44, focus: 7.0 };
+/** The hero view of the valley (bars 5–8): the reference's composition (world/layout.ts). */
+export const HERO: Omit<CamKey, 'f'> = LAYOUT_HERO;
 
 /** A camera that holds the hero view. */
 export const HERO_PATH = new CamPath([
@@ -27,7 +27,7 @@ export const HERO_PATH = new CamPath([
   { f: 1000, ...HERO, hold: true },
 ]);
 
-function CameraRig({ path, f }: { path: CamPath; f: number }) {
+function CameraRig({ path, f }: { path: { at(f: number): CamPose }; f: number }) {
   const camera = useThree((s) => s.camera) as PerspectiveCamera;
   useLayoutEffect(() => {
     const p = path.at(f);
@@ -53,7 +53,8 @@ function Sky() {
 
 export interface LookStageProps {
   children?: ReactNode | ((f: number) => ReactNode);
-  path?: CamPath;
+  /** the camera: a CamPath, or anything with at(f) → CamPose (the film's journey) */
+  path?: { at(f: number): CamPose };
   /** leave the ground out (close-ups of a single asset on a plain floor) */
   bare?: boolean;
   /** options of the film's post chain (look/NightPost.tsx); default LOOK_POST */

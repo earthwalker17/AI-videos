@@ -109,7 +109,7 @@ function stoneShape(kind: string): Shape {
   return s;
 }
 
-function Stones() {
+export function Stones() {
   const { geos, mat } = useMemo(() => {
     const mat = storybookMaterial({ kind: 'stone', color: '#6d7a80', color2: '#3f5a45', breakup: 0.35, scale: 0.12, bump: 1.4, topCoat: 0.7, rim: 1.2 });
     const geos: Record<string, ExtrudeGeometry> = {};
@@ -128,7 +128,7 @@ function Stones() {
   );
 }
 
-function Fence() {
+export function Fence() {
   const { bar, mat } = useMemo(() => ({ bar: new CylinderGeometry(0.012, 0.014, 1, 6).translate(0, 0.5, 0), mat: storybookMaterial({ kind: 'iron', color: '#15181b', metalness: 0.5, roughness: 0.55, rim: 1.6, breakup: 0.1, scale: 0.05 }) }), []);
   useLayoutEffect(() => () => (bar.dispose(), mat.dispose()), [bar, mat]);
   const posts: [number, number, number, number][] = [];
@@ -151,7 +151,7 @@ function Fence() {
   );
 }
 
-function HouseAndCrag({ f }: { f: number }) {
+export function HouseAndCrag({ f }: { f: number }) {
   const { mats, roof, crag } = useMemo(
     () => ({
       mats: {
