@@ -11,7 +11,11 @@
  *    without swatch frames (or when they lie outside a partial render) the report records colour
  *    as NOT VERIFIED;
  *  - a contact sheet of evenly spaced frames, labelled with their frame numbers;
- *  - the sample peak (audio.clipping, FAILS above -0.1 dBFS).
+ *  - the sample peak (audio.clipping, FAILS above -0.1 dBFS);
+ *  - with `motion`: the picture over time (motion.ts: judder, flashes, pops, boil), information
+ *    only, with motion.png, motion.json and frame strips. The one measure that reads an
+ *    intermediate: the lossless mezzanine when it has the file's frame count, as the encoder's
+ *    noise would mask or fake the frame-to-frame differences; the strips come from the file.
  * With the cue sheet of generated audio (audio.json, found through post.json): its black and hold
  * spans join the allowances; silence, rest and hit cues are measured on the decoded samples'
  * power (audio.ts); audio.json's intent checks are re-reported; audio.png marks every cue on a
@@ -19,7 +23,7 @@
  * One decode pass does probe-free analysis; swatch and contact frames, the samples and the audio
  * sheet are decoded separately.
  */
-import { mkdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { centralRegion, parseContract, QaReport, SWATCH_TOLERANCE, swatchLayout, type AudioResult, type CueSheet, type LoudnessTarget, type QaCheck, type SwatchRect } from '@aiv/core';
 import { ffmpeg, ffmpegBin } from '../media/bin.ts';
@@ -32,6 +36,7 @@ import { allowedSpans, audioCueChecks, clippingCheck, deliveryCues, deliveryFram
 import { audioSheet, decodePower, sheetMarks } from './audioMedia.ts';
 import { check } from './check.ts';
 import { parseAstatsPeak, parseBlack, parseEbur128, parseFreeze, parseSilence, unexpected, type Ebur128Summary, type Segment } from './detect.ts';
+import { motionQa } from './motion.ts';
 
 export interface QaOptions {
   file: string;
@@ -63,6 +68,15 @@ export interface QaOptions {
   cues?: { sheet: CueSheet; intent?: AudioResult['checks'] } | null;
   /** audio.png, the cues on a spectrogram over the waveform (needs cues and outDir); null/absent: none */
   audioSheet?: { width?: number } | null;
+  /**
+   * the motion analysis (motion.ts: cadence, flashes, pops, boil; motion.png, motion.json and
+   * strips/; information checks only; needs outDir). `mezzanine`: the lossless picture to measure
+   * instead of the file when it has the file's frame count (no compression noise in the
+   * differences; the file itself is measured as lossy, with stronger evidence for a cadence);
+   * the strips always come from the file. `skipped`: not measured, and why (the report says so).
+   * null/absent: none
+   */
+  motion?: { mezzanine?: string | null; skipped?: string } | null;
   /** shortest black / frozen span that fails QA, seconds (default 0.5 / 3) */
   blackMinS?: number;
   freezeMinS?: number;
@@ -206,7 +220,7 @@ export async function contactSheet(file: string, o: { frames: number; fps: numbe
   }
 }
 
-/** Run every check on a final file; writes report.json (+ contact.png, audio.png) when outDir is given. */
+/** Run every check on a final file; writes report.json (+ contact.png, audio.png, motion.png, motion.json, strips/) when outDir is given. */
 export async function runQa(o: QaOptions): Promise<QaReport> {
   const root = o.root ?? repoRoot();
   const [p, frames] = await Promise.all([probe(o.file), countFrames(o.file, 'packets')]);
@@ -292,6 +306,23 @@ export async function runQa(o: QaOptions): Promise<QaReport> {
       checks.push(check('audio.sheet', true, `${sheet} (${cues.length} cues${labels ? '' : ', unlabelled'}): look at it`, sheet, true));
     } catch (e) {
       checks.push(check('audio.sheet', false, `audio sheet failed: ${(e as Error).message}`));
+    }
+  }
+
+  // motion over time (judder, flashes, pops): information only in this first version
+  if (o.motion?.skipped) checks.push(check('motion', true, `motion NOT analysed: ${o.motion.skipped}`, null, true));
+  else if (o.motion && o.outDir && p.video && frames) {
+    try {
+      const mezz = o.motion.mezzanine && existsSync(o.motion.mezzanine) ? o.motion.mezzanine : null;
+      const source = mezz && (await countFrames(mezz, 'packets')) === frames ? mezz : o.file;
+      const filmStart = o.cues ? deliveryFrame(o.cues.sheet, 0, startFrame) : undefined;
+      // without the mezzanine the encoder's own rhythm is in the differences
+      const lossy = source !== mezz;
+      const r = await motionQa({ delivery: o.file, source, lossy, frames, width: p.video.width, height: p.video.height, fps, cues, filmStart, outDir: o.outDir, name: o.name, sourceLabel: repoRel(source, root), log: o.log });
+      const files = { sheet: repoRel(r.files.sheet, root), json: repoRel(r.files.json, root), strips: r.files.strips.map((f) => repoRel(f, root)) };
+      checks.push(...r.checks, check('motion.sheet', true, `${files.sheet}${r.labels ? '' : ' (unlabelled)'} and ${files.strips.length} frame strip(s): look at them, then play the watch list at speed`, files, true));
+    } catch (e) {
+      checks.push(check('motion', true, `motion NOT analysed: ${(e as Error).message}`, null, true));
     }
   }
 

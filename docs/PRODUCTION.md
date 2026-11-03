@@ -62,6 +62,11 @@ approval.
   (same profile; all three default to `review`), then **look at the contact sheet and
   key frames** before changing anything else. Run `pnpm lint` after editing `src/`:
   the determinism rules are ESLint rules, and `aiv check` does not run them.
+- **Lookdev stills.** `aiv still <slug> --frames 40,240 [--entry src/lookdev/<x>.entry.ts
+  --composition <id>] [--ref <image>]` renders full-size stills without touching a render run,
+  and with `--ref` a compare sheet (side by side, value maps, palettes, the value-grid and ΔE
+  numbers). Get the look signed off on stills early, against a reference when there is one.
+  `--check <profile>` compares a few mid-chunk frames' hashes with that profile's run.
 - Run at least one adversarial critique and fix round: the `frame-critic` agent
   compares contact sheets against the brief, storyboard and style.
 - **Colour check.** A new video starts with the template's test card on its first
@@ -75,7 +80,8 @@ approval.
   title per language (for example `zh-Hans`); `SCRIPT.md` has one section per language.
 
 ### 4. Review cut
-`--profile review` (full resolution). `aiv qa` must pass. The user watches the
+`--profile review` (full resolution). `aiv qa` must pass. Look at `motion.png` and the strips
+too, and play the `motion.watch` times at full speed (judder, flashes, pops, boil). The user watches the
 whole cut; their notes go into the next production round or into approval.
 
 ### 5. Locked and final

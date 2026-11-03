@@ -84,6 +84,9 @@ videos/<slug>/audio ─aiv audio─▶ out/<slug>/audio/<name>.wav + audio.json 
 videos/<slug>/src ──engine──▶ out/<slug>/render/<profile>/mezzanine.mkv + render.json
                   ──aiv post──▶ out/<slug>/post/<profile>/<slug>.mp4 (+ archive.mkv) + post.json
                   ──aiv qa────▶ out/<slug>/qa/<profile>/report.json + contact.png
+                                 (+ audio.png, motion.png, motion.json, strips/)
+videos/<slug>/src ──aiv still─▶ out/<slug>/stills/<label>/f<NNNNN>.png + stills.json
+                                 (lookdev; never read by post, QA or release)
                   ──aiv release▶ videos/<slug>/release/v<N>.json + out/<slug>/release/v<N>/ (uploaded to
                                  the GitHub release video/<slug>/v<N>; PRODUCTION.md, "Publish")
 ```
@@ -114,7 +117,12 @@ videos/<slug>/src ──engine──▶ out/<slug>/render/<profile>/mezzanine.mk
   the archive master).
 - **QA** judges the final files, not the intermediates: probe facts, colour tags, swatch
   colours decoded from the delivery (within ±3 code values), loudness, A/V length, black and
-  frozen spans, and a contact sheet that a person or agent must look at.
+  frozen spans, and a contact sheet that a person or agent must look at. One exception
+  (decision 27): the motion check measures the lossless mezzanine when it has the delivery's
+  frame count; its strips come from the delivery.
+- **Stills** (`aiv still`) render chosen frames through an engine adapter into
+  `out/<slug>/stills/<label>/`, optionally beside a reference image with measured value and
+  palette distances (decision 28).
 - **Release** refuses dirty trees, partial renders, unpinned browsers and files without a
   passing QA report for their exact bytes, then writes a manifest with hashes and provenance.
 
@@ -308,3 +316,19 @@ new entry that supersedes it, not editing history.
     logos, wordmarks, verbatim official notices or real addresses, and a non-affiliation
     notice. A film whose central character belongs to someone else is `license.film: none`
     ([LICENSING](LICENSING.md#third-party-characters-brands-and-parody)).
+27. **2026-11-04 · Motion QA may read the mezzanine.** Everything else in QA reads the delivery.
+    The motion check (cadence judder, off-cue flashes and pops, boil) measures frame-to-frame
+    differences, and an encoder's frame types make those alternate and jump on their own (on
+    the draft preset a pan on ones flagged judder). So it measures the lossless mezzanine when
+    its frame count matches; otherwise it measures the delivery and asks a cadence for stronger
+    evidence. Information only, never a failure. Cost: one more full decode, about a second per
+    second of a 1080p24 film on the reference host; `aiv qa --no-motion` skips it and the report
+    says so.
+28. **2026-11-04 · Stills drive the adapter directly.** `aiv still` opens an engine session
+    itself, outside the runner, so lookdev never touches a render run (`aiv render --frames`
+    once replaced a profile's run). It shares the runner's input hash and settings (so
+    `--check <profile>` compares its frame hashes with that run's `frames.sha256`), the heavy
+    slot, the memory guard and the frozen refusal; its outputs never feed post, QA or release.
+    Cost: a second, small engine driver, and what a still is depends on the engine (Remotion:
+    a fresh page per call, so each still is a chunk start; web: one page, in the order given),
+    recorded in `stills.json`.

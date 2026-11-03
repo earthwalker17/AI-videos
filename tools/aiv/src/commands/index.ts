@@ -10,5 +10,6 @@ import { post } from './post.ts';
 import { qa } from './qa.ts';
 import { release } from './release.ts';
 import { render } from './render.ts';
+import { still } from './still.ts';
 
-export const COMMANDS: Command[] = [doctor, newVideo, check, render, audio, post, qa, release, heavy];
+export const COMMANDS: Command[] = [doctor, newVideo, check, render, still, audio, post, qa, release, heavy];

@@ -134,5 +134,53 @@ export { SAMPLE_RATE } from './audio/runtime/types.ts';
 // post (shared by the CLI and tests)
 export { runPost, type PostOptions, type PostOutcome } from './post/post.ts';
 
+// stills (aiv still: lookdev stills, reference compare, chunk-start check)
+export {
+  runStills,
+  parseFrameList,
+  defaultCheckFrames,
+  chunkStarts,
+  parseFrameHashes,
+  compareFrameHashes,
+  checkRefusals,
+  withEntry,
+  stillsDir,
+  stillName,
+  compareName,
+  MAX_STILLS,
+  CHECK_FRAMES,
+  type StillsOptions,
+  type StillsOutcome,
+  type StillsJson,
+  type StillFrameJson,
+  type HashCheck,
+  type CheckRunJson,
+} from './stills/stills.ts';
+export {
+  ciede2000,
+  srgbToLab,
+  labToSrgb,
+  luma709,
+  valueGrid,
+  gridMAE,
+  kmeansPalette,
+  optimalMatch,
+  matchPalettes,
+  coverCrop,
+  decodeRgb,
+  imageSize,
+  imageStats,
+  compareStats,
+  paletteStrip,
+  compareSheet,
+  ANALYSIS_SIZE,
+  METRICS,
+  type Lab,
+  type PaletteColour,
+  type PaletteMatch,
+  type ImageStats,
+  type Comparison,
+} from './stills/compare.ts';
+
 // test fixtures (engine tests reuse the fake adapter and temp repo)
 export { tempRepo, withAudioRuntime, fakeAdapter, syntheticFrame, type TempRepo, type FakeAdapter, type FakeAdapterOptions } from './testing.ts';

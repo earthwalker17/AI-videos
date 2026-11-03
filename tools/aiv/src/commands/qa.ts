@@ -5,7 +5,7 @@ import { createLog, formatQaTable, fromRepo, getProfile, outDir, readGeneratedAu
 import { parse, usageError, type Command } from '../command.ts';
 import { withHeavySlot } from '../heavySlot.ts';
 
-const usage = `usage: aiv qa <target> [--profile draft|review|final] [--file <path>] [--json] [--no-wait]
+const usage = `usage: aiv qa <target> [--profile draft|review|final] [--file <path>] [--json] [--no-motion] [--no-wait]
 
 Checks the FINAL deliverables of out/<slug>/post/<profile>/post.json against their render.json and
 video.json: size, fps, frame count, yuv420p, BT.709 tags and limited range, 48 kHz stereo audio
@@ -20,14 +20,25 @@ too: black and hold cues are allowed spans, silence cues must stay under -60 dB,
 under the mix, hit onsets are reported against their frame, audio.json's intent checks count, and
 audio.png (spectrogram over waveform, every cue marked) is written: look at it, and listen where
 the report's "listen" lines say.
+
+The picture over time (information only, never a failure): judder (part of the picture on twos
+while the rest moves on ones) and spans on twos, flashes off the hit cues, pops, and the boil where
+the camera is still, measured on the render's mezzanine when it has the delivery's frame count
+(else on the delivery, where a cadence needs stronger evidence against the encoder's own rhythm).
+Writes motion.png (luma, frame difference, cadence and fine detail over the timeline, flagged spans
+shaded, cues marked), motion.json and strips/ (12 consecutive frames per flagged span). Look at
+them, and play the motion.watch times at speed. It costs one more full decode of the mezzanine,
+the longest step of QA on a long film: about a second per second of a 1080p24 film on the
+reference host (more from a cold disk); the log gives the estimate first. --no-motion skips it.
 Refused (exit 2) when post.json was made from another render than the current render.json, or
 from another audio.json than the one on disk, or has no generated-audio record although the mix
 (or video.json) uses an audio:<name> track. On a partial render, video.json's allowed spans and
 swatch frames (composition frames) move with render.frames.start.
 
-  --file    check another file made from the same render (report-<name>.json)
-  --json    print the report(s) as JSON instead of the table
-  --no-wait exit 75 at once if another heavy job runs
+  --file      check another file made from the same render (report-<name>.json)
+  --json      print the report(s) as JSON instead of the table
+  --no-motion skip the picture over time (the report says it was NOT analysed)
+  --no-wait   exit 75 at once if another heavy job runs
 
 exit: 0 passed · 1 failed · 2 refused · 3 low memory · 64 usage · 75 busy`;
 
@@ -37,10 +48,10 @@ const readJson = (file: string) => JSON.parse(readFileSync(file, 'utf8')) as unk
 
 export const qa: Command = {
   name: 'qa',
-  summary: 'verify the final deliverables: probe, colour swatches, loudness, clipping, black/freeze, audio cues, contact and audio sheets',
+  summary: 'verify the final deliverables: probe, colour swatches, loudness, clipping, black/freeze, audio cues, contact, audio and motion sheets',
   usage,
   async run(argv) {
-    const { values, positionals } = parse(argv, { profile: { type: 'string', default: 'review' }, file: { type: 'string' }, json: { type: 'boolean' }, 'no-wait': { type: 'boolean' } }, usage);
+    const { values, positionals } = parse(argv, { profile: { type: 'string', default: 'review' }, file: { type: 'string' }, json: { type: 'boolean' }, 'no-motion': { type: 'boolean' }, 'no-wait': { type: 'boolean' } }, usage);
     if (positionals.length !== 1) usageError('expected exactly one <target>', usage);
     const target = resolveTarget(positionals[0]);
     const profile = getProfile(values.profile);
@@ -80,6 +91,8 @@ export const qa: Command = {
       log,
     } satisfies Partial<QaOptions>;
     const contact = { count: 12, cols: 4, tileWidth: Math.min(320, render.width) };
+    // the picture over time, measured on the lossless mezzanine (no compression noise) when it matches
+    const motion = values['no-motion'] ? { skipped: '--no-motion' } : { mezzanine: fromRepo(render.mezzanine.path) };
 
     // the delivery (with the contact and audio sheets) and the archive master (24-bit PCM, no sheets), or one --file
     const jobs: { file: string; opts: Partial<QaOptions> }[] = [];
@@ -87,9 +100,9 @@ export const qa: Command = {
       const file = resolve(values.file);
       const isArchive = post.archive && repoRel(file) === post.archive.path;
       const name = file.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '');
-      jobs.push({ file, opts: isArchive ? { name: 'archive', expect: { ...base.expect, audioCodec: 'pcm_s24le' }, contact: null } : { name, contact, audioSheet: {} } });
+      jobs.push({ file, opts: isArchive ? { name: 'archive', expect: { ...base.expect, audioCodec: 'pcm_s24le' }, contact: null } : { name, contact, audioSheet: {}, motion } });
     } else {
-      jobs.push({ file: fromRepo(post.delivery.path), opts: { contact, audioSheet: {} } });
+      jobs.push({ file: fromRepo(post.delivery.path), opts: { contact, audioSheet: {}, motion } });
       if (post.archive) jobs.push({ file: fromRepo(post.archive.path), opts: { name: 'archive', expect: { ...base.expect, audioCodec: 'pcm_s24le' }, contact: null } });
     }
     for (const j of jobs) if (!existsSync(j.file)) throw new ExitError(EXIT.ERROR, `no deliverable at ${repoRel(j.file)}: run aiv post ${target.spec} --profile ${profile.name}`);

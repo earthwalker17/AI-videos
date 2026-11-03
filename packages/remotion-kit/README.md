@@ -8,7 +8,7 @@ the rule of two.
 | Export | What |
 |---|---|
 | `Stage3D` | `@remotion/three`'s `ThreeCanvas`, set up for deterministic, colour-correct renders (see below). |
-| `PostChain` | A postprocessing `EffectComposer` that is built synchronously and takes over rendering. |
+| `PostChain` | A postprocessing `EffectComposer` that is built synchronously and takes over rendering, with optional ordered effect stages and custom passes. |
 | `useRoomEnvironment()` | Image-based light from three's procedural `RoomEnvironment`, prefiltered once (PMREM), with no network. |
 | `TestCard`, `SwatchStrip` | The DOM test card and the `@aiv/core` swatch strip, laid out at the render size. |
 | `Title`, `useInter()`, `INTER` | Text in Inter. Each frame is held until the font is loaded. |
@@ -38,16 +38,21 @@ frame, in a passive effect after React has committed that frame. So:
 render. Under Remotion, the first frames of every page then come out blank or unprocessed
 (THE AI STACK). Every chunk starts a fresh page, so that would hit every chunk boundary.
 
-`PostChain` instead creates its parts in `useMemo`:
+`PostChain` instead creates its parts in `useMemo` (`buildPostChain`), in this order:
 - the composer, with HalfFloat buffers and 4x MSAA;
 - the render pass;
-- one merged effect pass: the `effects`, a `ToneMappingEffect`, then the optional
+- the optional custom `passes` (below);
+- one effect pass per entry of the optional `stages` (below);
+- the last effect pass: the `effects`, a `ToneMappingEffect`, then the optional
   `afterToneMapping` effects. It dithers its 8-bit output by default (`dithering`). Without
   it, dark gradients such as a vignette or fog show banding in 8 bits, and YouTube's
   re-encode makes the bands worse. three's dither is a fixed hash of the pixel position
   (±0.5 code value), so it is the same in every render.
 
 It sizes the composer in `useLayoutEffect` and renders from the very first R3F advance.
+Without `stages` and `passes`, the chain is the render pass and the one merged pass, as it
+was before they existed: the template renders the same frame hashes with and without the
+change that added them.
 
 **Render takeover.** R3F hands rendering over through a priority subscription:
 `useFrame(…, 1)`. That is the kit's one use of `useFrame`; the import carries the single
@@ -55,18 +60,58 @@ It sizes the composer in `useLayoutEffect` and renders from the very first R3F a
 because both are wall-clock based. It calls `composer.render(0)`.
 
 **Rules for effects:**
-- Pass **stable** `effects` and `afterToneMapping` factories (module scope or
-  `useCallback`). A new function each render rebuilds the composer every frame.
+- Pass **stable** `effects`, `stages`, `passes` and `afterToneMapping` factories (module
+  scope, `useMemo` or `useCallback`). A new function each render rebuilds the composer every
+  frame.
 - Effects get delta 0, so nothing may accumulate time. An effect that animates (noise,
   glitch, grain) needs its time from the frame: a uniform set from `useCurrentFrame()`, or
   the `time` prop (below).
-- **One convolution effect per chain.** postprocessing merges the pass's effects into one
-  shader and throws `Convolution effects cannot be merged` when the chain is built with two
-  effects that sample neighbouring pixels. In postprocessing 6.39.5 those are
-  `ChromaticAberrationEffect`, `SMAAEffect`, `BokehEffect` and `RealisticBokehEffect`.
+- **One convolution effect per stage.** postprocessing merges a pass's effects into one
+  shader and throws `Convolution effects cannot be merged` when it holds two effects that
+  sample neighbouring pixels. In postprocessing 6.39.5 those are `ChromaticAberrationEffect`,
+  `SMAAEffect`, `BokehEffect` and `RealisticBokehEffect`, plus any custom effect with
+  `EffectAttribute.CONVOLUTION`. An effect that moves the image (a `mainUv` shader) cannot
+  share a stage with one either. `PostChain` checks both before it builds a pass and names
+  the effects and the stage; put the second effect in a stage of its own.
+
+**Ordering inside one pass.** postprocessing sorts a pass's effects by their attributes,
+highest first (`EffectPass.setEffects`: `effects.sort((a, b) => b.attributes - a.attributes)`;
+the sort is stable): `CONVOLUTION` (2) before `DEPTH` (1) before `NONE` (0), whatever the order
+of the list. And every effect of a pass samples the pass's input, not the previous effect's
+output. So inside one pass a painterly filter (Kuwahara, a convolution) would run first, on the
+raw scene, and the depth of field and bloom would never reach it. `stageOrder(effects)` in
+`src/effectOrder.ts` gives the order a pass will run (the tests use it; the package does not
+export it).
+
+**`stages`.** `stages: (camera) => Effect[][]`. Each inner array becomes its own
+`EffectPass`, in order, after the render pass and the custom passes and before the last pass.
+A stage sees the previous stage's output; an empty stage is skipped. Stages run in HDR linear
+light: they write the composer's HalfFloat buffers, with no tone mapping, no sRGB encode and
+no dither (only the last pass dithers and draws to the canvas). For example, focus and glow
+first, then the painterly filter on their result, then the grade:
+
+```tsx
+const stages = (camera: Camera) => [[new DepthOfFieldEffect(camera, dofOptions), new BloomEffect(bloomOptions)], [new Kuwahara()]];
+const effects = () => [new Grade()];
+<PostChain stages={stages} effects={effects} afterToneMapping={grain} />;
+```
+
+**`passes`.** `passes: (camera) => Pass[]` are custom passes, for a filter that needs render
+targets of its own (an anisotropic Kuwahara: structure tensor, blur, filter). They run right
+after the render pass, before the stages, in order. The composer initializes them and calls
+their `setSize`; they get delta 0 and do not get the `time` prop, so they take their time from
+the frame through their own uniforms. `PostChain` gives only the last pass `renderToScreen`,
+even when a custom pass was built with it.
+
+The order of the whole chain is therefore render pass → `passes` → `stages` → `effects` →
+tone mapping → `afterToneMapping` → sRGB encode → dither.
+
+Not yet verified by a render: `stages` and `passes` are checked by `PostChain.test.ts`, which
+builds chains against a stand-in renderer and checks the passes, their order, their effects,
+dithering and `renderToScreen`, not pixels.
 
 **`afterToneMapping`.** Effects that must act on display values (film grain, a paper
-texture, a final colour wash) run after the `ToneMappingEffect`, in the same pass. They see
+texture, a final colour wash) run after the `ToneMappingEffect`, in the last pass. They see
 tone-mapped linear values in [0, 1], before the sRGB encode and the dither. postprocessing
 sorts a pass's effects by their attributes, highest first (`EffectPass.setEffects`:
 `effects.sort((a, b) => b.attributes - a.attributes)`; the sort is stable). Only effects with
@@ -74,9 +119,10 @@ sorts a pass's effects by their attributes, highest first (`EffectPass.setEffect
 depth or convolution effect there instead of letting it run before the tone mapping.
 
 **`time`.** Seconds, from the frame index (`frame / fps`). Before each render `PostChain`
-sets the effect pass's shared `time` uniform (`EffectMaterial.time`), which `NoiseEffect`
-and custom effect shaders read; with delta 0 that value is exactly what the shaders get.
-Without `time` the uniform stays 0, as before, so existing chains render the same pixels.
+sets the shared `time` uniform (`EffectMaterial.time`) of every effect pass, the stages and
+the last pass; `NoiseEffect` and custom effect shaders read it. With delta 0 that value is
+exactly what the shaders get. Without `time` the uniform stays 0, as before, so existing
+chains render the same pixels.
 
 Verified (`engines/remotion/ENGINE.md`): in the template, frames 20-59 rendered on a page
 that starts at 20, and frames 75-119 on a page that starts at 75, hash the same as in the
