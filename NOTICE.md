@@ -16,10 +16,11 @@ How this repository is licensed: [`docs/LICENSING.md`](docs/LICENSING.md).
 |---|---|---|---|
 | [earthwalker17/map-of-middle-earth](https://github.com/earthwalker17/map-of-middle-earth) | [`696e968`](https://github.com/earthwalker17/map-of-middle-earth/tree/696e968e9d550327beda9e663ef5aec6961583c9) | MIT | earthwalker17 (same author) |
 | [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) | [`bebbbe1`](https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00) | MIT | Copyright (c) 2026 LemoLab |
+| [mrdoob/three.js](https://github.com/mrdoob/three.js) | [`r186`](https://github.com/mrdoob/three.js/tree/r186) (npm `three@0.186.1`) | MIT | Copyright © 2010-2026 three.js authors |
 
 <!-- REUSE-IgnoreEnd -->
 
-The MIT licence text that applies to both is in [`LICENSES/MIT.txt`](LICENSES/MIT.txt).
+The MIT licence text that applies to all of them is in [`LICENSES/MIT.txt`](LICENSES/MIT.txt).
 
 ## What was adapted
 
@@ -46,6 +47,12 @@ generalised from one film to any video and any engine.
 | Here | Upstream file |
 |---|---|
 | `packages/pipeline/src/media/audio.ts` | [core/render/mux.sh](https://github.com/lemomo-ai/lemo-opuscar/blob/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/core/render/mux.sh): two-pass loudnorm with measured values and `linear=true`, exact-length padding and trimming |
+
+### three.js @ r186
+
+| Here | Upstream file |
+|---|---|
+| `videos/halloween-gift/src/kit/tree.ts` | [examples/jsm/generators/TreeGenerator.js](https://github.com/mrdoob/three.js/blob/r186/examples/jsm/generators/TreeGenerator.js): the branch skeleton (parallel-transport tubes, pipe-model forks with a golden-angle roll, light pull, gravity droop, root flare), rewritten for WebGL materials with curls, hero limbs, roots, UVs and baked occlusion |
 
 ## Dependencies
 npm dependencies are installed from the registry and not redistributed here. Some
