@@ -143,6 +143,11 @@
       "path": "knowledge/loudness-two-pass.md"
     },
     {
+      "id": "motion-cadence",
+      "title": "Animate everything on ones when the camera moves, and measure cadence, not stills",
+      "path": "knowledge/motion-cadence.md"
+    },
+    {
       "id": "r3f-under-remotion",
       "title": "Render React Three Fiber under Remotion so every chunk start looks the same",
       "path": "knowledge/r3f-under-remotion.md"

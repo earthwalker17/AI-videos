@@ -17,7 +17,7 @@ description: Start or continue a video in this repository, from idea to release 
 |---|---|---|
 | `idea` → `brief` | Write `BRIEF.md` (audience, promise, shape, references, risks) and the README's opening. | `status: brief` |
 | `brief` → `treatment` | Write three structurally different candidates in `TREATMENT.md` **before** looking at earlier videos, then choose one and say why. | **Stop: the user approves the treatment.** |
-| `production` | `SCRIPT.md`, `STORYBOARD.md`, `FACTS.md` + `sources.jsonl` (factual series), code in `src/` (with a score: `src/cues.ts` first, then `audio/`). Iterate with the `render-verify` skill on draft renders. At least one adversarial round with the `frame-critic` agent; the user listens to the sound. | review cut passes `aiv qa` |
+| `production` | `SCRIPT.md`, `STORYBOARD.md`, `FACTS.md` + `sources.jsonl` (factual series), code in `src/` (with a score: `src/cues.ts` first, then `audio/`). With a visual reference or a demanding look: lookdev first, on full-size `aiv still` stills of lookdev entries beside the reference (`--ref`), and a lookdev checkpoint with the user before the full build. Iterate with the `render-verify` skill on draft renders, motion QA included. At least one adversarial round with the `frame-critic` agent (with the references and the motion files); the user listens to the sound. | review cut passes `aiv qa` |
 | `review` | Full-size cut (`--profile review`). | **Stop: the user watches it and approves.** |
 | `locked` | Final render, captions per language, `publish/` files, `CREDITS.md`. | **Stop: the user approves the final.** |
 | `published` | `pnpm aiv release <slug>` from a clean, committed tree; upload; record `youtube.id` and `release.version`. | frozen |
