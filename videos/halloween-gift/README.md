@@ -7,38 +7,36 @@ house still awake. Made entirely in code, picture and score.
 **Series:** [Festival & Celebration](../../series/festivals/SERIES.md) · **Number:** 3 · **Engine:** remotion
 ▶ **Watch:** the YouTube link, once published.
 
-## Status (2026-11-03): V1 draft done; V2 polish of the picture next
-The whole film exists as a draft, picture and score, built through the shared pipeline
-(`aiv render` → `aiv audio` → `aiv post` → `aiv qa` all green at draft). `status` is
-`production`; the only approval recorded is the treatment's. No review approval.
+## Status (2026-11-04): V2 picture in lookdev; the film still renders V1
+`status` is `production`; the only approval recorded is the treatment's. The V1 draft (picture
+and approved score) still renders from `src/index.ts`; the V2 picture is being built beside it
+and is judged on lookdev stills (`aiv still`) against the user's reference images
+(`Desktop/Halloween.png` and `Desktop/Email.JPG`, copied to the gitignored `.cache/reference/`,
+never committed and never used as plates).
 
-**The user's checkpoint verdict** (watched the draft with sound and 1080p stills):
-- **Keep:** the story, the pacing and the gag (the treatment as built, the cue sheet's timing).
-- **Keep:** the score and sound design, "good as is".
-- **Keep:** every Chinese string, checked by the user as fluent reader (`FACTS.md`).
-- **Rework:** the picture "looks a bit too rough" for the series opener and "may need a
-  bigger rework". The user will give the specific changes in the next session's brief.
+**Decided with the user (2026-11-04):** one continuous storybook world (no page turn, sliding
+flats or hard cuts: cue edits `page-turn` → `gust`, `slide` → `mist-part`, the two cuts → marks;
+the score rebuilt and verified); the email evokes the real suspension email with our own mark
+(no Anthropic logo or wordmark, no verbatim text); one lookdev checkpoint with 1080p stills
+beside the references before the full build. Story, pacing, gag, score and every Chinese string
+stay as approved.
 
-**Start of the next session (V2 polish):** read this section, `video.json`, `STORYBOARD.md`
-and the user's brief. The timing in `src/cues.ts` and the score in `audio/` are approved in
-substance; changing a cue frame makes `aiv audio` rebuild (seconds) and post refuses the old
-track until it does. Footsteps follow the walks copied into `audio/timeline.ts` (`WALKS`): if
-Clawd's blocking in `src/film/actors.ts` changes, update `WALKS` too. Then iterate on drafts,
-run a `frame-critic` round, and render the 1080p review cut (`--profile review --budget-min 9`,
-about 1.2–1.7 s per frame on the heaviest shots, so 30–40 min in several calls).
+**Built (V2):** the world map `src/world/layout.ts` (one path, every landmark, the house frame:
+the door spread at `DOOR_SCALE` 0.5 so the cottage fits the reference's composition, with Clawd
+at the same scale all through), the storybook material, sky portal, night rig and post chain
+(painterly Kuwahara stage measured to calm boil, soft moon rays), the hop gait and camera
+paths, the V2 blocking (`film/blocking.ts`, on ones, tested against the score's footfalls), the
+camera journey (`film/journey.ts`, previewed by the `Journey` lookdev composition), the email
+card in DOM and canvas (pixel-matched). Asset families are built by bounded implementers on
+their own lookdev entries (`src/lookdev/*.entry.ts`), four batches of two: ground and trees;
+graveyard and buildings; props and creatures; characters and the book.
 
-**Known weaknesses of the V1 picture** (the agent's own list, for the V2 brief to confirm or
-replace; the 1080p stills of the checkpoint are in the gitignored `out/halloween-gift/checkpoint/`):
-- Models are primitive: Clawd is plain boxes (no papercraft folds or texture), the neighbour
-  a lathe sheet, the hanging ghosts lathes, the house front a flat card; props (cauldron,
-  lanterns, bats) are greybox-simple.
-- The paper-theatre look is only half there: cards have no thickness, edge colour or layered
-  depth; the ground prints are flat; fog is thin; the lightbox glow reads mostly in the sky.
-- Light is dark and flat in the door spread; Clawd's face is mostly hidden during the gag.
-- The first frame-critic round's motion notes were fixed broadly (eased turns, slower pops,
-  the page turn), but the film was not re-critiqued after the fixes.
-- Delivery true peak was exactly -1.0 dBTP at draft (AAC 192k adds about 1.5 dB over the
-  -2.5 dBTP master); check at the review profile (AAC 320k) before trusting it.
+**Next:** finish the asset batches, a critique loop against the references, then the
+checkpoint for the user (hero vista, graveyard truck, door two-shot, email, book and bats, with
+the measured numbers); after it, assemble the V2 film (`src/film/Film.tsx` on the new world),
+`WORDS.email` = the email's read path (the one remaining cue edit), drafts with motion QA, and
+the 1080p review cut. Open points: the moon rays flare in the door shots; the gates sit just
+left of three door cameras (judge on the door stills, move the house back if they clutter).
 
 ## How it was made
 - **Picture:** Remotion 4 with React Three Fiber (`src/`). A storybook on a desk opens into
