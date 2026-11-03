@@ -28,14 +28,7 @@ describe('the hop gait', () => {
     }
   });
 
-  it('keeps hops within the budget (≤ 0.55 units)', () => {
-    // the layout's walk lengths (world/layout.ts STOPS) and the exit
-    const lengths = [1.2, 2.15, 2.25, 3.6, 1.85];
-    WALKS.forEach(([from, to], i) => {
-      const w: Walk = { from, to, s0: 0, s1: lengths[i] };
-      for (const h of hopsOf(w)) expect(h.s1 - h.s0).toBeLessThanOrEqual(0.55);
-    });
-  });
+  // the hop budget on the film's real walks is checked in blocking.test.ts
 });
 
 describe('the camera path', () => {
