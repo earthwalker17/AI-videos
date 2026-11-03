@@ -121,12 +121,14 @@ export const FENCE_LINE: P2[] = [
   [1.1, 1.25],
   [gate.x - 0.62, gate.z + 0.12],
 ];
-/** Right of the gates the fence turns back along the lane's left side, leaving the garden open. */
+/**
+ * Right of the gates the fence only returns a short way: the ground right of the gates, in front
+ * of the last house, is the door yard where the door spread's cameras stand (V1's door keys at
+ * DOOR_SCALE sit 2.2–3 in front of the door, around x 3.5–4.3, z 0.6–1.6), so it stays open.
+ */
 export const FENCE_LINE_RIGHT: P2[] = [
   [gate.x + 0.6, gate.z - 0.1],
-  [3.35, 0.55],
-  [3.7, 1.6],
-  [3.6, 2.4],
+  [gate.x + 0.75, gate.z + 0.35],
 ];
 
 /** Tombstones inside the fence: kind, place, height, lean. The big RIP stone is LAND.ripStone. */
