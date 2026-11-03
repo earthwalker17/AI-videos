@@ -453,6 +453,127 @@
       "why": "Clean-licence offline narration option; Python-version ceilings differ between the two 'kokoro' packages.",
       "note": "genai-landscape-2026-11.md",
       "status": "verified"
+    },
+    {
+      "id": "heckel-painterly-shaders",
+      "title": "Maxime Heckel, \"On Crafting Painterly Shaders\" (Kuwahara filters in R3F)",
+      "url": "https://blog.maximeheckel.com/posts/on-crafting-painterly-shaders/",
+      "pin": "article dated 2024-10-29, accessed 2026-11-04",
+      "license": "proprietary article; inline code without a licence",
+      "excerpt_policy": "link-only",
+      "why": "Basic to anisotropic Kuwahara as a custom R3F pass, polynomial weighting, structure tensor.",
+      "note": "stylised-3d-night-scenes.md",
+      "status": "verified"
+    },
+    {
+      "id": "kyprianidis-2009-kuwahara",
+      "title": "Kyprianidis, Kang, Döllner: Image and Video Abstraction by Anisotropic Kuwahara Filtering (CGF 28(7), 2009)",
+      "url": "https://diglib.eg.org/handle/10.2312/CGF.v28i7pp1955-1963",
+      "pin": "published 2009",
+      "license": "paper (method is free to implement)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "The method our own painterly pass implements.",
+      "note": "stylised-3d-night-scenes.md",
+      "status": "verified"
+    },
+    {
+      "id": "acerola-post-processing",
+      "title": "GarrettGunnell/Post-Processing (Unity HLSL: Kuwahara variants, DoG, edges)",
+      "url": "https://github.com/GarrettGunnell/Post-Processing",
+      "pin": "accessed 2026-11-04 (default branch)",
+      "license": "MIT (reported)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "Reference implementations of generalised and anisotropic Kuwahara.",
+      "note": "stylised-3d-night-scenes.md",
+      "status": "unverified"
+    },
+    {
+      "id": "simondev-threejs-fog",
+      "title": "simondevyoutube/ThreeJS_Tutorial_Fog (height fog with fbm via fog shader chunks)",
+      "url": "https://github.com/simondevyoutube/ThreeJS_Tutorial_Fog",
+      "pin": "accessed 2026-11-04 (2021, three 0.124)",
+      "license": "MIT (reported)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "Exponential height-fog integral with noise; idea for per-material fog.",
+      "note": "stylised-3d-night-scenes.md",
+      "status": "unverified"
+    },
+    {
+      "id": "three-tree-generator",
+      "title": "three.js examples/jsm/generators/TreeGenerator.js (r186)",
+      "url": "https://github.com/mrdoob/three.js/blob/r186/examples/jsm/generators/TreeGenerator.js",
+      "pin": "three 0.186.1 (installed package)",
+      "license": "MIT",
+      "excerpt_policy": "vendorable",
+      "why": "Procedural branching tubes (parallel transport, pipe model, root flare); adapted for the film trees.",
+      "note": "stylised-3d-night-scenes.md",
+      "status": "verified"
+    },
+    {
+      "id": "ez-tree",
+      "title": "dgreenheck/ez-tree (procedural tree generator for three.js)",
+      "url": "https://github.com/dgreenheck/ez-tree",
+      "pin": "1.1.0, accessed 2026-11-04",
+      "license": "MIT (reported)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "Alternative tree generator, not adopted (three ships one).",
+      "note": "stylised-3d-night-scenes.md",
+      "status": "unverified"
+    },
+    {
+      "id": "asc-nightmare-before-christmas",
+      "title": "American Cinematographer: The Nightmare Before Christmas (Pete Kozachik, ASC)",
+      "url": "https://theasc.com/article/nightmare-before-christmas/",
+      "pin": "accessed 2026-11-04",
+      "license": "proprietary article",
+      "excerpt_policy": "short-quote",
+      "why": "Value-separated depth planes, scrims, practicals, dolly-realistic camera moves.",
+      "note": "stylised-3d-night-scenes.md",
+      "status": "verified"
+    },
+    {
+      "id": "anthropic-trademark-guidelines",
+      "title": "Anthropic Trademark Guidelines (effective 2024-08-01)",
+      "url": "https://www.anthropic.com/legal/trademark-guidelines",
+      "pin": "effective 2024-08-01, accessed 2026-11-04",
+      "license": "proprietary terms",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "What use of the Claude name and marks is permitted; no parody licence.",
+      "note": "brand-parody.md",
+      "status": "unverified"
+    },
+    {
+      "id": "youtube-impersonation-policy",
+      "title": "YouTube Help: Impersonation policy",
+      "url": "https://support.google.com/youtube/answer/2801947",
+      "pin": "accessed 2026-11-04",
+      "license": "Google help (paraphrase only)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "Deceptive copying of branding, parody weighing, fan-channel identification.",
+      "note": "brand-parody.md",
+      "status": "unverified"
+    },
+    {
+      "id": "inta-fair-use-trademarks",
+      "title": "INTA fact sheet: Fair use of trademarks",
+      "url": "https://www.inta.org/fact-sheets/fair-use-of-trademarks-intended-for-a-non-legal-audience/",
+      "pin": "accessed 2026-11-04",
+      "license": "proprietary (facts only)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "Nominative fair use conditions.",
+      "note": "brand-parody.md",
+      "status": "unverified"
+    },
+    {
+      "id": "rfc2606",
+      "title": "RFC 2606: Reserved Top Level DNS Names",
+      "url": "https://www.rfc-editor.org/rfc/rfc2606",
+      "pin": "June 1999",
+      "license": "IETF Trust (facts)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "Reserved .example / .invalid names for fictional addresses.",
+      "note": "brand-parody.md",
+      "status": "verified"
     }
   ]
 }

@@ -25,7 +25,6 @@ import {
   knock,
   laptopDown,
   owl,
-  pageTurn,
   paperSlide,
   popSnap,
   riffle,
@@ -123,8 +122,15 @@ export function foley(T: Timeline, mx: Mixer): void {
     put(F(frame), gravelStep(S('step', k), 0.9), { ...fx, part: 'steps', peak: -24 + far, pan: walkPan(walk, u), room: 0.12 });
   });
 
-  // --- graveyard: the page turns; bats; the shoo
-  put(T.cue('page-turn'), pageTurn(S('page-turn')), { ...fx, part: 'paper', peak: -9, hall: 0.12 });
+  // --- graveyard: a cold gust as Clawd hops in (a whoosh attack the onset check can see, then a
+  // short wind tail sweeping the way he goes, left to right); bats; the shoo
+  {
+    const g = T.cue('gust');
+    put(g, whoosh(S('gust-whoosh'), { len: 0.9, f0: 260, f1: 1100, q: 1.1, panFrom: -0.55, panTo: 0.45, peak: 0.22 }), { ...fx, part: 'whoosh', peak: -12, hall: 0.25 });
+    const tail = 2.4;
+    const level = (t: number) => 0.3 * Math.min(1, t / 0.25) * Math.max(0, 1 - Math.max(0, t - 0.9) / (tail - 0.9));
+    put(g + T.s(0.12), wind(S('gust-wind'), { len: tail, level, howls: [{ t: 0.2, dur: 1.4, f0: 480, f1: 880, amp: 0.7 }] }), { ...fx, part: 'wind', peak: -17, pan: 0.15, hall: 0.3 });
+  }
   for (const [f, pan, n] of [
     [at(9, 2) + 6, 0.5, 3],
     [at(10, 2), 0.7, 2],
@@ -139,8 +145,8 @@ export function foley(T: Timeline, mx: Mixer): void {
     put(shoo - T.s(0.03), whoosh(S('shoo-whoosh'), { len: 0.4, f0: 500, f1: 2600, panFrom: -0.3, panTo: 0.6, peak: 0.25 }), { ...fx, part: 'whoosh', peak: -16, hall: 0.15 });
   }
 
-  // --- lane: the flats slide away; the gates creak and clang
-  put(T.cue('slide'), paperSlide(S('slide'), 0.75), { ...fx, part: 'paper', peak: -15, pan: 0.3, hall: 0.12 });
+  // --- lane: the ground mist parts before the gates (a soft, slow whoosh); the gates creak and clang
+  put(T.cue('mist-part'), whoosh(S('mist-part'), { len: 1.1, f0: 320, f1: 1500, q: 0.9, panFrom: 0.35, panTo: -0.1, peak: 0.5 }), { ...fx, part: 'whoosh', peak: -17, hall: 0.3 });
   put(T.cue('gate-creak'), gateCreak(S('gate-creak'), 1.15), { ...fx, part: 'gate', peak: -11, pan: -0.15, hall: 0.3 });
   // the clang rings until the knock: its fade ends on the hard stop (the effects bus is not cut there)
   put(T.cue('gate-clang'), gateClang(S('gate-clang'), 155.56, (T.hardStop - T.cue('gate-clang')) / SR), { ...fx, part: 'gate', peak: -8, pan: 0.1, hall: 0.4 });

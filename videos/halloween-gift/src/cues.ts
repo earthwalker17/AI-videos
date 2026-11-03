@@ -56,16 +56,16 @@ const events: CueEvent[] = [
   hit('pumpkin-light', at(5), 'the giant jack-o-lantern lights'),
   hit('clawd-pop', at(7), 'Clawd pops up'),
   text('text', 'caption-1', at(5, 2), at(8, 3), WORDS.caption1),
-  // 9-12 · page turn to the graveyard
-  hit('page-turn', at(9), 'page turn'),
+  // 9-12 · into the graveyard (one continuous world: no page turn)
+  hit('gust', at(9), 'a cold gust as Clawd enters the graveyard'),
   hit('ghost-shoo', at(11, 2), 'ember flick shoos the ghost'),
-  // 13-16 · the flats slide; the gates; the last house
-  hit('slide', at(13), 'paper flats slide away'),
+  // 13-16 · the mist parts; the gates; the last house
+  hit('mist-part', at(13), 'the ground mist parts before the gates'),
   hit('gate-creak', at(14), 'the gates creak open'),
   hit('gate-clang', at(15)),
   text('text', 'caption-2', at(14, 2), at(16, 3), WORDS.caption2),
   // 17-20 · the door: knock, silence, the user
-  { id: 'cut-door', kind: 'cut', frame: at(17), label: 'hard cut to the door two-shot' },
+  mark('arrive-door', at(17), 'the camera arrives at the door two-shot on the knock'),
   text('text', 'couplet', at(17), at(21), WORDS.couplet),
   ...KNOCKS.map((f, i) => hit(`knock-${i + 1}`, f)),
   span('silence', 'silence-1', at(18, 3), at(20), 'where "two bits" should be'),
@@ -91,7 +91,7 @@ const events: CueEvent[] = [
   hit('far-ding-2', at(33, 3.5)),
   // 34-40 · the book closes; the end card
   hit('book-slam', at(35), 'the book slams shut'),
-  { id: 'cut-desk', kind: 'cut', frame: at(35), label: 'back on the desk' },
+  mark('out-of-book', at(35), 'the camera comes out of the book onto the desk as the cover slams'),
   text('card', 'end', at(35, 2), FILM_FRAMES, WORDS.end),
   hit('end-seal', at(36), 'the 完 seal'),
   hit('book-knock-3', at(38, 1), 'the closed book knocks again'),
