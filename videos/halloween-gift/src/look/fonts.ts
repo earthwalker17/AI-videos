@@ -15,7 +15,7 @@ import sc116 from '@fontsource-variable/noto-serif-sc/files/noto-serif-sc-116-wg
 import sc117 from '@fontsource-variable/noto-serif-sc/files/noto-serif-sc-117-wght-normal.woff2';
 import sc118 from '@fontsource-variable/noto-serif-sc/files/noto-serif-sc-118-wght-normal.woff2';
 import sc119 from '@fontsource-variable/noto-serif-sc/files/noto-serif-sc-119-wght-normal.woff2';
-import { INTER, useFont, useInter, type FontSpec } from '@aiv/remotion-kit';
+import { useFont, useInterState, type FontSpec } from '@aiv/remotion-kit';
 import { useMemo } from 'react';
 import { WORDS } from '../cues.ts';
 
@@ -53,8 +53,8 @@ export interface FilmFonts {
 export function useFilmFonts(): { fonts: FilmFonts; ready: boolean } {
   const fell = useFont(FELL);
   const sc = useFont(NOTO_SC);
-  useInter();
+  const inter = useInterState();
   // one object per family set: canvases that depend on it are drawn once, then again on `ready`
-  const fonts = useMemo(() => ({ serif: fell.family, cjk: sc.family, sans: INTER }), [fell.family, sc.family]);
-  return { fonts, ready: fell.ready && sc.ready };
+  const fonts = useMemo(() => ({ serif: fell.family, cjk: sc.family, sans: inter.family }), [fell.family, sc.family, inter.family]);
+  return { fonts, ready: fell.ready && sc.ready && inter.ready };
 }

@@ -47,6 +47,39 @@ export function useInter(): string {
   return INTER;
 }
 
+/**
+ * Inter as useFont gives a face: `ready` is React state, and the frame's hold is released only
+ * in the commit in which it became true, so a canvas that draws Inter redraws in that commit and
+ * the released frame never holds a fallback face. (useInter, above, only holds the frame: the
+ * templates' frame hashes were made with it.)
+ */
+export function useInterState(): { family: string; ready: boolean } {
+  const { delayRender, continueRender, cancelRender } = useDelayRender();
+  const [ok, setOk] = useState(() => ready);
+  const hold = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (ready) {
+      setOk(true);
+      return;
+    }
+    hold.current = delayRender(`Loading ${INTER_FAMILY}`);
+    loadInter().then(
+      () => setOk(true),
+      (e: unknown) => cancelRender(e instanceof Error ? e : new Error(String(e))),
+    );
+    return () => {
+      if (hold.current !== null) continueRender(hold.current);
+      hold.current = null;
+    };
+  }, [delayRender, continueRender, cancelRender]);
+  useLayoutEffect(() => {
+    if (!ok || hold.current === null) return;
+    continueRender(hold.current);
+    hold.current = null;
+  }, [ok, continueRender]);
+  return { family: INTER, ready: ok };
+}
+
 /** One font file: the bundler URL of a pinned package file (Remotion: `import url from '…/x.woff2'`). */
 export interface FontSource {
   url: string;

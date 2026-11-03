@@ -92,6 +92,164 @@ export function Mark({ size }: { size: number }) {
   );
 }
 
+// ---- the canvas card (face B of the 3D letter) ------------------------------------------------
+
+export interface EmailDraw {
+  /** the Appeal tab's offset in px of this canvas; null hides it */
+  tab?: { dx: number; dy: number } | null;
+  seal?: { scale: number; shake: number } | null;
+}
+
+/** A rounded rectangle path. */
+function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+}
+
+/**
+ * The alphabetic baseline of a line whose box starts at `top` and is `box` tall, in the current
+ * font: CSS centres the font's content area (ascent + descent) in the line box. In canvas pixels
+ * from the card's padding box (call it with the context translated by the border).
+ */
+function baseline(g: CanvasRenderingContext2D, top: number, box: number): number {
+  const m = g.measureText('Hg');
+  const asc = m.fontBoundingBoxAscent;
+  const desc = m.fontBoundingBoxDescent;
+  // Chrome's layout snaps a line's baseline to a whole pixel
+  return Math.round(top + (box - (asc + desc)) / 2 + asc);
+}
+
+/**
+ * The same card drawn on a canvas of W × H (H = the card height, W = H × EMAIL.aspect), line for
+ * line as the DOM card lays it out (the CSS line-box model on the alphabetic baseline), so the
+ * crossfade from the 3D letter's face to the DOM card lands on the same pixels.
+ */
+export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number, fonts: EmailFonts, o: EmailDraw = {}): void {
+  const L = EMAIL;
+  const px = (f: number) => f * H;
+  const border = Math.max(1, px(0.003));
+  // CSS places absolute children from the padding box, inside the border
+  const left = border + px(L.pad);
+  const lineH = px(L.para.size) * L.para.lead;
+  const paraBottom = px(L.para.top) + PARAGRAPH.length * lineH;
+  g.save();
+  g.clearRect(0, 0, W, H);
+  roundRect(g, border / 2, border / 2, W - border, H - border, px(0.035) - border / 2);
+  g.fillStyle = L.card;
+  g.fill();
+  g.lineWidth = border;
+  g.strokeStyle = L.border;
+  g.stroke();
+  g.translate(0, border);
+  g.textAlign = 'left';
+  g.textBaseline = 'alphabetic';
+  // the mark, then the name centred on it (the DOM's flex row: align-items centre, a gap)
+  const ms = px(L.mark.size);
+  const { rays, face } = markPaths();
+  g.save();
+  g.translate(left, px(L.mark.top));
+  g.scale(ms / 100, ms / 100);
+  for (const r of [...rays, ...face]) {
+    g.fillStyle = r.fill;
+    g.fill(new Path2D(r.d));
+  }
+  g.restore();
+  const ns = px(L.name.size);
+  g.fillStyle = L.ink;
+  g.font = `400 ${ns}px ${fonts.serif}`;
+  g.fillText('Clawd', left + ms + px(0.018), baseline(g, px(L.mark.top) + (ms - ns) / 2, ns));
+  // a line of text: a div at `top` with lineHeight 1.2 of `size`
+  g.fillStyle = L.body;
+  const hs = px(L.hello.size);
+  g.font = `400 ${hs}px ${fonts.sans}`;
+  g.fillText('Hello,', left, baseline(g, px(L.hello.top), hs * 1.2));
+  const ps = px(L.para.size);
+  PARAGRAPH.forEach((runs, i) => {
+    g.font = `400 ${ps}px ${fonts.sans}`;
+    const y = baseline(g, px(L.para.top) + i * lineH, ps * 1.2);
+    // runs in the same face are shaped as one text in the DOM (kerning across a span's edge, as
+    // "y" + "."): a run starts where the shaped prefix up to its end, minus its own width, ends
+    let x = left;
+    let groupX = left;
+    let prefix = '';
+    let face: boolean | null = null;
+    for (const r of runs) {
+      const b = !!r.b;
+      if (b !== face) {
+        groupX = x;
+        prefix = '';
+        face = b;
+      }
+      g.font = `${b ? 700 : 400} ${ps}px ${fonts.sans}`;
+      g.fillStyle = b ? L.ink : L.body;
+      const w = g.measureText(r.t).width;
+      const end = groupX + g.measureText(prefix + r.t).width;
+      const x0 = end - w;
+      g.fillText(r.t, x0, y);
+      // text-underline-offset is measured from the alphabetic baseline
+      if (r.u) g.fillRect(x0, y + px(0.008), w, Math.max(1, px(0.003)));
+      prefix += r.t;
+      x = end;
+    }
+  });
+  g.fillStyle = L.body;
+  const rs = px(L.regards.size);
+  g.font = `400 ${rs}px ${fonts.sans}`;
+  SIGN_OFF.forEach((t, i) => g.fillText(t, left, baseline(g, paraBottom + px(0.02) + i * lineH, rs * 1.2)));
+  if (o.tab) {
+    const fs = px(L.tab.size);
+    g.font = `400 ${fs}px ${fonts.sans}`;
+    const a = 'Appeal · ';
+    const wa = g.measureText(a).width;
+    const pw = px(0.032);
+    const ph = px(0.014);
+    const by = paraBottom + px(0.02) + o.tab.dy;
+    const ty = baseline(g, by + ph, fs * 1.1);
+    g.font = `400 ${fs}px ${fonts.cjk}`;
+    const wb = g.measureText('申诉').width;
+    const bw = wa + wb + 2 * pw;
+    const bh = fs * 1.1 + 2 * ph;
+    const bx = W - border - px(L.pad) + o.tab.dx - bw;
+    roundRect(g, bx, by, bw, bh, px(0.016));
+    g.fillStyle = '#2c2925';
+    g.fill();
+    g.fillStyle = '#fffdf8';
+    g.font = `400 ${fs}px ${fonts.sans}`;
+    g.fillText(a, bx + pw, ty);
+    g.font = `400 ${fs}px ${fonts.cjk}`;
+    g.fillText('申诉', bx + pw + wa, ty);
+  }
+  if (o.seal) {
+    const sz = px(L.seal.size);
+    const cx = W - border - px(L.seal.right) - sz / 2;
+    const cy = px(L.seal.top) + o.seal.shake + sz / 2;
+    g.save();
+    g.translate(cx, cy);
+    g.rotate((8 * Math.PI) / 180);
+    g.scale(o.seal.scale, o.seal.scale);
+    g.globalCompositeOperation = 'multiply';
+    roundRect(g, -sz / 2, -sz / 2, sz, sz, px(0.014));
+    g.fillStyle = '#C8322A';
+    g.fill();
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = '#fff7f0';
+    g.textAlign = 'center';
+    const fs = sz * 0.4;
+    g.font = `900 ${fs}px ${fonts.cjk}`;
+    // a centred column of two rows, each lineHeight 1.05
+    const rh = fs * 1.05;
+    g.fillText('封', 0, baseline(g, -rh, rh));
+    g.fillText('号', 0, baseline(g, 0, rh));
+    g.restore();
+  }
+  g.restore();
+}
+
 // ---- the DOM card -----------------------------------------------------------------------------
 
 export interface EmailFonts {
