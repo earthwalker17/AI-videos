@@ -47,3 +47,10 @@ Built when the first film needs them, not before:
   - every chunk starts Remotion's local server again (about 1 s), because the shared-server
     option is internal API.
 - `aiv check` does not lint STYLE.md headings; add it when the second style exists.
+- Audio QA (found on *A Halloween Gift*):
+  - the hit check proves timing, not audibility: its onset finder accepts any doubling of
+    energy, so a hit buried in thunder passed; add a prominence measure (peak after the cue
+    against the peak before it) before making the check fail;
+  - the AAC encode can add about 1.5 dB of true peak at 192k (draft) over the mastered bed,
+    leaving the delivery exactly at the -1 dBTP limit; post could measure the encoded true peak
+    and re-master with the margin it actually needs.

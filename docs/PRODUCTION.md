@@ -158,6 +158,10 @@ render or release.
 - At most two heavy implementers at once (for example two chapters as separate
   components). They never run git or change dependencies; the main agent
   integrates their work, renders, and looks at every result itself.
+- Agent worktrees start from the pushed `main`, not from local commits: name the commit their
+  work must sit on (they can bring it in with read-only `git show`), or let them work in the
+  main tree on folders nobody else edits. Integrate by diffing the worktree against that
+  commit, then apply.
 
 ## Heavy work on a small machine
 Renders run through the machine-wide lock, one heavy job at a time, in foreground

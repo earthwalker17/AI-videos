@@ -13,6 +13,14 @@ Sources are in `sources.jsonl` (one JSON object per line).
 | "Shave and a haircut, two bits" is a traditional call-and-response rhythm | Clawd knocks the first five notes; the ding answers "two bits" | shave-haircut | 2026-11-03 |
 | Clawd is Anthropic's name for the Claude Code mascot, an orange pixel creature (body #D77757, vertical slit eyes, four legs) | Clawd is the hero; his costume is our own | clawd-name | 2026-11-03 (in the Claude Code CLI 2.1.316's own strings, and secondary press) |
 
+## Chinese text check
+Every Chinese string on screen was checked by the user, as fluent reader, on 2026-11-03 at
+the V1 checkpoint, and found correct: 万圣节礼物 (title); 万圣节之夜，Clawd 带着礼物出门了。;
+最后一户人家，还没睡。; the upright 福; the 横批 一路绿灯 read left to right with the 上联
+代码千行一次过 on the left and the 下联 账号百年永不封 on the right, gold on red; the seal 封号;
+the tab 申诉; the end seal 完; the notice 粉丝恶搞，与 Anthropic 无关，邮件纯属虚构。
+Any new or changed Chinese string needs the same check again.
+
 ## Simplifications
 - The email is not modelled on any real message: it is a storybook prop. Only the generic
   phrase "suspicious signals" echoes how users describe real notices.

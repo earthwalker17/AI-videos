@@ -16,7 +16,7 @@
       "note": "The user selected \"A · Storybook (Recommended)\" from the three candidates, chose \"Bilingual captions\" and the programmer couplet 代码千行一次过 / 账号百年永不封 · 横批 一路绿灯, and approved the production plan."
     }
   ],
-  "next": "Checkpoint: the user looks at the 1080p stills and listens to the draft with the score; then the review cut.",
+  "next": "V2: polish the picture per the user's brief (README.md, Status); keep the cue sheet, the score and the Chinese text; then a frame-critic round and the 1080p review cut.",
   "languages": [
     "en",
     "zh-Hans"
