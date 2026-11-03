@@ -6,7 +6,7 @@ import { engineAdapter } from '../engines.ts';
 import { refuseFrozen } from '../frozen.ts';
 import { withHeavySlot } from '../heavySlot.ts';
 
-const usage = `usage: aiv still <target> --frames <list> [--profile draft|review|final] [--label <name>] [--entry <path>] [--composition <id>] [--ref <image>] [--check <profile>] [--browser pinned|system]
+const usage = `usage: aiv still <target> --frames <list> [--profile draft|review|final] [--label <name>] [--entry <path>] [--composition <id>] [--ref <image>] [--check <profile>] [--span] [--browser pinned|system]
 
 Renders chosen frames of a video (videos/<slug>) or a template (template:<engine>) as PNG stills
 into out/<slug>/stills/<label>/: f<NNNNN>.png per frame and stills.json (frame hashes, timings,
@@ -43,6 +43,9 @@ It runs as the machine's one heavy job and never waits for the lock (exit 75 whi
                      there (rendered mid-chunk in the run; here, on Remotion as a chunk start, on
                      the web engine after the other stills). A MISMATCH: the frame depends on what
                      was rendered before it
+  --span             render the frames, one contiguous range, in ONE call as inside a run's chunk
+                     (on Remotion the first opens the page, the rest follow in order): measures
+                     the steady cost per frame (timing.steadyMs, the median after the first)
   --browser          web engine: pinned (default) or system
 
 A published or archived video is frozen: it renders only from a checkout of its release tag.
@@ -66,6 +69,7 @@ export const still: Command = {
         composition: { type: 'string' },
         ref: { type: 'string' },
         check: { type: 'string' },
+        span: { type: 'boolean', default: false },
         browser: { type: 'string', default: 'pinned' },
       },
       usage,
@@ -101,6 +105,7 @@ export const still: Command = {
         composition: values.composition,
         ref: values.ref !== undefined ? resolve(values.ref) : undefined,
         check,
+        span: values.span,
         log,
       });
       if (r.exit === EXIT.OK) log.info(r.message);

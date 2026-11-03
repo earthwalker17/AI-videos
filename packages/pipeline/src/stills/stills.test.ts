@@ -204,6 +204,23 @@ describe('runStills', () => {
     expect(readdirSync(again.dir).sort()).toEqual(['f00005.png', 'stills.json']);
   });
 
+  it('--span renders a contiguous range in one call, as inside a chunk, and reports the steady pace', async () => {
+    const { opts } = base();
+    // the first frame of each call differs: a span's interior frames are the run's mid-chunk pixels
+    const r = await runStills({ ...opts, adapter: warmUpBug(40), frames: [10, 11, 12, 13], span: true, label: 'span' });
+    expect(r.exit, r.message).toBe(EXIT.OK);
+    const j = readStills(r.dir);
+    expect(j.frames.map((f) => f.i)).toEqual([10, 11, 12, 13]);
+    expect(j.frames[0].sha256).not.toBe(sha256(syntheticFrame(10, 160, 90, false)));
+    expect(j.frames.slice(1).map((f) => f.sha256)).toEqual([11, 12, 13].map((i) => sha256(syntheticFrame(i, 160, 90, false))));
+    expect(typeof j.timing.steadyMs).toBe('number');
+    expect(j.rendering).toMatch(/one renderFrames\(\[a, b\+1\]\) call/);
+    expect(r.message).toMatch(/s\/frame \(median, in one call\)/);
+    const gaps = await runStills({ ...opts, adapter: fakeAdapter({ frames: 40 }), frames: [10, 12], span: true, label: 'gaps' });
+    expect(gaps.exit).toBe(EXIT.USAGE);
+    expect(gaps.message).toMatch(/has gaps/);
+  });
+
   it('refuses frames outside the composition and needs frames without --check', async () => {
     const { opts } = base();
     const r = await runStills({ ...opts, adapter: fakeAdapter({ frames: 40 }), frames: [39, 40] });

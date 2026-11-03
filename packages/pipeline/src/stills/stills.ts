@@ -20,6 +20,11 @@
  * profile would have), so it compares with run.json / inputs.json; --check refuses a run whose
  * hash or render size differs, because its frame hashes then describe other pixels.
  *
+ * --span renders a contiguous range in ONE renderFrames call instead, as inside a run's chunk:
+ * its first frame starts a page (on Remotion), the rest follow it in order. That is how to
+ * measure a scene's steady-state cost per frame (stills.json `timing.steadyMs`: the median
+ * interval between deliveries after the first) and to compare chunk-interior hashes.
+ *
  * --entry / --composition render another entry file / composition of the same video (lookdev
  * entries): the adapter gets a shallow copy of the target with those config fields replaced.
  * The engine still checks the composition against video.json's format; the input hash still
@@ -249,6 +254,8 @@ export interface StillsOptions {
   ref?: string;
   /** compare each still's sha256 with this profile's finished run (must be `profile`) */
   check?: Profile;
+  /** render the frames, which must be contiguous, in one renderFrames call (a chunk) */
+  span?: boolean;
   /** stop (exit 3) below this much free RAM, MB (default aiv.local.json abortFreeMB or 500) */
   abortFreeMB?: number;
   log?: Log;
@@ -269,7 +276,7 @@ export interface StillCompareJson {
 export interface StillFrameJson {
   i: number;
   sha256: string;
-  /** the engine's render time of the frame, or without one (Remotion) the wall time from asking for it to receiving it, its fresh page included, ms */
+  /** the engine's render time of the frame, or without one (Remotion) the wall time from asking for it to receiving it, its fresh page included (with --span: since the previous delivery), ms */
   ms: number;
   file: string;
   compare?: StillCompareJson;
@@ -293,7 +300,8 @@ export interface StillsJson {
   toolchain: Toolchain;
   git: GitState;
   rendering: string;
-  timing: { bootS: number; wallS: number };
+  /** steadyMs (--span): the median per-frame interval after the span's first frame */
+  timing: { bootS: number; wallS: number; steadyMs?: number };
   frames: StillFrameJson[];
   reference?: {
     file: string;
@@ -365,6 +373,11 @@ async function writePng(rgba: Uint8Array, width: number, height: number, file: s
 }
 
 const round = (x: number, d: number) => Math.round(x * 10 ** d) / 10 ** d;
+const median = (xs: number[]) => {
+  const v = [...xs].sort((a, b) => a - b);
+  const m = v.length >> 1;
+  return v.length % 2 ? v[m] : Math.round((v[m - 1] + v[m]) / 2);
+};
 const relOrName = (file: string, root: string) => {
   try {
     return repoRel(file, root);
@@ -394,7 +407,14 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
     const fps = target.config.format.fps;
     const settings = renderSettings(target, o.profile, size, undefined, o.adapter.settings);
     const ih = computeInputHash({ target, adapter: o.adapter, settings });
-    const how = stillsRendering(o.adapter.name);
+    const how0 = stillsRendering(o.adapter.name);
+    const how: StillsRendering = o.span
+      ? {
+          freshPage: false,
+          rendering: `one engine session; the frames in one renderFrames([a, b+1]) call, in order, as inside a run's chunk (on Remotion its first frame opens the page); ${HASHED}`,
+          mismatch: how0.mismatch,
+        }
+      : how0;
 
     // --check: the run is read and judged before the engine boots
     if (o.check && o.check.name !== o.profile.name) usage(`--check ${o.check.name} compares with that profile's run: render the stills with --profile ${o.check.name} (or leave --profile out)`);
@@ -413,6 +433,7 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
     }
     const frames = o.frames?.length ? [...o.frames] : check ? defaultCheckFrames(check.run.frames, check.run.settings.chunkFrames) : usage('--frames is required (without --check)');
     if (!frames.length) usage(`the ${o.check!.name} run (frames ${check!.run.frames[0]}-${check!.run.frames[1] - 1}) has no frame that is not a chunk start: name the frames with --frames`);
+    if (o.span && frames.some((f, k) => f !== frames[0] + k)) usage(`--span renders one contiguous range: --frames ${frames[0]}-${frames[frames.length - 1]} has gaps`);
     let runStarts = new Set<number>();
     if (check) {
       const missing = frames.filter((i) => !check.hashes.has(i));
@@ -452,22 +473,35 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
     }
 
     const results: StillFrameJson[] = [];
-    for (const i of frames) {
+    // what the engine delivered, per frame: written as PNGs inside the callback
+    const delivered = new Map<number, { sha256: string; ms: number }>();
+    const render = async (span: FrameSpan) => {
+      let t = now();
+      await s.renderFrames!(span, async (k, rgba, meta) => {
+        if (k < span[0] || k >= span[1]) throw new Error(`engine delivered frame ${k}, outside ${span[0]}-${span[1] - 1}`);
+        if (delivered.has(k)) throw new Error(`engine delivered frame ${k} twice`);
+        const t1 = now();
+        // exactly the runner's frame hash: sha256 of the delivered RGBA bytes
+        delivered.set(k, { sha256: sha256(rgba), ms: Math.round(meta?.ms ?? t1 - t) });
+        await writePng(rgba, size.width, size.height, join(dir, stillName(k)));
+        t = now();
+      });
+    };
+    if (o.span) {
       const mb = await availableMB();
-      if (mb < abortFreeMB) return outcome(EXIT.LOW_MEMORY, `host memory low (${mb} MB available < ${abortFreeMB} MB) before frame ${i}: ${results.length}/${frames.length} stills written (no stills.json), run again when memory is back`);
+      if (mb < abortFreeMB) return outcome(EXIT.LOW_MEMORY, `host memory low (${mb} MB available < ${abortFreeMB} MB): nothing rendered, run again when memory is back`);
+      await render([frames[0], frames[frames.length - 1] + 1]);
+    }
+    for (const i of frames) {
+      if (!o.span) {
+        const mb = await availableMB();
+        if (mb < abortFreeMB) return outcome(EXIT.LOW_MEMORY, `host memory low (${mb} MB available < ${abortFreeMB} MB) before frame ${i}: ${results.length}/${frames.length} stills written (no stills.json), run again when memory is back`);
+        await render([i, i + 1]);
+      }
       const name = stillName(i);
       const file = join(dir, name);
-      const got: { sha256?: string; ms?: number } = {};
-      const ft0 = now();
-      await s.renderFrames([i, i + 1], async (k, rgba, meta) => {
-        if (k !== i) throw new Error(`engine delivered frame ${k}, expected ${i}`);
-        if (got.sha256) throw new Error(`engine delivered frame ${i} twice`);
-        // exactly the runner's frame hash: sha256 of the delivered RGBA bytes
-        got.sha256 = sha256(rgba);
-        got.ms = Math.round(meta?.ms ?? now() - ft0);
-        await writePng(rgba, size.width, size.height, file);
-      });
-      if (!got.sha256) throw new Error(`engine delivered no frame for ${i}`);
+      const got = delivered.get(i);
+      if (!got) throw new Error(`engine delivered no frame for ${i}`);
       // the PNG must hold exactly the hashed pixels (decoded as RGBA, alpha 255)
       const [back] = await decodedFrameHashes(file, [0], 'rgba');
       if (back?.sha256 !== got.sha256) throw new Error(`${name} decodes to other pixels (${back?.sha256.slice(0, 12)}) than the engine delivered (${got.sha256.slice(0, 12)})`);
@@ -511,6 +545,7 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
     await s.close();
     session = null;
 
+    const steadyMs = o.span && results.length > 1 ? median(results.slice(1).map((r) => r.ms)) : undefined;
     const [git, tc, refSha] = await Promise.all([gitState(root, [...ih.roots, 'pnpm-lock.yaml']), toolchain({ browser: s.info.browser, gpu: s.info.gpu }), ref && o.ref ? sha256File(o.ref) : Promise.resolve('')]);
     const mismatched = results.filter((r) => r.check && !r.check.match).length;
     const json: StillsJson = {
@@ -530,7 +565,7 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
       toolchain: tc,
       git,
       rendering: how.rendering,
-      timing: { bootS: round(bootS, 2), wallS: round((now() - t0) / 1000, 2) },
+      timing: { bootS: round(bootS, 2), wallS: round((now() - t0) / 1000, 2), ...(steadyMs !== undefined ? { steadyMs } : {}) },
       frames: results,
       ...(ref && o.ref
         ? {
@@ -551,7 +586,8 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
     };
     writeJson(join(dir, 'stills.json'), json);
     const perFrame = results.reduce((a, r) => a + r.ms, 0) / results.length / 1000;
-    const head = `${results.length} stills ${size.width}x${size.height} in ${repoRel(dir, root)} · boot ${bootS.toFixed(1)} s, ${perFrame.toFixed(1)} s/still · input hash ${ih.hash.slice(0, 12)}`;
+    const pace = steadyMs !== undefined ? `first ${(results[0].ms / 1000).toFixed(1)} s, then ${(steadyMs / 1000).toFixed(2)} s/frame (median, in one call)` : `${perFrame.toFixed(1)} s/still`;
+    const head = `${results.length} stills ${size.width}x${size.height} in ${repoRel(dir, root)} · boot ${bootS.toFixed(1)} s, ${pace} · input hash ${ih.hash.slice(0, 12)}`;
     const refPart = ref ? ` · mean valueGridMAE ${(results.reduce((a, r) => a + r.compare!.valueGridMAE, 0) / results.length).toFixed(4)}, mean paletteDeltaE ${(results.reduce((a, r) => a + r.compare!.paletteDeltaE, 0) / results.length).toFixed(2)} (reported, not gating)` : '';
     if (!check) return outcome(EXIT.OK, head + refPart, json);
     const verdict = mismatched
