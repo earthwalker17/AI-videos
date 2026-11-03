@@ -211,10 +211,17 @@ export function onGround(x: number, z: number, lift = 0): [number, number, numbe
 
 /**
  * V1 blocked the door spread (bars 17–34) around a door at x −0.25 on a house front at z −1.5,
- * on a floor at y 1.2. This frame carries V1's local coordinates onto the last house's door, so
- * the approved blocking and camera keys of the door beats keep their framing.
+ * on a floor at y 1.2, at a scale where the door is 2.35 tall and Clawd's body 0.65 × 0.40. This
+ * frame carries V1's local coordinates onto the last house's door, scaled by DOOR_SCALE: the
+ * door, the neighbour, the letter, the porch, Clawd (the same size all through the film) and
+ * V1's door cameras all scale together about the door, so every approved door shot frames the
+ * same picture (similar triangles); only world-unit effects (focus distance, fog, light
+ * falloff) take the factor. Why 0.5: at V1's scale the cottage would fill three quarters of the
+ * hero view, where the reference's cottage is a quarter of the frame on the hill.
  */
 export const V1_ORIGIN = new Vector3(-0.25, 1.2, -1.5);
+/** V1 world units → today's (the door spread and Clawd); see houseFrame */
+export const DOOR_SCALE = 0.5;
 
 export function houseFrame(): Matrix4 {
   const h = LAND.house;
@@ -227,11 +234,34 @@ export function houseFrame(): Matrix4 {
 }
 const HF = houseFrame();
 
-/** A V1 door-spread point in today's world. */
+/** A V1 door-spread point in today's world (scaled about V1's door by DOOR_SCALE). */
 export function fromV1Door(p: readonly [number, number, number]): [number, number, number] {
-  const v = new Vector3(p[0], p[1], p[2]).sub(V1_ORIGIN).applyMatrix4(HF);
+  const v = new Vector3(p[0], p[1], p[2]).sub(V1_ORIGIN).multiplyScalar(DOOR_SCALE).applyMatrix4(HF);
   return [v.x, v.y, v.z];
 }
+
+/** A house-local point (x along the front, y up from the door's floor, z out of the front) in the world. */
+export function fromHouse(p: readonly [number, number, number]): [number, number, number] {
+  const v = new Vector3(p[0], p[1], p[2]).applyMatrix4(HF);
+  return [v.x, v.y, v.z];
+}
+
+/**
+ * The door front in house-local units (V1's door spread × DOOR_SCALE): the door opening, the
+ * couplets either side, the 横批 above, the lanterns under the porch eave, the porch pumpkins,
+ * the room behind, where Clawd knocks and waits and where the letter rises.
+ */
+export const DOOR_FRONT = {
+  door: { w: 1.3 * DOOR_SCALE, h: 2.35 * DOOR_SCALE },
+  couplet: { x: (1.3 / 2 + 0.22) * DOOR_SCALE, y: 1.2 * DOOR_SCALE, w: 0.26 * DOOR_SCALE, h: 1.85 * DOOR_SCALE },
+  hengpi: { y: (2.35 + 0.24) * DOOR_SCALE, w: 1.05 * DOOR_SCALE, h: 0.26 * DOOR_SCALE },
+  fu: { y: 2.35 * 0.58 * DOOR_SCALE, size: 0.46 * DOOR_SCALE },
+  lanterns: [-1, 1].map((sx) => [sx * 1.15 * DOOR_SCALE, 2.55 * DOOR_SCALE, 0.45 * DOOR_SCALE] as const),
+  porchPumpkins: [-1, 1].map((sx) => [sx * 1.0 * DOOR_SCALE, 0, 0.55 * DOOR_SCALE] as const),
+  room: { z: -1.0 * DOOR_SCALE, w: 3.2 * DOOR_SCALE, h: 2.6 * DOOR_SCALE },
+  /** the yard in front of the door the door beats need flat and clear (house-local x, z ranges) */
+  yard: { x: [-1.6 * DOOR_SCALE, 2.4 * DOOR_SCALE] as const, z: [0, 3.2 * DOOR_SCALE] as const },
+} as const;
 
 /** The floor height at the house's door, where the door spread's actors stand. */
 export const DOOR_FLOOR = HF.elements[13];
