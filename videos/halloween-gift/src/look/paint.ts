@@ -6,7 +6,9 @@
  * while edges stay sharp: the "painted" look. It is a convolution effect, so it runs in its own
  * PostChain stage BEFORE depth of field and bloom (packages/remotion-kit PostChain `stages`).
  * Pure function of the input image: deterministic; judge it on moving frames (it can amplify
- * input aliasing into shimmer).
+ * input aliasing into shimmer). Thin bright shapes (a carved grin, a lit window) would erode
+ * into dashes, so HDR-bright pixels (emissive, above `protect` in linear luminance) keep their
+ * own colour.
  */
 import { BlendFunction, Effect, EffectAttribute } from 'postprocessing';
 import { Uniform } from 'three';
@@ -15,6 +17,7 @@ const FRAG = /* glsl */ `
 uniform float uRadius;
 uniform float uSharp;
 uniform float uMix;
+uniform float uProtect;
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
   const int R = 4;
   vec4 m[8];
@@ -53,12 +56,14 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     wsum += w;
   }
   vec3 painted = acc / max(wsum, 1e-5);
-  outputColor = vec4(mix(inputColor.rgb, painted, uMix), inputColor.a);
+  float lum = max(max(inputColor.r, inputColor.g), inputColor.b);
+  float keep = smoothstep(uProtect * 0.6, uProtect, lum);
+  outputColor = vec4(mix(inputColor.rgb, painted, uMix * (1.0 - keep)), inputColor.a);
 }
 `;
 
 export class KuwaharaEffect extends Effect {
-  constructor({ radius = 3.0, sharpness = 8.0, mix = 1.0 } = {}) {
+  constructor({ radius = 3.0, sharpness = 8.0, mix = 1.0, protect = 1.1 } = {}) {
     super('KuwaharaEffect', FRAG, {
       blendFunction: BlendFunction.NORMAL,
       attributes: EffectAttribute.CONVOLUTION,
@@ -66,6 +71,7 @@ export class KuwaharaEffect extends Effect {
         ['uRadius', new Uniform(radius)],
         ['uSharp', new Uniform(sharpness)],
         ['uMix', new Uniform(mix)],
+        ['uProtect', new Uniform(protect)],
       ]),
     });
   }

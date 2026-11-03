@@ -4,16 +4,15 @@
  * keyed camera path. Asset lookdev entries (src/lookdev/*.entry.ts) wrap their assets in it, so
  * every asset is judged in the film's own light, fog and grade, from the film's own hero view.
  */
-import { PostChain, Stage3D } from '@aiv/remotion-kit';
+import { Stage3D } from '@aiv/remotion-kit';
 import { useThree } from '@react-three/fiber';
-import { BloomEffect, DepthOfFieldEffect, ToneMappingMode, type Effect } from 'postprocessing';
-import { useCallback, useLayoutEffect, useMemo, type ReactNode } from 'react';
+import { useLayoutEffect, type ReactNode } from 'react';
 import { AbsoluteFill, useCurrentFrame } from 'remotion';
-import { Color, type Camera, type PerspectiveCamera } from 'three';
+import { type PerspectiveCamera } from 'three';
 import { FPS } from '../cues.ts';
 import { CamPath, type CamKey } from '../film/campath.ts';
 import { Night } from '../look/Night.tsx';
-import { StorybookGrade } from '../look/Post.tsx';
+import { NightPost, type NightPostOptions } from '../look/NightPost.tsx';
 import { useSkyPortal } from '../look/SkyPortal.tsx';
 import { Grass } from '../world/Grass.tsx';
 import { BOOK, FLOOR } from '../world/layout.ts';
@@ -57,29 +56,15 @@ export interface LookStageProps {
   path?: CamPath;
   /** leave the ground out (close-ups of a single asset on a plain floor) */
   bare?: boolean;
+  /** options of the film's post chain (look/NightPost.tsx); default LOOK_POST */
+  post?: NightPostOptions;
 }
 
-export function LookStage({ children, path = HERO_PATH, bare = false }: LookStageProps) {
+/** The post the lookdev judges assets under: the painterly stage and soft moon rays (probe, 2026-11-04). */
+export const LOOK_POST: NightPostOptions = { paint: 3, rays: true };
+
+export function LookStage({ children, path = HERO_PATH, bare = false, post = LOOK_POST }: LookStageProps) {
   const f = useCurrentFrame();
-  const dof = useMemo(() => ({ current: null as DepthOfFieldEffect | null }), []);
-  const effects = useCallback(
-    (camera: Camera): Effect[] => {
-      const bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.75, luminanceSmoothing: 0.25, intensity: 0.9, radius: 0.8 });
-      dof.current = new DepthOfFieldEffect(camera, { focusDistance: 6, focusRange: 3, bokehScale: 2.0, resolutionScale: 0.5 });
-      const grade = new StorybookGrade();
-      (grade.uniforms.get('uNear')!.value as Color).set('#4a1a2e');
-      (grade.uniforms.get('uFar')!.value as Color).set('#2a5c80');
-      return [bloom, dof.current, grade];
-    },
-    [dof],
-  );
-  useLayoutEffect(() => {
-    const p = path.at(f);
-    if (dof.current) {
-      dof.current.cocMaterial.focusDistance = p.focus;
-      dof.current.cocMaterial.focusRange = Math.max(1.2, p.focus * 0.55);
-    }
-  });
   return (
     <AbsoluteFill style={{ background: '#0a1118' }}>
       <Stage3D antialias={false} camera={{ fov: 44, near: 0.05, far: 80, position: [0, 3, 8] }}>
@@ -90,7 +75,7 @@ export function LookStage({ children, path = HERO_PATH, bare = false }: LookStag
         {!bare && <Terrain />}
         {!bare && <Grass />}
         {typeof children === 'function' ? children(f) : children}
-        <PostChain effects={effects} toneMapping={ToneMappingMode.NEUTRAL} />
+        <NightPost f={f} focus={path.at(f).focus} {...post} />
       </Stage3D>
     </AbsoluteFill>
   );

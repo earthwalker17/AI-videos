@@ -19,6 +19,7 @@ import { hopAt, type Walk } from '../film/gait.ts';
 import { buildTree } from '../kit/tree.ts';
 import { storybookMaterial } from '../look/materials.ts';
 import { Night } from '../look/Night.tsx';
+import { NightPost, type NightPostOptions } from '../look/NightPost.tsx';
 import { StorybookGrade } from '../look/Post.tsx';
 import { useSkyPortal } from '../look/SkyPortal.tsx';
 import { Grass } from '../world/Grass.tsx';
@@ -217,7 +218,8 @@ function Marker({ f }: { f: number }) {
   return <mesh geometry={geo} material={mat} position={[p[0], y + 0.3 + st.lift, p[1]]} rotation-y={Math.atan2(t[0], t[1]) + Math.PI / 2} scale={[st.sxz, st.sy, st.sxz]} castShadow />;
 }
 
-export function Probe() {
+/** `post`: the V2 chain (look/NightPost.tsx) with these options; absent, the first lookdev chain. */
+export function Probe({ post }: { post?: NightPostOptions }) {
   const f = useCurrentFrame();
   const effects = useCallback((camera: Camera): Effect[] => {
     const bloom = new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.75, luminanceSmoothing: 0.25, intensity: 0.9, radius: 0.8 });
@@ -252,7 +254,7 @@ export function Probe() {
         <HouseAndCrag f={f} />
         <Marker f={f} />
         <Pumpkin position={onGround(LAND.bigPumpkin.x, LAND.bigPumpkin.z, 0.55)} scale={0.62} lit={1} f={f} seed={2} rotation={LAND.bigPumpkin.yaw} />
-        <PostChain effects={effects} toneMapping={ToneMappingMode.NEUTRAL} />
+        {post ? <NightPost f={f} focus={camPath.at(f).focus} {...post} /> : <PostChain effects={effects} toneMapping={ToneMappingMode.NEUTRAL} />}
       </Stage3D>
     </AbsoluteFill>
   );
