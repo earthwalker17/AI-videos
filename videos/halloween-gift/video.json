@@ -16,7 +16,7 @@
       "note": "The user selected \"A · Storybook (Recommended)\" from the three candidates, chose \"Bilingual captions\" and the programmer couplet 代码千行一次过 / 账号百年永不封 · 横批 一路绿灯, and approved the production plan."
     }
   ],
-  "next": "Integrate the audio stage and the kit font loader, then the score (audio/), lookdev stills and a 20 s audio sketch for the user to look at and listen to.",
+  "next": "Checkpoint: the user looks at the 1080p stills and listens to the draft with the score; then the review cut.",
   "languages": [
     "en",
     "zh-Hans"
@@ -34,11 +34,7 @@
   "audio": {
     "tracks": [
       {
-        "source": "lavfi:aevalsrc=0.10*sin(2*PI*146.83*t)+0.07*sin(2*PI*220*t)+0.05*sin(2*PI*293.66*t)|0.10*sin(2*PI*147.2*t)+0.07*sin(2*PI*220*t)+0.05*sin(2*PI*293.66*t):s=48000,afade=t=in:d=0.6,afade=t=out:st=4.0:d=1.0"
-      },
-      {
-        "source": "lavfi:anoisesrc=c=brown:r=48000:a=0.03:seed=2202,afade=t=in:d=1.0,afade=t=out:st=3.5:d=1.5",
-        "gainDb": -8
+        "source": "audio:mix"
       }
     ]
   },
@@ -53,7 +49,32 @@
       "truePeakMax": -1
     }
   },
-  "reusable": [],
+  "reusable": [
+    {
+      "path": "audio/sampler.ts",
+      "what": "SFZ-subset sampler for pinned CC0 libraries (VSCO 2 CE): regions, velocity layers, seeded round robins, Hermite resampling, leading-silence skip, per-instrument shift/retune fixes"
+    },
+    {
+      "path": "audio/master.ts",
+      "what": "Mastering chain in TypeScript: 28 Hz high-pass, glue compressor, BS.1770-4 meter, 4x-oversampled look-ahead true-peak limiter, iterated to a loudness target"
+    },
+    {
+      "path": "audio/sfx.ts",
+      "what": "Seeded synthesised Halloween foley: thunder, wind, gravel steps, wood knocks, creaks, iron clang, owl, bats, whooshes, paper, wax crack, stamp, a notification ding"
+    },
+    {
+      "path": "src/look/Sky.tsx",
+      "what": "A printed night-sky backdrop shader: gradient, banded fbm clouds with silver linings, stars, an HDR moon with halo, paper fibre"
+    },
+    {
+      "path": "src/look/cutouts.ts",
+      "what": "Seeded cut-paper silhouettes on canvas: twisted trees with curling twigs, spear fences, iron gates with scrolls, a castle on a floating rock, hills, tombstones, a gothic house, a witch"
+    },
+    {
+      "path": "src/world/Pumpkin.tsx",
+      "what": "A ribbed jack-o-lantern with a carved, glowing face and seeded flicker on twos"
+    }
+  ],
   "license": {
     "film": "none",
     "note": "Fan parody: its central character, Clawd, belongs to Anthropic, so the film carries no reuse licence. Not affiliated with or endorsed by Anthropic. Code MIT and text CC BY 4.0 as in the rest of the repository."

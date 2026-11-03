@@ -39,6 +39,7 @@ generalised from one film to any video and any engine.
 | `engines/web/src/harness/server.ts` | [tools/capture/server.ts](https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/tools/capture/server.ts) |
 | `engines/web/src/harness/adapter.ts` | [tools/capture/session.ts](https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/tools/capture/session.ts) |
 | `engines/web/src/page/index.ts` | [src/render/capture.ts](https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/src/render/capture.ts) |
+| `videos/halloween-gift/audio/master.ts` (glue compressor, mastering chain)<br>`videos/halloween-gift/audio/reverb.ts` (seeded hall impulse response) | [tools/music/engine.py](https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/tools/music/engine.py) (`glue_compress`, `master`, `hall_ir`), ported from Python to TypeScript |
 
 ### lemo-opuscar @ bebbbe1
 

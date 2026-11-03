@@ -55,7 +55,12 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [Render React Three Fiber under Remotion so every chunk start looks the same](../knowledge/r3f-under-remotion.md): Remotion renders a 3D scene one frame at a time, in chunks, and each chunk usually starts on a fresh page.
 
 ## Reusable parts of videos
-_None declared yet: a video lists parts worth promoting in its `video.json` `reusable`._
+- [SFZ-subset sampler for pinned CC0 libraries (VSCO 2 CE): regions, velocity layers, seeded round robins, Hermite resampling, leading-silence skip, per-instrument shift/retune fixes](../videos/halloween-gift/audio/sampler.ts) (`halloween-gift`)
+- [Mastering chain in TypeScript: 28 Hz high-pass, glue compressor, BS.1770-4 meter, 4x-oversampled look-ahead true-peak limiter, iterated to a loudness target](../videos/halloween-gift/audio/master.ts) (`halloween-gift`)
+- [Seeded synthesised Halloween foley: thunder, wind, gravel steps, wood knocks, creaks, iron clang, owl, bats, whooshes, paper, wax crack, stamp, a notification ding](../videos/halloween-gift/audio/sfx.ts) (`halloween-gift`)
+- [A printed night-sky backdrop shader: gradient, banded fbm clouds with silver linings, stars, an HDR moon with halo, paper fibre](../videos/halloween-gift/src/look/Sky.tsx) (`halloween-gift`)
+- [Seeded cut-paper silhouettes on canvas: twisted trees with curling twigs, spear fences, iron gates with scrolls, a castle on a floating rock, hills, tombstones, a gothic house, a witch](../videos/halloween-gift/src/look/cutouts.ts) (`halloween-gift`)
+- [A ribbed jack-o-lantern with a carved, glowing face and seeded flicker on twos](../videos/halloween-gift/src/world/Pumpkin.tsx) (`halloween-gift`)
 
 ## References
 - [Claude Code packaging — skills, CLAUDE.md, plugins, marketplaces](../references/claude-code-packaging.md): How Claude Code finds and loads instructions, skills and plugins, and how third parties (Remotion, HyperFrames, lemo-opuscar) package theirs.

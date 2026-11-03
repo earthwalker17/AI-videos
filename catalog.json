@@ -46,7 +46,32 @@
       ],
       "path": "videos/halloween-gift",
       "watch": null,
-      "reusable": []
+      "reusable": [
+        {
+          "path": "videos/halloween-gift/audio/sampler.ts",
+          "what": "SFZ-subset sampler for pinned CC0 libraries (VSCO 2 CE): regions, velocity layers, seeded round robins, Hermite resampling, leading-silence skip, per-instrument shift/retune fixes"
+        },
+        {
+          "path": "videos/halloween-gift/audio/master.ts",
+          "what": "Mastering chain in TypeScript: 28 Hz high-pass, glue compressor, BS.1770-4 meter, 4x-oversampled look-ahead true-peak limiter, iterated to a loudness target"
+        },
+        {
+          "path": "videos/halloween-gift/audio/sfx.ts",
+          "what": "Seeded synthesised Halloween foley: thunder, wind, gravel steps, wood knocks, creaks, iron clang, owl, bats, whooshes, paper, wax crack, stamp, a notification ding"
+        },
+        {
+          "path": "videos/halloween-gift/src/look/Sky.tsx",
+          "what": "A printed night-sky backdrop shader: gradient, banded fbm clouds with silver linings, stars, an HDR moon with halo, paper fibre"
+        },
+        {
+          "path": "videos/halloween-gift/src/look/cutouts.ts",
+          "what": "Seeded cut-paper silhouettes on canvas: twisted trees with curling twigs, spear fences, iron gates with scrolls, a castle on a floating rock, hills, tombstones, a gothic house, a witch"
+        },
+        {
+          "path": "videos/halloween-gift/src/world/Pumpkin.tsx",
+          "what": "A ribbed jack-o-lantern with a carved, glowing face and seeded flicker on twos"
+        }
+      ]
     }
   ],
   "series": [
