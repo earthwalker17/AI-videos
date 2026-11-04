@@ -8,7 +8,9 @@
  *  1. bundle the entry once (cached by input state, see bundle.ts; unhashed files and duplicate
  *     React/three/R3F/remotion copies fail here);
  *  2. open the headless shell once (gl 'angle', or 'swangle' only with AIV_ALLOW_SOFTWARE_GL=1)
- *     and probe the WebGL renderer in it: software GL is refused;
+ *     and probe the WebGL renderer in it: software GL is refused. Its GPU program cache is kept
+ *     across calls (gpuCache.ts, browser.ts): a scene's shaders are compiled once per host, not
+ *     once per call (AIV_GPU_CACHE=0 turns it off);
  *  3. select the composition (video.json `composition`, default 'Main') and check it against
  *     video.json's format; scale = render width / composition width;
  *  4. per chunk: renderFrames(frameRange, concurrency 1, puppeteerInstance = the session browser).
@@ -91,7 +93,8 @@ async function openSession(ctx: EngineOpenContext, opts: RemotionAdapterOptions)
     if (closed) return;
     closed = true;
     cancelActive?.();
-    await opened?.close();
+    // a crashed shell may have left its GPU program cache half written: not kept
+    await opened?.close({ keepGpuCache: !lost });
     // a crashed or killed shell leaves children (and its temp profile) behind on Windows
     await sweepOrphans({ root, log }).catch(() => {});
   };
@@ -106,10 +109,11 @@ async function openSession(ctx: EngineOpenContext, opts: RemotionAdapterOptions)
       lost = crashed();
       cancelActive?.();
     };
-    opened = await openRemotionBrowser({ root, gl, scale: deviceScale, dropSignalHandlers: true, onReplace, log });
+    opened = await openRemotionBrowser({ root, gl, scale: deviceScale, dropSignalHandlers: true, onReplace, gpuCache: true, log });
     const browser = opened.browser;
 
-    const webgl = await probeWebGl(browser);
+    // the cache's host check already probed this browser
+    const webgl = opened.probed?.webgl ?? (await probeWebGl(browser));
     if (!webgl.renderer) throw new Error(`WebGL is unavailable in the headless shell with --gl=${gl} (${webgl.error ?? 'no context'}): check the GPU driver and pnpm aiv doctor`);
     if (isSoftwareRenderer(webgl.renderer)) {
       const msg = `WebGL runs on software rendering (${webgl.renderer}): slow, and other pixels than the hardware path`;
@@ -150,11 +154,13 @@ async function openSession(ctx: EngineOpenContext, opts: RemotionAdapterOptions)
     const info: EngineInfo = {
       browser: opened.label,
       gpu: gpuFamily(webgl.renderer),
-      driver: await driverVersion(browser),
+      driver: opened.probed ? opened.probed.driver : await driverVersion(browser),
       webgl: webgl.renderer,
       gl,
+      // recorded with the run and the stills (not part of the resume check: warm and cold give the same pixels)
+      ...(opened.gpuCache ? { gpuCache: opened.gpuCache } : {}),
     };
-    log.info(`composition '${comp.id}': ${comp.durationInFrames} frames at ${comp.width}x${comp.height} ${comp.fps} fps, rendering at ${width}x${height} (scale ${scale}) · ${info.browser} · --gl=${gl} · ${webgl.renderer}`);
+    log.info(`composition '${comp.id}': ${comp.durationInFrames} frames at ${comp.width}x${comp.height} ${comp.fps} fps, rendering at ${width}x${height} (scale ${scale}) · ${info.browser} · --gl=${gl} · ${webgl.renderer}${opened.gpuCache ? ` · GPU program cache ${opened.gpuCache}` : ''}`);
 
     return {
       durationFrames: comp.durationInFrames,

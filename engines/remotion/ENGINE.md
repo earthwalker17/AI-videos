@@ -175,6 +175,34 @@ Remotion's `openBrowser` makes a fresh profile in the OS temp folder
   abort handler's 10 s cap, so the lock release after it still runs. The sweep kills a shell
   that did not exit.
 
+## The GPU program cache
+
+A heavy 3D scene's first frame pays for every shader once: on the reference host's ANGLE D3D11,
+each distinct program costs about 1.5–2 s to translate, compile and link. halloween-gift's V2
+film has 82 of them, so its first frame spent up to 61 s in the first draw, on every call.
+Chrome keeps compiled programs in the profile's `Default/GPUCache`, but Remotion makes a fresh
+temp profile per call. So render sessions keep that folder across calls
+(`src/harness/gpuCache.ts`):
+- the store is `.cache/remotion-gpu/<shell version>-<gl>/store`, with a `store.json` naming the
+  host it was built on (browser, gl, WebGL renderer, driver). A store from another host (a driver
+  update, say) is emptied and the shell relaunched cold; a store without its `store.json` is
+  never used;
+- each session links its profile's `Default/GPUCache` (a junction on Windows) to its own copy
+  (`work-<pid>-<n>`) before Chrome starts, and hands the copy back to the store only after
+  Chrome has exited cleanly; a crashed shell's copy is dropped. Copies left by dead processes
+  are deleted at the next start;
+- Remotion offers no option for the profile, so `openRemotionBrowser` wraps
+  `fs.promises.mkdtemp` while `openBrowser` runs (Remotion 4.0.539 creates its profile through
+  it). If the link is never made (a Remotion change), the cache turns itself off rather than let
+  an empty copy replace the store;
+- the state (`warm`, `cold (new)`, `off (…)`) is logged and recorded in the run's and the
+  stills' engine info (`gpuCache`), outside the resume check: cached programs give the same
+  pixels (`adapter.test.ts` renders the shader-heavy fixture with the cache off, cold and warm
+  and compares frame hashes). `AIV_GPU_CACHE=0` turns it off.
+
+Measured on the reference host (halloween-gift's V2 film, its diagnostic composition): the first
+draw 119–225 s cold, 6.7 s warm. After any shader edit, the changed programs compile cold once.
+
 ## Determinism rules (Remotion + R3F)
 
 A frame is a pure function of `useCurrentFrame()`. The ESLint determinism block applies to
@@ -259,7 +287,8 @@ physical iridescent material, 4x MSAA HalfFloat composer, bloom, vignette, dithe
 - **`selectComposition` and every chunk start their own local server.** That costs about a
   second; Remotion's shared-server option is internal API.
 - **Runtime network fetches are not intercepted.** The bundle is checked, but a fetch from
-  inside the page is not. Remotion's `openBrowser` exposes no way to add Chrome flags.
+  inside the page is not. Remotion's `openBrowser` exposes no way to add Chrome flags (the GPU
+  program cache reaches the profile through a wrapped `fs.promises.mkdtemp` instead: see above).
 - **The Studio preview runs R3F with `frameloop: 'always'`.** It hides nondeterminism. Check
   determinism by rendering twice.
 
@@ -287,6 +316,7 @@ not an OSI open-source licence.
 | `src/harness/adapter.ts` | The `EngineAdapter` (streaming style) for the chunk runner. |
 | `src/harness/bundle.ts` | Bundling, the bundle cache, the input-hash and single-instance checks. |
 | `src/harness/browser.ts` | The headless shell: location, install, open, profile cleanup, WebGL probe, driver. |
+| `src/harness/gpuCache.ts` | The GPU program cache kept across calls: its store, the session copy, the host check. |
 | `src/harness/composition.ts` | The composition/format contract and the swatch-frame check. |
 | `src/harness/png.ts` | The PNG decoder. |
 | `src/fixtures/src/` | Test compositions for `adapter.test.ts` (laid out like a video's `src/`). |

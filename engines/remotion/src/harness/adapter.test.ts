@@ -112,6 +112,43 @@ describe('remotion adapter through the runner', () => {
   );
 
   it(
+    'renders the same pixels with the GPU program cache off, cold or warm (gpuCache.ts)',
+    async (ctx) => {
+      if (skipWhy()) return ctx.skip(skipWhy()!);
+      const was = process.env.AIV_GPU_CACHE;
+      const lines: string[] = [];
+      const session = (dir: string) => remotionAdapter().open({ target: fixture('Anim'), profile: PROFILE, width: W, height: H, fps: FIXTURE_FPS, runDir: join(OUT, dir), root, inputRoots: FIXTURE_ROOTS, log: silentLog(lines) });
+      const pass = async (dir: string) => {
+        const s = await session(dir);
+        try {
+          return await hashes(s, [0, 6]);
+        } finally {
+          await s.close();
+        }
+      };
+      try {
+        process.env.AIV_GPU_CACHE = '0';
+        const off = await pass('gpu-off');
+        delete process.env.AIV_GPU_CACHE;
+        // the first session may find a store of earlier renders; the second one finds this one's
+        const first = await pass('gpu-1');
+        const warm = await pass('gpu-2');
+        expect(lines.filter((l) => l.includes('GPU program cache')).map((l) => /GPU program cache (\w+)/.exec(l)?.[1])).toEqual(['off', expect.stringMatching(/^(cold|warm)$/), 'warm']);
+        expect(off.size).toBe(6);
+        for (let i = 0; i < 6; i++) {
+          expect(first.get(i), `frame ${i} (cache on, first session)`).toBe(off.get(i));
+          expect(warm.get(i), `frame ${i} (cache warm)`).toBe(off.get(i));
+        }
+      } finally {
+        if (was === undefined) delete process.env.AIV_GPU_CACHE;
+        else process.env.AIV_GPU_CACHE = was;
+      }
+      expect(await findOrphanBrowsers(root)).toEqual([]);
+    },
+    SLOW,
+  );
+
+  it(
     'stops at once and rejects with the consumer’s own error when onFrame throws mid-chunk',
     async (ctx) => {
       if (skipWhy()) return ctx.skip(skipWhy()!);
