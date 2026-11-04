@@ -178,9 +178,9 @@ export function clawdAt(f: number): ClawdState {
     const w = f < stop0 + 6 ? wG1 : wG2;
     const { pos, hop } = onRouteHop(w, f);
     const shoo = f >= stop0 && f < stop1;
-    // the ghost hangs at LAND.ghosts: he turns toward it to flick the ember, then back to the path
-    const toGhost = Math.atan2(LAND.ghosts.x - pos[0], LAND.ghosts.z - pos[2]);
-    const back = turnFrames(toGhost - along(ROUTE_STOPS.shoo));
+    // the ghost peeks from LAND.peek: he turns toward it to flick the ember, then back to the path
+    const toGhost = Math.atan2(LAND.peek.x - pos[0], LAND.peek.z - pos[2]);
+    const back = turnFrames(Math.atan2(Math.sin(toGhost - along(ROUTE_STOPS.shoo)), Math.cos(toGhost - along(ROUTE_STOPS.shoo))));
     const heading =
       f < stop0 ? along(hop.s) : f < stop1 - back ? turnBy(f, stop0 + 2 + back, along(ROUTE_STOPS.shoo), toGhost) : turnBy(f, stop1, toGhost, along(hop.s));
     const flick = shoo ? progress(f, at(11, 2) - 6, at(11, 2), 'outCubic') * (1 - progress(f, stop1 - 8, stop1 - 2, 'inCubic')) : 0;

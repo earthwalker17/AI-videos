@@ -8,14 +8,16 @@
  * toward the viewer at the front edge, the spine (and the standing cover, the sky) at the back.
  * Every shot looks roughly toward −z: beyond the other edges of the page is the room, not the sky.
  *
- * The plan, front to back: the fenced graveyard fills the front half (the giant pumpkin at its
- * front left, the ghost tree at its right); the gates are its exit on the right; beyond them a
- * lantern lane climbs the hill to the last house; the castle's crag and the far house stand at the
- * back against the sky. The door spread's camera stands in the gateway, looking up the lane.
+ * The plan, front to back, as in the reference: the graveyard fills the front and the slope (the
+ * giant pumpkin at its front left, the ghost tree at its right edge); the path winds right along
+ * the front, under the ghost tree's hero limb, then turns back up the slope to the tall gates,
+ * centre left on the fence that runs across the hill; beyond them a lantern lane runs right
+ * behind the fence to the last house, right of centre; the castle's crag and the far house stand
+ * at the back against the sky.
  *
- * Walk budget (audio/timeline.ts WALKS, one hop per beat, ≤ 0.55 units a hop): 3 + 5 + 5 + 8 hops
- * from the pop-up spot to the door ≈ 7.2 units of path (small hops, 0.3–0.45); screen directions as the score pans them:
- * valley and graveyard left → right (+x), the lane receding (−z) to the door, the exit rightward.
+ * Walk budget (audio/timeline.ts WALKS, one hop per beat, at most 0.55 units a hop): 3 + 5 + 5 + 8
+ * hops from the pop-up spot to the door, so at most about 1.2 + 2.24 + 2.38 + 3.68 units of path
+ * for the four walks (film/blocking.test.ts checks every hop).
  */
 import { smoothstep } from '@aiv/core';
 import { Matrix4, Vector3 } from 'three';
@@ -31,25 +33,35 @@ export const PAGE = { w: BOOK.w - 0.5, d: BOOK.d - 0.4 } as const;
 /** Clawd's path across the page (x, z), from beside the giant pumpkin to the last house's door. */
 export const PATH_POINTS: P2[] = [
   [-1.05, 3.05],
-  [-0.55, 2.85],
-  [0.05, 2.62],
-  [0.75, 2.32],
-  [1.35, 2.0],
-  [1.95, 1.55],
-  [2.45, 1.05],
-  [3.0, 0.15],
-  [3.65, -0.75],
+  [-0.45, 2.86],
+  [0.2, 2.6],
+  [0.82, 2.22],
+  // the shoo (STOPS.shoo), under the ghost tree's hero limb; then up the slope
+  [1.22, 1.72],
+  [1.32, 1.22],
+  [1.22, 0.55],
+  [1.08, -0.15],
+  // the gates
+  [1.0, -0.85],
+  // the lantern lane, behind the fence, to the door
+  [1.58, -1.1],
+  [2.5, -1.22],
+  [3.42, -1.16],
   [4.1, -1.45],
 ];
 export const PATH = new Curve(PATH_POINTS);
-const PATH_LINE = PATH.polyline(200);
+const PATH_LINE = PATH.polyline(400);
+/** the arc length on PATH nearest a point */
+const sAt = (x: number, z: number) => distanceToPolyline(x, z, PATH_LINE).s;
+/** the gate's centre is this far past the gates stop, where Clawd waits for it to open */
+const GATE_AHEAD = 0.32;
 
 /** Arc lengths (along PATH) where each walk stops: the pop-up spot, the ghost tree, the gates, the door. */
 export const STOPS = {
   pop: 0,
   valleyEnd: 0.9,
-  shoo: 3.1,
-  gates: 4.4,
+  shoo: 2.75,
+  gates: sAt(1.0, -0.85) - GATE_AHEAD,
   knock: PATH.length,
 } as const;
 
@@ -81,7 +93,7 @@ const at = (s: number, side = 0, ahead = 0): Spot => {
   return { x: x - t[1] * side, z: z + t[0] * side, yaw: pathYaw(s) };
 };
 
-const gate = at(STOPS.gates, 0, 0.32);
+const gate = at(STOPS.gates, 0, GATE_AHEAD);
 const door = at(STOPS.knock, 0, 0);
 
 export const LAND = {
@@ -93,68 +105,93 @@ export const LAND = {
   roots: { x: 2.55, z: 4.35, yaw: -0.4 } as Spot,
   /** the ghost tree, front right: its hero limb arches left over the path at the shoo stop */
   ghostTree: { x: 4.3, z: 2.9, yaw: 0 } as Spot,
-  /** where the hero limb's ghosts hang (above the path at the shoo stop) */
-  ghosts: at(STOPS.shoo, 0.1, 0.1),
-  /** a second gnarled tree inside the fence, back left */
-  oldTree: { x: -2.9, z: 1.25, yaw: 0.8 } as Spot,
+  /** the ghosts' line: world/Trees.tsx builds the hero limb along it, from here toward the trunk */
+  ghosts: { x: 1.87, z: 1.74 } as Spot,
+  /**
+   * the ghost that lowers to peek at Clawd (bars 10 to 11): the ground point under the
+   * world/Trees.tsx GHOST_HOOKS hook nearest the shoo stop (layout may not import the trees; a
+   * test checks they agree)
+   */
+  peek: { x: 1.513, z: 1.556 } as Spot,
+  /** a second gnarled tree behind the fence, back left, its twisted trunk clear against the haze */
+  oldTree: { x: -1.9, z: -1.5, yaw: 0.8 } as Spot,
   /** the gates where the path leaves the graveyard, opening onto the lane */
   gates: gate,
-  /** the big RIP IN PEACE stone and the cauldron beside the path, before the gates */
-  ripStone: at(3.35, -0.6),
-  cauldron: at(3.0, 0.65),
+  /** the cauldron under the ghosts, right of the shoo stop, and the big RIP IN PEACE stone beside it */
+  cauldron: { x: 1.98, z: 1.72, yaw: -0.3 } as Spot,
+  ripStone: { x: 2.72, z: 1.22, yaw: -0.45 } as Spot,
   /** the last house, right of centre: its door at the path's end, turned a little toward the lane */
   house: { x: door.x + 0.2, z: door.z - 0.6, yaw: -0.3 } as Spot,
   /** the castle on its crag, behind the hill between the gates and the house (multiplane) */
   crag: { x: 3.0, z: -4.7 } as Spot,
-  /** the far house at the crag's foot */
-  farHouse: { x: 0.6, z: -4.25, yaw: 0.35 } as Spot,
+  /** the far house at the crag's foot, right of the gates as the hero view sees them */
+  farHouse: { x: 1.9, z: -4.4, yaw: 0.35 } as Spot,
   /** a far window down the hill that flips cold at the end (seen past Clawd's exit, right) */
   farWindow: { x: 6.1, z: -3.6, yaw: -0.5 } as Spot,
 } as const;
 
-/** The fence along the hill above the graveyard (x, z); the gates' opening is left out around LAND.gates. */
-export const FENCE_LINE: P2[] = [
-  [-7.3, 2.1],
-  [-5.3, 1.55],
-  [-3.1, 1.2],
-  [-0.9, 1.15],
-  [1.1, 1.25],
-  [gate.x - 0.62, gate.z + 0.12],
-];
+/** The gateway's posts, either side of the gate across the path: [left, right] walking through. */
+const GATE_HALF = 0.42;
+export const GATE_POSTS: readonly [P2, P2] = (() => {
+  const t = PATH.tangentAt(STOPS.gates + GATE_AHEAD);
+  // the path's left, walking along it
+  const lx = t[1];
+  const lz = -t[0];
+  return [
+    [gate.x + lx * GATE_HALF, gate.z + lz * GATE_HALF],
+    [gate.x - lx * GATE_HALF, gate.z - lz * GATE_HALF],
+  ];
+})();
+
 /**
- * Right of the gates the fence only returns a short way: the ground right of the gates, in front
- * of the last house, is the door yard where the door spread's cameras stand (V1's door keys at
- * DOOR_SCALE sit 2.2–3 in front of the door, around x 3.5–4.3, z 0.6–1.6), so it stays open.
+ * The fence across the slope behind the graves (x, z), from off the left of the hero view to the
+ * gateway's left post, bowing toward the viewer at the far left as in the reference.
  */
-export const FENCE_LINE_RIGHT: P2[] = [
-  [gate.x + 0.6, gate.z - 0.1],
-  [gate.x + 0.75, gate.z + 0.35],
-];
+export const FENCE_LINE: P2[] = [[-7.3, 0.95], [-6.0, 0.25], [-4.4, -0.35], [-2.6, -0.78], [-0.9, -0.98], GATE_POSTS[0]];
+/**
+ * Right of the gates the fence runs a short way in front of the lane and stops well short of the
+ * last house: the ground in front of the door is the door yard where the door spread's cameras
+ * stand (V1's door keys at DOOR_SCALE sit 2.2 to 3 in front of the door, around x 3.5 to 4.3).
+ */
+export const FENCE_LINE_RIGHT: P2[] = [GATE_POSTS[1], [2.0, -0.6], [2.65, -0.72]];
 
 /** Tombstones inside the fence: kind, place, height, lean. The big RIP stone is LAND.ripStone. */
 export const STONES: { kind: 'round' | 'cross' | 'obelisk' | 'gothic' | 'slab' | 'broken'; x: number; z: number; h: number; yaw: number; lean: number }[] = [
+  // the front, along the path's first run
   { kind: 'round', x: -0.4, z: 2.0, h: 0.5, yaw: 0.2, lean: -0.12 },
   { kind: 'cross', x: 0.4, z: 1.65, h: 0.66, yaw: -0.1, lean: 0.1 },
   { kind: 'slab', x: 0.6, z: 3.35, h: 0.38, yaw: 0.4, lean: 0.18 },
   { kind: 'gothic', x: -1.0, z: 1.55, h: 0.6, yaw: 0.05, lean: -0.06 },
   { kind: 'round', x: 1.7, z: 2.75, h: 0.46, yaw: -0.3, lean: 0.14 },
   { kind: 'obelisk', x: -2.2, z: 1.7, h: 0.92, yaw: 0.3, lean: -0.05 },
-  { kind: 'broken', x: 1.15, z: 1.45, h: 0.34, yaw: 0.6, lean: -0.2 },
   { kind: 'round', x: -3.6, z: 2.3, h: 0.58, yaw: -0.2, lean: 0.08 },
   { kind: 'cross', x: -1.6, z: 2.3, h: 0.56, yaw: 0.25, lean: -0.15 },
-  { kind: 'round', x: 2.6, z: 2.5, h: 0.44, yaw: -0.5, lean: 0.1 },
+  { kind: 'round', x: 3.0, z: 2.05, h: 0.44, yaw: -0.5, lean: 0.1 },
   { kind: 'gothic', x: -2.8, z: 2.9, h: 0.52, yaw: -0.15, lean: 0.07 },
   { kind: 'slab', x: -0.2, z: 3.7, h: 0.34, yaw: -0.3, lean: -0.12 },
+  // the slope, either side of the path up to the gates, in front of the fence
+  { kind: 'broken', x: 2.05, z: 0.9, h: 0.34, yaw: 0.6, lean: -0.2 },
+  { kind: 'round', x: 0.2, z: 0.55, h: 0.48, yaw: 0.15, lean: 0.1 },
+  { kind: 'gothic', x: -0.7, z: 0.15, h: 0.55, yaw: -0.1, lean: -0.08 },
+  { kind: 'cross', x: 0.42, z: -0.42, h: 0.6, yaw: 0.2, lean: 0.12 },
+  { kind: 'round', x: -1.65, z: 0.65, h: 0.45, yaw: 0.3, lean: -0.14 },
+  { kind: 'slab', x: 1.95, z: 0.05, h: 0.36, yaw: -0.25, lean: 0.16 },
+  { kind: 'round', x: 2.35, z: -0.3, h: 0.42, yaw: -0.4, lean: -0.1 },
+  { kind: 'broken', x: -0.25, z: -0.55, h: 0.3, yaw: 0.5, lean: 0.18 },
+  { kind: 'cross', x: -2.6, z: 0.15, h: 0.62, yaw: 0.1, lean: -0.1 },
+  { kind: 'round', x: -3.5, z: 0.85, h: 0.5, yaw: -0.25, lean: 0.12 },
+  { kind: 'gothic', x: 2.75, z: 0.55, h: 0.5, yaw: -0.35, lean: 0.06 },
 ];
 
-/** Lamp posts with cyan glass along the lane, and small pumpkins stacked by it. */
-export const LAMPS: Spot[] = [at(4.3, 0.6), at(5.6, -0.55), at(6.8, 0.55)];
+/** Lamp posts with cyan glass by the gates and along the lane, and small pumpkins stacked by the gates. */
+const G = STOPS.gates + GATE_AHEAD;
+export const LAMPS: Spot[] = [at(G - 0.45, -0.62), at(G + 1.15, 0.5), at(G + 2.3, -0.5), at(G + 3.15, 0.5)];
 export const SMALL_PUMPKINS: (Spot & { lit: boolean })[] = [
-  { ...at(4.9, 0.55), scale: 0.26, lit: true },
-  { ...at(5.0, 0.8), scale: 0.21, lit: true },
-  { ...at(4.95, 0.68), scale: 0.17, lit: false },
-  { ...at(6.1, -0.55), scale: 0.2, lit: true },
-  { ...at(6.9, -0.7), scale: 0.22, lit: true },
+  { ...at(G - 0.25, 0.75), scale: 0.26, lit: true },
+  { ...at(G - 0.2, 0.98), scale: 0.21, lit: true },
+  { ...at(G - 0.24, 0.86), scale: 0.17, lit: false },
+  { ...at(G + 1.9, 0.45), scale: 0.2, lit: true },
+  { ...at(G + 2.85, -0.5), scale: 0.22, lit: true },
 ];
 
 // ---- the ground ---------------------------------------------------------------------------------
@@ -173,7 +210,7 @@ export function pathDistance(x: number, z: number): { d: number; s: number } {
 
 /** The path's half width (it widens a little at the gates and the door). */
 export function pathHalfWidth(s: number): number {
-  return 0.3 + 0.08 * bump(s, 0, STOPS.gates + 0.3, 0, 0.9) + 0.14 * bump(s, 0, PATH.length, 0, 1.2);
+  return 0.3 + 0.08 * bump(s, 0, STOPS.gates + GATE_AHEAD, 0, 0.9) + 0.14 * bump(s, 0, PATH.length, 0, 1.2);
 }
 
 /** The ground's height above FLOOR (before the path): the hill, mounds, lumps. */
