@@ -1,10 +1,11 @@
 /**
- * The V2 camera: one continuous journey, no hard cuts the eye can see. From the desk it orbits
- * the closed book, cranes up as the cover bursts open and the world grows, settles into the hero
- * view (the reference's composition), pushes in as Clawd springs up beside the pumpkin, trucks
- * alongside him through the graveyard (following a centred moving average of his path, so his
- * hops never shake the frame), rises to the gates as the mist parts, dollies through them up the
- * lane and arrives on the knock at V1's door two-shot. The door spread is V1's approved camera,
+ * The V2 camera: one continuous journey, no hard cuts the eye can see. From the desk it drifts
+ * round the closed book, pushes in over it as the cover bursts open and the world grows, settles
+ * into the hero view (the reference's composition) before the first caption, pushes in as Clawd
+ * springs up beside the pumpkin, trucks alongside him through the graveyard (following a centred
+ * moving average of his path, so his hops never shake the frame), swings round behind him and
+ * rises as he climbs to the gates while the mist parts, follows him through the gateway and along
+ * the lane, and arrives on the knock at V1's door two-shot. The door spread is V1's approved camera,
  * carried onto the house (fromV1Door, DOOR_SCALE; focus distances scaled too). Clawd's exit is a
  * follow; the closing cover sweeps across the lens, and while its inside fills the frame the
  * camera changes to the desk for the slam (the one cut, hidden).
@@ -195,8 +196,8 @@ function trailKey(f: number, back: number, right: number, up: number, fov = 34, 
 /** The closed book on the desk, the opening's framing (the book is 16 wide at the origin). */
 const DESK_A: K = { pos: [12.6, 9.6, 16.8], look: [0, 1.3, 0], fov: 30, focus: 22 };
 const DESK_B: K = { pos: [9.4, 10.4, 17.6], look: [0, 1.5, 0.2], fov: 30, focus: 21 };
-/** High over the opening book: the world grows out of the page below */
-const OVER: K = { pos: [2.2, 15.5, 13.5], look: [0.6, FLOOR, 0.6], fov: 36, focus: 15 };
+/** Over the opening book, pushing in: the world grows out of the page below (not high above it: the crane down must stay gentle) */
+const OVER: K = { pos: [2.0, 8.6, 12.2], look: [0.6, FLOOR + 0.4, 0.4], fov: 36, focus: 13.5 };
 /** a three-quarter close on the pop-up spot beside the giant pumpkin */
 const POP: K = { pos: [0.15, FLOOR + 0.95, 5.3], look: [-0.95, FLOOR + 0.42, 3.05], fov: 36, focus: 2.6 };
 
@@ -214,9 +215,9 @@ function worldKeys(): CamKey[] {
   const keys: CamKey[] = [
     { f: 0, ...DESK_A, hold: true },
     { f: at(4) - 6, ...DESK_B },
-    { f: at(4) + 26, ...OVER },
-    // the hero view, held while the pumpkin lights and the witch crosses the moon
-    { f: at(5, 3), ...HERO, hold: true },
+    { f: at(4) + 22, ...OVER },
+    // the hero view, arrived before the first caption and held while the witch crosses the moon
+    { f: at(5, 2), ...HERO, hold: true },
     { f: at(6, 3), pos: [HERO.pos[0] - 0.15, HERO.pos[1] - 0.1, HERO.pos[2] - 0.25], look: HERO.look, fov: HERO.fov, focus: HERO.focus },
     { f: at(7) + 8, ...POP, hold: true },
     // held while he peeks into his pail, then off with him
