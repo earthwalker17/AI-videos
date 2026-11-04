@@ -8,7 +8,7 @@
 import { useLayoutEffect, useMemo } from 'react';
 import { useCurrentFrame } from 'remotion';
 import { BoxGeometry } from 'three';
-import { doorOpenAt, footAt, gatesOpenAt, windowsAt } from '../film/beats.ts';
+import { bigPumpkinLitAt, doorOpenAt, farColdAt, footAt, gatesOpenAt, pumpkinsLitAt, windowsAt } from '../film/beats.ts';
 import { clawdAt } from '../film/blocking.ts';
 import { journeyAt } from '../film/journey.ts';
 import { storybookMaterial } from '../look/materials.ts';
@@ -35,7 +35,7 @@ export function Journey() {
     <LookStage path={JOURNEY} post={{ ...LOOK_POST, foot: footAt(frame) }}>
       {(f) => (
         <>
-          <WorldScene f={f} camPos={journeyAt(f).pos} gates={gatesOpenAt(f)} door={doorOpenAt(f)} windows={windowsAt(f)} />
+          <WorldScene f={f} camPos={journeyAt(f).pos} fov={journeyAt(f).fov} gates={gatesOpenAt(f)} door={doorOpenAt(f)} windows={windowsAt(f)} bigLit={bigPumpkinLitAt(f)} lit={pumpkinsLitAt(f)} farCold={farColdAt(f)} />
           <ClawdBox f={f} />
         </>
       )}

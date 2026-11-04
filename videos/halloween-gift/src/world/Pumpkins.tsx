@@ -389,11 +389,11 @@ export interface PatchItem {
 }
 
 /**
- * The reference's second jack-o'-lantern, lit and toothy, in front of the cauldron and left of it
- * in the hero view, clear of the path (0.54 from its centre line: half-width 0.30 + its own 0.2).
- * It belongs in layout.ts's SMALL_PUMPKINS (requested); until then it lives here.
+ * The reference's second jack-o'-lantern (layout.ts LAND.midPumpkin), lit and toothy, in front of
+ * the cauldron and left of it in the hero view, clear of the path (0.54 from its centre line:
+ * half-width 0.30 + its own 0.2).
  */
-export const MID_PUMPKIN: Spot & { lit: boolean; carve: Carve } = { x: 1.4, z: 2.4, scale: 0.4, lit: true, carve: 'angry' };
+export const MID_PUMPKIN: Spot & { lit: boolean; carve: Carve } = { ...LAND.midPumpkin, lit: true, carve: 'angry' };
 /** the gate stack is drawn this much bigger than layout's sizes (its faces read at the hero distance) */
 const STACK_SCALE = 1.4;
 /** the carves, in SMALL_PUMPKINS order (the stack's three, the lane's one), and the porch's two */

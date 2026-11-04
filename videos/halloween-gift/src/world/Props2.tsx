@@ -715,7 +715,7 @@ export function Cauldron({ f }: { f: number }) {
  * across the hero view (world x, z, yaw), the shovel stuck at its left end (as the reference's
  * coffin and shovel lie beside the walker's path).
  */
-export const COFFIN = { x: 0.0, z: 2.02, yaw: 0.3 };
+export const COFFIN = { x: LAND.coffin.x, z: LAND.coffin.z, yaw: LAND.coffin.yaw ?? 0 };
 /**
  * The coffin's scale: built at a person's size, drawn at Clawd's (0.4 tall with his hat): the
  * coffin 0.48 long, about 1.2 x his height, the shovel 0.42 tall, about his height (the reference's
@@ -727,7 +727,7 @@ const KS = 0.65;
  * CAMERA_OBSTACLES: a plan circle (measured from the built geometry's extent, propsStats) and its
  * height above the ground (the shovel's grip).
  */
-export const COFFIN_FOOTPRINT = { x: -0.05, z: 2.03, r: 0.46, h: 0.45 };
+export const COFFIN_FOOTPRINT = { x: COFFIN.x - 0.05, z: COFFIN.z + 0.01, r: 0.46, h: 0.45 };
 
 /**
  * A plank along local x (length len, height h along y, thickness t along z): a chamfered section

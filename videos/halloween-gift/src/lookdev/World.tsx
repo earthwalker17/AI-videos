@@ -1,7 +1,7 @@
 /**
  * The whole world as built so far, through the film's own cameras: the integrator's lookdev (the
- * asset families judge their own pieces in Buildings, Graveyard, Trees, Ground). Stand-ins remain
- * where a family has not landed yet (the old pumpkin; no Clawd, ghosts or bats).
+ * asset families judge their own pieces in Buildings, Graveyard, Trees, Ground, Props, Creatures).
+ * The actors (Clawd, the neighbour, the letter) are not part of the world: compositions add them.
  *  - WorldHero: the hero view (the reference's composition), one frame;
  *  - WorldShots: one frame per beat of the journey (journeyAt at the beat's film frame), the door
  *    shots under the door's shadow box.
@@ -12,19 +12,23 @@ import { useLayoutEffect } from 'react';
 import { AbsoluteFill, Composition, useCurrentFrame } from 'remotion';
 import { type PerspectiveCamera } from 'three';
 import { at, FPS } from '../cues.ts';
+import { ghostLowerAt } from '../film/beats.ts';
 import { type CamPose } from '../film/campath.ts';
 import { journeyAt } from '../film/journey.ts';
 import { Night } from '../look/Night.tsx';
 import { NightPost } from '../look/NightPost.tsx';
 import { SkyDome } from '../look/SkyPortal.tsx';
+import { BatFlock, CRAG_FLIGHT, GRAVEYARD_FLIGHT, MOON_FLIGHT } from '../world/Bats.tsx';
 import { Castle } from '../world/Castle.tsx';
 import { Dressing } from '../world/Dressing.tsx';
 import { Fence, Gates, Lamps } from '../world/Fence.tsx';
 import { Graveyard } from '../world/Graveyard.tsx';
 import { Grass } from '../world/Grass.tsx';
+import { Ghosts } from '../world/Ghosts.tsx';
 import { FarHouse, House } from '../world/House.tsx';
-import { HERO, LAND, onGround } from '../world/layout.ts';
-import { Pumpkin } from '../world/Pumpkin.tsx';
+import { HERO } from '../world/layout.ts';
+import { Cauldron, Coffin, Fireflies } from '../world/Props2.tsx';
+import { BigPumpkin, PumpkinPatch } from '../world/Pumpkins.tsx';
 import { Terrain } from '../world/Terrain.tsx';
 import { Trees } from '../world/Trees.tsx';
 import { DOOR_SHADOW } from './Buildings.tsx';
@@ -72,22 +76,36 @@ function Rig({ pose }: { pose: CamPose }) {
 }
 
 export interface WorldSceneProps {
-  /** the film frame the world's own animation runs on (wind, flicker, smoke) */
+  /** the film frame the world's own animation runs on (wind, flicker, smoke, the bats' flight) */
   f: number;
-  /** the camera position, for the castle's parallax (default: the hero eye) */
+  /** the camera position: the castle's (and its bats') parallax, the far bats turned to face it (default: the hero eye) */
   camPos?: readonly number[];
+  /** the camera's fov: far bats smaller than a few pixels are drawn as flecks */
+  fov?: number;
   gates?: number;
   door?: number;
   windows?: number;
-  /** the stand-ins for families not landed yet (the V1 pumpkin); off when a family brings its own */
+  /** the giant jack-o'-lantern's candle, 0 out .. 1 (film/beats.ts bigPumpkinLitAt) */
+  bigLit?: number;
+  /** the small pumpkins' candles (film/beats.ts pumpkinsLitAt) */
+  lit?: number;
+  /** the peek ghost let down, 0 .. 1 (film/beats.ts ghostLowerAt; default: its curve at f) */
+  peek?: number;
+  /** the far window gone cold (film/beats.ts farColdAt) */
+  farCold?: number;
+  /** the film frame the near flock starts its pass over the graveyard (default: through the hero view's hold) */
+  nearBats?: number;
+  /** ignored: no stand-ins remain in the world (kept for lookdevs written against the older scene) */
   standIns?: boolean;
 }
 
 /**
  * Every built piece of the world (inside LookStage, which brings the sky, terrain, grass, the light
- * and the post): asset families put their own pieces beside it, with standIns off for the ones they replace.
+ * and the post). The giant jack-o'-lantern's candle (the scene's one point light) is always mounted.
  */
-export function WorldScene({ f, camPos = HERO.pos, gates = 0, door = 0, windows = 1, standIns = true }: WorldSceneProps) {
+export function WorldScene({ f, camPos = HERO.pos, fov = HERO.fov, gates = 0, door = 0, windows = 1, bigLit = 1, lit = 1, peek, farCold = 0, nearBats = at(6) - 72 }: WorldSceneProps) {
+  const offset = parallax(camPos);
+  const lod = { eye: [camPos[0], camPos[1], camPos[2]] as const, fov };
   return (
     <>
       <Trees f={f} />
@@ -96,10 +114,18 @@ export function WorldScene({ f, camPos = HERO.pos, gates = 0, door = 0, windows 
       <Fence />
       <Gates open={gates} />
       <Lamps />
-      {standIns && <Pumpkin position={onGround(LAND.bigPumpkin.x, LAND.bigPumpkin.z, 0.55)} scale={0.62} lit={1} light={false} f={f} seed={2} rotation={LAND.bigPumpkin.yaw} />}
+      <BigPumpkin f={f} lit={bigLit} />
+      <PumpkinPatch f={f} lit={lit} />
+      <Cauldron f={f} />
+      <Coffin />
+      <Fireflies f={f} />
+      <Ghosts f={f} lower={[0, 0, peek ?? ghostLowerAt(f)]} />
       <House doorOpen={door} windows={windows} f={f} />
-      <Castle f={f} offset={parallax(camPos)} />
-      <FarHouse cold={0} />
+      <Castle f={f} offset={offset} />
+      <FarHouse cold={farCold} />
+      <BatFlock f={f} path={CRAG_FLIGHT} count={14} seed={21} size={0.12} speed={0.75} spread={0.26} flap={5.2} eyes={false} fog={0.3} offset={offset} lod={lod} />
+      <BatFlock f={f} path={MOON_FLIGHT} count={9} seed={33} size={0.1} speed={0.6} spread={0.2} flap={5.4} eyes={false} fog={0.3} lod={lod} />
+      <BatFlock f={f} path={GRAVEYARD_FLIGHT} count={6} seed={5} size={0.2} speed={1.25} spread={0.28} flap={3.8} start={nearBats} gap={0.8} eyes={false} fog={0.8} lod={{ ...lod, px: 16 }} />
     </>
   );
 }
@@ -119,7 +145,7 @@ function WorldStage({ shots }: { shots: Shot[] }) {
         <SkyDome />
         <Terrain />
         <Grass />
-        <WorldScene f={t} camPos={pose.pos} gates={shot.gates} door={shot.door} windows={shot.windows} />
+        <WorldScene f={t} camPos={pose.pos} fov={pose.fov} gates={shot.gates} door={shot.door} windows={shot.windows} />
         <NightPost f={t} focus={pose.focus} {...LOOK_POST} />
       </Stage3D>
     </AbsoluteFill>

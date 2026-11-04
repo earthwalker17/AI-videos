@@ -839,13 +839,6 @@ export function limbHook(along: number): V3 {
   return [p.x + GHOST_BASE[0], p.y + GHOST_BASE[1], p.z + GHOST_BASE[2]];
 }
 
-/**
- * Proposed hooks (world/Trees.tsx owns GHOST_HOOKS): the first two moved along the limb toward the
- * moon (arc lengths 1.25 and 1.98 from the trunk; on Trees.tsx's ghosts' line about HOOK_K 1.04
- * and 0.40, from 0.42 and 0.04), the peek ghost's kept at LAND.peek's (HOOK_K −0.46). The hero
- * view then sees their hooks at x ≈ 1505, 1340, 1144 (from 1350, 1258, 1144).
- */
-export const GHOST_HOOKS_PROPOSED: V3[] = [limbHook(1.25), limbHook(1.98), GHOST_HOOKS[2] as V3];
 
 /** Three tight turns of rope round the limb at each hook, fitted to the bark (in the plane across the limb). */
 function wraps(hooks: Hooks): { pos: number[]; col: number[]; idx: number[] } {

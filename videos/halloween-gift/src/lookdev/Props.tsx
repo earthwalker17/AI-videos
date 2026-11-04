@@ -1,7 +1,7 @@
 /**
  * Lookdev of the props family (world/Pumpkins.tsx: the giant jack-o'-lantern, the small pumpkins,
  * Clawd's pail; world/Props2.tsx: the cauldron, the coffin and shovel, the fireflies), in the
- * whole world as built (lookdev/World.tsx WorldScene, its V1 pumpkin stand-in off) through the
+ * whole world as built (lookdev/World.tsx WorldScene, which now carries them) through the
  * film's stage (LookStage: sky, terrain, grass, the night rig, the post chain):
  *  PropsHero      the hero view (the reference's composition)
  *  PropsPumpkin   the giant, held close: 0 three-quarter from the path, 1 face on, 2 as 0 cold
@@ -23,8 +23,8 @@ import { Composition } from 'remotion';
 import { FPS } from '../cues.ts';
 import { CamPath, type CamKey } from '../film/campath.ts';
 import { LAND, DOOR_FRONT, fromHouse, HERO, onGround, pathXZ, SMALL_PUMPKINS, STOPS } from '../world/layout.ts';
-import { Cauldron, Coffin, COFFIN, Fireflies } from '../world/Props2.tsx';
-import { BigPumpkin, PumpkinPail, PumpkinPatch } from '../world/Pumpkins.tsx';
+import { COFFIN } from '../world/Props2.tsx';
+import { PumpkinPail } from '../world/Pumpkins.tsx';
 import { storybookMaterial } from '../look/materials.ts';
 import { LookStage } from './LookStage.tsx';
 import { WorldScene } from './World.tsx';
@@ -47,12 +47,7 @@ const PAIL_AT = onGround(shooX - 0.2, shooZ + 0.15, 0);
 function Props({ f, lit = 1, pail = false }: { f: number; lit?: number; pail?: boolean }) {
   return (
     <>
-      <WorldScene f={f} standIns={false} />
-      <BigPumpkin f={f} lit={lit} />
-      <PumpkinPatch f={f} lit={1} />
-      <Cauldron f={f} />
-      <Coffin />
-      <Fireflies f={f} />
+      <WorldScene f={f} bigLit={lit} />
       {pail && (
         <group position={PAIL_AT} rotation-y={0.6}>
           <PumpkinPail f={f} lit={1} />

@@ -1,13 +1,12 @@
 /**
  * Lookdev of the creatures (world/Ghosts.tsx: the three hanging ghosts; world/Bats.tsx: the flocks
  * and the burst; kit/bat.ts: the bat; overlay/BatSvg.tsx: the overlay's bat) in the full world as
- * built (lookdev/World.tsx WorldScene: its V1 pumpkin stands in until the pumpkin family lands),
+ * built (lookdev/World.tsx WorldScene, which now carries the ghosts and the flocks),
  * through the film's stage (LookStage: sky, terrain, grass, the night rig, the post).
  *
- *  CreaturesHero      the hero view with the ghosts on the proposed hooks (Ghosts.tsx
- *                     GHOST_HOOKS_PROPOSED: two moved toward the moon), the far flocks by the castle
- *                     and under the moon (flecks), the near flock crossing (frames run on: --span)
- *  CreaturesHeroAsIs  the same on world/Trees.tsx GHOST_HOOKS as they are
+ *  CreaturesHero      the hero view: the ghosts on world/Trees.tsx GHOST_HOOKS (two toward the
+ *                     moon), the far flocks by the castle and under the moon (flecks), the near
+ *                     flock crossing (frames run on: --span)
  *  CreaturesGhosts    held close views: 0 under the ghosts against the moon (the reference's crop),
  *                     1 the peek ghost's face, 2 the hems from below, 3 the rope's wrap on the limb
  *  CreaturesBats      held close views of a row of bats at six phases of the flap: 0 from in front
@@ -34,8 +33,7 @@ import { useFilmFonts } from '../look/fonts.ts';
 import { storybookMaterial } from '../look/materials.ts';
 import { BatSvg } from '../overlay/BatSvg.tsx';
 import { EMAIL, EmailCard } from '../overlay/EmailCard.tsx';
-import { BatBurst, BatFlock, BatSwarm, CRAG_FLIGHT, GRAVEYARD_FLIGHT, MOON_FLIGHT, type BatState } from '../world/Bats.tsx';
-import { GHOST_HOOKS_PROPOSED, Ghosts } from '../world/Ghosts.tsx';
+import { BatBurst, BatSwarm, type BatState } from '../world/Bats.tsx';
 import { BOOK, FLOOR, HERO } from '../world/layout.ts';
 import { GHOST_HOOKS } from '../world/Trees.tsx';
 import { HERO_PATH, LookStage } from './LookStage.tsx';
@@ -44,20 +42,10 @@ import { WorldScene } from './World.tsx';
 const F = FLOOR;
 /** the film time the hero view's world runs on (the hero view holds over bars 5–8) */
 const HERO_T = at(6);
-type Hooks = readonly (readonly [number, number, number])[];
 
 /** Every creature over the world, at film frame t, seen from `cam` (the flecks face it). */
-function Creatures({ t, cam, lower = [0, 0, 0], hooks = GHOST_HOOKS_PROPOSED }: { t: number; cam: CamPose; lower?: readonly number[]; hooks?: Hooks }) {
-  const lod = { eye: cam.pos, fov: cam.fov };
-  return (
-    <>
-      <WorldScene f={t} camPos={cam.pos} />
-      <Ghosts f={t} lower={lower} hooks={hooks} />
-      <BatFlock f={t} path={CRAG_FLIGHT} count={14} seed={21} size={0.12} speed={0.75} spread={0.26} flap={5.2} eyes={false} fog={0.3} lod={lod} />
-      <BatFlock f={t} path={MOON_FLIGHT} count={9} seed={33} size={0.1} speed={0.6} spread={0.2} flap={5.4} eyes={false} fog={0.3} lod={lod} />
-      <BatFlock f={t} path={GRAVEYARD_FLIGHT} count={6} seed={5} size={0.2} speed={1.25} spread={0.28} flap={3.8} start={HERO_T - 72} gap={0.8} eyes={false} fog={0.8} lod={{ ...lod, px: 16 }} />
-    </>
-  );
+function Creatures({ t, cam, lower = [0, 0, 0] }: { t: number; cam: CamPose; lower?: readonly number[] }) {
+  return <WorldScene f={t} camPos={cam.pos} fov={cam.fov} peek={lower[2]} nearBats={HERO_T - 72} />;
 }
 
 const HERO_POSE: CamPose = { pos: HERO.pos, look: HERO.look, fov: HERO.fov, focus: HERO.focus };
@@ -65,13 +53,10 @@ const HERO_POSE: CamPose = { pos: HERO.pos, look: HERO.look, fov: HERO.fov, focu
 function CreaturesHero() {
   return <LookStage path={HERO_PATH}>{(f) => <Creatures t={HERO_T + f} cam={HERO_POSE} />}</LookStage>;
 }
-function CreaturesHeroAsIs() {
-  return <LookStage path={HERO_PATH}>{(f) => <Creatures t={HERO_T + f} cam={HERO_POSE} hooks={GHOST_HOOKS} />}</LookStage>;
-}
 
 // ---- the ghosts close -------------------------------------------------------------------------------
 
-const [H0, H1, H2] = GHOST_HOOKS_PROPOSED;
+const [H0, H1, H2] = GHOST_HOOKS;
 const mid: V3 = [(H0[0] + H2[0]) / 2, (H0[1] + H2[1]) / 2 - 0.7, (H0[2] + H2[2]) / 2];
 export const GHOSTS_CLOSE = new CamPath([
   // 0: from the path under the limb, looking up at the three against the moon
@@ -185,7 +170,7 @@ function CreaturesPeek() {
     <LookStage path={PEEK}>
       {() => (
         <>
-          <Creatures t={PEEK_F} cam={PEEK.at()} lower={[0, 0, 1]} hooks={GHOST_HOOKS} />
+          <Creatures t={PEEK_F} cam={PEEK.at()} lower={[0, 0, 1]} />
           <ClawdMarker f={PEEK_F} />
         </>
       )}
@@ -213,12 +198,11 @@ const PEEK_ALT = new CamPath([
 function CreaturesPeekAlt() {
   const frame = useCurrentFrame();
   const lower = frame === 1 ? 0.5 : 1;
-  const hooks = frame === 2 ? GHOST_HOOKS_PROPOSED : GHOST_HOOKS;
   return (
     <LookStage path={PEEK_ALT}>
       {() => (
         <>
-          <Creatures t={PEEK_F} cam={SHOO_PROPOSED} lower={[0, 0, lower]} hooks={hooks} />
+          <Creatures t={PEEK_F} cam={SHOO_PROPOSED} lower={[0, 0, lower]} />
           <ClawdMarker f={PEEK_F} />
         </>
       )}
@@ -301,7 +285,6 @@ export function CreaturesRoot() {
   return (
     <>
       <Composition id="CreaturesHero" component={CreaturesHero} width={1920} height={1080} fps={FPS} durationInFrames={48} />
-      <Composition id="CreaturesHeroAsIs" component={CreaturesHeroAsIs} width={1920} height={1080} fps={FPS} durationInFrames={1} />
       <Composition id="CreaturesGhosts" component={CreaturesGhosts} width={1920} height={1080} fps={FPS} durationInFrames={4} />
       <Composition id="CreaturesBats" component={CreaturesBats} width={1920} height={1080} fps={FPS} durationInFrames={5} />
       <Composition id="CreaturesFlap" component={CreaturesFlap} width={1920} height={1080} fps={FPS} durationInFrames={24} />

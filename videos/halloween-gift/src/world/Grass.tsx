@@ -23,11 +23,19 @@ import { bump } from '../kit/field.ts';
 import { storybookMaterial } from '../look/materials.ts';
 import { BOULDERS, rootGrass, ROOTS_FOOTPRINT } from './Dressing.tsx';
 import { graveFootprints } from './Graveyard.tsx';
+import { COFFIN_FOOTPRINT } from './Props2.tsx';
+import { patchItems } from './Pumpkins.tsx';
 import { FLOOR, LAND, PAGE, pageMask } from './layout.ts';
 import { bareMask, fbm, fenceDistance, ground, groundShading, surfaceHeight, trackAt, turfColor, TURF_SHEEN, turfSweep, yardMask } from './Terrain.tsx';
 
 /** world/Graveyard.tsx's footprints on the ground (stones, fallen tops, the RIP stone, the big cross) */
 const GRAVES = graveFootprints();
+/** the props that stand in the grass (world/Pumpkins.tsx, world/Props2.tsx): none over them, so the faces and the coffin read */
+const PROP_CLEAR: { x: number; z: number; r: number }[] = [
+  ...patchItems().map((p) => ({ x: p.x, z: p.z, r: 0.6 * p.width })),
+  { x: LAND.cauldron.x, z: LAND.cauldron.z, r: 0.2 },
+  { x: COFFIN_FOOTPRINT.x, z: COFFIN_FOOTPRINT.z, r: 0.45 },
+];
 
 /** The hero camera (layout of the reference's view): grass density is planned around it. */
 const HERO_EYE = new Vector3(0.3, 3.45, 7.6);
@@ -217,6 +225,7 @@ function site(x: number, z: number) {
     stoneRing = Math.max(stoneRing, bump(x, z, b.x, b.z, b.r * 1.9));
   }
   if (Math.hypot(x - ROOTS_FOOTPRINT.x, z - ROOTS_FOOTPRINT.z) < ROOTS_FOOTPRINT.r) return null;
+  for (const c of PROP_CLEAR) if (Math.hypot(x - c.x, z - c.z) < c.r) return null;
   if (Math.hypot(x - LAND.house.x, z - LAND.house.z) < 1.0) return null;
   for (const t of [LAND.ghostTree, LAND.oldTree]) {
     const dd = Math.hypot(x - t.x, z - t.z);

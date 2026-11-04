@@ -71,7 +71,36 @@ const CAMERA_SIDE: readonly [number, number] = [0.6, 0.8];
  * the ground. The stones, the landmarks with bulk, the lamp posts, the gate posts; the root mass
  * is ROOTS_FOOTPRINT (world/Dressing.tsx) with its crawling roots.
  */
-export const CAMERA_OBSTACLES: readonly { name: string; x: number; z: number; r: number; h: number }[] = [
+/**
+ * A ghost hanging in the air from the ghost tree's limb (world/Ghosts.tsx on world/Trees.tsx
+ * GHOST_HOOKS), its hook at (x, z), its cloth between y0 and y1 above FLOOR (the peek ghost let
+ * down to Clawd's hat only while it peeks): journey.test checks these against the built ghosts.
+ */
+const hanging = (name: string, x: number, z: number, y0: number, y1: number) => ({ name, x, z, r: 0.45, y0: y0 - groundHeight(x, z), h: y1 - groundHeight(x, z) });
+
+/** the frames the peek ghost hangs let down (film/beats.ts ghostLowerAt above 0) */
+const PEEKING = [at(10, 3), at(11, 2) + 8] as const;
+
+export interface CameraObstacle {
+  name: string;
+  x: number;
+  z: number;
+  r: number;
+  /** its top above the ground at (x, z) */
+  h: number;
+  /** its bottom above the ground, for what hangs in the air (default: the ground) */
+  y0?: number;
+  /** only over these film frames (default: always) */
+  when?: readonly [number, number];
+}
+export const obstacleAt = (o: CameraObstacle, f: number | undefined): boolean => !o.when || f === undefined || (f >= o.when[0] && f <= o.when[1]);
+
+/** Where no camera may stand: a plan circle from the ground (or from y0 above it) up to h. */
+export const CAMERA_OBSTACLES: readonly CameraObstacle[] = [
+  hanging('ghost 0', 2.76, 2.24, 2.0, 3.2),
+  hanging('ghost 1', 2.28, 1.92, 1.5, 3.05),
+  hanging('ghost 2 (the peek)', 1.5, 1.55, 1.4, 2.85),
+  { ...hanging('ghost 2 (let down)', 1.5, 1.55, 0.55, 2.85), when: PEEKING },
   ...STONES.map((s, i) => ({ name: `stone ${i} (${s.kind})`, x: s.x, z: s.z, r: 0.28, h: s.h + 0.1 })),
   // world/Graveyard.tsx's cross is 2.3 tall and its leaning arm reaches 1.02 in plan
   { name: 'big cross', x: LAND.bigCross.x, z: LAND.bigCross.z, r: 1.05, h: 2.4 },
@@ -83,6 +112,9 @@ export const CAMERA_OBSTACLES: readonly { name: string; x: number; z: number; r:
   { name: 'roots', x: LAND.roots.x + 0.22, z: LAND.roots.z - 0.06, r: 1.15, h: 0.4 },
   { name: 'RIP stone', x: LAND.ripStone.x, z: LAND.ripStone.z, r: 0.45, h: 1.0 },
   { name: 'cauldron', x: LAND.cauldron.x, z: LAND.cauldron.z, r: 0.35, h: 0.55 },
+  // world/Props2.tsx COFFIN_FOOTPRINT (the coffin, its planks, the mound, the shovel's grip); world/Pumpkins.tsx MID_PUMPKIN
+  { name: 'coffin', x: LAND.coffin.x - 0.05, z: LAND.coffin.z + 0.01, r: 0.46, h: 0.45 },
+  { name: 'mid pumpkin', x: LAND.midPumpkin.x, z: LAND.midPumpkin.z, r: 0.28, h: 0.4 },
   ...LAMPS.map((l, i) => ({ name: `lamp ${i}`, x: l.x, z: l.z, r: 0.17, h: 1.35 })),
   ...GATE_POSTS.map((p, i) => ({ name: `gate post ${i}`, x: p[0], z: p[1], r: 0.1, h: 1.95 })),
   // world/House.tsx: the door gable and the tall wing (house-local), its wall lantern; the far-window house
@@ -110,12 +142,14 @@ const ramp = (d: number, need: number) => {
   const t = (d - need) / SOFT;
   return t >= 1 ? d : need + SOFT * (t <= -1 ? 0 : ((t + 1) * (t + 1)) / 4);
 };
-function clear(p: V3): [number, number, number] {
+function clear(p: V3, f?: number): [number, number, number] {
   const y = p[1];
   let [x, , z] = p;
   for (let pass = 0; pass < 3; pass++) {
     for (const o of CAMERA_OBSTACLES) {
+      if (!obstacleAt(o, f)) continue;
       if (y > FLOOR + groundHeight(o.x, o.z) + o.h + 0.15) continue;
+      if (o.y0 !== undefined && y < FLOOR + groundHeight(o.x, o.z) + o.y0 - 0.15) continue;
       const dx = x - o.x;
       const dz = z - o.z;
       const d = Math.hypot(dx, dz);
@@ -165,44 +199,8 @@ function truckKey(f: number, side: number, up: number, fov: number, lookUp = 0.1
     nx = -nx;
     nz = -nz;
   }
-  const pos = clear(add(c, [nx * side - tx * 0.4, up, nz * side - tz * 0.4]));
+  const pos = clear(add(c, [nx * side - tx * 0.4, up, nz * side - tz * 0.4]), f);
   const look = add(c, [tx * lead, lookUp, tz * lead]);
-  return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
-}
-
-/** Clawd's arc length on ROUTE near a world point. */
-function routeS(p: V3): number {
-  let best = 0;
-  let bd = Infinity;
-  for (let i = 0; i <= 400; i++) {
-    const s = (ROUTE.length * i) / 400;
-    const q = routeAt(s);
-    const d = (q[0] - p[0]) ** 2 + (q[2] - p[2]) ** 2;
-    if (d < bd) {
-      bd = d;
-      best = s;
-    }
-  }
-  return best;
-}
-
-/**
- * A follow from behind: the camera trails `back` along the path itself (which no prop stands on:
- * world/layout.test.ts), `right` to the path's right there and `up` above it, and looks at Clawd
- * with a lead along his way. Through the gateway it passes down the middle.
- */
-function trailKey(f: number, back: number, right: number, up: number, fov = 34, lead = 1.0, lookUp = 0.4): CamKey {
-  const c = smoothed(f);
-  const s = Math.max(0, routeS(c) - back);
-  const q = routeAt(s);
-  const [tx, tz] = ROUTE.tangentAt(Math.min(Math.max(s, 0.02), ROUTE.length - 0.02));
-  // up is above Clawd, and at least most of it above the ground under the camera (behind him on
-  // the lane down to the cottage, the camera stands higher up the slope than he does)
-  const px = q[0] - tz * right;
-  const pz = q[2] + tx * right;
-  const pos = clear([px, Math.max(c[1] + up, FLOOR + groundHeight(px, pz) + 0.85 * up), pz]);
-  const [lx, lz] = tangentNear(c);
-  const look = add(c, [lx * lead, lookUp, lz * lead]);
   return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
 }
 
@@ -212,7 +210,7 @@ function trailKey(f: number, back: number, right: number, up: number, fov = 34, 
  */
 function placeKey(f: number, x: number, z: number, up: number, fov = 38, lead = 1.0, lookUp = 0.35): CamKey {
   const c = smoothed(f);
-  const pos = clear([x, FLOOR + groundHeight(x, z) + up, z]);
+  const pos = clear([x, FLOOR + groundHeight(x, z) + up, z], f);
   const [lx, lz] = tangentNear(c);
   const look = add(c, [lx * lead, lookUp, lz * lead]);
   return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
@@ -235,8 +233,20 @@ const truckFrames = (from: number, to: number, step: number) => {
   return out;
 };
 
-/** Where the ghost lowers to peek (bars 10–11). */
-const GHOST_AT: V3 = [LAND.peek.x, FLOOR + 1.6, LAND.peek.z];
+/**
+ * The peek (bars 10–11): as the ghost comes down on its rope (its eyes 1.8 above the ground at
+ * its hook, world/Ghosts.tsx PEEK_EYES), the camera draws back toward the front right of the shoo
+ * stop and widens, so the ghost's eyes and Clawd's feet share the frame (near 0.15 H and 0.88 H),
+ * looking up between them; `u` 0..1 from the truck's framing to the peek's.
+ */
+const PEEK_LOOK: V3 = [lerp(LAND.peek.x, 1.24, 0.5), FLOOR + 0.92, lerp(LAND.peek.z, 1.67, 0.5)];
+function peekKey(f: number, dist: number, up: number, fov: number, u: number): CamKey {
+  const c = smoothed(f);
+  const a = (41 * Math.PI) / 180;
+  const pos = clear([c[0] + Math.cos(a) * dist, c[1] + up, c[2] + Math.sin(a) * dist], f);
+  const look: V3 = [lerp(c[0], PEEK_LOOK[0], u), lerp(c[1] + 0.18, PEEK_LOOK[1], u), lerp(c[2], PEEK_LOOK[2], u)];
+  return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
+}
 
 function worldKeys(): CamKey[] {
   const keys: CamKey[] = [
@@ -250,23 +260,24 @@ function worldKeys(): CamKey[] {
     // held while he peeks into his pail, then off with him
     { f: at(8, 1) + 4, pos: [POP.pos[0] + 0.05, POP.pos[1] + 0.02, POP.pos[2] - 0.08], look: POP.look, fov: POP.fov, focus: POP.focus, hold: true },
   ];
-  // the truck: valley walk, graveyard, the shoo (the camera settles, looks up at the ghost), on to the gates
-  for (const f of truckFrames(at(8, 2), at(11, 1), BEAT)) keys.push(truckKey(f, 1.6, 0.66, 34));
-  {
-    const k = truckKey(at(11, 2), 1.5, 0.74, 34);
-    k.look = [lerp(k.look[0], GHOST_AT[0], 0.35), lerp(k.look[1], GHOST_AT[1], 0.35), lerp(k.look[2], GHOST_AT[2], 0.35)];
-    keys.push({ ...k, hold: true });
-  }
+  // the truck: valley walk, graveyard; the peek (the camera draws back and widens as the ghost
+  // comes down, so both share the frame for the shoo), on to the gates
+  for (const f of truckFrames(at(8, 2), at(10, 3), BEAT)) keys.push(truckKey(f, 1.6, 0.66, 34));
+  keys.push(peekKey(at(11), 1.95, 0.64, 42, 0.55));
+  keys.push({ ...peekKey(at(11, 2), 2.45, 0.66, 52, 1), hold: true });
   // up the slope: the camera swings round behind him and rises as it follows, so the mist parts on
   // the gates ahead of him
   for (const f of truckFrames(at(11, 3) + 18, at(13) + 16, BEAT)) {
     const u = (f - at(11, 3)) / (at(13) + 16 - at(11, 3));
-    // (looking just ahead of him and low: up the steeper slope he would drop out of the frame)
-    keys.push(trailKey(f, lerp(1.3, 1.6, u), lerp(0.45, 0.25, u), lerp(0.95, 1.2, u), 34, 0.55, 0.12));
+    // behind him and to his right, from the peek's side of the path: low under the ghosts' hems
+    // as it passes beneath the limb (lamp 0 stands on the path's left), looking just ahead of him
+    // and low (up the steeper slope he would drop out of the frame)
+    const c = smoothed(f);
+    keys.push(placeKey(f, c[0] + lerp(1.4, 1.3, u), c[2] + lerp(1.05, 1.6, u), lerp(1.0, 1.2, u), 34, 0.55, 0.12));
   }
-  // while he waits, the camera eases back and up behind his right shoulder: Clawd small before
-  // the whole gateway as it creaks open, the lane and the lit cottage beyond (caption 2)
-  keys.push({ ...trailKey(at(14), 2.3, 0.45, 1.35, 38, 1.6, 0.5), hold: true });
+  // while he waits: Clawd small before the whole gateway as it creaks open, three-quarter from
+  // the right with a lamp either side of it, the lane and the lit cottage beyond (caption 2)
+  keys.push({ ...placeKey(at(14), 2.6, 1.6, 1.15, 44, 1.6, 1.05), hold: true });
   // on the clang it rises over the fence (never through the gateway: the swung leaves would
   // brush the lens) and moves steadily along the graveyard's side of the fence, above it, as he
   // walks the lane behind it; past the fence's end it comes down into the yard onto V1's door

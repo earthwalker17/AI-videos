@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { at } from '../cues.ts';
+import { at, FILM_FRAMES } from '../cues.ts';
+import { ghostMarks } from '../world/Ghosts.tsx';
 import { FLOOR, groundHeight, LAND, STONES } from '../world/layout.ts';
+import { ghostLowerAt } from './beats.ts';
 import { clawdAt } from './blocking.ts';
-import { CAMERA_OBSTACLES, HIDDEN_CUT, journeyAt } from './journey.ts';
+import { CAMERA_OBSTACLES, HIDDEN_CUT, journeyAt, obstacleAt } from './journey.ts';
 
 describe('the V2 camera journey', () => {
+  it('keeps out of the hanging ghosts as built, over the whole film', () => {
+    // each ghost's cloth inside one of its obstacles active at the frame (the peek ghost's let-down one while it peeks)
+    const covers = (i: number, f: number, m: ReturnType<typeof ghostMarks>[number]) =>
+      CAMERA_OBSTACLES.filter((o) => o.name.startsWith(`ghost ${i}`) && obstacleAt(o, f)).some((o) => {
+        const g = FLOOR + groundHeight(o.x, o.z);
+        const inPlan = [m.tie, m.bottom].every((p) => Math.hypot(p[0] - o.x, p[2] - o.z) + m.hem < o.r);
+        return inPlan && m.bottom[1] > g + (o.y0 ?? 0) && m.tie[1] < g + o.h;
+      });
+    for (let f = 0; f < FILM_FRAMES; f += 2) ghostMarks(f, [0, 0, ghostLowerAt(f)]).forEach((m, i) => expect(covers(i, f, m), `frame ${f}: ghost ${i}`).toBe(true));
+  });
+
   it('never passes through a prop or under the ground inside the world', () => {
     for (let f = at(5); f < HIDDEN_CUT; f++) {
       const [x, y, z] = journeyAt(f).pos;
@@ -12,7 +25,9 @@ describe('the V2 camera journey', () => {
       // DOOR_SCALE; the camera settles to it over the yard from the end of the lane walk (at(16, 3))
       expect(y - (FLOOR + groundHeight(x, z)), `frame ${f}: height above the ground`).toBeGreaterThan(f >= at(16, 3) ? 0.2 : 0.3);
       for (const o of CAMERA_OBSTACLES) {
+        if (!obstacleAt(o, f)) continue;
         if (y > FLOOR + groundHeight(o.x, o.z) + o.h + 0.15) continue;
+        if (o.y0 !== undefined && y < FLOOR + groundHeight(o.x, o.z) + o.y0 - 0.15) continue;
         expect(Math.hypot(x - o.x, z - o.z) - o.r, `frame ${f}: ${o.name}`).toBeGreaterThan(0.1);
       }
     }

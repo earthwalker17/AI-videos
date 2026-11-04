@@ -121,6 +121,10 @@ export const LAND = {
   /** the cauldron under the ghosts, right of the shoo stop, and the big RIP IN PEACE stone beside it */
   cauldron: { x: 1.98, z: 1.72, yaw: -0.3 } as Spot,
   ripStone: { x: 2.72, z: 1.22, yaw: -0.45 } as Spot,
+  /** the reference's second jack-o'-lantern, in front of the cauldron and left of it in the hero view, clear of the path */
+  midPumpkin: { x: 1.4, z: 2.4, scale: 0.4 } as Spot,
+  /** the coffin and its shovel, behind the path's front run, in front of the cross and the graves, lying across the hero view */
+  coffin: { x: 0.0, z: 2.02, yaw: 0.3 } as Spot,
   /** the last house, right of centre: its door at the path's end, turned a little toward the lane */
   house: { x: door.x + 0.2, z: door.z - 0.6, yaw: -0.3 } as Spot,
   /** the castle on its crag, behind the hill between the gates and the house (multiplane) */
