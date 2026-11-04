@@ -39,8 +39,13 @@ import { decodePng, firstTransparent } from './png.ts';
 export const ADAPTER_VERSION = '1';
 export const ENGINE_VERSION = REMOTION_VERSION;
 
-/** delayRender() timeout per frame (shader compiles, font loads on a cold iGPU) */
-const FRAME_TIMEOUT_MS = 120_000;
+/**
+ * delayRender() timeout per frame (shader compiles, font loads on a cold iGPU). The first frame
+ * of a call or chunk also builds the whole scene: halloween-gift's V2 film measured about 122 s
+ * there on the reference host (60 s of CPU geometry and canvas builds, 61 s for the first draw's
+ * shader links and uploads; later frames take well under a second), so the limit leaves room.
+ */
+const FRAME_TIMEOUT_MS = 300_000;
 
 export interface RemotionAdapterOptions {
   /** Remotion's --gl: 'angle' (default, hardware) or 'swangle' (default when AIV_ALLOW_SOFTWARE_GL=1) */
