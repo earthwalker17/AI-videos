@@ -28,22 +28,31 @@ at the same scale all through), the storybook material, sky portal, night rig an
 paths, the V2 blocking (`film/blocking.ts`, on ones, tested against the score's footfalls), the
 camera journey (`film/journey.ts`, previewed by the `Journey` lookdev composition), the email
 card in DOM and canvas (pixel-matched). Asset families are built by bounded implementers on
-their own lookdev entries (`src/lookdev/*.entry.ts`), four batches of two: ground and trees and
-graveyard and buildings are in; props and creatures are building; characters and the book follow.
-`src/lookdev/World.tsx` is the whole world as built (`WorldScene`) through the journey's cameras
-(`WorldShots`: hero, truck, shoo, climb, gates, lane, door, door open). The hero view's landmarks
-were moved to the reference's screen positions (projected numerically): value-grid 0.044 and
-palette distance 9.4 against the reference at 1080p (`aiv still --ref`).
+their own lookdev entries (`src/lookdev/*.entry.ts`), four batches of two: ground and trees,
+graveyard and buildings, props and creatures are in; characters and the book are building.
+`src/lookdev/World.tsx` is the whole world as built (`WorldScene`: the giant jack-o'-lantern
+and the pumpkin patch, cauldron, coffin, fireflies, the three hanging ghosts framing the moon,
+the flocks) through the journey's cameras (`WorldShots`: hero, truck, shoo, climb, gates, lane,
+door, door open). The story beats are pure, tested functions of the frame (`film/beats.ts`).
+The world grows out of the page on the score's six pops (one vertex transform in the storybook
+material, opted in by `look/Grows.tsx`). The hanging ghosts are camera obstacles (in the air,
+the peek ghost's let-down only while it peeks), and the journey was re-routed round them (the
+peek widens so ghost and Clawd share the frame; the gates hold is three-quarter from the right).
+The hero's landmarks sit at the reference's screen positions (projected numerically): value
+grid about 0.054 and palette distance 7–11 against the reference at 1080p (`aiv still --ref`);
+the 13–18 s span and the peek-to-gates span measure no alternation (0.00–0.03) and no jumps.
 
 **Next:** finish the asset batches, a critique loop against the references, then the
 checkpoint for the user (hero vista, graveyard truck, door two-shot, email, book and bats, with
 the measured numbers); after it, assemble the V2 film (`src/film/Film.tsx` on the new world),
 `WORDS.email` = the email's read path (the one remaining cue edit), drafts with motion QA, and
-the 1080p review cut. Open points: the castle's outcrop and the mist at its foot read darker than
-the reference's luminous cyan (`world/Castle.tsx` materials and mist cards); the maroon foot band
-(`NightPost` `foot`, `film/beats.ts footAt`) eases down in the door shots;
-the moon rays may flare in the door shots; walk 2's footstep pan should recede (the camera now
-trails him).
+the 1080p review cut. Open points: the castle stands against a flat haze where the reference's
+stands dark against bright moonlit cloud banks (`look/SkyPortal.tsx`, `world/Castle.tsx`); the
+peek ghost hangs in front of the castle's crag in the hero (to stay furled in the branch until
+it peeks, `world/Ghosts.tsx`); the ghosts' silhouettes and folds (a tied, ragged sheet in the
+reference); the maroon foot band (`NightPost` `foot`, `film/beats.ts footAt`) eases down in the
+door shots; the moon rays may flare in the door shots; walk 2's footstep pan should recede (the
+camera now trails him).
 
 ## How it was made
 - **Picture:** Remotion 4 with React Three Fiber (`src/`). A storybook on a desk opens into
