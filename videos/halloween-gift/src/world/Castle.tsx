@@ -802,6 +802,12 @@ const MIST: { at: [number, number, number]; w: number; h: number; a: number }[] 
 ];
 const PUFFS = 7;
 const MIST_CYAN = new Color('#3fb6d2');
+/**
+ * How much of the aerial fog the castle takes (1: as any surface at its distance): less, so its
+ * silhouette, moonlit roofs and windows keep the reference's contrast against the haze and the
+ * clouds behind (at 1 it dissolved into one teal value).
+ */
+const CASTLE_FOG = 0.55;
 
 export interface CastleProps {
   f: number;
@@ -825,13 +831,13 @@ export function Castle({ f, offset = [0, 0, 0], fps = 24 }: CastleProps) {
   const mats = useMemo(
     () => ({
       // the crag's moonlit shoulder glows through the haze as in the reference (more of the fog's light)
-      rock: storybookMaterial({ kind: 'stone', color: '#4f7884', color2: '#7fd3df', breakup: 0.36, scale: 0.28, bump: 1.1, topCoat: 0.62, vertexColors: true, rim: 1.2, fog: 1.4 }),
-      walls: storybookMaterial({ kind: 'stone', color: '#526474', color2: '#3a4652', breakup: 0.32, scale: 0.1, bump: 0.6, vertexColors: true, rim: 1.1 }),
-      roofs: storybookMaterial({ kind: 'stone', color: '#5d6e80', color2: '#93adb5', breakup: 0.25, scale: 0.05, bump: 0.4, topCoat: 0.55, vertexColors: true, rim: 1.2 }),
-      timber: storybookMaterial({ kind: 'wood', color: '#2a2428', color2: '#1a1618', breakup: 0.2, scale: 0.08, vertexColors: true, rim: 0.8 }),
-      iron: storybookMaterial({ kind: 'iron', color: '#1b1d22', metalness: 0.4, roughness: 0.5, breakup: 0.1, scale: 0.04, vertexColors: true, rim: 1.0 }),
-      warm: storybookMaterial({ color: '#000000', emissive: '#ffb35c', emissiveIntensity: 1.45, fog: 0.6, rim: 0, ambient: 0, breakup: 0, side: DoubleSide }),
-      cyan: storybookMaterial({ color: '#000000', emissive: '#7be8f6', emissiveIntensity: 1.45, fog: 0.6, rim: 0, ambient: 0, breakup: 0, side: DoubleSide }),
+      rock: storybookMaterial({ kind: 'stone', color: '#4f7884', color2: '#7fd3df', breakup: 0.36, scale: 0.28, bump: 1.1, topCoat: 0.62, vertexColors: true, rim: 1.5, fog: CASTLE_FOG * 1.3 }),
+      walls: storybookMaterial({ kind: 'stone', color: '#526474', color2: '#3a4652', breakup: 0.32, scale: 0.1, bump: 0.6, vertexColors: true, rim: 1.6, fog: CASTLE_FOG }),
+      roofs: storybookMaterial({ kind: 'stone', color: '#5d6e80', color2: '#93adb5', breakup: 0.25, scale: 0.05, bump: 0.4, topCoat: 0.55, vertexColors: true, rim: 1.6, fog: CASTLE_FOG }),
+      timber: storybookMaterial({ kind: 'wood', color: '#2a2428', color2: '#1a1618', breakup: 0.2, scale: 0.08, vertexColors: true, rim: 1.0, fog: CASTLE_FOG }),
+      iron: storybookMaterial({ kind: 'iron', color: '#1b1d22', metalness: 0.4, roughness: 0.5, breakup: 0.1, scale: 0.04, vertexColors: true, rim: 1.2, fog: CASTLE_FOG }),
+      warm: storybookMaterial({ color: '#000000', emissive: '#ffb35c', emissiveIntensity: 1.45, fog: 0.35, rim: 0, ambient: 0, breakup: 0, side: DoubleSide }),
+      cyan: storybookMaterial({ color: '#000000', emissive: '#7be8f6', emissiveIntensity: 1.45, fog: 0.35, rim: 0, ambient: 0, breakup: 0, side: DoubleSide }),
       road: storybookMaterial({ kind: 'stone', color: '#d2e2de', color2: '#eef8f2', breakup: 0.2, scale: 0.08, bump: 0.3, topCoat: 0.7, vertexColors: true, rim: 0.6, fog: 0.9 }),
       mist: new MeshBasicMaterial({ map: tex.mist, vertexColors: true, transparent: true, depthWrite: false, fog: false }),
       smoke: new MeshBasicMaterial({ map: tex.smoke, vertexColors: true, transparent: true, depthWrite: false, fog: false }),
