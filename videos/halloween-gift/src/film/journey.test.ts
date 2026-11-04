@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { at } from '../cues.ts';
-import { FLOOR, groundHeight } from '../world/layout.ts';
+import { FLOOR, groundHeight, LAND, STONES } from '../world/layout.ts';
+import { clawdAt } from './blocking.ts';
 import { CAMERA_OBSTACLES, HIDDEN_CUT, journeyAt } from './journey.ts';
 
 describe('the V2 camera journey', () => {
@@ -31,5 +32,24 @@ describe('the V2 camera journey', () => {
     const a = journeyAt(at(5, 2)).pos;
     const b = journeyAt(at(6, 3)).pos;
     expect(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])).toBeLessThan(0.4);
+  });
+  it('never lets a stone cross between the camera and Clawd, from the pop-up to the gates', () => {
+    // V1's graveyard truck passed a foreground stone over his face
+    const items = [...STONES.map((st, i) => ({ name: `stone ${i}`, x: st.x, z: st.z, r: 0.2, h: st.h })), { name: 'RIP stone', x: LAND.ripStone.x, z: LAND.ripStone.z, r: 0.32, h: 0.92 }];
+    for (let f = at(7) + 8; f < at(14, 2); f++) {
+      const cam = journeyAt(f).pos;
+      const c = clawdAt(f).pose.pos;
+      const dx = c[0] - cam[0];
+      const dz = c[2] - cam[2];
+      const l2 = dx * dx + dz * dz;
+      for (const it of items) {
+        const t = Math.max(0, Math.min(1, ((it.x - cam[0]) * dx + (it.z - cam[2]) * dz) / l2));
+        if (t > 0.92) continue;
+        const d = Math.hypot(cam[0] + dx * t - it.x, cam[2] + dz * t - it.z);
+        const y = cam[1] + (c[1] + 0.12 - cam[1]) * t;
+        const over = d < it.r + 0.08 && y < FLOOR + groundHeight(it.x, it.z) + it.h;
+        expect(over, `frame ${f}: ${it.name}`).toBe(false);
+      }
+    }
   });
 });

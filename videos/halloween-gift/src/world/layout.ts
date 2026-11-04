@@ -161,15 +161,15 @@ export const STONES: { kind: 'round' | 'cross' | 'obelisk' | 'gothic' | 'slab' |
   // the front, along the path's first run
   { kind: 'round', x: -3.05, z: 1.6, h: 0.5, yaw: 0.2, lean: -0.12 },
   { kind: 'cross', x: 0.4, z: 1.65, h: 0.66, yaw: -0.1, lean: 0.1 },
-  { kind: 'slab', x: 2.4, z: 2.6, h: 0.38, yaw: 0.4, lean: 0.18 },
+  { kind: 'slab', x: 3.45, z: 2.6, h: 0.38, yaw: 0.4, lean: 0.18 },
   { kind: 'gothic', x: -1.0, z: 1.55, h: 0.6, yaw: 0.05, lean: -0.06 },
-  { kind: 'round', x: 1.7, z: 2.75, h: 0.46, yaw: -0.3, lean: 0.14 },
+  { kind: 'round', x: -0.75, z: 1.05, h: 0.46, yaw: -0.3, lean: 0.14 },
   { kind: 'obelisk', x: -2.2, z: 1.7, h: 0.92, yaw: 0.3, lean: -0.05 },
   { kind: 'round', x: -3.6, z: 2.3, h: 0.58, yaw: -0.2, lean: 0.08 },
   { kind: 'cross', x: -1.6, z: 2.3, h: 0.56, yaw: 0.25, lean: -0.15 },
   { kind: 'round', x: 3.0, z: 2.05, h: 0.44, yaw: -0.5, lean: 0.1 },
   { kind: 'gothic', x: -2.8, z: 2.9, h: 0.52, yaw: -0.15, lean: 0.07 },
-  { kind: 'slab', x: -0.2, z: 3.7, h: 0.34, yaw: -0.3, lean: -0.12 },
+  { kind: 'slab', x: -0.75, z: 3.95, h: 0.34, yaw: -0.3, lean: -0.12 },
   // the slope, either side of the path up to the gates, in front of the fence
   { kind: 'broken', x: 2.05, z: 0.9, h: 0.34, yaw: 0.6, lean: -0.2 },
   { kind: 'round', x: 0.2, z: 0.55, h: 0.48, yaw: 0.15, lean: 0.1 },

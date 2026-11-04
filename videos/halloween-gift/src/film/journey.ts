@@ -261,7 +261,8 @@ function worldKeys(): CamKey[] {
   // the gates ahead of him
   for (const f of truckFrames(at(11, 3) + 18, at(13) + 16, BEAT)) {
     const u = (f - at(11, 3)) / (at(13) + 16 - at(11, 3));
-    keys.push(trailKey(f, lerp(1.3, 1.6, u), lerp(0.45, 0.25, u), lerp(0.88, 1.08, u)));
+    // (looking just ahead of him and low: up the steeper slope he would drop out of the frame)
+    keys.push(trailKey(f, lerp(1.3, 1.6, u), lerp(0.45, 0.25, u), lerp(0.95, 1.2, u), 34, 0.55, 0.12));
   }
   // while he waits, the camera eases back and up behind his right shoulder: Clawd small before
   // the whole gateway as it creaks open, the lane and the lit cottage beyond (caption 2)
