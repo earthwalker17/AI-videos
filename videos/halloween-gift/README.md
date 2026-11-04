@@ -7,7 +7,7 @@ house still awake. Made entirely in code, picture and score.
 **Series:** [Festival & Celebration](../../series/festivals/SERIES.md) · **Number:** 3 · **Engine:** remotion
 ▶ **Watch:** the YouTube link, once published.
 
-## Status (2026-11-04): V2 picture in lookdev; the film still renders V1
+## Status (2026-11-05): V2 picture in lookdev, critique round 1 half fixed; the film still renders V1
 `status` is `production`; the only approval recorded is the treatment's. The V1 draft (picture
 and approved score) still renders from `src/index.ts`; the V2 picture is being built beside it
 and is judged on lookdev stills (`aiv still`) against the user's reference images
@@ -51,18 +51,38 @@ camera journey, Clawd V2, the neighbour, the gift letter and the email, and a cl
 first frame of a call fell from 120-240 s to 15-45 s (bit-identical builder speed-ups, and the
 engine keeps compiled GPU programs across calls: `engines/remotion/ENGINE.md`).
 
-**Next:** fix the one determinism fault found (Chinese canvas text rasters differently from run
-to run: the couplets, the cover's title, the email's 申诉 and 封号; a render's chunks could flicker),
-put the witch back across the moon (drafted, held back while the fault is fixed), render the
-checkpoint frames at 1080p and run the critique lenses against the references, fix, then the
-checkpoint for the user (stills beside the references with the numbers, the closing strip, the
-email's wording); after it, `WORDS.email` = the email's read path (the one remaining cue edit),
-`FilmV2` into `Main`, drafts with motion QA, and the 1080p review cut. Open points: the castle
-stands against a flat haze where the reference's stands dark against bright moonlit cloud banks
-(`look/SkyPortal.tsx`, `world/Castle.tsx`); the ghosts' silhouettes and folds (a tied, ragged
-sheet in the reference); the maroon foot band (`NightPost` `foot`, `film/beats.ts footAt`) eases
-down in the door shots; the moon rays may flare in the door shots; walk 2's footstep pan should
-recede (the camera now trails him).
+**Critique round 1 (2026-11-05):** the checkpoint frames at 1080p went through six critique
+lenses against the references (47 confirmed findings, 5 blocking). Fixed so far: the blocking
+close (the cover now swings down from the score's riffle on bar 34 beat 2, seen from a wide view
+of the open book, the world folding flat under it like a pop-up and hidden once it is shut;
+the crane out swings up round Clawd and backs away past the ghost tree's far side); caption 1
+off the giant pumpkin's face; a scrim under the end card's words; the look (sky light behind the
+castle, plum and maroon shadows, near-blacks, the moon, capped rims, sky ghosts, deep focus in
+wide shots, the crag) and the world assets (stump, cross, engraving, gates and fence, rocks,
+path edge, door yard, pumpkin rind, cauldron). Hero against the reference: value grid 0.0446
+(was 0.0528), palette distance 13.5 (was 7.1: worse, two of its six clusters now go to the
+giant jack-o'-lantern's orange).
+
+**Next:** the round's other two implementers did not run (usage limit): the hanging ghosts
+(higher, in the reference's order, tied and ragged, violet-grey, rim 0; the hero limb's rim
+about 0.3), the neighbour's sheet and bowl, Clawd's felt, the house's stone and its wall
+lantern; and the book (the cover title's foil wear masks out letters: "Hallowsen", strokes
+missing from 万圣节礼物), the room's light, the page edges' moire, and the email card (read
+path at 36 px or more, face B on paper, the LCD fringe on the button). The email's new wording
+is proposed for the checkpoint, not applied: "Hello," / "Our spirits sensed suspicious signals
+haunting your account, against our Trick-or-Treat Policy." / **"Your Claude account has been
+buried."** / "To appeal, knock three times at midnight." / **"Happy Halloween!"** / "Regards,
+The Graveyard Shift" (the critics found "Your Claude access is revoked." and the "Safeguards"
+sign-off too close to the real email); `WORDS.email` and `SCRIPT.md` follow it once it is in
+the card. Staging still open: the gateway shot shows the cottage only from about frame 504
+(it stands about 50° off the gate's line; lamp 0 blocks the view from the left); the peek
+ghost's hook is 0.29 from Clawd's shoo spot, so it cannot come down to his eye level; in the
+candy beat Clawd waits 0.87 from the bowl, so his pail never comes near it on screen; the
+truck frames him from behind against clutter; Clawd's face is hidden in four of ten stills;
+the hero's gateway is narrow and shut, its foreground pumpkin faces the lens, eight stones crowd
+the path's mouth. `world/Clawd2.tsx`'s colour correction still copies the old vignette and
+lift. Then critique round 2, and the checkpoint for the user; after it `FilmV2` into `Main`,
+drafts with motion QA, and the 1080p review cut. Walk 2's footstep pan should recede.
 
 ## How it was made
 - **Picture:** Remotion 4 with React Three Fiber (`src/`). A storybook on a desk opens into
