@@ -148,6 +148,11 @@
       "path": "knowledge/motion-cadence.md"
     },
     {
+      "id": "painterly-night-3d",
+      "title": "A painted moonlit night in real-time 3D comes from the darks, the depth and the sky, not from the models",
+      "path": "knowledge/painterly-night-3d.md"
+    },
+    {
       "id": "r3f-under-remotion",
       "title": "Render React Three Fiber under Remotion so every chunk start looks the same",
       "path": "knowledge/r3f-under-remotion.md"

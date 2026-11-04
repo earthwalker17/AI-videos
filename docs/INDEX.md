@@ -53,6 +53,7 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [Capture WebGL and WebGPU on a Windows laptop GPU with headless Chrome](../knowledge/headless-gpu-windows.md): Headless Chrome can render on the real GPU of a modest Windows laptop, but only with the right build and flags, and its screenshots are the wrong way to get frames out.
 - [Master to -14 LUFS with a two-pass, linear loudnorm](../knowledge/loudness-two-pass.md): Platforms turn loud uploads down and leave quiet ones quiet, so a mix should arrive at the platform's reference loudness with headroom for true peaks.
 - [Animate everything on ones when the camera moves, and measure cadence, not stills](../knowledge/motion-cadence.md): A stylised film often animates its characters "on twos" (a new pose every other frame) for a hand-made feel.
+- [A painted moonlit night in real-time 3D comes from the darks, the depth and the sky, not from the models](../knowledge/painterly-night-3d.md): Real-time 3D lit by a moon behind the scene renders as black cut-outs with a cyan outline: every face toward the camera is in shadow, and shadows in a physically based renderer…
 - [Render React Three Fiber under Remotion so every chunk start looks the same](../knowledge/r3f-under-remotion.md): Remotion renders a 3D scene one frame at a time, in chunks, and each chunk usually starts on a fresh page.
 
 ## Reusable parts of videos
