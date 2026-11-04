@@ -16,7 +16,7 @@
  */
 import { rand, smoothstep } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
-import { DoubleSide, InstancedMesh, Matrix4, Mesh, Vector3, type MeshStandardMaterial } from 'three';
+import { Color, DoubleSide, InstancedMesh, Matrix4, Mesh, Vector3, type MeshStandardMaterial } from 'three';
 import { FPS } from '../cues.ts';
 import { batBodyGeometry, batEyeGeometry, batFleckGeometry, batWingGeometry, flapPose, WING_POSES, wingInfluences, type V3 } from '../kit/bat.ts';
 import { Curve, type P3 } from '../kit/spline.ts';
@@ -162,6 +162,10 @@ export interface BatSwarmProps {
   color2?: string;
   /** far bats as flecks (see BatLod); none when absent */
   lod?: BatLod;
+  /** the storybook ambient's share (the book's bats against its pale fore-edge: low, so they read as silhouettes) */
+  ambient?: number;
+  /** the paint's brightness (albedo multiplier) */
+  tone?: number;
 }
 
 const UP = new Vector3(0, 1, 0);
@@ -187,7 +191,7 @@ reflectedLight.directSpecular *= ${k.toFixed(3)};`);
 }
 
 /** Any number of bats, posed from their states (instanced: body, wings, eyes). */
-export function BatSwarm({ states, size, eyes = true, fog = 1, color2 = '#1c1318', lod }: BatSwarmProps) {
+export function BatSwarm({ states, size, eyes = true, fog = 1, color2 = '#1c1318', lod, ambient = 1, tone = 1 }: BatSwarmProps) {
   const count = states.length;
   const flecks = lod !== undefined;
   const built = useMemo(() => {
@@ -195,8 +199,9 @@ export function BatSwarm({ states, size, eyes = true, fog = 1, color2 = '#1c1318
     const wingGeo = batWingGeometry();
     const eyeGeo = batEyeGeometry();
     const fleckGeo = batFleckGeometry();
-    const bodyMat = matte(storybookMaterial({ kind: 'cloth', color: '#ffffff', color2, vertexColors: true, roughness: 1, breakup: 0.25, scale: size * 0.03, bump: 0.5, rim: 1.0, fog, side: DoubleSide }), 0.3);
-    const wingMat = matte(storybookMaterial({ kind: 'plain', color: '#ffffff', color2, vertexColors: true, roughness: 1, breakup: 0.12, scale: size * 0.08, rim: 0.8, fog, side: DoubleSide }), 0.08);
+    const paint = new Color(tone, tone, tone);
+    const bodyMat = matte(storybookMaterial({ kind: 'cloth', color: paint, color2, vertexColors: true, roughness: 1, breakup: 0.25, scale: size * 0.03, bump: 0.5, rim: 1.0, fog, ambient, side: DoubleSide }), 0.3);
+    const wingMat = matte(storybookMaterial({ kind: 'plain', color: paint, color2, vertexColors: true, roughness: 1, breakup: 0.12, scale: size * 0.08, rim: 0.8, fog, ambient, side: DoubleSide }), 0.08);
     const eyeMat = storybookMaterial({ color: '#000000', emissive: '#d6f2ff', emissiveIntensity: 1.6, roughness: 0.3, rim: 0, ambient: 0, breakup: 0, fog: fog * 0.6 });
     // the flecks: flat, no rim (a facing card has no silhouette edge to catch it), matte
     const fleckMat = matte(storybookMaterial({ kind: 'plain', color: '#ffffff', color2, vertexColors: true, roughness: 1, breakup: 0, rim: 0, fog, side: DoubleSide }), 0);
@@ -214,7 +219,7 @@ export function BatSwarm({ states, size, eyes = true, fog = 1, color2 = '#1c1318
       fleck.setMorphAt(i, dummy);
     }
     return { body, wings, eye, fleck, dummy, bodyGeo, wingGeo, eyeGeo, fleckGeo, bodyMat, wingMat, eyeMat, fleckMat };
-  }, [count, size, fog, color2]);
+  }, [count, size, fog, color2, ambient, tone]);
   useLayoutEffect(
     () => () => {
       for (const m of [built.body, built.wings, built.eye, built.fleck]) m.dispose();
@@ -414,10 +419,13 @@ export interface BatBurstProps {
   eyes?: boolean;
   /** the storybook fog multiplier: low, so the bats stay dark against the book's pale fore-edge */
   fog?: number;
+  /** BatSwarm's ambient share and paint brightness (on the desk: ambient 0.25, tone 0.6, so they read as silhouettes) */
+  ambient?: number;
+  tone?: number;
 }
 
 /** Each burst bat's state at a frame. */
-export function burstStates(f: number, o: Required<Omit<BatBurstProps, 'f' | 'fog'>>): BatState[] {
+export function burstStates(f: number, o: Required<Omit<BatBurstProps, 'f' | 'fog' | 'ambient' | 'tone'>>): BatState[] {
   const { start, origin, dir, count, seed, size, gap, speed, scatter, rise, stagger, life } = o;
   const d0 = new Vector3(...dir).normalize();
   const across = new Vector3().crossVectors(d0, UP);
@@ -466,9 +474,9 @@ export function burstStates(f: number, o: Required<Omit<BatBurstProps, 'f' | 'fo
 }
 
 /** Bats squeezing out of a gap and scattering (the film's opening). */
-export function BatBurst({ f, start, origin, dir, count = 10, seed = 7, size = 0.5, gap = 0.6, speed = 3.0, scatter = 0.55, rise = 1.0, stagger = 20, life = 2.8, eyes = true, fog = 0.25 }: BatBurstProps) {
+export function BatBurst({ f, start, origin, dir, count = 10, seed = 7, size = 0.5, gap = 0.6, speed = 3.0, scatter = 0.55, rise = 1.0, stagger = 20, life = 2.8, eyes = true, fog = 0.25, ambient = 1, tone = 1 }: BatBurstProps) {
   const [ox, oy, oz] = origin;
   const [dx, dy, dz] = dir;
   const states = useMemo(() => burstStates(f, { start, origin: [ox, oy, oz], dir: [dx, dy, dz], count, seed, size, gap, speed, scatter, rise, stagger, life, eyes }), [f, start, ox, oy, oz, dx, dy, dz, count, seed, size, gap, speed, scatter, rise, stagger, life, eyes]);
-  return <BatSwarm states={states} size={size} eyes={eyes} fog={fog} color2="#0e0a0c" />;
+  return <BatSwarm states={states} size={size} eyes={eyes} fog={fog} color2="#0e0a0c" ambient={ambient} tone={tone} />;
 }

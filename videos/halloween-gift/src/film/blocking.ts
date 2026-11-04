@@ -22,7 +22,8 @@ import type { V3 } from './timeline.ts';
 
 /** V1 door-spread spots (V1 world units), carried into today's world. */
 const V1 = (x: number, z: number) => fromV1Door([x, 1.2, z]);
-export const KNOCK_SPOT: V3 = V1(0.2, -0.95);
+/** (V1's -0.95, 8 cm on toward the door: at V2's half scale the ember now reaches the door plane) */
+export const KNOCK_SPOT: V3 = V1(0.2, -1.03);
 export const WAIT_SPOT: V3 = V1(1.25, -0.15);
 /** V1's exit target: Clawd trots off toward the far window, screen right */
 const EXIT_SPOT: V3 = V1(2.9, 0.7);

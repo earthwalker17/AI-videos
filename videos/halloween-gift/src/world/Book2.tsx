@@ -34,7 +34,7 @@ import { NIGHT } from '../look/materials.ts';
 import { canvas, seq } from '../look/paper.ts';
 import { useSkyPortal } from '../look/SkyPortal.tsx';
 import { ROOM, roomMaterial } from './Desk2.tsx';
-import { BOOK, FLOOR } from './layout.ts';
+import { BOOK, FLOOR, PAGE } from './layout.ts';
 
 const TAU = Math.PI * 2;
 const smooth = (a: number, b: number, x: number) => {
@@ -47,6 +47,9 @@ export const BOARD_T = 0.12;
 export const SQUARE = 0.12;
 const HW = BOOK.w / 2;
 const HD = BOOK.d / 2;
+/** the first page under the terrain: sunk this far below the page, from this far inside the world's page (layout.ts PAGE) */
+const FIRST_PAGE_SINK = 0.16;
+const FIRST_PAGE_INSET = 0.04;
 /** the page block: x, z (spine side .. fore-edge), y (on the back board .. the first page) */
 export const PAGES = { x0: -HW + SQUARE, x1: HW - SQUARE, z0: -HD + 0.08, z1: HD - SQUARE, y0: BOARD_T, y1: FLOOR - 0.003 } as const;
 /** the closed book's top (the cover's outside) */
@@ -812,9 +815,23 @@ function bookGeometry(): BookGeometry {
   backBoard.dispose();
   spine.dispose();
   const block = pageBlockGeometry({ ...PAGES, concave: CONCAVE, signatures: SIGNATURES, proud: PROUD, seed: 95 });
-  const top = new PlaneGeometry(PAGES.x1 - PAGES.x0, PAGES.z1 - PAGES.z0);
-  top.rotateX(-Math.PI / 2);
-  top.translate(0, PAGES.y1, (PAGES.z0 + PAGES.z1) / 2);
+  // the first page: its margin round the world at the page's height, and under the world's terrain
+  // (whose ruts and puddles dip to about FLOOR − 0.12) a plane sunk below them, so the paper never
+  // shows through the path
+  const zc = (PAGES.z0 + PAGES.z1) / 2;
+  const ow = (PAGES.x1 - PAGES.x0) / 2;
+  const od = (PAGES.z1 - PAGES.z0) / 2;
+  const iw = PAGE.w / 2 - FIRST_PAGE_INSET;
+  const id = PAGE.d / 2 - FIRST_PAGE_INSET;
+  const frame = new Shape().moveTo(-ow, -od).lineTo(ow, -od).lineTo(ow, od).lineTo(-ow, od).lineTo(-ow, -od);
+  // (a shape's y turns to −z: the hole centred on the world's page at z 0)
+  const world = new Shape().moveTo(-iw, -id + zc).lineTo(-iw, id + zc).lineTo(iw, id + zc).lineTo(iw, -id + zc).lineTo(-iw, -id + zc);
+  frame.holes.push(world);
+  const margin = new ShapeGeometry(frame).rotateX(-Math.PI / 2).translate(0, PAGES.y1, zc);
+  const sunk = new PlaneGeometry(2 * iw + 0.02, 2 * id + 0.02).rotateX(-Math.PI / 2).translate(0, PAGES.y1 - FIRST_PAGE_SINK, 0);
+  const top = mergeGeometries([margin, sunk])!;
+  margin.dispose();
+  sunk.dispose();
   // the cover in its own frame: hinge at the origin, the board along +z (local), y 0..t
   const cover = boardGeometry({ ...boardSpec, z0: 0, z1: BOOK.d, edge: 1.0 });
   const corner = (y0: number, z: number, rivets: number) =>
