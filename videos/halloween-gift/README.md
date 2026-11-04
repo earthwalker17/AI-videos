@@ -42,17 +42,27 @@ The hero's landmarks sit at the reference's screen positions (projected numerica
 grid about 0.054 and palette distance 7–11 against the reference at 1080p (`aiv still --ref`);
 the 13–18 s span and the peek-to-gates span measure no alternation (0.00–0.03) and no jumps.
 
-**Next:** finish the asset batches, a critique loop against the references, then the
-checkpoint for the user (hero vista, graveyard truck, door two-shot, email, book and bats, with
-the measured numbers); after it, assemble the V2 film (`src/film/Film.tsx` on the new world),
-`WORDS.email` = the email's read path (the one remaining cue edit), drafts with motion QA, and
-the 1080p review cut. Open points: the castle stands against a flat haze where the reference's
-stands dark against bright moonlit cloud banks (`look/SkyPortal.tsx`, `world/Castle.tsx`); the
-peek ghost hangs in front of the castle's crag in the hero (to stay furled in the branch until
-it peeks, `world/Ghosts.tsx`); the ghosts' silhouettes and folds (a tied, ragged sheet in the
-reference); the maroon foot band (`NightPost` `foot`, `film/beats.ts footAt`) eases down in the
-door shots; the moon rays may flare in the door shots; walk 2's footstep pan should recede (the
-camera now trails him).
+**Assembled (2026-11-05):** all four asset batches are in, and the V2 film's picture plays end to
+end as the lookdev composition `FilmV2` (`src/film/FilmV2.tsx`, words in
+`src/overlay/OverlayV2.tsx`; `Main` still renders V1 until the checkpoint): the desk and its room,
+the bats squeezing out of the crack, the world growing out of the page on the six pops, the one
+camera journey, Clawd V2, the neighbour, the gift letter and the email, and a close with no cut
+(the camera cranes up out of the book onto the desk as the cover swings down and slams). The
+first frame of a call fell from 120-240 s to 15-45 s (bit-identical builder speed-ups, and the
+engine keeps compiled GPU programs across calls: `engines/remotion/ENGINE.md`).
+
+**Next:** fix the one determinism fault found (Chinese canvas text rasters differently from run
+to run: the couplets, the cover's title, the email's 申诉 and 封号; a render's chunks could flicker),
+put the witch back across the moon (drafted, held back while the fault is fixed), render the
+checkpoint frames at 1080p and run the critique lenses against the references, fix, then the
+checkpoint for the user (stills beside the references with the numbers, the closing strip, the
+email's wording); after it, `WORDS.email` = the email's read path (the one remaining cue edit),
+`FilmV2` into `Main`, drafts with motion QA, and the 1080p review cut. Open points: the castle
+stands against a flat haze where the reference's stands dark against bright moonlit cloud banks
+(`look/SkyPortal.tsx`, `world/Castle.tsx`); the ghosts' silhouettes and folds (a tied, ragged
+sheet in the reference); the maroon foot band (`NightPost` `foot`, `film/beats.ts footAt`) eases
+down in the door shots; the moon rays may flare in the door shots; walk 2's footstep pan should
+recede (the camera now trails him).
 
 ## How it was made
 - **Picture:** Remotion 4 with React Three Fiber (`src/`). A storybook on a desk opens into
