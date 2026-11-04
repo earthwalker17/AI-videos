@@ -50,8 +50,16 @@ twos, camera on ones), 2026-11-04:
   spans; the lossy rule (a run of ≥ 3 windows, coarse movement) made none and still flags a
   subject on twos through the same encoders.
 
-Not verified yet: the V2 picture of the same film (everything on ones, hop gait, spline camera)
-through the same check; that result is added here when the V2 draft is measured.
+- The V2 camera journey over the V2 world on ones (Clawd still a stand-in box on the hop
+  gait), the same 13-18 s as draft lookdev stills (960x540, one `aiv still --span` call),
+  2026-11-04: the alternation of frame-difference energy (mean |D(t) − (D(t−1) + D(t+1))/2|
+  over its window mean, 12-frame windows) stays 0.01-0.03, with no frame above 2.5 × the median
+  difference. The same span showed two faults no motion metric sees: a stone crossing between
+  camera and actor, and the actor dropping out of frame up a slope (now tests in
+  `film/journey.test.ts`).
+
+Not verified yet: the V2 draft itself (the real Clawd and the whole film) through `aiv qa`'s
+check on the mezzanine; that result is added here when it is measured.
 
 ## In this repo
 - `aiv qa` runs the check (`packages/pipeline/src/qa/motion.ts`; ARCHITECTURE decision 27):
