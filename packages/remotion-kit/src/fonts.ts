@@ -1,7 +1,9 @@
 /**
  * Fonts registered with FontFace under family names no system font has ('AIV …'): if a file
  * failed to load, a fallback could not pass for it. Each hook holds the frame (delayRender) until
- * its faces are loaded and in document.fonts, so no frame is ever captured with a fallback face.
+ * its faces are loaded and in document.fonts, so no frame is ever captured with DOM text in a
+ * fallback face. Text drawn into a canvas is drawn when the code draws it, so it is drawn only
+ * once `ready` is true, on a CPU canvas (canvasText.ts; README.md, Canvas text).
  *
  * Inter, from the pinned @fontsource-variable/inter package (SIL OFL 1.1), has its own loader
  * (useInter), kept exactly as the templates' frame hashes were made with. Any other font goes
@@ -49,9 +51,8 @@ export function useInter(): string {
 
 /**
  * Inter as useFont gives a face: `ready` is React state, and the frame's hold is released only
- * in the commit in which it became true, so a canvas that draws Inter redraws in that commit and
- * the released frame never holds a fallback face. (useInter, above, only holds the frame: the
- * templates' frame hashes were made with it.)
+ * in the commit in which it became true. Draw canvas text only once it is true (see useFont).
+ * (useInter, above, only holds the frame: the templates' frame hashes were made with it.)
  */
 export function useInterState(): { family: string; ready: boolean } {
   const { delayRender, continueRender, cancelRender } = useDelayRender();
@@ -110,7 +111,7 @@ export interface FontSpec {
 export interface FontState {
   /** CSS font-family value (`"AIV <family>"`), for style.fontFamily and canvas `ctx.font` */
   family: string;
-  /** React state: false until the faces are loaded; a CanvasTexture redraws when it flips */
+  /** React state: false until the faces are loaded; draw canvas text only once it is true */
   ready: boolean;
 }
 
@@ -182,8 +183,15 @@ export function loadFont(spec: FontSpec): Promise<string> {
 /**
  * Hold the current frame until the font is loaded (a failed load cancels the render), like
  * useInter. `ready` is React state, and the hold is released only in the commit in which it
- * became true: a component that draws text into a CanvasTexture redraws in that same commit, so
- * the released frame never holds a fallback face. The spec may not change after the first render.
+ * became true. The spec may not change after the first render.
+ *
+ * Canvas text is drawn when the code draws it: text drawn before `ready` is drawn in a fallback
+ * face for every character whose file is still loading. A redraw on `ready` does not fix that
+ * under a Stage3D: R3F draws when the frame changes, not when state does, so the frame shows the
+ * texture as first drawn. So call useFont outside the Stage3D and mount the Stage3D (and any
+ * canvas that gets text) only once `ready` is true: `ready ? <Stage3D>…</Stage3D> : null`.
+ * ThreeCanvas takes its own hold in that same commit (a child's layout effect runs before this
+ * hook's), so the frame is never released in between. Draw the text with canvasText.ts.
  *
  * The hold is taken at commit (a layout effect) and released on unmount, as @remotion/three's
  * ThreeCanvas does: a render React throws away (a Suspense sibling suspending on mount) runs no

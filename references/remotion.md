@@ -115,6 +115,16 @@ Always passed: `--ignore-gpu-blocklist`, `--enable-unsafe-webgpu`; the headless 
 - ANGLE memory leaks + ~8 GB shared memory: low concurrency and chunked renders; benchmark with `remotion benchmark --concurrencies=1,2,3,4` rather than trusting the default of 4.
 - Retagging bt601 output as bt709 without converting shifts colours.
 - `npx remotion skills add` creates a `.claude/skills` symlink; Windows checks symlinks out as text unless symlinks are enabled.
+- **Canvas text under ThreeCanvas** (measured 2026-11-05, Remotion 4.0.539, chrome-headless-shell
+  157.0.8080.0, ANGLE D3D11, Intel iGPU; verified by repeated renders): `@remotion/three`'s
+  ThreeCanvas runs R3F with `frameloop: 'never'` and draws when the frame changes, not when React
+  state does, so a CanvasTexture redrawn when the fonts become ready never reaches the captured
+  frame; text drawn before a unicode-range subset file loaded is drawn in Chrome's fallback face
+  for those characters, differently every run. Mount the 3D canvas only once the fonts are ready.
+  Separately, Chrome's GPU-accelerated 2D canvas rasters large glyphs (from about 166 px; every
+  font from 200 px) a level or two differently from page to page; a CPU canvas
+  (`willReadFrequently: true`) never varied. The kit's `canvasText.ts` and its README carry the
+  recipe.
 
 ## Not read
 Remotion Elements, `@remotion/media` internals, the `remotion-license` skill (4.0.540), Studio interactivity APIs. Not run: `remotion benchmark` on the reference host (`remotion gpu` was run and fails there; see `engines/remotion/ENGINE.md`, Gotchas). Unanswered: the team-threshold question for outside contributors; when 5.0 ships; whether the Windows headless shell (stock Chrome for Testing, issue #12638) limits HTML-in-canvas effects.

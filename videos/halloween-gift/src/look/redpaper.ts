@@ -5,12 +5,15 @@
  * right. Gold ink (#E8C66A) on red paper (#B5332B) with gold flecks, as V1's door set drew them
  * (world/DoorSet.tsx), now as weathered paper glued on: mottled dye, a printed gold border, water
  * stains, a torn corner (cut out of the alpha, with the paper's pale core along the tear), and a
- * wrinkle height map (glue ridges, creases) for a bump. Canvases are drawn once from a seed, and
- * again when the fonts are `ready`.
+ * wrinkle height map (glue ridges, creases) for a bump. Canvases are drawn once from a seed, once
+ * the fonts are in (the stage mounts only when they are `ready`), on CPU canvases (the kit's
+ * textCanvas): every canvas here gets the ink, and text on a GPU canvas rasters differently from
+ * render to render.
  */
+import { fillTextChecked, textCanvas } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { CanvasTexture, LinearSRGBColorSpace, SRGBColorSpace } from 'three';
-import { canvas, seq, type Seq } from './paper.ts';
+import { seq, type Seq } from './paper.ts';
 
 export type RedPaperKind = 'fu' | 'upper' | 'lower' | 'horizontal';
 
@@ -59,7 +62,7 @@ function tornCorner(r: Seq, W: number, H: number, corner: number, size: number):
 export function drawRedPaper(kind: RedPaperKind, cjk: string, seed = 7): { color: HTMLCanvasElement; height: HTMLCanvasElement; ink: HTMLCanvasElement } {
   const [W, H] = paperSize(kind);
   const r = seq(seed, `redpaper-${kind}`);
-  const a = canvas(W, H);
+  const a = textCanvas(W, H);
   const g = a.g;
   // the dyed paper: red, mottled a little darker and lighter
   g.fillStyle = PAPER_RED;
@@ -119,16 +122,16 @@ export function drawRedPaper(kind: RedPaperKind, cjk: string, seed = 7): { color
       ctx.translate(W / 2, H / 2);
       ctx.rotate(Math.PI / 4);
       ctx.font = `900 ${Math.round(W * 0.56)}px ${cjk}`;
-      ctx.fillText(text, 0, H * 0.03);
+      fillTextChecked(ctx, text, 0, H * 0.03);
       ctx.restore();
     } else if (kind === 'horizontal') {
       ctx.font = `700 ${Math.round(H * 0.6)}px ${cjk}`;
       // a modern 横批 reads left to right
-      [...text].forEach((ch, i) => ctx.fillText(ch, W * ((i + 0.5) / 4), H * 0.54));
+      [...text].forEach((ch, i) => fillTextChecked(ctx, ch, W * ((i + 0.5) / 4), H * 0.54));
     } else {
       const n = [...text].length;
       ctx.font = `700 ${Math.round(W * 0.62)}px ${cjk}`;
-      [...text].forEach((ch, i) => ctx.fillText(ch, W / 2, H * ((i + 0.55) / n)));
+      [...text].forEach((ch, i) => fillTextChecked(ctx, ch, W / 2, H * ((i + 0.55) / n)));
     }
   };
   ink(g);
@@ -173,7 +176,7 @@ export function drawRedPaper(kind: RedPaperKind, cjk: string, seed = 7): { color
   g.restore();
 
   // the height: mid grey, creases and glue ridges, the ink a little raised
-  const h = canvas(W, H);
+  const h = textCanvas(W, H);
   const q = h.g;
   q.fillStyle = 'rgb(128,128,128)';
   q.fillRect(0, 0, W, H);
@@ -199,7 +202,7 @@ export function drawRedPaper(kind: RedPaperKind, cjk: string, seed = 7): { color
   q.fillStyle = 'rgba(165,165,165,0.8)';
   ink(q);
   // the ink alone, and the printed border a little: the gold leaf's mask
-  const k = canvas(W, H);
+  const k = textCanvas(W, H);
   k.g.fillStyle = '#000000';
   k.g.fillRect(0, 0, W, H);
   k.g.strokeStyle = 'rgba(255,255,255,0.5)';
@@ -212,7 +215,7 @@ export function drawRedPaper(kind: RedPaperKind, cjk: string, seed = 7): { color
   return { color: a.c, height: h.c, ink: k.c };
 }
 
-/** The paper's textures (colour with alpha, height, the ink's mask), drawn once per kind and font, again on `ready`. */
+/** The paper's textures (colour with alpha, height, the ink's mask), drawn once per kind and font; only once the fonts are `ready`. */
 export function useRedPaper(kind: RedPaperKind, cjk: string, ready: boolean, seed = 7): { map: CanvasTexture; bumpMap: CanvasTexture; inkMap: CanvasTexture } {
   const res = useMemo(() => {
     const { color, height, ink } = drawRedPaper(kind, cjk, seed);
@@ -224,7 +227,7 @@ export function useRedPaper(kind: RedPaperKind, cjk: string, ready: boolean, see
     const inkMap = new CanvasTexture(ink);
     inkMap.colorSpace = SRGBColorSpace;
     return { map, bumpMap, inkMap };
-    // `ready` redraws the canvases once the fonts are in
+    // drawn with `ready` true (the stage mounts only then: fillTextChecked throws otherwise)
   }, [kind, cjk, ready, seed]);
   useLayoutEffect(() => () => (res.map.dispose(), res.bumpMap.dispose(), res.inkMap.dispose()), [res]);
   return res;

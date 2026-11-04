@@ -15,6 +15,7 @@ import { at, FPS } from '../cues.ts';
 import { ghostLowerAt } from '../film/beats.ts';
 import { type CamPose } from '../film/campath.ts';
 import { journeyAt } from '../film/journey.ts';
+import { useFilmFonts } from '../look/fonts.ts';
 import { Night } from '../look/Night.tsx';
 import { NightPost } from '../look/NightPost.tsx';
 import { SkyDome } from '../look/SkyPortal.tsx';
@@ -144,22 +145,26 @@ export function WorldBats({ f, camPos = HERO.pos, fov = HERO.fov, nearBats = at(
 
 function WorldStage({ shots }: { shots: Shot[] }) {
   const f = useCurrentFrame();
+  // mount the stage only once the fonts are in: its text canvases are drawn once, at mount (look/fonts.ts)
+  const { ready } = useFilmFonts();
   const shot = shots[Math.min(f, shots.length - 1)];
   const pose = poseOf(shot);
   // the world's own animation (wind, flicker) runs on the film frame the camera comes from
   const t = shot.film ?? at(6);
   return (
     <AbsoluteFill style={{ background: '#0a1118' }}>
-      <Stage3D antialias={false} camera={{ fov: 44, near: 0.05, far: 80, position: [0, 3, 8] }}>
-        <color attach="background" args={['#0a1118']} />
-        <Rig pose={pose} />
-        <Night f={t} fps={FPS} shadow={shot.shadow} />
-        <SkyDome />
-        <Terrain />
-        <Grass />
-        <WorldScene f={t} camPos={pose.pos} fov={pose.fov} gates={shot.gates} door={shot.door} windows={shot.windows} />
-        <NightPost f={t} focus={pose.focus} {...LOOK_POST} />
-      </Stage3D>
+      {ready && (
+        <Stage3D antialias={false} camera={{ fov: 44, near: 0.05, far: 80, position: [0, 3, 8] }}>
+          <color attach="background" args={['#0a1118']} />
+          <Rig pose={pose} />
+          <Night f={t} fps={FPS} shadow={shot.shadow} />
+          <SkyDome />
+          <Terrain />
+          <Grass />
+          <WorldScene f={t} camPos={pose.pos} fov={pose.fov} gates={shot.gates} door={shot.door} windows={shot.windows} />
+          <NightPost f={t} focus={pose.focus} {...LOOK_POST} />
+        </Stage3D>
+      )}
     </AbsoluteFill>
   );
 }

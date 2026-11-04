@@ -21,6 +21,7 @@
  * The room's light (world/Desk2 roomMaterial: the window's moonlight, the candles) falls on all
  * of it but the first page (the world's terrain beside it takes no room light either).
  */
+import { fillTextChecked, textCanvas } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { AdditiveBlending, BufferGeometry, CanvasTexture, Color, DoubleSide, LinearSRGBColorSpace, Matrix4, MeshDepthMaterial, PlaneGeometry, ShaderMaterial, Shape, ShapeGeometry, SRGBColorSpace, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -287,7 +288,7 @@ function drawFoil(m: CanvasRenderingContext2D, W: number, H: number, fonts: Film
     size = Math.floor((size * maxW) / tw);
     m.font = `${size}px ${fonts.serif}`;
   }
-  m.fillText(WORDS.title.en, W / 2, H * 0.535);
+  fillTextChecked(m, WORDS.title.en, W / 2, H * 0.535);
   // the rule between them: a line each side of a diamond, with curls
   const ry = H * 0.585;
   m.lineWidth = 0.02 * U;
@@ -311,7 +312,7 @@ function drawFoil(m: CanvasRenderingContext2D, W: number, H: number, fonts: Film
   }
   m.font = `600 ${Math.round(H * 0.082)}px ${fonts.cjk}`;
   (m as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(H * 0.022)}px`;
-  m.fillText(WORDS.title['zh-Hans'], W / 2 + H * 0.011, H * 0.75);
+  fillTextChecked(m, WORDS.title['zh-Hans'], W / 2 + H * 0.011, H * 0.75);
   (m as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '0px';
   // a small jack-o'-lantern under the panel
   const jx = W / 2;
@@ -488,15 +489,15 @@ interface Art {
 
 /**
  * The cover's outside (colour, and ORM: R height, G roughness, B metal); canvas top = the spine.
- * Drawn twice on a fresh page, before the fonts are in and again once they are. The first draw is
- * never seen but stays: what the page drew before changes how a later canvas's text rasters (not
- * drawing Letter2's faces before the fonts changed this cover's pixels), so it is part of the film.
+ * Drawn once, with the fonts in (the stage mounts only once they are ready). The foil mask, which
+ * gets the titles, is a CPU canvas (the kit's textCanvas): on a GPU canvas the titles' glyphs
+ * rastered differently from render to render.
  */
 function coverArt(fonts: FilmFonts): Art {
   const W = 3072;
   const H = 2112;
   const U = W / BOOK.w;
-  const { c: mc, g: m } = canvas(W, H);
+  const { c: mc, g: m } = textCanvas(W, H);
   drawFoil(m, W, H, fonts);
   const { c: bc, g: b } = canvas(W, H);
   b.filter = `blur(${Math.round(0.018 * U)}px)`;

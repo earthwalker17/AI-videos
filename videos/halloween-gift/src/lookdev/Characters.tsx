@@ -41,6 +41,7 @@ import { clawdAt, userAt, WAIT_SPOT } from '../film/blocking.ts';
 import { CamPath, type CamKey, type CamPose } from '../film/campath.ts';
 import type { HopState } from '../film/gait.ts';
 import { journeyAt } from '../film/journey.ts';
+import { useFilmFonts } from '../look/fonts.ts';
 import { Night } from '../look/Night.tsx';
 import { NightPost } from '../look/NightPost.tsx';
 import { SkyDome } from '../look/SkyPortal.tsx';
@@ -90,19 +91,23 @@ function CameraRig({ path, f }: { path: { at(f: number): CamPose }; f: number })
  */
 function CharStage({ path, film, children }: { path: { at(f: number): CamPose }; film: (f: number) => { film: number; door: boolean }; children: (f: number) => ReactNode }) {
   const f = useCurrentFrame();
+  // mount the stage only once the fonts are in: its text canvases are drawn once, at mount (look/fonts.ts)
+  const { ready } = useFilmFonts();
   const shot = film(f);
   return (
     <AbsoluteFill style={{ background: '#0a1118' }}>
-      <Stage3D antialias={false} camera={{ fov: 44, near: 0.05, far: 80, position: [0, 3, 8] }}>
-        <color attach="background" args={['#0a1118']} />
-        <CameraRig path={path} f={f} />
-        <Night f={f} fps={FPS} shadow={shot.door ? DOOR_SHADOW : WIDE_SHADOW} />
-        <SkyDome />
-        <Terrain />
-        <Grass />
-        {children(f)}
-        <NightPost f={f} focus={path.at(f).focus} {...LOOK_POST} foot={footAt(shot.film)} />
-      </Stage3D>
+      {ready && (
+        <Stage3D antialias={false} camera={{ fov: 44, near: 0.05, far: 80, position: [0, 3, 8] }}>
+          <color attach="background" args={['#0a1118']} />
+          <CameraRig path={path} f={f} />
+          <Night f={f} fps={FPS} shadow={shot.door ? DOOR_SHADOW : WIDE_SHADOW} />
+          <SkyDome />
+          <Terrain />
+          <Grass />
+          {children(f)}
+          <NightPost f={f} focus={path.at(f).focus} {...LOOK_POST} foot={footAt(shot.film)} />
+        </Stage3D>
+      )}
     </AbsoluteFill>
   );
 }

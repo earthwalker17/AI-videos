@@ -41,41 +41,45 @@ function CameraRig({ f }: { f: number }) {
 
 export function Film() {
   const f = useCurrentFrame();
+  // the stage mounts only once every face is in: R3F draws when the frame changes, not when
+  // `ready` does, so a text canvas drawn before would be the one in the frame (look/fonts.ts)
   const { fonts, ready } = useFilmFonts();
   const on = setsAt(f);
   return (
     <AbsoluteFill style={{ background: NIGHT }}>
-      <Stage3D antialias={false} camera={{ fov: 30, near: 0.05, far: 80, position: [9, 7, 12] }}>
-        <color attach="background" args={[NIGHT]} />
-        {/* aerial perspective inside the book; the room around the desk stays clearer */}
-        <fogExp2 attach="fog" args={["#163848", onDesk(f) ? 0.012 : 0.035]} />
-        <CameraRig f={f} />
-        <hemisphereLight args={['#6fa9c4', '#2a0f12', 0.72]} />
-        <directionalLight
-          castShadow
-          position={[6, 14, -8]}
-          intensity={2.2}
-          color="#cfe6e8"
-          shadow-mapSize={[2048, 2048]}
-          shadow-camera-left={-9}
-          shadow-camera-right={9}
-          shadow-camera-top={11}
-          shadow-camera-bottom={-6}
-          shadow-bias={-0.0005}
-          shadow-normalBias={0.02}
-        />
-        {/* a soft cool fill from the front, so faces and paper read against the moonlit backdrop */}
-        <directionalLight position={[-3, 5, 12]} intensity={0.75} color="#8fc3d4" />
-        <Desk f={f} />
-        <Book f={f} fonts={fonts} ready={ready}>
-          <Sets f={f} on={on} fonts={fonts} ready={ready} />
-        </Book>
-        {/* the hook: paper bats squeeze out of the closed book */}
-        {f >= at(3) - 2 && f < at(5) && <BatBurst f={f} from={at(3)} />}
-        <Clawd pose={clawdAt(f)} f={f} />
-        <ClawdKey pose={clawdAt(f)} />
-        <FilmPost f={f} />
-      </Stage3D>
+      {ready && (
+        <Stage3D antialias={false} camera={{ fov: 30, near: 0.05, far: 80, position: [9, 7, 12] }}>
+          <color attach="background" args={[NIGHT]} />
+          {/* aerial perspective inside the book; the room around the desk stays clearer */}
+          <fogExp2 attach="fog" args={["#163848", onDesk(f) ? 0.012 : 0.035]} />
+          <CameraRig f={f} />
+          <hemisphereLight args={['#6fa9c4', '#2a0f12', 0.72]} />
+          <directionalLight
+            castShadow
+            position={[6, 14, -8]}
+            intensity={2.2}
+            color="#cfe6e8"
+            shadow-mapSize={[2048, 2048]}
+            shadow-camera-left={-9}
+            shadow-camera-right={9}
+            shadow-camera-top={11}
+            shadow-camera-bottom={-6}
+            shadow-bias={-0.0005}
+            shadow-normalBias={0.02}
+          />
+          {/* a soft cool fill from the front, so faces and paper read against the moonlit backdrop */}
+          <directionalLight position={[-3, 5, 12]} intensity={0.75} color="#8fc3d4" />
+          <Desk f={f} />
+          <Book f={f} fonts={fonts} ready={ready}>
+            <Sets f={f} on={on} fonts={fonts} ready={ready} />
+          </Book>
+          {/* the hook: paper bats squeeze out of the closed book */}
+          {f >= at(3) - 2 && f < at(5) && <BatBurst f={f} from={at(3)} />}
+          <Clawd pose={clawdAt(f)} f={f} />
+          <ClawdKey pose={clawdAt(f)} />
+          <FilmPost f={f} />
+        </Stage3D>
+      )}
       <Overlay f={f} fonts={fonts} />
     </AbsoluteFill>
   );

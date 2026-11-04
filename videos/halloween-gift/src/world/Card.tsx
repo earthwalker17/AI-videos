@@ -4,6 +4,7 @@
  * per-hold jitter ("boil") on twos sells the handmade, stop-motion feel.
  */
 import { rand } from '@aiv/core';
+import { textCanvas } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { PlaneGeometry } from 'three';
 import { twos } from '../film/timeline.ts';
@@ -28,21 +29,23 @@ export interface CardProps extends CardOptions {
   renderOrder?: number;
   /** redraw the canvas when this changes (e.g. once the fonts are ready) */
   drawKey?: string | number | boolean;
+  /** the picture gets text: draw it on a CPU canvas (the kit's textCanvas), where glyphs raster the same in every render */
+  text?: boolean;
 }
 
-export function Card({ at, size, ppu = 160, draw, rise = 1, tilt = 0, yaw = 0, boil, shadow = true, renderOrder, drawKey, ...mat }: CardProps) {
+export function Card({ at, size, ppu = 160, draw, rise = 1, tilt = 0, yaw = 0, boil, shadow = true, renderOrder, drawKey, text = false, ...mat }: CardProps) {
   const [w, h] = size;
   const { geometry, material } = useMemo(() => {
     const W = Math.round(w * ppu);
     const H = Math.round(h * ppu);
-    const art = canvas(W, H);
+    const art = text ? textCanvas(W, H) : canvas(W, H);
     const em = canvas(W, H);
     draw(art.g, W, H, em.g);
     const geometry = new PlaneGeometry(w, h).translate(0, h / 2, 0);
     const material = cardMaterial(art.c, mat.emissive === undefined && mat.emissiveIntensity ? { ...mat, emissive: em.c } : mat);
     return { geometry, material };
     // the drawing is fixed per mount: deps are the size and density only
-  }, [w, h, ppu, drawKey]);
+  }, [w, h, ppu, drawKey, text]);
   useLayoutEffect(
     () => () => {
       geometry.dispose();

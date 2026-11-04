@@ -3,6 +3,7 @@
  * the cover stands up as the stage's backdrop (its inside is the night sky with the moon) and the
  * first page is the stage floor. Units: the book is 12 wide (x), 8 deep (z), 1.2 thick.
  */
+import { fillTextChecked, textCanvas } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { BoxGeometry, CanvasTexture, PlaneGeometry, SRGBColorSpace } from 'three';
 import { at, FPS } from '../cues.ts';
@@ -17,11 +18,11 @@ export const BOOK_W = 12;
 export const BOOK_D = 8;
 const COVER_T = 0.14;
 
-/** The cover's outside: plum cloth, a mint foil border and the title in English and Chinese. */
+/** The cover's outside: plum cloth, a mint foil border and the title in English and Chinese (a CPU canvas: the kit's textCanvas). */
 function coverArt(fonts: { serif: string; cjk: string }) {
   const W = 1536;
   const H = 1024;
-  const { c, g } = canvas(W, H);
+  const { c, g } = textCanvas(W, H);
   const r = seq(71, 'cover');
   g.fillStyle = '#3a2438';
   g.fillRect(0, 0, W, H);
@@ -63,9 +64,9 @@ function coverArt(fonts: { serif: string; cjk: string }) {
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.font = `${Math.round(H * 0.15)}px ${fonts.serif}`;
-  g.fillText('A Halloween Gift', W / 2, H * 0.5);
+  fillTextChecked(g, 'A Halloween Gift', W / 2, H * 0.5);
   g.font = `600 ${Math.round(H * 0.1)}px ${fonts.cjk}`;
-  g.fillText('万圣节礼物', W / 2, H * 0.7);
+  fillTextChecked(g, '万圣节礼物', W / 2, H * 0.7);
   const t = new CanvasTexture(c);
   t.colorSpace = SRGBColorSpace;
   t.anisotropy = 8;

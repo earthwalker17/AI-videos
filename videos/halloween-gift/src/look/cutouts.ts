@@ -6,6 +6,7 @@
  *
  * Canvas units: pixels, origin top-left; a card's ground line is the canvas bottom.
  */
+import { fillTextChecked } from '@aiv/remotion-kit';
 import { seq, type Seq } from './paper.ts';
 
 export const INK = '#0b1017';
@@ -315,7 +316,7 @@ export function drawStone(g: CanvasRenderingContext2D, w: number, h: number, kin
     g.font = font;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText(word, w * 0.5, h * 0.55);
+    fillTextChecked(g, word, w * 0.5, h * 0.55);
   }
 }
 

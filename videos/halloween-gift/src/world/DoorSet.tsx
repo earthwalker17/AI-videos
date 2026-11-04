@@ -5,6 +5,7 @@
  * the pop-up letter between them, and a far window down the lane for the last laugh.
  */
 import { clamp, progress } from '@aiv/core';
+import { fillTextChecked, textCanvas } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { CanvasTexture, LatheGeometry, Object3D, PlaneGeometry, SRGBColorSpace, Vector2 } from 'three';
 import { at, KNOCKS } from '../cues.ts';
@@ -72,13 +73,13 @@ function Lantern({ position }: { position: [number, number, number] }) {
   );
 }
 
-/** A 福 diamond and couplet strips: red paper with black brush characters (drawn once the font is ready). */
+/** A 福 diamond and couplet strips: red paper with black brush characters (drawn once the font is ready, on a CPU canvas: the kit's textCanvas). */
 function useRedPaper(kind: 'fu' | 'upper' | 'lower' | 'horizontal', cjk: string, ready: boolean) {
   const res = useMemo(() => {
     const vertical = kind === 'upper' || kind === 'lower';
     const W = kind === 'fu' ? 512 : vertical ? 220 : 880;
     const H = kind === 'fu' ? 512 : vertical ? 1540 : 220;
-    const { c, g } = canvas(W, H);
+    const { c, g } = textCanvas(W, H);
     g.fillStyle = '#B5332B';
     g.fillRect(0, 0, W, H);
     // gold flecks
@@ -96,16 +97,16 @@ function useRedPaper(kind: 'fu' | 'upper' | 'lower' | 'horizontal', cjk: string,
       g.translate(W / 2, H / 2);
       g.rotate(Math.PI / 4);
       g.font = `900 ${Math.round(W * 0.56)}px ${cjk}`;
-      g.fillText(text, 0, H * 0.03);
+      fillTextChecked(g, text, 0, H * 0.03);
       g.restore();
     } else if (vertical) {
       const n = [...text].length;
       g.font = `700 ${Math.round(W * 0.66)}px ${cjk}`;
-      [...text].forEach((ch, i) => g.fillText(ch, W / 2, H * ((i + 0.55) / n)));
+      [...text].forEach((ch, i) => fillTextChecked(g, ch, W / 2, H * ((i + 0.55) / n)));
     } else {
       g.font = `700 ${Math.round(H * 0.62)}px ${cjk}`;
       // a modern 横批 reads left to right
-      [...text].forEach((ch, i) => g.fillText(ch, W * ((i + 0.5) / 4), H * 0.54));
+      [...text].forEach((ch, i) => fillTextChecked(g, ch, W * ((i + 0.5) / 4), H * 0.54));
     }
     const map = new CanvasTexture(c);
     map.colorSpace = SRGBColorSpace;

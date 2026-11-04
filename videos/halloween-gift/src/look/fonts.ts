@@ -49,12 +49,20 @@ export interface FilmFonts {
   sans: string;
 }
 
-/** Load every face the film uses; `ready` flips once all are in (canvas text redraws on it). */
+/**
+ * Load every face the film uses; `ready` flips once all are in (React state; the frame is held
+ * until then). Canvas text is drawn only once `ready` is true, on a CPU canvas (the kit's
+ * textCanvas, fillTextChecked): every Stage3D whose world draws text into a texture (the door's
+ * red papers, the book's cover, the gift's faces, the RIP stone) mounts only when it is,
+ * `ready ? <Stage3D>…</Stage3D> : null`. A redraw on `ready` inside the stage never reaches the
+ * frame (R3F draws when the frame changes, not when state does), and text drawn while a subset
+ * file was still loading came out in a fallback sans, a different mix of characters each render.
+ */
 export function useFilmFonts(): { fonts: FilmFonts; ready: boolean } {
   const fell = useFont(FELL);
   const sc = useFont(NOTO_SC);
   const inter = useInterState();
-  // one object per family set: canvases that depend on it are drawn once, then again on `ready`
+  // one object per family set: the canvases that depend on it are drawn once
   const fonts = useMemo(() => ({ serif: fell.family, cjk: sc.family, sans: inter.family }), [fell.family, sc.family, inter.family]);
   return { fonts, ready: fell.ready && sc.ready && inter.ready };
 }

@@ -17,8 +17,9 @@
  * wax bleed, that cracks on 'seal-crack' (`crack` 0..1: it breaks into three pieces that part
  * over the bleed, dark crack lines run out from the stamp and a chip pops off its edge).
  * Face B, unlit (MeshBasic, toneMapped false, no fog): overlay/EmailCard.tsx drawEmailCard on a
- * 2048-px-wide canvas (the Appeal tab drawn; the 封号 seal once `sealed`), redrawn when the film's
- * fonts are ready, at FACE_B_GAIN (just under the bloom's threshold, so the ink stays dark), each
+ * 2048-px-wide canvas (the Appeal tab drawn; the 封号 seal once `sealed`), drawn once the film's
+ * fonts are ready (the stage mounts only then; both faces are CPU canvases, the kit's textCanvas,
+ * as a GPU canvas rasters their large glyphs differently from render to render), at FACE_B_GAIN (just under the bloom's threshold, so the ink stays dark), each
  * slat darkened only while it turns.
  *
  * Props: <Letter2 rise={0..1.1} flip={0..1} sealed crack={0..1} f /> (film/beats.ts letterAt);
@@ -27,6 +28,7 @@
  * while it flies), the rails and stalk, the slot: 5-6. About 13.4k triangles (the seal 9.9k).
  */
 import { clamp, progress, rand } from '@aiv/core';
+import { fillTextChecked, textCanvas } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferAttribute, BufferGeometry, CanvasTexture, FrontSide, Matrix4, MeshBasicMaterial, SRGBColorSpace, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -239,7 +241,7 @@ function drawFaceA(g: CanvasRenderingContext2D, W: number, H: number, fonts: Fil
   if (cap > H * 0.098) px = fitFont(g, title, fonts.serif, Math.floor((px * H * 0.098) / cap), W * 0.78);
   const capH = g.measureText(title).actualBoundingBoxAscent || px * 0.66;
   const titleY = H * ((TITLE_SLAT + 0.5) / LETTER2.slats);
-  g.fillText(title, W / 2, titleY + capH / 2);
+  fillTextChecked(g, title, W / 2, titleY + capH / 2);
   (g as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '0px';
   // uneven ink: a speckle knocked out of the type (keeps the paper showing through, as letterpress does)
   g.save();
@@ -927,10 +929,10 @@ export interface Letter2Props {
 export function Letter2({ rise, flip, sealed, crack, f, quiver, place = true }: Letter2Props) {
   const { fonts, ready } = useFilmFonts();
   const faces = useMemo(() => {
-    const a = canvas(CW, CH);
+    const a = textCanvas(CW, CH);
     drawFaceA(a.g, CW, CH, fonts);
-    const b0 = canvas(CW, CH);
-    const b1 = canvas(CW, CH);
+    const b0 = textCanvas(CW, CH);
+    const b1 = textCanvas(CW, CH);
     drawEmailCard(b0.g, CW, CH, fonts, { tab: { dx: 0, dy: 0 }, seal: null });
     drawEmailCard(b1.g, CW, CH, fonts, { tab: { dx: 0, dy: 0 }, seal: { scale: 1, shake: 0 } });
     const tex = [a.c, b0.c, b1.c].map((c) => {
@@ -940,7 +942,7 @@ export function Letter2({ rise, flip, sealed, crack, f, quiver, place = true }: 
       return t;
     });
     return { a: tex[0], b: [tex[1], tex[2]] };
-    // redrawn once the fonts are in (`ready`)
+    // drawn with `ready` true (the stage mounts only then: fillTextChecked throws otherwise)
   }, [fonts, ready]);
   const built = useMemo(() => {
     const a = new BufferGeometry();

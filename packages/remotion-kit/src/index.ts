@@ -6,6 +6,7 @@ export { useRoomEnvironment, type RoomEnvironmentOptions } from './environment.t
 export { TestCard, SwatchStrip, type TestCardProps } from './TestCard.tsx';
 export { Title, type TitleProps } from './Title.tsx';
 export { useInter, useInterState, loadInter, INTER, INTER_FAMILY, loadFont, useFont, type FontSpec, type FontSource, type FontState } from './fonts.ts';
+export { textCanvas, textContext, fillTextChecked, TEXT_CONTEXT } from './canvasText.ts';
 export { parseUnicodeRange, coversCodePoint, sampleCodePoints, planFont, ALL_CODE_POINTS, type CodeRange, type FontPlan } from './unicodeRange.ts';
 export { useRenderScale, useRenderSize } from './scale.ts';
 export { swatchRectsCss, type CssSwatch } from './swatches.ts';

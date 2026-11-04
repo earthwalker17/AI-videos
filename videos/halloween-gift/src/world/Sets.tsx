@@ -81,7 +81,7 @@ function Graveyard({ f, serif, ready }: { f: number; serif: string; ready: boole
           [4.3, -0.4, 0.5, 0.9, 'cross', 0.12],
         ] as const
       ).map(([x, z, w, h, kind, tilt], i) => (
-        <Card key={x} at={[x, FLOOR, z]} size={[w, h]} rise={r(2 + (i % 3))} tilt={tilt} draw={(g, W, H) => drawStone(g, W, H, kind, '#56666f', x === 1.15 ? 'RIP' : undefined, `${Math.round(H * 0.26)}px ${serif}`)} boil={boil(20 + i)} drawKey={x === 1.15 ? ready : undefined} />
+        <Card key={x} at={[x, FLOOR, z]} size={[w, h]} rise={r(2 + (i % 3))} tilt={tilt} draw={(g, W, H) => drawStone(g, W, H, kind, '#56666f', x === 1.15 ? 'RIP' : undefined, `${Math.round(H * 0.26)}px ${serif}`)} boil={boil(20 + i)} drawKey={x === 1.15 ? ready : undefined} text={x === 1.15} />
       ))}
       {f >= at(9) + 8 && (
         <>

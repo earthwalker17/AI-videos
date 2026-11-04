@@ -24,6 +24,7 @@ import { AbsoluteFill, Composition, useCurrentFrame } from 'remotion';
 import { type PerspectiveCamera } from 'three';
 import { FPS } from '../cues.ts';
 import { CamPath, type CamKey, type CamPose } from '../film/campath.ts';
+import { useFilmFonts } from '../look/fonts.ts';
 import { Night } from '../look/Night.tsx';
 import { NightPost } from '../look/NightPost.tsx';
 import { SkyDome } from '../look/SkyPortal.tsx';
@@ -106,18 +107,22 @@ function Rig({ path, f }: { path: { at(f: number): CamPose }; f: number }) {
 /** LookStage with the Night's shadow box keyed for the shot (LookStage keeps the default box). */
 function ShotStage({ path, shadow, children }: { path: { at(f: number): CamPose }; shadow: { x: number; z: number; hw: number; hd: number }; children: (f: number) => ReactNode }) {
   const f = useCurrentFrame();
+  // mount the stage only once the fonts are in: its text canvases are drawn once, at mount (look/fonts.ts)
+  const { ready } = useFilmFonts();
   return (
     <AbsoluteFill style={{ background: '#0a1118' }}>
-      <Stage3D antialias={false} camera={{ fov: 44, near: 0.05, far: 80, position: [0, 3, 8] }}>
-        <color attach="background" args={['#0a1118']} />
-        <Rig path={path} f={f} />
-        <Night f={f} fps={FPS} shadow={shadow} />
-        <SkyDome />
-        <Terrain />
-        <Grass />
-        {children(f)}
-        <NightPost f={f} focus={path.at(f).focus} {...LOOK_POST} />
-      </Stage3D>
+      {ready && (
+        <Stage3D antialias={false} camera={{ fov: 44, near: 0.05, far: 80, position: [0, 3, 8] }}>
+          <color attach="background" args={['#0a1118']} />
+          <Rig path={path} f={f} />
+          <Night f={f} fps={FPS} shadow={shadow} />
+          <SkyDome />
+          <Terrain />
+          <Grass />
+          {children(f)}
+          <NightPost f={f} focus={path.at(f).focus} {...LOOK_POST} />
+        </Stage3D>
+      )}
     </AbsoluteFill>
   );
 }

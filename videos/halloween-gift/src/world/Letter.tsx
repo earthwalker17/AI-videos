@@ -6,9 +6,9 @@
  * words (overlay/Overlay.tsx), so the type and the seal colour are exact.
  */
 import { clamp } from '@aiv/core';
+import { fillTextChecked, textCanvas } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { CanvasTexture, PlaneGeometry, SRGBColorSpace } from 'three';
-import { canvas } from '../look/paper.ts';
 
 export const LETTER_W = 1.7;
 export const LETTER_H = 1.15;
@@ -51,7 +51,7 @@ function faceA(g: CanvasRenderingContext2D, w: number, h: number, fonts: LetterF
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   fit(g, 'A GIFT FOR YOU', `${Math.round(h * 0.16)}px ${fonts.serif}`, w * 0.74);
-  g.fillText('A GIFT FOR YOU', w / 2, h * 0.42);
+  fillTextChecked(g, 'A GIFT FOR YOU', w / 2, h * 0.42);
   // a doodled ribbon bow
   g.strokeStyle = '#e07b2a';
   g.lineWidth = w * 0.008;
@@ -106,11 +106,11 @@ function faceB(g: CanvasRenderingContext2D, w: number, h: number, fonts: LetterF
   g.textAlign = 'left';
   g.textBaseline = 'top';
   g.font = `800 ${Math.round(h * L.head)}px ${fonts.sans}`;
-  g.fillText('ACCOUNT', w * 0.05, h * L.headTop);
-  g.fillText('SUSPENDED', w * 0.05, h * (L.headTop + L.head * 1.07));
+  fillTextChecked(g, 'ACCOUNT', w * 0.05, h * L.headTop);
+  fillTextChecked(g, 'SUSPENDED', w * 0.05, h * (L.headTop + L.head * 1.07));
   g.font = `400 ${Math.round(h * L.body)}px ${fonts.sans}`;
-  g.fillText('Suspicious signals detected.', w * 0.05, h * L.bodyTop);
-  g.fillText('Happy Halloween!', w * 0.05, h * (L.bodyTop + L.body * 1.4));
+  fillTextChecked(g, 'Suspicious signals detected.', w * 0.05, h * L.bodyTop);
+  fillTextChecked(g, 'Happy Halloween!', w * 0.05, h * (L.bodyTop + L.body * 1.4));
   if (sealed) {
     const sz = h * L.seal;
     const x = w - w * L.sealRight - sz;
@@ -124,8 +124,8 @@ function faceB(g: CanvasRenderingContext2D, w: number, h: number, fonts: LetterF
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.font = `900 ${Math.round(sz * 0.4)}px ${fonts.cjk ?? fonts.sans}`;
-    g.fillText('封', 0, -sz * 0.21);
-    g.fillText('号', 0, sz * 0.21);
+    fillTextChecked(g, '封', 0, -sz * 0.21);
+    fillTextChecked(g, '号', 0, sz * 0.21);
     g.restore();
   }
 }
@@ -134,9 +134,10 @@ export function Letter({ rise, flip, sealed, fonts, ready }: { rise: number; fli
   const { slats, maps } = useMemo(() => {
     const W = 1360;
     const H = Math.round((W * LETTER_H) / LETTER_W);
-    const a = canvas(W, H);
-    const b = canvas(W, H);
-    const c = canvas(W, H);
+    // CPU canvases (the kit's textCanvas): text on a GPU canvas rasters differently from render to render
+    const a = textCanvas(W, H);
+    const b = textCanvas(W, H);
+    const c = textCanvas(W, H);
     faceA(a.g, W, H, fonts);
     faceB(b.g, W, H, fonts, false);
     faceB(c.g, W, H, fonts, true);

@@ -2,6 +2,7 @@
  * Lookdev of the email card (face B of the gift) at the size the snap-in will show it, over a
  * dark stand-in for the door spread, with the seal landed and the Appeal tab in place.
  */
+import { textContext } from '@aiv/remotion-kit';
 import { useLayoutEffect, useRef } from 'react';
 import { AbsoluteFill, Composition } from 'remotion';
 import { FPS } from '../cues.ts';
@@ -24,13 +25,16 @@ function EmailLook() {
   );
 }
 
-/** The same card drawn on a canvas (face B of the 3D letter), where the DOM card stands: diff the two. */
+/**
+ * The same card drawn on a canvas (face B of the 3D letter), where the DOM card stands: diff the
+ * two. Drawn once, in the commit in which the fonts are ready, on a CPU canvas (as the letter's).
+ */
 function EmailCanvasLook() {
   const { fonts, ready } = useFilmFonts();
   const ref = useRef<HTMLCanvasElement>(null);
   useLayoutEffect(() => {
-    const g = ref.current?.getContext('2d');
-    if (g) drawEmailCard(g, W, H, fonts, { tab: { dx: 0, dy: 0 }, seal: { scale: 1, shake: 0 } });
+    if (!ready || !ref.current) return;
+    drawEmailCard(textContext(ref.current), W, H, fonts, { tab: { dx: 0, dy: 0 }, seal: { scale: 1, shake: 0 } });
   }, [fonts, ready]);
   return (
     <AbsoluteFill style={{ background: BG }}>

@@ -27,6 +27,7 @@ import { at, FPS } from '../cues.ts';
 import { coverAt, immersionAt } from '../film/beats.ts';
 import { type CamPose } from '../film/campath.ts';
 import { journeyAt } from '../film/journey.ts';
+import { useFilmFonts } from '../look/fonts.ts';
 import { NIGHT } from '../look/materials.ts';
 import { Night } from '../look/Night.tsx';
 import { NightPost, type NightPostOptions } from '../look/NightPost.tsx';
@@ -121,34 +122,38 @@ const crackAt = (f: number) => {
 
 function BookStage({ shots }: { shots: Shot[] }) {
   const i = useCurrentFrame();
+  // mount the stage only once the fonts are in: its text canvases are drawn once, at mount (look/fonts.ts)
+  const { ready } = useFilmFonts();
   const s = shots[Math.min(i, shots.length - 1)];
   const imm = s.immersion ?? 0;
   const cover = s.cover ?? coverAt(s.film);
   return (
     <AbsoluteFill style={{ background: '#0a1118' }}>
-      <Stage3D antialias={false} camera={{ fov: 30, near: 0.05, far: 120, position: [0, 3, 8] }}>
-        <color attach="background" args={['#0a1118']} />
-        <Rig pose={s.pose} />
-        <Night f={s.film} fps={FPS} shadow={s.shadow ?? DESK_SHADOW} />
-        <Fog amount={s.fog ?? 0} />
-        <SkyDome immersion={imm} />
-        <Desk2 f={s.film} props={s.props ?? true} beam={1 - imm} />
-        <Book2 cover={cover} f={s.film} immersion={imm} />
-        {s.world === 'flat' && <Terrain grow={0} />}
-        {s.world === 'full' && (
-          <>
-            <Terrain />
-            <Grass />
-            <WorldScene f={s.film} camPos={s.pose.pos} />
-          </>
-        )}
-        {s.burst && (
-          <DarkBats>
-            <BatBurst f={s.film} start={BURST_START} origin={BOOK_EDGE.origin} dir={BOOK_EDGE.dir} count={BURST.count} size={BURST.size} gap={BOOK_EDGE.gap} speed={BURST.speed} scatter={BURST.scatter} rise={BURST.rise} stagger={BURST.stagger} />
-          </DarkBats>
-        )}
-        <NightPost f={s.film} focus={s.pose.focus} {...(s.post ?? DESK_POST)} />
-      </Stage3D>
+      {ready && (
+        <Stage3D antialias={false} camera={{ fov: 30, near: 0.05, far: 120, position: [0, 3, 8] }}>
+          <color attach="background" args={['#0a1118']} />
+          <Rig pose={s.pose} />
+          <Night f={s.film} fps={FPS} shadow={s.shadow ?? DESK_SHADOW} />
+          <Fog amount={s.fog ?? 0} />
+          <SkyDome immersion={imm} />
+          <Desk2 f={s.film} props={s.props ?? true} beam={1 - imm} />
+          <Book2 cover={cover} f={s.film} immersion={imm} />
+          {s.world === 'flat' && <Terrain grow={0} />}
+          {s.world === 'full' && (
+            <>
+              <Terrain />
+              <Grass />
+              <WorldScene f={s.film} camPos={s.pose.pos} />
+            </>
+          )}
+          {s.burst && (
+            <DarkBats>
+              <BatBurst f={s.film} start={BURST_START} origin={BOOK_EDGE.origin} dir={BOOK_EDGE.dir} count={BURST.count} size={BURST.size} gap={BOOK_EDGE.gap} speed={BURST.speed} scatter={BURST.scatter} rise={BURST.rise} stagger={BURST.stagger} />
+            </DarkBats>
+          )}
+          <NightPost f={s.film} focus={s.pose.focus} {...(s.post ?? DESK_POST)} />
+        </Stage3D>
+      )}
     </AbsoluteFill>
   );
 }

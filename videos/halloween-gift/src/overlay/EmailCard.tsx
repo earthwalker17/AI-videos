@@ -10,6 +10,7 @@
  * face printed on the 3D letter's slats, with the same explicit line breaks, so the crossfade
  * from the 3D letter to the DOM card lands on the same pixels.
  */
+import { fillTextChecked } from '@aiv/remotion-kit';
 import type { CSSProperties } from 'react';
 
 /** Card proportions (width / height) and the layout in fractions of the card height. */
@@ -127,7 +128,9 @@ function baseline(g: CanvasRenderingContext2D, top: number, box: number): number
 /**
  * The same card drawn on a canvas of W × H (H = the card height, W = H × EMAIL.aspect), line for
  * line as the DOM card lays it out (the CSS line-box model on the alphabetic baseline), so the
- * crossfade from the 3D letter's face to the DOM card lands on the same pixels.
+ * crossfade from the 3D letter's face to the DOM card lands on the same pixels. Give it a CPU
+ * canvas (the kit's textCanvas or textContext) and call it only once the fonts are ready: the text
+ * throws while a face is not loaded (fillTextChecked).
  */
 export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number, fonts: EmailFonts, o: EmailDraw = {}): void {
   const L = EMAIL;
@@ -162,12 +165,12 @@ export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number,
   const ns = px(L.name.size);
   g.fillStyle = L.ink;
   g.font = `400 ${ns}px ${fonts.serif}`;
-  g.fillText('Clawd', left + ms + px(0.018), baseline(g, px(L.mark.top) + (ms - ns) / 2, ns));
+  fillTextChecked(g, 'Clawd', left + ms + px(0.018), baseline(g, px(L.mark.top) + (ms - ns) / 2, ns));
   // a line of text: a div at `top` with lineHeight 1.2 of `size`
   g.fillStyle = L.body;
   const hs = px(L.hello.size);
   g.font = `400 ${hs}px ${fonts.sans}`;
-  g.fillText('Hello,', left, baseline(g, px(L.hello.top), hs * 1.2));
+  fillTextChecked(g, 'Hello,', left, baseline(g, px(L.hello.top), hs * 1.2));
   const ps = px(L.para.size);
   PARAGRAPH.forEach((runs, i) => {
     g.font = `400 ${ps}px ${fonts.sans}`;
@@ -190,7 +193,7 @@ export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number,
       const w = g.measureText(r.t).width;
       const end = groupX + g.measureText(prefix + r.t).width;
       const x0 = end - w;
-      g.fillText(r.t, x0, y);
+      fillTextChecked(g, r.t, x0, y);
       // text-underline-offset is measured from the alphabetic baseline
       if (r.u) g.fillRect(x0, y + px(0.008), w, Math.max(1, px(0.003)));
       prefix += r.t;
@@ -200,7 +203,7 @@ export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number,
   g.fillStyle = L.body;
   const rs = px(L.regards.size);
   g.font = `400 ${rs}px ${fonts.sans}`;
-  SIGN_OFF.forEach((t, i) => g.fillText(t, left, baseline(g, paraBottom + px(0.02) + i * lineH, rs * 1.2)));
+  SIGN_OFF.forEach((t, i) => fillTextChecked(g, t, left, baseline(g, paraBottom + px(0.02) + i * lineH, rs * 1.2)));
   if (o.tab) {
     const fs = px(L.tab.size);
     g.font = `400 ${fs}px ${fonts.sans}`;
@@ -220,9 +223,9 @@ export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number,
     g.fill();
     g.fillStyle = '#fffdf8';
     g.font = `400 ${fs}px ${fonts.sans}`;
-    g.fillText(a, bx + pw, ty);
+    fillTextChecked(g, a, bx + pw, ty);
     g.font = `400 ${fs}px ${fonts.cjk}`;
-    g.fillText('申诉', bx + pw + wa, ty);
+    fillTextChecked(g, '申诉', bx + pw + wa, ty);
   }
   if (o.seal) {
     const sz = px(L.seal.size);
@@ -243,8 +246,8 @@ export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number,
     g.font = `900 ${fs}px ${fonts.cjk}`;
     // a centred column of two rows, each lineHeight 1.05
     const rh = fs * 1.05;
-    g.fillText('封', 0, baseline(g, -rh, rh));
-    g.fillText('号', 0, baseline(g, 0, rh));
+    fillTextChecked(g, '封', 0, baseline(g, -rh, rh));
+    fillTextChecked(g, '号', 0, baseline(g, 0, rh));
     g.restore();
   }
   g.restore();

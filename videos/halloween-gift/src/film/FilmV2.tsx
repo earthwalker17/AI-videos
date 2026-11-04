@@ -138,16 +138,20 @@ function Picture({ f, pose }: { f: number; pose: CamPose }) {
 
 export function FilmV2() {
   const f = useCurrentFrame();
-  const { fonts } = useFilmFonts();
+  // the stage mounts only once every face is in: R3F draws when the frame changes, not when
+  // `ready` does, so a text canvas drawn before would be the one in the frame (look/fonts.ts)
+  const { fonts, ready } = useFilmFonts();
   const pose = journeyAt(f);
   return (
     <AbsoluteFill style={{ background: NIGHT_BG }}>
-      <Stage3D antialias={false} camera={{ fov: 30, near: 0.05, far: 120, position: [9, 7, 12] }}>
-        <color attach="background" args={[NIGHT_BG]} />
-        <Rig pose={pose} />
-        <Picture f={f} pose={pose} />
-        <NightPost f={f} focus={pose.focus} {...LOOK_POST} foot={footAt(f)} />
-      </Stage3D>
+      {ready && (
+        <Stage3D antialias={false} camera={{ fov: 30, near: 0.05, far: 120, position: [9, 7, 12] }}>
+          <color attach="background" args={[NIGHT_BG]} />
+          <Rig pose={pose} />
+          <Picture f={f} pose={pose} />
+          <NightPost f={f} focus={pose.focus} {...LOOK_POST} foot={footAt(f)} />
+        </Stage3D>
+      )}
       <OverlayV2 f={f} fonts={fonts} />
     </AbsoluteFill>
   );

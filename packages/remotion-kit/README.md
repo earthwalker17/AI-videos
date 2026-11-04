@@ -13,6 +13,7 @@ the rule of two.
 | `TestCard`, `SwatchStrip` | The DOM test card and the `@aiv/core` swatch strip, laid out at the render size. |
 | `Title`, `useInter()`, `INTER` | Text in Inter. Each frame is held until the font is loaded. |
 | `useFont(spec)`, `loadFont(spec)` | Any other font, from its files and the film's strings. Each frame is held until the font is loaded, and the render fails if the font lacks a character (see [Fonts](#fonts)). |
+| `textCanvas(w, h)`, `textContext(canvas)`, `fillTextChecked(g, text, x, y)` | Text in a 2D canvas that rasters the same in every render: a CPU canvas, and a `fillText` that throws while a face it needs is still loading (see [Canvas text](#canvas-text)). |
 | `useRenderScale()`, `useRenderSize()` | Output pixels per CSS pixel (0.5 for draft), and the output size. |
 
 ## Stage3D
@@ -200,12 +201,13 @@ const { family, ready } = useFont(FELL); // family = '"AIV IM Fell English"'
   resolves to the font-family value.
 - **`ready`.** React state. The frame is held until the font is loaded, and the hold is
   released in the commit in which `ready` became true. The hold is taken at commit (a layout
-  effect), so a render React discards cannot leave it open. A component that draws text into a
-  `CanvasTexture` redraws when `ready` flips, in that same commit. Inside a `Stage3D`,
-  though, R3F draws when the frame changes (`@remotion/three` advances it in an effect keyed
-  on the frame), not when state changes. So call `useFont` outside the `Stage3D` and render
-  the `Stage3D` only once `ready` is true; its first draw then has the font. This follows
-  from the code and is not yet verified by a render.
+  effect), so a render React discards cannot leave it open. DOM text is safe with that alone.
+  Canvas text is not: it is drawn when the code draws it, so draw it only once `ready` is
+  true. Inside a `Stage3D`, R3F draws when the frame changes (`@remotion/three` advances it
+  in an effect keyed on the frame), not when state changes, so a texture redrawn on `ready`
+  never reaches the frame. So call `useFont` outside the `Stage3D` and mount the `Stage3D`
+  only once `ready` is true (`ready ? <Stage3D>…</Stage3D> : null`). Measured: see
+  [Canvas text](#canvas-text).
 - **A CJK font.** fontsource splits it into subset files, one per unicode-range:
   `unicode.json` maps each subset (`[N]`, `latin`, …) to the range of
   `files/<name>-<subset>-wght-normal.woff2` (`@fontsource-variable/noto-serif-sc` 5.3.1:
@@ -213,3 +215,45 @@ const { family, ready } = useFont(FELL); // family = '"AIV IM Fell English"'
   as a source, with its range from `unicode.json` and the variable weight (`'200 900'`).
   Only the subsets the sample touches are loaded. When a subset is missing, the coverage
   error names the character, and `unicode.json` tells which subset holds it.
+
+## Canvas text
+
+Text drawn into a 2D canvas (a `CanvasTexture`, a DOM canvas) varied from render to render on
+the same inputs, from two causes. Measured on 2026-11-05 in chrome-headless-shell 157.0.8080.0
+(ANGLE D3D11, an Intel iGPU) under Remotion 4.0.539, with the halloween-gift film.
+- **A face that is still loading.** A character whose face (a unicode-range subset file) has
+  not loaded yet is drawn in a fallback font: Chrome's default CJK fallback, a heavy sans,
+  about 25-33% more ink and larger. Which of the 8 Noto Serif SC files were in at the first
+  draw differed every run, so the cover title and the door couplets came out as a different
+  mix of serif and sans characters each time. The film drew its text canvases inside a
+  `Stage3D` mounted before the fonts were ready; the redraw on `ready` never reached the frame.
+  With every pre-ready `fillText` suppressed, those texts rendered blank.
+- **A GPU canvas.** Chrome's 2D canvas is GPU-accelerated by default, and it rasters large
+  glyphs a level or two differently from page to page: from 166 px at weight 600 and up, and
+  at every weight and font (Latin too) from 200 px. Up to 136 px it never varied. The
+  variant follows the GPU process's history. A CPU canvas (`willReadFrequently: true`) never
+  varied, across pages and browser launches.
+
+Neither fix works alone; with both, every text canvas has one hash. So:
+- **Gate.** Call `useFont` / `useInterState` outside the `Stage3D` and mount the `Stage3D`
+  only once every face is ready. `ThreeCanvas` takes its own hold in that commit (a child's
+  layout effect runs before the font hook's), so the frame is never released in between. Each
+  text canvas is then drawn once, with every face loaded.
+- **CPU canvas.** Draw text on `textCanvas(w, h)` (a new canvas, `{ c, g }`) or
+  `textContext(canvas)` (a canvas you have, such as a DOM `<canvas>`). Both open the canvas
+  with `TEXT_CONTEXT` (`{ willReadFrequently: true }`). A canvas keeps the settings of its
+  first `getContext`, so `textContext` throws for one already opened as a GPU canvas. A canvas
+  that never gets text can stay on the GPU.
+- **Check.** `fillTextChecked(g, text, x, y, maxWidth?)` is `g.fillText` after
+  `document.fonts.check(g.font, text)`, and it throws instead of drawing while a face the text
+  needs is loading. Set `g.font` with the kit's family (explicit weight and px). The check
+  passes a family with no registered face (a system font), so it guards the gate and does not
+  replace it.
+
+What did not help: `document.fonts.load(font, text)` for every string before drawing, or
+waiting animation frames after `ready` (same variance). Not tested: DOM text at large sizes.
+Verified with the film at draft: frames 82 (cover), 594 (door couplets), 840 (gift card), 882,
+906 and 1008 (email face) had one hash each over three separate calls (82, 594 and 906 also
+with the GPU program cache off). Before, frame 594 gave eight different hashes in eight runs.
+`canvasText.test.ts` checks the context settings and the check against a stand-in document,
+not pixels.
