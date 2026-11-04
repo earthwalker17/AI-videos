@@ -1,7 +1,8 @@
 /**
  * The night's light: the moon as one shadow-casting directional light from behind the world
  * (upper right, as in the reference, so every silhouette gets a rim), a teal sky / maroon ground
- * hemisphere, and a faint cool fill from the camera side so faces read. A fixed set of lights:
+ * hemisphere, and a faint fill from the camera side that models faces (look/materials.ts's
+ * storybook ambient keeps them off black, plum near the lens and teal beyond). A fixed set of lights:
  * lights never mount or unmount (that recompiles every material mid-chunk); practicals that come
  * and go change their intensity instead. Sets the storybook materials' shared uniforms.
  */
@@ -31,7 +32,7 @@ export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 
   return (
     <>
       <primitive object={target} />
-      <hemisphereLight args={['#4a7fa3', '#2c1628', 0.66]} />
+      <hemisphereLight args={['#4a7fa3', '#2c1628', 0.4]} />
       <directionalLight
         castShadow
         target={target}
@@ -48,8 +49,9 @@ export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 
         shadow-bias={-0.0004}
         shadow-normalBias={0.025}
       />
-      {/* a faint cool fill from the viewer's side, so faces and fronts never go black */}
-      <directionalLight position={[-2, FLOOR + 4, 12]} intensity={0.38} color="#86b8c8" />
+      {/* a faint fill from the viewer's side (the storybook ambient in the materials keeps faces
+          off black; this only models them a little) */}
+      <directionalLight position={[-2, FLOOR + 4, 12]} intensity={0.2} color="#9a9aac" />
     </>
   );
 }

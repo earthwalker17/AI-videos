@@ -8,9 +8,12 @@
  *    world-space height, no textures;
  *  - moon rim light: silhouette edges that face the moon glow cool (stronger when the moon is
  *    behind the subject, as in the reference);
+ *  - the storybook ambient: a soft wrapped fill whose colour follows the distance from the lens
+ *    (plum near, teal in the mid-ground), so faces in shadow keep a painted mid-value instead of
+ *    going black (the reference's darkest areas are plum-grey, never black);
  *  - height fog with a depth colour ramp (dark near, bright cyan mid, teal far), moon in-scatter
- *    and slowly drifting fbm density, computed from the true world position (instancing and
- *    wind included).
+ *    and slowly drifting fbm density, plus an aerial term that grows with distance alone, all
+ *    computed from the true world position (instancing and wind included).
  * Features are switched with `defines` and the injection is ONE module-level function, so three
  * keys every variant to its own program (no closures sharing a cache key) and recompiles cannot
  * strand uniforms: the shared uniforms below are module-scope objects set once per frame.
@@ -33,6 +36,12 @@ export const NIGHT = {
   uSbFogDist: { value: new Vector3(2.0, 7.0, 16.0) },
   /** density, height falloff, ground height of the fog */
   uSbFog: { value: new Vector3(0.06, 1.6, 1.5) },
+  /** aerial perspective: from this distance, 1 / its length, its most */
+  uSbAir: { value: new Vector3(4.0, 0.075, 0.5) },
+  /** the storybook ambient's colour near the lens and in the mid-ground, and where it turns */
+  uSbAmbNear: { value: new Color('#5e2a32') },
+  uSbAmbFar: { value: new Color('#3d6b80') },
+  uSbAmbDist: { value: new Vector3(3.5, 12.0, 1.0) },
   /** 0 disables fog (the desk shots) */
   uSbFogOn: { value: 1 },
 };
@@ -64,6 +73,8 @@ export interface Paint extends Omit<MeshStandardMaterialParameters, 'fog'> {
   topCoat?: number;
   /** the geometry carries an aSbMask attribute (earth: where the path's cobbles are) */
   mask?: boolean;
+  /** the storybook ambient's strength on this surface (0 = none, e.g. glowing glass) */
+  ambient?: number;
 }
 
 const KIND_ID: Record<PaintKind, number> = { plain: 0, stone: 1, bark: 2, wood: 3, iron: 4, earth: 5, grass: 6, cloth: 7, shingle: 8 };
@@ -138,6 +149,11 @@ uniform vec3 uSbMoonGlow;
 uniform vec3 uSbFogDist;
 uniform vec3 uSbFog;
 uniform float uSbFogOn;
+uniform vec3 uSbAir;
+uniform vec3 uSbAmbNear;
+uniform vec3 uSbAmbFar;
+uniform vec3 uSbAmbDist;
+uniform float uSbAmbMul;
 uniform vec3 uSbColor2;
 uniform float uSbBreakup;
 uniform float uSbScale;
@@ -245,6 +261,15 @@ const FRAG_NORMAL = /* glsl */ `
 
 const FRAG_OUT = /* glsl */ `
 {
+  vec3 sbRay = vSbWorld - cameraPosition;
+  float sbDist = length(sbRay);
+  // the storybook ambient: a wrapped fill, plum near the lens, teal in the mid-ground
+  {
+    vec3 amb = mix(uSbAmbNear, uSbAmbFar, smoothstep(uSbAmbDist.x, uSbAmbDist.y, sbDist));
+    vec3 nW = normalize(vSbNormalW);
+    float wrapA = clamp(0.62 + 0.22 * nW.y + 0.22 * dot(nW, uSbMoonDir), 0.2, 1.1);
+    outgoingLight += diffuseColor.rgb * amb * wrapA * uSbAmbDist.z * uSbAmbMul;
+  }
   // moon rim: silhouette edges facing the moon, stronger when the moon is behind the subject
   vec3 V = normalize(vViewPosition);
   vec3 Lv = normalize((viewMatrix * vec4(uSbMoonDir, 0.0)).xyz);
@@ -255,13 +280,14 @@ const FRAG_OUT = /* glsl */ `
   outgoingLight += uSbRimColor * edge * toward * behind * uSbRim * uSbRimMul * diffuseColor.a;
   // height fog with a depth ramp and moon in-scatter
   if (uSbFogOn > 0.5 && uSbFogMul > 0.0) {
-    vec3 ray = vSbWorld - cameraPosition;
-    float dist = length(ray);
+    vec3 ray = sbRay;
+    float dist = sbDist;
     float hF = max(vSbWorld.y - uSbFog.z, 0.0);
     float hC = max(cameraPosition.y - uSbFog.z, 0.0);
     float drift = aivFbm3(vec3(vSbWorld.xz * 0.35 + vec2(uSbTime * 0.03, uSbTime * 0.012), uSbTime * 0.02));
     float dens = uSbFog.x * 0.5 * (exp(-hF * uSbFog.y) + exp(-hC * uSbFog.y)) * (0.65 + 0.7 * drift);
-    float amt = (1.0 - exp(-dens * dist)) * uSbFogMul;
+    float air = (1.0 - exp(-max(dist - uSbAir.x, 0.0) * uSbAir.y)) * uSbAir.z;
+    float amt = (1.0 - (1.0 - (1.0 - exp(-dens * dist))) * (1.0 - air)) * uSbFogMul;
     vec3 col = mix(uSbFogNear, uSbFogMid, smoothstep(uSbFogDist.x * 0.4, uSbFogDist.y, dist));
     col = mix(col, uSbFogFar, smoothstep(uSbFogDist.y, uSbFogDist.z, dist));
     float sc = pow(max(dot(normalize(ray), uSbMoonDir), 0.0), 6.0);
@@ -282,7 +308,7 @@ function inject(this: MeshStandardMaterial, shader: WebGLProgramParametersWithUn
 
 /** A storybook material. Fog is ours (three's scene fog is off for these). */
 export function storybookMaterial(o: Paint = {}): MeshStandardMaterial {
-  const { kind = 'plain', color2, breakup = 0.25, scale = 0.5, bump = 0, rim = 1, fog = 1, wind = 0, topCoat = 0, mask = false, ...std } = o;
+  const { kind = 'plain', color2, breakup = 0.25, scale = 0.5, bump = 0, rim = 1, fog = 1, wind = 0, topCoat = 0, mask = false, ambient = 1, ...std } = o;
   const m = new MeshStandardMaterial({ roughness: 0.92, metalness: 0, ...std });
   m.fog = false;
   const base = m.color.clone();
@@ -295,6 +321,7 @@ export function storybookMaterial(o: Paint = {}): MeshStandardMaterial {
     uSbFogMul: { value: fog },
     uSbTop: { value: topCoat },
     uSbWind: { value: wind },
+    uSbAmbMul: { value: ambient },
   };
   m.defines = { ...(m.defines ?? {}), SB_KIND: KIND_ID[kind], ...(bump > 0 ? { SB_BUMP: 1 } : {}), ...(wind > 0 ? { SB_WIND: 1 } : {}), ...(mask ? { SB_MASK: 1 } : {}) };
   m.onBeforeCompile = inject;

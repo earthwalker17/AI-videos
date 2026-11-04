@@ -1,5 +1,5 @@
 /**
- * The lookdev stage: the world's foundation (portal sky on the cover, terrain and path, grass,
+ * The lookdev stage: the world's foundation (the sky dome, inside the story; terrain and path, grass,
  * the night rig, the post chain) around whatever assets are being developed, seen through a
  * keyed camera path. Asset lookdev entries (src/lookdev/*.entry.ts) wrap their assets in it, so
  * every asset is judged in the film's own light, fog and grade, from the film's own hero view.
@@ -13,9 +13,9 @@ import { FPS } from '../cues.ts';
 import { CamPath, type CamKey, type CamPose } from '../film/campath.ts';
 import { Night } from '../look/Night.tsx';
 import { NightPost, type NightPostOptions } from '../look/NightPost.tsx';
-import { useSkyPortal } from '../look/SkyPortal.tsx';
+import { SkyDome } from '../look/SkyPortal.tsx';
 import { Grass } from '../world/Grass.tsx';
-import { BOOK, FLOOR, HERO as LAYOUT_HERO } from '../world/layout.ts';
+import { HERO as LAYOUT_HERO } from '../world/layout.ts';
 import { Terrain } from '../world/Terrain.tsx';
 
 /** The hero view of the valley (bars 5–8): the reference's composition (world/layout.ts). */
@@ -42,15 +42,6 @@ function CameraRig({ path, f }: { path: { at(f: number): CamPose }; f: number })
   return null;
 }
 
-function Sky() {
-  const mat = useSkyPortal();
-  return (
-    <mesh material={mat} position={[0, FLOOR + BOOK.d / 2, -BOOK.d / 2 + 0.03]}>
-      <planeGeometry args={[BOOK.w, BOOK.d]} />
-    </mesh>
-  );
-}
-
 export interface LookStageProps {
   children?: ReactNode | ((f: number) => ReactNode);
   /** the camera: a CamPath, or anything with at(f) → CamPose (the film's journey) */
@@ -72,7 +63,7 @@ export function LookStage({ children, path = HERO_PATH, bare = false, post = LOO
         <color attach="background" args={['#0a1118']} />
         <CameraRig path={path} f={f} />
         <Night f={f} fps={FPS} />
-        <Sky />
+        <SkyDome />
         {!bare && <Terrain />}
         {!bare && <Grass />}
         {typeof children === 'function' ? children(f) : children}

@@ -927,7 +927,7 @@ export function puddleGeometry(): BufferGeometry {
 export const PLUM = '#8a5e62';
 
 /** The forward-scatter sheen of the turf (and the grass, so blades and turf glow together). */
-export const TURF_SHEEN = 9;
+export const TURF_SHEEN = 6;
 
 export function Terrain({ grow = 1 }: { grow?: number }) {
   const { geometry, turf, dirt, water, waterGeo } = useMemo(() => {

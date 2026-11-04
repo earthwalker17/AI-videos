@@ -9,7 +9,7 @@
 import { PostChain } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { BlendFunction, BloomEffect, DepthOfFieldEffect, Effect, EffectAttribute, ToneMappingMode, type Effect as AnyEffect } from 'postprocessing';
-import { Color, Uniform, type Camera } from 'three';
+import { Color, Uniform, Vector2, Vector3, type Camera } from 'three';
 import { shotPose } from '../film/camera.ts';
 
 const GRADE = /* glsl */ `
@@ -19,6 +19,8 @@ uniform float uSplit;
 uniform float uVignette;
 uniform float uFrame;
 uniform float uGrain;
+uniform vec3 uWarm;
+uniform vec2 uWarmDist;
 float gHash(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
@@ -33,6 +35,10 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
   float shadow = 1.0 - smoothstep(0.0, 0.35, l);
   vec3 tint = mix(uNear, uFar, far);
   c = mix(c, c * tint * 2.0 + tint * 0.012, uSplit * shadow);
+  // warm near, cool far: a hue shift that keeps luminance, full within uWarmDist.x of the lens,
+  // on the darks and mid-tones only (a lit face or a glow keeps its own colour)
+  float wk = (1.0 - smoothstep(uWarmDist.x, uWarmDist.y, z)) * (1.0 - smoothstep(0.08, 0.45, l));
+  c *= mix(vec3(1.0), uWarm, wk);
   // vignette: a soft oval, darker in the corners
   vec2 d = (uv - 0.5) * vec2(1.0, 0.82);
   c *= mix(1.0, smoothstep(0.85, 0.25, length(d)), uVignette);
@@ -56,6 +62,9 @@ export class StorybookGrade extends Effect {
         ['uVignette', new Uniform(0.45)],
         ['uFrame', new Uniform(0)],
         ['uGrain', new Uniform(0.16)],
+        // off by default (V1's grade); the V2 post sets a luminance-neutral warm multiplier
+        ['uWarm', new Uniform(new Vector3(1, 1, 1))],
+        ['uWarmDist', new Uniform(new Vector2(2.5, 7))],
       ]),
     });
   }

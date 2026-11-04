@@ -743,7 +743,7 @@ function RootMass({ f }: { f: number }) {
   const { geo, mat, eyes, warm, dim, sockets, socketMat } = useMemo(() => {
     const geo = massGeometry();
     // plum bark, lichen on its tops; a warm wrap fill so the faces toward the viewer hold their value
-    const mat = groundShading(storybookMaterial({ kind: 'stone', vertexColors: true, color: '#58484a', color2: '#6a7e86', breakup: 0.45, scale: 0.14, bump: 1.3, rim: 1.2, topCoat: 0.6, roughness: 0.9 }), { wrap: ['#c8b8c0', 0.45], shade: PLUM_SHADE });
+    const mat = groundShading(storybookMaterial({ kind: 'stone', vertexColors: true, color: '#58484a', color2: '#6a7e86', breakup: 0.45, scale: 0.14, bump: 1.3, rim: 1.2, topCoat: 0.6, roughness: 0.9, ambient: 0.45 }), { wrap: ['#c8b8c0', 0.22], shade: PLUM_SHADE });
     const spots = eyeSpots(geo);
     const eyes = spots.map((e) => ({ geo: eyePairGeometry(e.dir, e.s), p: e.p, glow: e.glow }));
     const sockets = socketGeometry(spots);

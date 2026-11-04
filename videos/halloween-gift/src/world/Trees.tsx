@@ -701,10 +701,10 @@ export function Trees({ f, oldTree }: TreesProps) {
       bumpScale: 1.6,
       // the trees stand in the night's haze more than the ground does (the reference's mid-ground
       // trunks fall toward the sky's value): a heavier share of the storybook fog
-      fog: 2.6,
+      fog: 1.3,
     });
     // the background trees: the same wood, further into the haze, no sway
-    const barkFar = storybookMaterial({ kind: 'bark', color: '#837074', color2: '#5c5862', vertexColors: true, roughness: 0.95, breakup: 0.35, scale: 0.2, bump: 0.5, rim: 1.5, map: tex.map, bumpMap: tex.bump, bumpScale: 1.6, fog: 3.2 });
+    const barkFar = storybookMaterial({ kind: 'bark', color: '#837074', color2: '#5c5862', vertexColors: true, roughness: 0.95, breakup: 0.35, scale: 0.2, bump: 0.5, rim: 1.5, map: tex.map, bumpMap: tex.bump, bumpScale: 1.6, fog: 1.6 });
     // the pines: very dark plum, a faint rim only
     const needles = storybookMaterial({ kind: 'plain', color: '#2a1f2c', color2: '#150f18', vertexColors: true, roughness: 1, breakup: 0.3, scale: 0.35, rim: 0.1, fog: 0.9 });
     return { geos, bark, barkFar, needles, oldAt: oldBase({ x: ox, z: oz }) };
