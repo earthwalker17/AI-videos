@@ -801,6 +801,7 @@ const MIST: { at: [number, number, number]; w: number; h: number; a: number }[] 
   { at: [1.8, 1.3, 1.0], w: 1.0, h: 0.3, a: 0.16 },
 ];
 const PUFFS = 7;
+const MIST_CYAN = new Color('#3fb6d2');
 
 export interface CastleProps {
   f: number;
@@ -824,7 +825,7 @@ export function Castle({ f, offset = [0, 0, 0], fps = 24 }: CastleProps) {
   const mats = useMemo(
     () => ({
       // the crag's moonlit shoulder glows through the haze as in the reference (more of the fog's light)
-      rock: storybookMaterial({ kind: 'stone', color: '#5a7782', color2: '#9cc6c2', breakup: 0.36, scale: 0.28, bump: 1.1, topCoat: 0.5, vertexColors: true, rim: 1.2, fog: 1.4 }),
+      rock: storybookMaterial({ kind: 'stone', color: '#4f7884', color2: '#7fd3df', breakup: 0.36, scale: 0.28, bump: 1.1, topCoat: 0.62, vertexColors: true, rim: 1.2, fog: 1.4 }),
       walls: storybookMaterial({ kind: 'stone', color: '#526474', color2: '#3a4652', breakup: 0.32, scale: 0.1, bump: 0.6, vertexColors: true, rim: 1.1 }),
       roofs: storybookMaterial({ kind: 'stone', color: '#5d6e80', color2: '#93adb5', breakup: 0.25, scale: 0.05, bump: 0.4, topCoat: 0.55, vertexColors: true, rim: 1.2 }),
       timber: storybookMaterial({ kind: 'wood', color: '#2a2428', color2: '#1a1618', breakup: 0.2, scale: 0.08, vertexColors: true, rim: 0.8 }),
@@ -853,12 +854,13 @@ export function Castle({ f, offset = [0, 0, 0], fps = 24 }: CastleProps) {
     const mid = NIGHT.uSbFogMid.value as Color;
     const far = NIGHT.uSbFogFar.value as Color;
     const glow = NIGHT.uSbMoonGlow.value as Color;
-    const mistColor = mid.clone().lerp(far, 0.6).lerp(glow, 0.25);
+    // toward the reference's luminous cyan banks (about sRGB 37 145 171 under the castle)
+    const mistColor = mid.clone().lerp(far, 0.6).lerp(glow, 0.25).lerp(MIST_CYAN, 0.55);
     const mist: Card[] = MIST.map((m, i) => ({
       at: new Vector3(m.at[0] + 0.12 * Math.sin(t * 0.08 + i * 1.7), m.at[1] + 0.02 * Math.sin(t * 0.13 + i), m.at[2]),
       w: m.w,
       h: m.h,
-      alpha: m.a,
+      alpha: Math.min(0.6, m.a * 1.3),
       color: mistColor,
     }));
     const smokeColor = mid.clone().lerp(glow, 0.4).lerp(new Color('#9aa6ac'), 0.3);

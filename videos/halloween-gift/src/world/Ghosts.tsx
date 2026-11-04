@@ -119,11 +119,11 @@ function lin(hex: string): [number, number, number] {
 /**
  * The sheet's paint (linear, past 1 where the night needs it): a wine red that the night's slate
  * floor (look/NightPost.tsx's lift, which sets the darks' green and blue) turns to the reference's
- * plum at the ghosts' height in the frame; the fold valleys keep their red and lose blue (maroon,
- * as the reference's darks), the streaks a cool lilac grey (its lights: ~(57, 55, 75)).
+ * plum at the ghosts' height in the frame; the fold valleys deep and less red (the reference's
+ * fold shadows, ~(43, 18, 35)), the streaks a cool lilac grey (its lights: ~(57, 55, 75)).
  */
 const CLOTH: [number, number, number] = [1.06, 0.16, 0.22];
-const VALLEY: [number, number, number] = [0.74, 0.35, 0.3];
+const VALLEY: [number, number, number] = [0.52, 0.3, 0.34];
 const SHEEN: [number, number, number] = [3.6, 3.1, 3.3];
 const ROPE = lin('#5e4a40');
 

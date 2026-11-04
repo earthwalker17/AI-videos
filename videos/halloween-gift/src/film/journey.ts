@@ -97,8 +97,8 @@ export const obstacleAt = (o: CameraObstacle, f: number | undefined): boolean =>
 
 /** Where no camera may stand: a plan circle from the ground (or from y0 above it) up to h. */
 export const CAMERA_OBSTACLES: readonly CameraObstacle[] = [
-  hanging('ghost 0', 2.76, 2.24, 2.0, 3.2),
-  hanging('ghost 1', 2.28, 1.92, 1.5, 3.05),
+  hanging('ghost 0', 3.54, 2.54, 1.85, 3.1),
+  hanging('ghost 1', 2.72, 2.22, 1.45, 3.05),
   hanging('ghost 2 (the peek)', 1.5, 1.55, 1.4, 2.85),
   { ...hanging('ghost 2 (let down)', 1.5, 1.55, 0.55, 2.85), when: PEEKING },
   ...STONES.map((s, i) => ({ name: `stone ${i} (${s.kind})`, x: s.x, z: s.z, r: 0.28, h: s.h + 0.1 })),
@@ -332,8 +332,10 @@ function exitKeys(): CamKey[] {
  */
 export const COVER_CLOSE: readonly [number, number] = [at(34, 2), at(35)];
 const RISE: K = { pos: [2.2, FLOOR + 3.1, 4.4], look: [3.6, FLOOR + 1.2, -1.6], fov: 40, focus: 4 };
+/** on the way: over the stones by the ghost tree but under the ghost by its trunk (ghost 0), rising only once past it */
+const BACK_OFF: K = { pos: [2.6, FLOOR + 1.3, 3.1], look: [4.6, FLOOR + 0.8, -1.3], fov: 37, focus: 4.6 };
 
-const WORLD = new CamPath([...worldKeys(), ...doorKeys(), ...exitKeys(), { f: COVER_CLOSE[1] + 4, ...RISE }]);
+const WORLD = new CamPath([...worldKeys(), ...doorKeys(), ...exitKeys(), { f: COVER_CLOSE[0] + 12, ...BACK_OFF }, { f: COVER_CLOSE[1] + 4, ...RISE }]);
 
 /** The frame the camera changes to the desk, while the closing cover fills the frame. */
 export const HIDDEN_CUT = at(35) - 3;

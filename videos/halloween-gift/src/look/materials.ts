@@ -30,7 +30,7 @@ export const NIGHT = {
   uSbRim: { value: 1.0 },
   uSbFogNear: { value: new Color('#141a2b') },
   uSbFogMid: { value: new Color('#2b5f7c') },
-  uSbFogFar: { value: new Color('#3f88a3') },
+  uSbFogFar: { value: new Color('#2f98b8') },
   uSbMoonGlow: { value: new Color('#8ccbd8') },
   /** distances (world units) where the ramp turns mid, then far */
   uSbFogDist: { value: new Vector3(2.0, 7.0, 16.0) },

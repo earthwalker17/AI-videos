@@ -57,15 +57,16 @@ const FRAG = /* glsl */ `
   uniform vec3 uSbMoonDir, uTop, uMid, uHorizon, uCloud, uCloudDark, uCloudLit, uGlow, uMoon, uHaze;
   uniform vec2 uHazeAE;
   varying vec3 vWorld;
-  // a sheet ghost's silhouette in sky coordinates (centre c, size s): a dome over a tattered hem
+  // a ghost wisp in sky coordinates (centre c, size s): a soft hooded head trailing a long tail
+  // that tapers and bends down-wind and thins out (smoke in the clouds, not a cut-out sheet)
   float ghost(vec2 p, vec2 c, float s, float lean) {
     vec2 q = (p - c) / s;
     q.x += lean * q.y;
-    float body = length(vec2(q.x * 1.25, max(q.y, 0.0) * 0.9)) - 0.55;
-    float skirt = abs(q.x) - (0.42 + 0.35 * clamp(-q.y, 0.0, 1.0));
-    float hem = q.y + 0.95 + 0.12 * sin(q.x * 18.0);
-    float d = max(q.y < 0.0 ? skirt : body, -hem);
-    return smoothstep(0.12, -0.08, d);
+    float head = length(vec2(q.x * 1.2, max(q.y, 0.0) * 0.95)) - 0.5;
+    float t = clamp(-q.y / 2.4, 0.0, 1.0);
+    float tail = abs(q.x + 0.5 * t * t) - 0.46 * (1.0 - t) * (1.0 - 0.35 * t);
+    float d = q.y < 0.0 ? tail : head;
+    return smoothstep(0.28, -0.12, d) * (1.0 - smoothstep(0.45, 1.0, t));
   }
   // cloud density in a direction (warped 3D noise; the warp is passed in so a neighbour shares it)
   float cloudField(vec3 dir, vec3 w) {
@@ -119,7 +120,7 @@ const FRAG = /* glsl */ `
     col = mix(col, uHaze, 0.55 * hz * (1.0 - cover * 0.6));
     // sheet ghosts hidden in the clouds, faint, upper left
     float gh = ghost(p, vec2(-0.55, 0.42), 0.07, 0.3) + ghost(p, vec2(-0.38, 0.5), 0.055, 0.2) + ghost(p, vec2(-0.72, 0.36), 0.06, 0.35) + ghost(p, vec2(-0.2, 0.47), 0.05, 0.15);
-    col = mix(col, uCloudLit * 0.5, clamp(gh, 0.0, 1.0) * 0.2 * cover);
+    col = mix(col, uCloudLit * 0.5, clamp(gh, 0.0, 1.0) * 0.17 * cover);
     // the moon: a disc with faint maria, HDR so the bloom haloes it
     float disc = smoothstep(uMoonR, uMoonR * 0.94, moonAng);
     float maria = aivFbm(p * 40.0 + 4.0);

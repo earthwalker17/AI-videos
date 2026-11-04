@@ -85,11 +85,11 @@ const toGhostLocal = (w: V3): V3 => [w[0] - GHOST_BASE[0], w[1] - GHOST_BASE[1],
 
 /**
  * Where the three ropes tie on, along the ghosts' line (k from LAND.ghosts toward the trunk):
- * unevenly spaced (0.64, 0.86), each on a short level knob of the stepping limb; the first two
- * toward the moon (in the hero view their hooks are at x ≈ 1484 and 1340, the moon at 1628, as
- * the reference's ghosts frame it), the last LAND.peek's.
+ * unevenly spaced (0.9, 1.46), each on a short level knob of the stepping limb; the first two
+ * either side of the moon (in the hero view their hooks are at x ≈ 1713 and 1471, the moon at
+ * 1628, as the reference's ghosts frame it, its disc left clear for the witch), the last LAND.peek's.
  */
-const HOOK_K = [1.04, 0.4, -0.46] as const;
+const HOOK_K = [1.9, 1.0, -0.46] as const;
 
 /**
  * The hero limb's elbows on the ghosts' line: [k, y above FLOOR, side]. The first is replaced by
