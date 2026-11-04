@@ -18,9 +18,11 @@ export interface NightProps {
   moon?: number;
   /** shadow box: centre x, z and half sizes (keyed per shot by the caller) */
   shadow?: { x: number; z: number; hw: number; hd: number };
+  /** the moon's shadows' strength, 0..1 (faded in as the world grows out of the page: the shadow pass does not see the grow) */
+  shadows?: number;
 }
 
-export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 } }: NightProps) {
+export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 }, shadows = 1 }: NightProps) {
   const target = useMemo(() => new Object3D(), []);
   const dir = NIGHT.uSbMoonDir.value;
   const D = 16;
@@ -48,6 +50,7 @@ export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 
         shadow-camera-far={40}
         shadow-bias={-0.0004}
         shadow-normalBias={0.025}
+        shadow-intensity={shadows}
       />
       {/* a faint fill from the viewer's side (the storybook ambient in the materials keeps faces
           off black; this only models them a little) */}

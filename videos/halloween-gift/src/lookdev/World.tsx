@@ -95,6 +95,8 @@ export interface WorldSceneProps {
   farCold?: number;
   /** the film frame the near flock starts its pass over the graveyard (default: through the hero view's hold) */
   nearBats?: number;
+  /** the flocks (default on; the film draws them apart, outside the grow: WorldBats) */
+  bats?: boolean;
   /** ignored: no stand-ins remain in the world (kept for lookdevs written against the older scene) */
   standIns?: boolean;
 }
@@ -103,9 +105,8 @@ export interface WorldSceneProps {
  * Every built piece of the world (inside LookStage, which brings the sky, terrain, grass, the light
  * and the post). The giant jack-o'-lantern's candle (the scene's one point light) is always mounted.
  */
-export function WorldScene({ f, camPos = HERO.pos, fov = HERO.fov, gates = 0, door = 0, windows = 1, bigLit = 1, lit = 1, peek, farCold = 0, nearBats = at(6) - 72 }: WorldSceneProps) {
+export function WorldScene({ f, camPos = HERO.pos, fov = HERO.fov, gates = 0, door = 0, windows = 1, bigLit = 1, lit = 1, peek, farCold = 0, nearBats = at(6) - 72, bats = true }: WorldSceneProps) {
   const offset = parallax(camPos);
-  const lod = { eye: [camPos[0], camPos[1], camPos[2]] as const, fov };
   return (
     <>
       <Trees f={f} />
@@ -123,6 +124,17 @@ export function WorldScene({ f, camPos = HERO.pos, fov = HERO.fov, gates = 0, do
       <House doorOpen={door} windows={windows} f={f} />
       <Castle f={f} offset={offset} />
       <FarHouse cold={farCold} />
+      {bats && <WorldBats f={f} camPos={camPos} fov={fov} nearBats={nearBats} />}
+    </>
+  );
+}
+
+/** The flocks (they fly, so they never grow out of the page: the film keeps them outside look/Grows.tsx). */
+export function WorldBats({ f, camPos = HERO.pos, fov = HERO.fov, nearBats = at(6) - 72 }: Pick<WorldSceneProps, 'f' | 'camPos' | 'fov' | 'nearBats'>) {
+  const offset = parallax(camPos);
+  const lod = { eye: [camPos[0], camPos[1], camPos[2]] as const, fov };
+  return (
+    <>
       <BatFlock f={f} path={CRAG_FLIGHT} count={14} seed={21} size={0.12} speed={0.75} spread={0.26} flap={5.2} eyes={false} fog={0.3} offset={offset} lod={lod} />
       <BatFlock f={f} path={MOON_FLIGHT} count={9} seed={33} size={0.1} speed={0.6} spread={0.2} flap={5.4} eyes={false} fog={0.3} lod={lod} />
       <BatFlock f={f} path={GRAVEYARD_FLIGHT} count={6} seed={5} size={0.2} speed={1.25} spread={0.28} flap={3.8} start={nearBats} gap={0.8} eyes={false} fog={0.8} lod={{ ...lod, px: 16 }} />

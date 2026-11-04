@@ -8,11 +8,18 @@
  */
 import { clamp, progress, smoothstep } from '@aiv/core';
 import { at } from '../cues.ts';
-import { PAGE } from '../world/layout.ts';
+import { FLOOR, PAGE } from '../world/layout.ts';
 import { HIDDEN_CUT } from './journey.ts';
 
 /** The score's six pops as the cover bursts (audio/foley.ts: at(4) + 6 + k × 3), left to right. */
 export const POPS = [0, 1, 2, 3, 4, 5].map((k) => at(4) + 6 + k * 3);
+
+/**
+ * The world's grow out of the page (look/materials.ts setGrow, look/Grows.tsx): the sweep starts
+ * at `from`, crosses the page (x0 .. x0 + width) in `sweep` frames, each point rising over `dur`
+ * frames from the page's height `floor`.
+ */
+export const GROW = { from: POPS[0] - 1.5, sweep: 18, dur: 14, x0: -PAGE.w / 2, width: PAGE.w, floor: FLOOR } as const;
 
 /**
  * When the world at x (world units) springs up out of the page: a sweep from the page's left
@@ -20,8 +27,8 @@ export const POPS = [0, 1, 2, 3, 4, 5].map((k) => at(4) + 6 + k * 3);
  * pop (a continuous sweep: no seam between bands).
  */
 export function popAt(x: number): number {
-  const u = clamp((x + PAGE.w / 2) / PAGE.w, 0, 1);
-  return POPS[0] - 1.5 + 18 * u;
+  const u = clamp((x - GROW.x0) / GROW.width, 0, 1);
+  return GROW.from + GROW.sweep * u;
 }
 
 /**
@@ -37,7 +44,10 @@ export function riseAt(f: number, from: number, dur = 14): number {
 }
 
 /** The world at x grown out of the page (0 flat .. 1, with the rise's overshoot). */
-export const growAt = (f: number, x: number): number => riseAt(f, popAt(x));
+export const growAt = (f: number, x: number): number => riseAt(f, popAt(x), GROW.dur);
+
+/** The whole page grown: 0 before the first point rises .. 1 once the last has settled (the moon's shadows and the mist fade in with it). */
+export const grownAt = (f: number): number => progress(f, GROW.from, GROW.from + GROW.sweep + GROW.dur);
 
 /** The cover, 0 closed .. 1 standing open (90°): bursts open on bar 4, slams on bar 35 (V1's curve). */
 export function coverAt(f: number): number {

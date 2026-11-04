@@ -11,6 +11,7 @@ import { AbsoluteFill, useCurrentFrame } from 'remotion';
 import { type PerspectiveCamera } from 'three';
 import { FPS } from '../cues.ts';
 import { CamPath, type CamKey, type CamPose } from '../film/campath.ts';
+import { Grows } from '../look/Grows.tsx';
 import { Night } from '../look/Night.tsx';
 import { NightPost, type NightPostOptions } from '../look/NightPost.tsx';
 import { SkyDome } from '../look/SkyPortal.tsx';
@@ -50,23 +51,44 @@ export interface LookStageProps {
   bare?: boolean;
   /** options of the film's post chain (look/NightPost.tsx); default LOOK_POST */
   post?: NightPostOptions;
+  /**
+   * The world growing out of the page (the caller sets look/materials.ts setGrow each frame): the
+   * terrain, the grass and the children grow (look/Grows.tsx), this (film/beats.ts grownAt) fades
+   * the moon's shadows and the cards in. Unset: everything stands grown.
+   */
+  grow?: number;
+  /** drawn outside the grow (what flies over the page: the bats) */
+  free?: (f: number) => ReactNode;
 }
 
 /** The post the lookdev judges assets under: the painterly stage and soft moon rays (probe, 2026-11-04). */
 export const LOOK_POST: NightPostOptions = { paint: 3, rays: true };
 
-export function LookStage({ children, path = HERO_PATH, bare = false, post = LOOK_POST }: LookStageProps) {
+export function LookStage({ children, path = HERO_PATH, bare = false, post = LOOK_POST, grow, free }: LookStageProps) {
   const f = useCurrentFrame();
   return (
     <AbsoluteFill style={{ background: '#0a1118' }}>
       <Stage3D antialias={false} camera={{ fov: 44, near: 0.05, far: 80, position: [0, 3, 8] }}>
         <color attach="background" args={['#0a1118']} />
         <CameraRig path={path} f={f} />
-        <Night f={f} fps={FPS} />
+        <Night f={f} fps={FPS} shadows={grow ?? 1} />
         <SkyDome />
-        {!bare && <Terrain />}
-        {!bare && <Grass />}
-        {typeof children === 'function' ? children(f) : children}
+        {grow === undefined ? (
+          <>
+            {!bare && <Terrain />}
+            {!bare && <Grass />}
+            {typeof children === 'function' ? children(f) : children}
+          </>
+        ) : (
+          <>
+            <Grows page>{!bare && <Terrain />}</Grows>
+            <Grows fade={grow}>
+              {!bare && <Grass />}
+              {typeof children === 'function' ? children(f) : children}
+            </Grows>
+          </>
+        )}
+        {free?.(f)}
         <NightPost f={f} focus={path.at(f).focus} {...post} />
       </Stage3D>
     </AbsoluteFill>

@@ -704,6 +704,8 @@ export function Trees({ f, oldTree }: TreesProps) {
       // the trees stand in the night's haze more than the ground does (the reference's mid-ground
       // trunks fall toward the sky's value): a heavier share of the storybook fog
       fog: 1.3,
+      // each near tree rises out of the page whole, its limbs with its trunk
+      growX: 'origin',
     });
     // the background trees: the same wood, further into the haze, no sway
     const barkFar = storybookMaterial({ kind: 'bark', color: '#837074', color2: '#5c5862', vertexColors: true, roughness: 0.95, breakup: 0.35, scale: 0.2, bump: 0.5, rim: 1.5, map: tex.map, bumpMap: tex.bump, bumpScale: 1.6, fog: 1.6 });

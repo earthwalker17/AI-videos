@@ -1368,6 +1368,8 @@ export function Ghosts({ f, lower = [0, 0, 0], hooks = GHOST_HOOKS }: GhostsProp
         kind: 'cloth',
         color: '#ffffff',
         color2: '#3a2230',
+        // they rise out of the page with the tree they hang from
+        growX: GHOST_BASE[0],
         vertexColors: true,
         roughness: 0.96,
         breakup: 0.3,
@@ -1395,6 +1397,7 @@ export function Ghosts({ f, lower = [0, 0, 0], hooks = GHOST_HOOKS }: GhostsProp
       transparent: true,
       blending: AdditiveBlending,
       depthWrite: false,
+      growX: GHOST_BASE[0],
     });
     return { ...b, drops, clothMat: cloth, eyeMat: eyes };
   }, [hooks]);

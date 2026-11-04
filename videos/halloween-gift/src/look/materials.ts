@@ -18,7 +18,7 @@
  * keys every variant to its own program (no closures sharing a cache key) and recompiles cannot
  * strand uniforms: the shared uniforms below are module-scope objects set once per frame.
  */
-import { Color, MeshStandardMaterial, Vector3, type MeshStandardMaterialParameters, type WebGLProgramParametersWithUniforms } from 'three';
+import { Color, MeshStandardMaterial, Vector3, Vector4, type MeshStandardMaterialParameters, type WebGLProgramParametersWithUniforms } from 'three';
 import { NOISE3_GLSL } from './glsl.ts';
 
 /** Uniforms every storybook material shares (set per frame by the light rig and the film). */
@@ -44,11 +44,33 @@ export const NIGHT = {
   uSbAmbDist: { value: new Vector3(3.5, 12.0, 1.0) },
   /** 0 disables fog (the desk shots) */
   uSbFogOn: { value: 1 },
+  /**
+   * The world growing out of the page (look/Grows.tsx opts a subtree in): the film frame, the
+   * sweep's first frame, its length across the page and each point's rise (frames); and the page's
+   * left x, width and the page's height (FLOOR). Default: long grown.
+   */
+  uSbGrow: { value: new Vector4(1e6, 0, 18, 14) },
+  uSbGrowPage: { value: new Vector4(-8, 16, 1.5, 0) },
 };
 
 /** Set the shared per-frame values (seconds from the film frame, never a clock). */
 export function setNightTime(seconds: number): void {
   NIGHT.uSbTime.value = seconds;
+}
+
+/** The grow's schedule (film/beats.ts GROW and PAGE): a point at x rises from `from + sweep × u` (u its place across the page) over `dur` frames. */
+export interface GrowSchedule {
+  from: number;
+  sweep: number;
+  dur: number;
+  x0: number;
+  width: number;
+  floor: number;
+}
+/** Set the grow for film frame f (the world in look/Grows.tsx rises out of the page); never called = grown. */
+export function setGrow(f: number, s: GrowSchedule): void {
+  NIGHT.uSbGrow.value.set(f, s.from, s.sweep, s.dur);
+  NIGHT.uSbGrowPage.value.set(s.x0, s.width, s.floor, 0);
 }
 
 export type PaintKind = 'plain' | 'stone' | 'bark' | 'wood' | 'iron' | 'earth' | 'grass' | 'cloth' | 'shingle';
@@ -75,6 +97,12 @@ export interface Paint extends Omit<MeshStandardMaterialParameters, 'fog'> {
   mask?: boolean;
   /** the storybook ambient's strength on this surface (0 = none, e.g. glowing glass) */
   ambient?: number;
+  /**
+   * Where on the page this surface rises in the grow (look/Grows.tsx): by each point's own x
+   * (default), by its mesh's origin ('origin': a tree rises whole, its limbs with its trunk), or at
+   * a set x (what hangs from a tree rises with it).
+   */
+  growX?: number | 'origin';
 }
 
 const KIND_ID: Record<PaintKind, number> = { plain: 0, stone: 1, bark: 2, wood: 3, iron: 4, earth: 5, grass: 6, cloth: 7, shingle: 8 };
@@ -83,6 +111,19 @@ const VERT_PARS = /* glsl */ `
 varying vec3 vSbWorld;
 varying vec3 vSbNormalW;
 varying float vSbMask;
+varying float vSbGrow;
+uniform vec4 uSbGrow;
+uniform vec4 uSbGrowPage;
+uniform float uSbGrowOn;
+uniform float uSbGrowX;
+// film/beats.ts riseAt(f, popAt(x)): paper springing up, easing in, overshooting to 1.1, settling
+float sbRise(float x) {
+  float u = clamp((x - uSbGrowPage.x) / uSbGrowPage.y, 0.0, 1.0);
+  float t = clamp((uSbGrow.x - (uSbGrow.y + uSbGrow.z * u)) / uSbGrow.w, 0.0, 1.0);
+  if (t <= 0.0) return 0.0;
+  float k = t - 1.0;
+  return clamp(1.0 + 2.3 * k * k * k + 1.3 * k * k, 0.0, 1.1);
+}
 #ifdef SB_MASK
 attribute float aSbMask;
 #endif
@@ -120,6 +161,21 @@ const VERT_WORLD = /* glsl */ `
   w = instanceMatrix * w;
   #endif
   w = modelMatrix * w;
+  vSbGrow = 1.0;
+  if (uSbGrowOn > 0.5) {
+    // grown out of the page: heights above (and depths below) the page scaled about it
+    // the sweep's x: the point's own (uSbGrowX -1e4), its mesh's origin (-2e4), or a set one
+    vec4 o = vec4(0.0, 0.0, 0.0, 1.0);
+    #ifdef USE_INSTANCING
+    o = instanceMatrix * o;
+    #endif
+    o = modelMatrix * o;
+    float gx = uSbGrowX < -1.5e4 ? o.x : (uSbGrowX < -0.5e4 ? w.x : uSbGrowX);
+    vSbGrow = sbRise(gx);
+    w.y = uSbGrowPage.z + (w.y - uSbGrowPage.z) * vSbGrow;
+    mvPosition = viewMatrix * w;
+    gl_Position = projectionMatrix * mvPosition;
+  }
   vSbWorld = w.xyz;
   vec3 n = objectNormal;
   #ifdef USE_INSTANCING
@@ -138,6 +194,8 @@ const FRAG_PARS = /* glsl */ `
 varying vec3 vSbWorld;
 varying vec3 vSbNormalW;
 varying float vSbMask;
+varying float vSbGrow;
+uniform float uSbGrowOn;
 uniform float uSbTime;
 uniform vec3 uSbMoonDir;
 uniform vec3 uSbRimColor;
@@ -223,6 +281,8 @@ float sbDetail(vec3 p, float featureScale) {
 
 const FRAG_COLOR = /* glsl */ `
 #include <color_fragment>
+// not yet risen off the page: nothing (the page itself, uSbGrowOn 2, stays)
+if (uSbGrowOn > 0.5 && uSbGrowOn < 1.5 && vSbGrow < 0.02) discard;
 {
   float det = sbDetail(vSbWorld, uSbScale);
   float n = aivFbm3(vSbWorld / uSbScale * 0.7) * 2.0 - 1.0;
@@ -308,7 +368,7 @@ function inject(this: MeshStandardMaterial, shader: WebGLProgramParametersWithUn
 
 /** A storybook material. Fog is ours (three's scene fog is off for these). */
 export function storybookMaterial(o: Paint = {}): MeshStandardMaterial {
-  const { kind = 'plain', color2, breakup = 0.25, scale = 0.5, bump = 0, rim = 1, fog = 1, wind = 0, topCoat = 0, mask = false, ambient = 1, ...std } = o;
+  const { kind = 'plain', color2, breakup = 0.25, scale = 0.5, bump = 0, rim = 1, fog = 1, wind = 0, topCoat = 0, mask = false, ambient = 1, growX, ...std } = o;
   const m = new MeshStandardMaterial({ roughness: 0.92, metalness: 0, ...std });
   m.fog = false;
   const base = m.color.clone();
@@ -322,6 +382,9 @@ export function storybookMaterial(o: Paint = {}): MeshStandardMaterial {
     uSbTop: { value: topCoat },
     uSbWind: { value: wind },
     uSbAmbMul: { value: ambient },
+    /** 0 off, 1 grows out of the page, 2 is the page (flattens, never discarded): set by look/Grows.tsx */
+    uSbGrowOn: { value: 0 },
+    uSbGrowX: { value: growX === undefined ? -1e4 : growX === 'origin' ? -2e4 : growX },
   };
   m.defines = { ...(m.defines ?? {}), SB_KIND: KIND_ID[kind], ...(bump > 0 ? { SB_BUMP: 1 } : {}), ...(wind > 0 ? { SB_WIND: 1 } : {}), ...(mask ? { SB_MASK: 1 } : {}) };
   m.onBeforeCompile = inject;

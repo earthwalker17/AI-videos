@@ -8,12 +8,13 @@
 import { useLayoutEffect, useMemo } from 'react';
 import { useCurrentFrame } from 'remotion';
 import { BoxGeometry } from 'three';
-import { bigPumpkinLitAt, doorOpenAt, farColdAt, footAt, gatesOpenAt, pumpkinsLitAt, windowsAt } from '../film/beats.ts';
+import { bigPumpkinLitAt, doorOpenAt, farColdAt, footAt, gatesOpenAt, GROW, grownAt, pumpkinsLitAt, windowsAt } from '../film/beats.ts';
 import { clawdAt } from '../film/blocking.ts';
 import { journeyAt } from '../film/journey.ts';
+import { GrowClock } from '../look/Grows.tsx';
 import { storybookMaterial } from '../look/materials.ts';
 import { LOOK_POST, LookStage } from './LookStage.tsx';
-import { WorldScene } from './World.tsx';
+import { WorldBats, WorldScene } from './World.tsx';
 
 const JOURNEY = { at: journeyAt };
 
@@ -32,10 +33,12 @@ function ClawdBox({ f }: { f: number }) {
 export function Journey() {
   const frame = useCurrentFrame();
   return (
-    <LookStage path={JOURNEY} post={{ ...LOOK_POST, foot: footAt(frame) }}>
+    <LookStage path={JOURNEY} post={{ ...LOOK_POST, foot: footAt(frame) }} grow={grownAt(frame)} free={(f) => <WorldBats f={f} camPos={journeyAt(f).pos} fov={journeyAt(f).fov} />}>
       {(f) => (
         <>
-          <WorldScene f={f} camPos={journeyAt(f).pos} fov={journeyAt(f).fov} gates={gatesOpenAt(f)} door={doorOpenAt(f)} windows={windowsAt(f)} bigLit={bigPumpkinLitAt(f)} lit={pumpkinsLitAt(f)} farCold={farColdAt(f)} />
+          {/* the world grows out of the page on the score's pops (bar 4) */}
+          <GrowClock f={f} schedule={GROW} />
+          <WorldScene f={f} camPos={journeyAt(f).pos} fov={journeyAt(f).fov} gates={gatesOpenAt(f)} door={doorOpenAt(f)} windows={windowsAt(f)} bigLit={bigPumpkinLitAt(f)} lit={pumpkinsLitAt(f)} farCold={farColdAt(f)} bats={false} />
           <ClawdBox f={f} />
         </>
       )}
