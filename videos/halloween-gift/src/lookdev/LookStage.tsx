@@ -53,8 +53,8 @@ export interface LookStageProps {
   post?: NightPostOptions;
   /**
    * The world growing out of the page (the caller sets look/materials.ts setGrow each frame): the
-   * terrain, the grass and the children grow (look/Grows.tsx), this (film/beats.ts grownAt) fades
-   * the moon's shadows and the cards in. Unset: everything stands grown.
+   * terrain, the grass and the children grow (look/Grows.tsx), this (film/beats.ts grownAt) fades the
+   * cards in and holds the growing world's shadows. Unset: everything stands grown.
    */
   grow?: number;
   /** drawn outside the grow (what flies over the page: the bats) */
@@ -71,7 +71,7 @@ export function LookStage({ children, path = HERO_PATH, bare = false, post = LOO
       <Stage3D antialias={false} camera={{ fov: 44, near: 0.05, far: 80, position: [0, 3, 8] }}>
         <color attach="background" args={['#0a1118']} />
         <CameraRig path={path} f={f} />
-        <Night f={f} fps={FPS} shadows={grow ?? 1} />
+        <Night f={f} fps={FPS} />
         <SkyDome />
         {grow === undefined ? (
           <>

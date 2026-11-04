@@ -49,9 +49,21 @@ export const growAt = (f: number, x: number): number => riseAt(f, popAt(x), GROW
 /** The whole page grown: 0 before the first point rises .. 1 once the last has settled (the moon's shadows and the mist fade in with it). */
 export const grownAt = (f: number): number => progress(f, GROW.from, GROW.from + GROW.sweep + GROW.dur);
 
-/** The cover, 0 closed .. 1 standing open (90°): bursts open on bar 4, slams on bar 35 (V1's curve). */
+/**
+ * The bats squeezing out of the closed book (bar 3, world/Bats.tsx BatBurst from world/Book2.tsx
+ * BOOK_EDGE): their first leaves on `start`; the cover lifts a crack (COVER_CRACK, BOOK_EDGE's
+ * 3.2°) over the six frames before and settles shut over eight after the last has gone.
+ */
+export const BURST = { start: at(3), count: 14, size: 1.45, speed: 6.0, scatter: 0.6, rise: 1.4, stagger: 22 } as const;
+export const COVER_CRACK = 3.2 / 90;
+
+/** The cover, 0 closed .. 1 standing open (90°): the crack for the bats on bar 3, bursts open on bar 4, slams on bar 35 (V1's curve). */
 export function coverAt(f: number): number {
-  if (f < at(4)) return 0;
+  if (f < at(4)) {
+    const up = smoothstep(BURST.start - 6, BURST.start, f);
+    const down = smoothstep(BURST.start + 24, BURST.start + 32, f);
+    return COVER_CRACK * up * (1 - down);
+  }
   if (f < at(34, 3)) return progress(f, at(4), at(4) + 18, 'outCubic');
   return 1 - progress(f, at(34, 3), at(35), 'inCubic');
 }
