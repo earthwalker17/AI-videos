@@ -1,20 +1,19 @@
 /**
- * The film's camera journey (film/journey.ts) over the world as far as it is built: the asset
- * families that exist, greybox stand-ins (lookdev/Probe.tsx) for the rest, and an orange box
- * hopping where Clawd's V2 blocking puts him (film/blocking.ts). For judging framing, pacing and
- * continuity on stills or spans before the film is assembled. The desk shots show no desk yet.
+ * The film's camera journey (film/journey.ts) over the world as built (lookdev/World.tsx
+ * WorldScene, driven by the V2 beats: the gates, the door, the cottage's windows, the foot band),
+ * and an orange box hopping where Clawd's V2 blocking puts him (film/blocking.ts). For judging
+ * framing, pacing and continuity on stills or spans before the film is assembled. The desk shots
+ * show no desk yet.
  */
 import { useLayoutEffect, useMemo } from 'react';
+import { useCurrentFrame } from 'remotion';
 import { BoxGeometry } from 'three';
+import { doorOpenAt, footAt, gatesOpenAt, windowsAt } from '../film/beats.ts';
 import { clawdAt } from '../film/blocking.ts';
 import { journeyAt } from '../film/journey.ts';
 import { storybookMaterial } from '../look/materials.ts';
-import { Dressing } from '../world/Dressing.tsx';
-import { Pumpkin } from '../world/Pumpkin.tsx';
-import { Trees } from '../world/Trees.tsx';
-import { LAND, onGround } from '../world/layout.ts';
-import { LookStage } from './LookStage.tsx';
-import { Fence, HouseAndCrag, Stones } from './Probe.tsx';
+import { LOOK_POST, LookStage } from './LookStage.tsx';
+import { WorldScene } from './World.tsx';
 
 const JOURNEY = { at: journeyAt };
 
@@ -31,16 +30,12 @@ function ClawdBox({ f }: { f: number }) {
 }
 
 export function Journey() {
+  const frame = useCurrentFrame();
   return (
-    <LookStage path={JOURNEY}>
+    <LookStage path={JOURNEY} post={{ ...LOOK_POST, foot: footAt(frame) }}>
       {(f) => (
         <>
-          <Trees f={f} />
-          <Dressing f={f} />
-          <Stones />
-          <Fence />
-          <HouseAndCrag f={f} />
-          <Pumpkin position={onGround(LAND.bigPumpkin.x, LAND.bigPumpkin.z, 0.55)} scale={0.62} lit={1} f={f} seed={2} rotation={LAND.bigPumpkin.yaw} />
+          <WorldScene f={f} camPos={journeyAt(f).pos} gates={gatesOpenAt(f)} door={doorOpenAt(f)} windows={windowsAt(f)} />
           <ClawdBox f={f} />
         </>
       )}

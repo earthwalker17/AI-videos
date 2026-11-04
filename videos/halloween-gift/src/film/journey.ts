@@ -196,7 +196,23 @@ function trailKey(f: number, back: number, right: number, up: number, fov = 34, 
   const s = Math.max(0, routeS(c) - back);
   const q = routeAt(s);
   const [tx, tz] = ROUTE.tangentAt(Math.min(Math.max(s, 0.02), ROUTE.length - 0.02));
-  const pos = clear([q[0] - tz * right, c[1] + up, q[2] + tx * right]);
+  // up is above Clawd, and at least most of it above the ground under the camera (behind him on
+  // the lane down to the cottage, the camera stands higher up the slope than he does)
+  const px = q[0] - tz * right;
+  const pz = q[2] + tx * right;
+  const pos = clear([px, Math.max(c[1] + up, FLOOR + groundHeight(px, pz) + 0.85 * up), pz]);
+  const [lx, lz] = tangentNear(c);
+  const look = add(c, [lx * lead, lookUp, lz * lead]);
+  return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
+}
+
+/**
+ * A key at a set place (x, z), `up` above the ground there, looking ahead of Clawd: for the lane,
+ * where trailing along the route would swing the camera across the gate's sharp turn.
+ */
+function placeKey(f: number, x: number, z: number, up: number, fov = 38, lead = 1.0, lookUp = 0.35): CamKey {
+  const c = smoothed(f);
+  const pos = clear([x, FLOOR + groundHeight(x, z) + up, z]);
   const [lx, lz] = tangentNear(c);
   const look = add(c, [lx * lead, lookUp, lz * lead]);
   return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
@@ -247,15 +263,18 @@ function worldKeys(): CamKey[] {
     const u = (f - at(11, 3)) / (at(13) + 16 - at(11, 3));
     keys.push(trailKey(f, lerp(1.3, 1.6, u), lerp(0.45, 0.25, u), lerp(0.88, 1.08, u)));
   }
-  // held behind his right shoulder for the creak and the clang
-  keys.push({ ...trailKey(at(14), 1.5, 0.3, 0.85, 34, 0.9, 0.55), hold: true });
-  // through the gateway (down the middle: the open leaves line it) and along the lane behind
-  // him; on the last bar the camera swings round to his right (the door yard's side) so it
-  // arrives on V1's door two-shot without a whip
-  keys.push(trailKey(at(15), 1.5, 0, 0.75));
-  keys.push(trailKey(at(15, 2), 1.45, 0, 0.8));
-  keys.push(trailKey(at(16), 1.25, 0.35, 0.92));
-  keys.push(trailKey(at(16, 2), 0.75, 1.0, 0.72));
+  // while he waits, the camera eases back and up behind his right shoulder: Clawd small before
+  // the whole gateway as it creaks open, the lane and the lit cottage beyond (caption 2)
+  keys.push({ ...trailKey(at(14), 2.3, 0.45, 1.35, 38, 1.6, 0.5), hold: true });
+  // on the clang it rises over the fence (never through the gateway: the swung leaves would
+  // brush the lens) and moves steadily along the graveyard's side of the fence, above it, as he
+  // walks the lane behind it; past the fence's end it comes down into the yard onto V1's door
+  // two-shot without a whip
+  keys.push(placeKey(at(15), 1.75, 0.3, 1.6, 38, 1.6, 0.4));
+  keys.push(placeKey(at(15, 2), 2.05, 0.2, 1.55, 38, 1.6, 0.35));
+  // (looking just ahead of him, not at the door: he stays in frame as he nears it)
+  keys.push(placeKey(at(16), 2.6, 0.12, 1.35, 38, 0.45, 0.2));
+  keys.push(placeKey(at(16, 2), 3.25, 0.45, 0.95, 37, 0.35, 0.25));
   return keys;
 }
 
