@@ -9,7 +9,7 @@
 import { clamp, progress, smoothstep } from '@aiv/core';
 import { at } from '../cues.ts';
 import { FLOOR, PAGE } from '../world/layout.ts';
-import { HIDDEN_CUT } from './journey.ts';
+import { OUT_OF_BOOK } from './journey.ts';
 
 /** The score's six pops as the cover bursts (audio/foley.ts: at(4) + 6 + k × 3), left to right. */
 export const POPS = [0, 1, 2, 3, 4, 5].map((k) => at(4) + 6 + k * 3);
@@ -70,12 +70,13 @@ export function coverAt(f: number): number {
 
 /**
  * Inside the story: the sky dome round the world fades in as the camera cranes down into the
- * opened book (the cover's printed sky is the same sky, so its edge disappears), and is gone
- * the moment the closing cover hides the lens (the camera comes out onto the desk).
+ * opened book (the cover's printed sky is the same sky, so its edge disappears), and fades out
+ * as the camera cranes back out of it onto the desk (film/journey.ts OUT_OF_BOOK: the room comes
+ * back, the cover's print finds its border again before it slams).
  */
 export function immersionAt(f: number): number {
-  if (f >= HIDDEN_CUT) return 0;
-  return smoothstep(at(4) + 14, at(5), f);
+  const [o0, o1] = OUT_OF_BOOK;
+  return smoothstep(at(4) + 14, at(5), f) * (1 - smoothstep(o0 + 0.3 * (o1 - o0), o1 - 2, f));
 }
 
 /**

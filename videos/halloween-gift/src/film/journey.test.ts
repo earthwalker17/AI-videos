@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { at, FILM_FRAMES } from '../cues.ts';
 import { ghostMarks } from '../world/Ghosts.tsx';
-import { FLOOR, groundHeight, LAND, STONES } from '../world/layout.ts';
-import { ghostLowerAt } from './beats.ts';
+import { BOOK, FLOOR, groundHeight, LAND, STONES } from '../world/layout.ts';
+import { coverAt, ghostLowerAt } from './beats.ts';
 import { clawdAt } from './blocking.ts';
-import { CAMERA_OBSTACLES, HIDDEN_CUT, journeyAt, obstacleAt } from './journey.ts';
+import { CAMERA_OBSTACLES, COVER_CLOSE, journeyAt, obstacleAt, OUT_OF_BOOK } from './journey.ts';
 
 describe('the V2 camera journey', () => {
   it('keeps out of the hanging ghosts as built, over the whole film', () => {
@@ -19,7 +19,7 @@ describe('the V2 camera journey', () => {
   });
 
   it('never passes through a prop or under the ground inside the world', () => {
-    for (let f = at(5); f < HIDDEN_CUT; f++) {
+    for (let f = at(5); f < OUT_OF_BOOK[1]; f++) {
       const [x, y, z] = journeyAt(f).pos;
       // V1's door cameras (bars 17 on) sit at Clawd's eye height, 0.275 above the levelled yard at
       // DOOR_SCALE; the camera settles to it over the yard from the end of the lane walk (at(16, 3))
@@ -33,14 +33,32 @@ describe('the V2 camera journey', () => {
     }
   });
 
-  it('moves smoothly: the push into the opening book stays gentle, the world moves slower still', () => {
+  it('moves smoothly: the push into the opening book and the crane out of it stay gentle, the world moves slower still', () => {
     let prev = journeyAt(0);
-    for (let f = 1; f < HIDDEN_CUT; f++) {
+    for (let f = 1; f < FILM_FRAMES; f++) {
       const p = journeyAt(f);
       const step = Math.hypot(p.pos[0] - prev.pos[0], p.pos[1] - prev.pos[1], p.pos[2] - prev.pos[2]);
-      expect(step, `frame ${f}`).toBeLessThan(f < at(5, 2) ? 0.48 : 0.35);
+      expect(step, `frame ${f}`).toBeLessThan(f < at(5, 2) || f >= OUT_OF_BOOK[0] ? 0.48 : 0.35);
       prev = p;
     }
+  });
+
+  it('is never swept by the closing cover: out of its way before it comes down', () => {
+    // world/Book2.tsx: the cover hinges along the back edge (y FLOOR, z -BOOK.d/2), BOOK.d long,
+    // BOOK.w wide (plus the boards' squares), standing at coverAt 1 (90 deg)
+    const hinge = { y: FLOOR, z: -BOOK.d / 2 };
+    const half = BOOK.w / 2 + 0.3;
+    for (let f = COVER_CLOSE[0]; f <= COVER_CLOSE[1] + 2; f++) {
+      const [x, y, z] = journeyAt(f).pos;
+      const r = Math.hypot(y - hinge.y, z - hinge.z);
+      const phi = Math.atan2(y - hinge.y, z - hinge.z);
+      const theta = (coverAt(f) * Math.PI) / 2;
+      const clear = r > BOOK.d + 0.4 || Math.abs(x) > half || phi < theta - 0.05;
+      expect(clear, `frame ${f}: r ${r.toFixed(2)}, ${((phi * 180) / Math.PI).toFixed(1)} deg against the cover's ${((theta * 180) / Math.PI).toFixed(1)}`).toBe(true);
+    }
+    // and outside the shut book at the slam
+    const [, y, z] = journeyAt(COVER_CLOSE[1]).pos;
+    expect(Math.hypot(y - hinge.y, z - hinge.z)).toBeGreaterThan(BOOK.d + 0.4);
   });
 
   it('holds the hero view while the first caption is read', () => {

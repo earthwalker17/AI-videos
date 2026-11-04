@@ -3,7 +3,7 @@ import { at, FILM_FRAMES } from '../cues.ts';
 import { GATE_POSTS, PAGE, pathDistance } from '../world/layout.ts';
 import { bigPumpkinLitAt, coverAt, doorOpenAt, farColdAt, footAt, gatesOpenAt, ghostLowerAt, growAt, immersionAt, letterAt, pailLitAt, popAt, POPS, pumpkinsLitAt, windowsAt } from './beats.ts';
 import { clawdAt } from './blocking.ts';
-import { HIDDEN_CUT } from './journey.ts';
+import { OUT_OF_BOOK } from './journey.ts';
 
 const beats: [string, (f: number) => number][] = [
   ['cover', coverAt],
@@ -32,10 +32,9 @@ describe('the V2 beats', () => {
   });
 
   it('eases every beat over frames: no one-frame jump, everything on ones', () => {
-    // the cover's slam (a hit, the lens covered) is faster; the hidden cut (immersion, foot) happens behind it
+    // the cover's slam (a hit) is faster
     for (const [name, fn] of beats)
       for (let f = 1; f < FILM_FRAMES; f++) {
-        if (f === HIDDEN_CUT && (name === 'immersion' || name === 'foot')) continue;
         expect(Math.abs(fn(f) - fn(f - 1)), `${name} at frame ${f}`).toBeLessThan(name === 'cover' && f > at(34, 3) ? 0.25 : 0.36);
       }
   });
@@ -62,7 +61,8 @@ describe('the V2 beats', () => {
     expect(coverAt(at(35))).toBe(0);
     expect(immersionAt(at(4))).toBe(0);
     expect(immersionAt(at(5))).toBe(1);
-    expect(immersionAt(HIDDEN_CUT)).toBe(0);
+    expect(immersionAt(OUT_OF_BOOK[0])).toBe(1);
+    expect(immersionAt(OUT_OF_BOOK[1])).toBe(0);
     expect(bigPumpkinLitAt(at(5) - 1)).toBe(0);
     expect(bigPumpkinLitAt(at(5) + 4)).toBe(1);
     // every pumpkin out six frames after the seal; the porch's back after the door closes, the pail on the relight
