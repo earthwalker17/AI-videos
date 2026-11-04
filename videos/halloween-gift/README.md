@@ -39,9 +39,9 @@ palette distance 9.4 against the reference at 1080p (`aiv still --ref`).
 checkpoint for the user (hero vista, graveyard truck, door two-shot, email, book and bats, with
 the measured numbers); after it, assemble the V2 film (`src/film/Film.tsx` on the new world),
 `WORDS.email` = the email's read path (the one remaining cue edit), drafts with motion QA, and
-the 1080p review cut. Open points: the castle reads twice the reference's size and too dark (its
-proportions, a pass in `world/Castle.tsx`); the lane camera passes a swung gate leaf close to the
-lens (journey tuning); the maroon foot band (`NightPost` `foot`) eases down in the door shots;
+the 1080p review cut. Open points: the castle's outcrop and the mist at its foot read darker than
+the reference's luminous cyan (`world/Castle.tsx` materials and mist cards); the maroon foot band
+(`NightPost` `foot`, `film/beats.ts footAt`) eases down in the door shots;
 the moon rays may flare in the door shots; walk 2's footstep pan should recede (the camera now
 trails him).
 
