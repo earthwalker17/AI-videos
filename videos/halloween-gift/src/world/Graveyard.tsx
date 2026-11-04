@@ -956,12 +956,11 @@ export function buildGraveyard(): GraveyardBuild {
 }
 
 /**
- * How much of the storybook ambient the stones take. Under today's near ambient (#5e2a32, a
- * saturated maroon) light stone in shadow turns red at full strength; at 0.6 the sky and the moon
- * keep their share and the near stones land on the reference's grey plum. If the rig's near
- * ambient is greyed (as asked), return this toward 1.
+ * How much of the storybook ambient the stones take. Under the first near ambient (#5e2a32, a
+ * saturated maroon) light stone in shadow turned red at full strength (0.6 held it on the
+ * reference's grey plum); with the greyer #4a3040 the stones take most of it again.
  */
-export const STONE_AMBIENT = 0.6;
+export const STONE_AMBIENT = 0.85;
 
 /** The stones' paint: a cool storybook stone, its colour in the vertex colours, pale moonlit lichen on the tops. */
 function stoneMaterials(albedo: CanvasTexture, height: CanvasTexture): { body: MeshStandardMaterial; face: MeshStandardMaterial; earth: MeshStandardMaterial } {

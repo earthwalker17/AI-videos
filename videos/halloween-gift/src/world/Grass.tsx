@@ -22,8 +22,12 @@ import { BufferAttribute, BufferGeometry, Color, FrontSide, InstancedMesh, Matri
 import { bump } from '../kit/field.ts';
 import { storybookMaterial } from '../look/materials.ts';
 import { BOULDERS, rootGrass, ROOTS_FOOTPRINT } from './Dressing.tsx';
-import { FLOOR, LAND, PAGE, pageMask, STONES } from './layout.ts';
+import { graveFootprints } from './Graveyard.tsx';
+import { FLOOR, LAND, PAGE, pageMask } from './layout.ts';
 import { bareMask, fbm, fenceDistance, ground, groundShading, surfaceHeight, trackAt, turfColor, TURF_SHEEN, turfSweep, yardMask } from './Terrain.tsx';
+
+/** world/Graveyard.tsx's footprints on the ground (stones, fallen tops, the RIP stone, the big cross) */
+const GRAVES = graveFootprints();
 
 /** The hero camera (layout of the reference's view): grass density is planned around it. */
 const HERO_EYE = new Vector3(0.3, 3.45, 7.6);
@@ -200,12 +204,12 @@ function site(x: number, z: number) {
   // bare earth: a sparse short stubble, not a smooth patch
   const bare = bareMask(x, z, tr);
   d *= 1 - 0.8 * bare;
-  // stones: none on the footprint, tall around it
+  // stones (and their fallen tops, the RIP stone and the big cross): none on the footprint, tall around it
   let stoneRing = 0;
-  for (const s of STONES) {
+  for (const s of GRAVES) {
     const dd = Math.hypot(x - s.x, z - s.z);
-    if (dd < 0.13 + s.h * 0.08) return null;
-    stoneRing = Math.max(stoneRing, bump(x, z, s.x, s.z, 0.42));
+    if (dd < s.r) return null;
+    stoneRing = Math.max(stoneRing, bump(x, z, s.x, s.z, s.r + 0.25));
   }
   for (const b of BOULDERS) {
     const dd = Math.hypot(x - b.x, z - b.z);

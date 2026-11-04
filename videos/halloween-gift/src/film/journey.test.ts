@@ -7,7 +7,9 @@ describe('the V2 camera journey', () => {
   it('never passes through a prop or under the ground inside the world', () => {
     for (let f = at(5); f < HIDDEN_CUT; f++) {
       const [x, y, z] = journeyAt(f).pos;
-      expect(y - (FLOOR + groundHeight(x, z)), `frame ${f}: height above the ground`).toBeGreaterThan(0.3);
+      // V1's door cameras (bars 17 on) sit at Clawd's eye height, 0.275 above the levelled yard at
+      // DOOR_SCALE; the camera settles to it over the yard from the end of the lane walk (at(16, 3))
+      expect(y - (FLOOR + groundHeight(x, z)), `frame ${f}: height above the ground`).toBeGreaterThan(f >= at(16, 3) ? 0.2 : 0.3);
       for (const o of CAMERA_OBSTACLES) {
         if (y > FLOOR + groundHeight(o.x, o.z) + o.h + 0.15) continue;
         expect(Math.hypot(x - o.x, z - o.z) - o.r, `frame ${f}: ${o.name}`).toBeGreaterThan(0.1);

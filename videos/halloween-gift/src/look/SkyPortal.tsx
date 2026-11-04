@@ -22,9 +22,9 @@ import { NIGHT } from './materials.ts';
 
 export const SKY_COLORS = {
   top: '#465c72',
-  mid: '#3a7790',
-  horizon: '#55a6ba',
-  cloud: '#46405a',
+  mid: '#2c7896',
+  horizon: '#46aec6',
+  cloud: '#3e4a60',
   cloudDark: '#332c44',
   cloudLit: '#a3d9cf',
   glow: '#8fc6bb',
@@ -32,7 +32,7 @@ export const SKY_COLORS = {
 } as const;
 
 /** the moon's angular radius (radians) */
-export const MOON_RADIUS = 0.04;
+export const MOON_RADIUS = 0.034;
 
 const VERT = /* glsl */ `
   varying vec3 vWorld;

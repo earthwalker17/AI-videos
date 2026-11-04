@@ -27,14 +27,15 @@ import { orbWeb, threadRibbons, type Thread } from '../kit/cobweb.ts';
 import { mergeRocks, rockGeometry, type PlacedRock, type RockParams } from '../kit/rocks.ts';
 import { growTree, surfacePoint, treeGeometry, type TreeSkeleton, type Tube, type V3 } from '../kit/tree.ts';
 import { NIGHT, storybookMaterial } from '../look/materials.ts';
-import { FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, LAND, PATH, pathHalfWidth } from './layout.ts';
+import { bigCrossFrame } from './Graveyard.tsx';
+import { FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, HERO, LAND, PATH, pathHalfWidth } from './layout.ts';
 import { APRON, dirtHalf, fbm, groundShading, PLUM, surfaceHeight, trackAt, yardMask } from './Terrain.tsx';
 
-/** The hero camera (lookdev/LookStage HERO): webs face it, and the eyes are placed where it sees them. */
-const HERO_EYE = new Vector3(0.3, 3.45, 7.6);
-const HERO_CAM = new PerspectiveCamera(44, 16 / 9, 0.05, 80);
+/** The hero camera (layout's HERO): webs face it, and the eyes are placed where it sees them. */
+const HERO_EYE = new Vector3(...HERO.pos);
+const HERO_CAM = new PerspectiveCamera(HERO.fov, 16 / 9, 0.05, 80);
 HERO_CAM.position.copy(HERO_EYE);
-HERO_CAM.lookAt(1.0, 2.4, -4.0);
+HERO_CAM.lookAt(...HERO.look);
 HERO_CAM.updateMatrixWorld();
 const Y0 = FLOOR + 0.004;
 const gy = (x: number, z: number) => Y0 + surfaceHeight(x, z);
@@ -777,13 +778,17 @@ function RootMass({ f }: { f: number }) {
 
 // ---- cobwebs ------------------------------------------------------------------------------------
 
-/** The greybox big cross's transform (lookdev/Ground.tsx context; re-anchor when the stones family lands). */
-const CROSS = { scale: 2.4, euler: new Euler(0.05, 0.35, -0.2) };
-function crossPoint(lx: number, ly: number, lz: number): Vector3 {
-  const c = LAND.bigCross;
-  const m = new Matrix4().compose(new Vector3(c.x, gy(c.x, c.z) - 0.06, c.z), new Quaternion().setFromEuler(CROSS.euler), new Vector3(CROSS.scale, CROSS.scale, CROSS.scale));
-  return new Vector3(lx, ly, lz).applyMatrix4(m);
+/**
+ * A point on world/Graveyard.tsx's big cross, in its own units: u across (1 = the stem's right edge,
+ * or with `arm` the arm's right end), v up (metres from the base), w through (1 = the carved front).
+ */
+const CROSS = bigCrossFrame();
+function crossPoint(u: number, v: number, w: number, arm = false): Vector3 {
+  return new Vector3(u * (arm ? CROSS.armHalfSpan : CROSS.stemHalf), v, w * CROSS.halfThickness).applyMatrix4(CROSS.m);
 }
+/** the underside and the top of the cross's arm (metres from the base) */
+const ARM_LO = CROSS.armAt - CROSS.armHalfHeight;
+const ARM_HI = CROSS.armAt + CROSS.armHalfHeight;
 
 function webThreads(): Thread[] {
   const out: Thread[] = [];
@@ -828,13 +833,13 @@ function webThreads(): Thread[] {
   // the big cross's foot: from its stem's right edge down to the boulders and the grass (the reference's lower-left web)
   {
     const b0 = BOULDERS[8];
-    const stemLo = crossPoint(0.12, 0.36, 0.07);
-    const stemHi = crossPoint(0.12, 0.6, 0.07);
-    const arm = crossPoint(0.3, 0.62, 0.07);
+    const stemLo = crossPoint(1, 0.36 * ARM_LO, 0.9);
+    const stemHi = crossPoint(1, 0.92 * ARM_LO, 0.9);
+    const arm = crossPoint(0.8, ARM_LO, 0.9, true);
     const top0 = V(b0.x, gy(b0.x, b0.z) + b0.size[1] * 0.85, b0.z);
     const low = grassTop(LAND.bigCross.x + 0.5, LAND.bigCross.z + 0.35);
     const hub = stemLo.clone().add(stemHi).add(top0).add(low).add(arm).multiplyScalar(0.2).add(V(0.05, 0, 0.04));
-    out.push(...orbWeb({ seed: 4, hub, anchors: [arm, stemHi, stemLo, top0, low], radials: 12, rings: 7, torn: 0.4, tethers: [grassTop(LAND.bigCross.x + 0.85, LAND.bigCross.z + 0.15), crossPoint(0.34, 0.8, 0.0)] }));
+    out.push(...orbWeb({ seed: 4, hub, anchors: [arm, stemHi, stemLo, top0, low], radials: 12, rings: 7, torn: 0.4, tethers: [grassTop(LAND.bigCross.x + 0.85, LAND.bigCross.z + 0.15), crossPoint(1, ARM_HI - 0.04, 0, true)] }));
   }
   // between the pumpkin's hero slab and the wedge under its grin
   {

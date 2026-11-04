@@ -32,8 +32,8 @@ export const PAGE = { w: BOOK.w - 0.5, d: BOOK.d - 0.4 } as const;
 
 /** Clawd's path across the page (x, z), from beside the giant pumpkin to the last house's door. */
 export const PATH_POINTS: P2[] = [
-  [-1.05, 3.05],
-  [-0.45, 2.86],
+  [-0.85, 3.02],
+  [-0.35, 2.84],
   [0.2, 2.6],
   [0.82, 2.22],
   // the shoo (STOPS.shoo), under the ghost tree's hero limb; then up the slope
@@ -60,7 +60,8 @@ const GATE_AHEAD = 0.32;
 export const STOPS = {
   pop: 0,
   valleyEnd: 0.9,
-  shoo: 2.75,
+  // under the ghost tree's hero limb, where LAND.peek's ghost hangs (layout.test checks)
+  shoo: sAt(1.2385, 1.6776),
   gates: sAt(1.0, -0.85) - GATE_AHEAD,
   knock: PATH.length,
 } as const;
@@ -98,7 +99,7 @@ const door = at(STOPS.knock, 0, 0);
 
 export const LAND = {
   /** the giant jack-o'-lantern, front left of the hero view, its grin to the path */
-  bigPumpkin: { x: -1.55, z: 2.75, yaw: 0.5, scale: 1 } as Spot,
+  bigPumpkin: { x: -1.42, z: 2.62, yaw: 0.5, scale: 1 } as Spot,
   /** the big leaning cross stone at the far left edge */
   bigCross: { x: -2.35, z: 3.75, yaw: 0.35, scale: 1 } as Spot,
   /** roots and rocks with cobwebs, front right */
@@ -123,9 +124,9 @@ export const LAND = {
   /** the last house, right of centre: its door at the path's end, turned a little toward the lane */
   house: { x: door.x + 0.2, z: door.z - 0.6, yaw: -0.3 } as Spot,
   /** the castle on its crag, behind the hill between the gates and the house (multiplane) */
-  crag: { x: 3.0, z: -4.7 } as Spot,
+  crag: { x: 3.55, z: -4.7 } as Spot,
   /** the far house at the crag's foot, right of the gates as the hero view sees them */
-  farHouse: { x: 1.9, z: -4.4, yaw: 0.35 } as Spot,
+  farHouse: { x: 2.45, z: -4.4, yaw: 0.35 } as Spot,
   /** a far window down the hill that flips cold at the end (seen past Clawd's exit, right) */
   farWindow: { x: 6.1, z: -3.6, yaw: -0.5 } as Spot,
 } as const;
@@ -158,9 +159,9 @@ export const FENCE_LINE_RIGHT: P2[] = [GATE_POSTS[1], [2.0, -0.6], [2.65, -0.72]
 /** Tombstones inside the fence: kind, place, height, lean. The big RIP stone is LAND.ripStone. */
 export const STONES: { kind: 'round' | 'cross' | 'obelisk' | 'gothic' | 'slab' | 'broken'; x: number; z: number; h: number; yaw: number; lean: number }[] = [
   // the front, along the path's first run
-  { kind: 'round', x: -0.4, z: 2.0, h: 0.5, yaw: 0.2, lean: -0.12 },
+  { kind: 'round', x: -3.05, z: 1.6, h: 0.5, yaw: 0.2, lean: -0.12 },
   { kind: 'cross', x: 0.4, z: 1.65, h: 0.66, yaw: -0.1, lean: 0.1 },
-  { kind: 'slab', x: 0.6, z: 3.35, h: 0.38, yaw: 0.4, lean: 0.18 },
+  { kind: 'slab', x: 2.4, z: 2.6, h: 0.38, yaw: 0.4, lean: 0.18 },
   { kind: 'gothic', x: -1.0, z: 1.55, h: 0.6, yaw: 0.05, lean: -0.06 },
   { kind: 'round', x: 1.7, z: 2.75, h: 0.46, yaw: -0.3, lean: 0.14 },
   { kind: 'obelisk', x: -2.2, z: 1.7, h: 0.92, yaw: 0.3, lean: -0.05 },
@@ -183,17 +184,6 @@ export const STONES: { kind: 'round' | 'cross' | 'obelisk' | 'gothic' | 'slab' |
   { kind: 'gothic', x: 2.75, z: 0.55, h: 0.5, yaw: -0.35, lean: 0.06 },
 ];
 
-/** Lamp posts with cyan glass by the gates and along the lane, and small pumpkins stacked by the gates. */
-const G = STOPS.gates + GATE_AHEAD;
-export const LAMPS: Spot[] = [at(G - 0.45, -0.62), at(G + 1.15, 0.5), at(G + 2.3, -0.5), at(G + 3.15, 0.5)];
-export const SMALL_PUMPKINS: (Spot & { lit: boolean })[] = [
-  { ...at(G - 0.25, 0.75), scale: 0.26, lit: true },
-  { ...at(G - 0.2, 0.98), scale: 0.21, lit: true },
-  { ...at(G - 0.24, 0.86), scale: 0.17, lit: false },
-  { ...at(G + 1.9, 0.45), scale: 0.2, lit: true },
-  { ...at(G + 2.85, -0.5), scale: 0.22, lit: true },
-];
-
 // ---- the ground ---------------------------------------------------------------------------------
 
 /** 0 at the page margin, 1 a little inside it: the world grows out of the printed page. */
@@ -202,6 +192,9 @@ export function pageMask(x: number, z: number): number {
   const ez = PAGE.d / 2 - Math.abs(z);
   return smoothstep(0, 1.1, Math.min(ex, ez));
 }
+
+/** The path's centre line as a polyline (pathDistance's; world/Terrain.tsx builds its fast search on it). */
+export const PATH_POLYLINE: readonly (readonly number[])[] = PATH_LINE;
 
 /** Distance from (x, z) to the path's centre line, and the arc length there. */
 export function pathDistance(x: number, z: number): { d: number; s: number } {
@@ -213,37 +206,104 @@ export function pathHalfWidth(s: number): number {
   return 0.3 + 0.08 * bump(s, 0, STOPS.gates + GATE_AHEAD, 0, 0.9) + 0.14 * bump(s, 0, PATH.length, 0, 1.2);
 }
 
-/** The ground's height above FLOOR (before the path): the hill, mounds, lumps. */
-function rawHeight(x: number, z: number): number {
-  // the hill: from the graveyard's floor up to the house's crest at the back
-  const hill = 0.05 + 0.75 * smoothstep(1.4, -3.4, z) + 0.2 * bump(x, z, LAND.house.x, LAND.house.z, 2.6);
-  // the crag's foot rises at the back left; the foreground corners swell into the dark frame
-  const back = 0.35 * bump(x, z, LAND.crag.x, LAND.crag.z + 0.4, 2.8);
-  const mounds = 0.2 * bump(x, z, LAND.ghostTree.x, LAND.ghostTree.z, 1.5) + 0.2 * bump(x, z, -5.0, 3.7, 2.3) + 0.26 * bump(x, z, 5.8, 3.9, 2.4) - 0.06 * bump(x, z, -0.6, 2.2, 1.8);
-  const lumps = 0.055 * fbm2(x, z, 31, 4, 0.55) + 0.018 * fbm2(x, z, 32, 3, 2.4);
-  return hill + back + mounds + lumps;
+/** kit/field's fbm2 signature: world/Terrain.tsx passes a bit-identical, faster one. */
+export type Fbm = (x: number, z: number, seed: number, octaves?: number, freq?: number, gain?: number) => number;
+
+/**
+ * The last house sits in a hollow below the hill's crest (and the gates on a crest of their own),
+ * so the hero view sees the cottage low and right of the gates, its roofs clear of the moon, as
+ * in the reference; the lane runs down to it from the gates.
+ */
+const HOUSE_HOLLOW = 0.58;
+const GATE_CREST = 0.32;
+
+/**
+ * The ground's height above FLOOR before the path and the house's yard: the hill, mounds, lumps.
+ * A factory over the noise, so world/Terrain.tsx builds its faster copy from the same formula.
+ */
+export function rawHeightWith(fbm: Fbm): (x: number, z: number) => number {
+  return (x, z) => {
+    // the hill: from the graveyard's floor up toward the crest at the back
+    const hill = 0.05 + 0.75 * smoothstep(1.4, -3.4, z) - HOUSE_HOLLOW * bump(x, z, LAND.house.x, LAND.house.z, 4.2) + GATE_CREST * bump(x, z, gate.x - 0.15, gate.z - 0.1, 2.4);
+    // the crag's foot rises at the back left; the foreground corners swell into the dark frame
+    const back = 0.35 * bump(x, z, LAND.crag.x, LAND.crag.z + 0.4, 2.8);
+    const mounds = 0.2 * bump(x, z, LAND.ghostTree.x, LAND.ghostTree.z, 1.5) + 0.2 * bump(x, z, -5.0, 3.7, 2.3) + 0.26 * bump(x, z, 5.8, 3.9, 2.4) - 0.06 * bump(x, z, -0.6, 2.2, 1.8);
+    const lumps = 0.055 * fbm(x, z, 31, 4, 0.55) + 0.018 * fbm(x, z, 32, 3, 2.4);
+    return hill + back + mounds + lumps;
+  };
+}
+const rawHeight = rawHeightWith(fbm2);
+
+// ---- the last house's frame and its level yard -------------------------------------------------
+
+/** the house's yaw and its door point (the door stands 0.62 in front of the house's centre) */
+const HOUSE_YAW = LAND.house.yaw ?? 0;
+const HOUSE_DOOR = { x: LAND.house.x + Math.sin(HOUSE_YAW) * 0.62, z: LAND.house.z + Math.cos(HOUSE_YAW) * 0.62 };
+/** the door's floor above FLOOR: the natural ground just in front of the door */
+const HOUSE_H = rawHeight(HOUSE_DOOR.x + Math.sin(HOUSE_YAW) * 0.6, HOUSE_DOOR.z + Math.cos(HOUSE_YAW) * 0.6);
+/**
+ * Where the ground is levelled to the door's floor (house-local x along the front, z out of it):
+ * under the house and over its yard, where the door spread's actors stand, out under V1's door
+ * cameras (2.25 to 2.95 in front of the door), so no hump rises at the foot of the door frames.
+ */
+export const HOUSE_LEVEL = { x: [-1.1, 2.2] as const, z: [-1.6, 2.8] as const, edge: 0.8, walls: { x: [-0.9, 1.75] as const, z: [-1.6, 0] as const }, sink: 0.03 };
+const hc = Math.cos(HOUSE_YAW);
+const hs = Math.sin(HOUSE_YAW);
+/** World (x, z) → house-local (x, z). */
+function houseLocal(x: number, z: number): [number, number] {
+  const dx = x - HOUSE_DOOR.x;
+  const dz = z - HOUSE_DOOR.z;
+  return [hc * dx - hs * dz, hs * dx + hc * dz];
+}
+function inRect(v: number, r: readonly [number, number], e: number): number {
+  return smoothstep(r[0] - e, r[0], v) * smoothstep(r[1] + e, r[1], v);
 }
 
-/** Ground height above FLOOR at (x, z): path carved in, the page margin flattened to the paper. */
-export function groundHeight(x: number, z: number): number {
-  const h = rawHeight(x, z);
-  const { d, s } = pathDistance(x, z);
-  const w = pathHalfWidth(s);
-  const p = PATH.pointAt(s);
-  const along = rawHeight(p[0], p[1]) - 0.03;
-  const t = smoothstep(w * 1.7, w * 0.7, d);
-  return (h * (1 - t) + along * t) * pageMask(x, z);
+/** The ground factory: the path carved in, the house's yard levelled, the page margin flattened to the paper. */
+export function groundHeightWith(raw: (x: number, z: number) => number, near: (x: number, z: number) => { d: number; s: number }): (x: number, z: number) => number {
+  const L = HOUSE_LEVEL;
+  return (x, z) => {
+    let h = raw(x, z);
+    const { d, s } = near(x, z);
+    const w = pathHalfWidth(s);
+    const t = smoothstep(w * 1.7, w * 0.7, d);
+    if (t > 0) {
+      const p = PATH.pointAt(s);
+      h = h * (1 - t) + (raw(p[0], p[1]) - 0.03) * t;
+    }
+    const [lx, lz] = houseLocal(x, z);
+    const level = inRect(lx, L.x, L.edge) * inRect(lz, L.z, L.edge);
+    if (level > 0) {
+      const floor = HOUSE_H - L.sink * inRect(lx, L.walls.x, 0.05) * inRect(lz, L.walls.z, 0.05);
+      h = h * (1 - level) + floor * level;
+    }
+    return h * pageMask(x, z);
+  };
 }
+/** Ground height above FLOOR at (x, z). */
+export const groundHeight = groundHeightWith(rawHeight, pathDistance);
+
+/** A world point standing on the ground (x, FLOOR + height, z). */
+export function onGround(x: number, z: number, lift = 0): [number, number, number] {
+  return [x, FLOOR + groundHeight(x, z) + lift, z];
+}
+
+/** Lamp posts with cyan glass by the gates and along the lane, and small pumpkins stacked by the gates. */
+const G = STOPS.gates + GATE_AHEAD;
+// two, as in the reference: left of the gates and along the lane; none in the door yard (the
+// cottage's wall lantern lights the door)
+export const LAMPS: Spot[] = [at(G - 0.75, -0.8), at(G + 1.15, -0.55)];
+export const SMALL_PUMPKINS: (Spot & { lit: boolean })[] = [
+  { ...at(G - 0.25, 0.75), scale: 0.26, lit: true },
+  { ...at(G - 0.2, 0.98), scale: 0.21, lit: true },
+  { ...at(G - 0.24, 0.86), scale: 0.17, lit: false },
+  { ...at(G + 1.9, 0.45), scale: 0.2, lit: true },
+];
 
 /** How much a point is path (1 on it, 0 off): dirt and cobbles, no grass. */
 export function pathMask(x: number, z: number): number {
   const { d, s } = pathDistance(x, z);
   return smoothstep(pathHalfWidth(s) * 1.25, pathHalfWidth(s) * 0.75, d);
-}
-
-/** A world point standing on the ground (x, FLOOR + height, z). */
-export function onGround(x: number, z: number, lift = 0): [number, number, number] {
-  return [x, FLOOR + groundHeight(x, z) + lift, z];
 }
 
 // ---- the last house's local frame -------------------------------------------------------------
@@ -263,13 +323,8 @@ export const V1_ORIGIN = new Vector3(-0.25, 1.2, -1.5);
 export const DOOR_SCALE = 0.5;
 
 export function houseFrame(): Matrix4 {
-  const h = LAND.house;
-  const yaw = h.yaw ?? 0;
-  // the door stands 0.62 in front of the house's centre, along its facing
-  const dx = h.x + Math.sin(yaw) * 0.62;
-  const dz = h.z + Math.cos(yaw) * 0.62;
-  const y = FLOOR + groundHeight(dx + Math.sin(yaw) * 0.6, dz + Math.cos(yaw) * 0.6);
-  return new Matrix4().makeRotationY(yaw).setPosition(dx, y, dz);
+  // the door stands 0.62 in front of the house's centre, along its facing, on the levelled yard
+  return new Matrix4().makeRotationY(HOUSE_YAW).setPosition(HOUSE_DOOR.x, FLOOR + HOUSE_H, HOUSE_DOOR.z);
 }
 const HF = houseFrame();
 
@@ -306,4 +361,4 @@ export const DOOR_FRONT = {
 export const DOOR_FLOOR = HF.elements[13];
 
 /** The hero view of the valley (bars 5–8): the reference's composition (camera pose, degrees, world units). */
-export const HERO = { pos: [0.3, 3.45, 7.6] as [number, number, number], look: [1.0, 2.4, -4.0] as [number, number, number], fov: 44, focus: 7.0 };
+export const HERO = { pos: [0.3, 3.45, 7.6] as [number, number, number], look: [1.0, 2.91, -4.0] as [number, number, number], fov: 44, focus: 7.0 };

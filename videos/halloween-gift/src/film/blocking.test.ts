@@ -31,7 +31,10 @@ describe('the V2 blocking', () => {
     for (let f = at(7) + 1; f < at(35); f++) {
       const c = clawdAt(f);
       expect(c.pose.visible).toBe(true);
-      expect(dist(c.pose.pos, prev.pose.pos), `frame ${f}`).toBeLessThan(0.12);
+      // a teleport shows across the ground; a hop down the lane's slope lands a little faster
+      const [a, b] = [c.pose.pos, prev.pose.pos];
+      expect(Math.hypot(a[0] - b[0], a[2] - b[2]), `frame ${f}`).toBeLessThan(0.1);
+      expect(Math.abs(a[1] - b[1]), `frame ${f}`).toBeLessThan(0.12);
       expect(angle(c.pose.heading, prev.pose.heading), `frame ${f}`).toBeLessThan(0.32);
       prev = c;
     }

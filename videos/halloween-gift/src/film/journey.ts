@@ -15,7 +15,7 @@
  */
 import { lerp } from '@aiv/core';
 import { at, BAR, BEAT, FILM_FRAMES } from '../cues.ts';
-import { DOOR_SCALE, FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, fromV1Door, GATE_POSTS, groundHeight, HERO, LAMPS, LAND, STONES } from '../world/layout.ts';
+import { DOOR_SCALE, FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, fromHouse, fromV1Door, GATE_POSTS, groundHeight, HERO, LAMPS, LAND, STONES } from '../world/layout.ts';
 import { clawdAt, ROUTE, routeAt } from './blocking.ts';
 import { CamPath, type CamKey, type CamPose } from './campath.ts';
 import type { V3 } from './timeline.ts';
@@ -73,7 +73,8 @@ const CAMERA_SIDE: readonly [number, number] = [0.6, 0.8];
  */
 export const CAMERA_OBSTACLES: readonly { name: string; x: number; z: number; r: number; h: number }[] = [
   ...STONES.map((s, i) => ({ name: `stone ${i} (${s.kind})`, x: s.x, z: s.z, r: 0.28, h: s.h + 0.1 })),
-  { name: 'big cross', x: LAND.bigCross.x, z: LAND.bigCross.z, r: 0.45, h: 1.8 },
+  // world/Graveyard.tsx's cross is 2.3 tall and its leaning arm reaches 1.02 in plan
+  { name: 'big cross', x: LAND.bigCross.x, z: LAND.bigCross.z, r: 1.05, h: 2.4 },
   { name: 'big pumpkin', x: LAND.bigPumpkin.x, z: LAND.bigPumpkin.z, r: 0.85, h: 1.5 },
   { name: 'ghost tree', x: LAND.ghostTree.x, z: LAND.ghostTree.z, r: 0.75, h: 9 },
   { name: 'old tree', x: LAND.oldTree.x, z: LAND.oldTree.z, r: 0.5, h: 9 },
@@ -82,8 +83,18 @@ export const CAMERA_OBSTACLES: readonly { name: string; x: number; z: number; r:
   { name: 'roots', x: LAND.roots.x + 0.22, z: LAND.roots.z - 0.06, r: 1.15, h: 0.4 },
   { name: 'RIP stone', x: LAND.ripStone.x, z: LAND.ripStone.z, r: 0.45, h: 1.0 },
   { name: 'cauldron', x: LAND.cauldron.x, z: LAND.cauldron.z, r: 0.35, h: 0.55 },
-  ...LAMPS.map((l, i) => ({ name: `lamp ${i}`, x: l.x, z: l.z, r: 0.12, h: 1.35 })),
+  ...LAMPS.map((l, i) => ({ name: `lamp ${i}`, x: l.x, z: l.z, r: 0.17, h: 1.35 })),
   ...GATE_POSTS.map((p, i) => ({ name: `gate post ${i}`, x: p[0], z: p[1], r: 0.1, h: 1.95 })),
+  // world/House.tsx: the door gable and the tall wing (house-local), its wall lantern; the far-window house
+  ...([[0, -0.6, 0.95], [1.3, -0.75, 1.0]] as const).map(([lx, lz, r], i) => {
+    const [x, , z] = fromHouse([lx, 0, lz]);
+    return { name: `house ${i}`, x, z, r, h: 3.4 };
+  }),
+  (() => {
+    const [x, , z] = fromHouse([-0.9, 0, 0.08]);
+    return { name: 'wall lantern', x, z, r: 0.2, h: 1.2 };
+  })(),
+  { name: 'far-window house', x: LAND.farWindow.x, z: LAND.farWindow.z, r: 0.6, h: 1.4 },
 ];
 /** the fence, below this height above the ground */
 const FENCE_H = 0.85;
@@ -242,8 +253,8 @@ function worldKeys(): CamKey[] {
   // him; on the last bar the camera swings round to his right (the door yard's side) so it
   // arrives on V1's door two-shot without a whip
   keys.push(trailKey(at(15), 1.5, 0, 0.75));
-  keys.push(trailKey(at(15, 2), 1.45, 0, 0.72));
-  keys.push(trailKey(at(16), 1.25, 0.35, 0.72));
+  keys.push(trailKey(at(15, 2), 1.45, 0, 0.8));
+  keys.push(trailKey(at(16), 1.25, 0.35, 0.92));
   keys.push(trailKey(at(16, 2), 0.75, 1.0, 0.72));
   return keys;
 }

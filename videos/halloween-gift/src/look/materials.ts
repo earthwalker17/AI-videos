@@ -25,7 +25,7 @@ import { NOISE3_GLSL } from './glsl.ts';
 export const NIGHT = {
   uSbTime: { value: 0 },
   /** unit vector toward the moon, world space */
-  uSbMoonDir: { value: new Vector3(0.494, 0.105, -0.863).normalize() },
+  uSbMoonDir: { value: new Vector3(0.494, 0.163, -0.863).normalize() },
   uSbRimColor: { value: new Color('#a6dcef') },
   uSbRim: { value: 1.0 },
   uSbFogNear: { value: new Color('#141a2b') },
@@ -39,7 +39,7 @@ export const NIGHT = {
   /** aerial perspective: from this distance, 1 / its length, its most */
   uSbAir: { value: new Vector3(4.0, 0.075, 0.5) },
   /** the storybook ambient's colour near the lens and in the mid-ground, and where it turns */
-  uSbAmbNear: { value: new Color('#5e2a32') },
+  uSbAmbNear: { value: new Color('#4a3040') },
   uSbAmbFar: { value: new Color('#3d6b80') },
   uSbAmbDist: { value: new Vector3(3.5, 12.0, 1.0) },
   /** 0 disables fog (the desk shots) */

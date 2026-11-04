@@ -1860,7 +1860,7 @@ export function House({ doorOpen = 0, windows = 1 }: HouseProps) {
     // the cottage holds its value in the mid-ground haze, as in the reference (the castle behind is hazed)
     const fog = 0.5;
     const walls = glowMaterial({ kind: 'stone', color: '#ffffff', color2: '#4a4250', map: wallTex.map, bumpMap: wallTex.bump, bumpScale: 2.0, breakup: 0.16, scale: 0.22, bump: 0.5, topCoat: 0.2, vertexColors: true, rim: 0.8, fog });
-    const stones = glowMaterial({ kind: 'stone', color: '#8a8794', color2: '#5e5a68', breakup: 0.2, scale: 0.06, bump: 0.35, topCoat: 0.15, vertexColors: true, rim: 0.4, fog, ambient: 0.6 });
+    const stones = glowMaterial({ kind: 'stone', color: '#8a8794', color2: '#5e5a68', breakup: 0.2, scale: 0.06, bump: 0.35, topCoat: 0.15, vertexColors: true, rim: 0.4, fog, ambient: 0.85 });
     const roof = glowMaterial({ kind: 'stone', color: '#575166', color2: '#3d3848', breakup: 0.22, scale: 0.07, bump: 0.55, vertexColors: true, rim: 1.1, roughness: 0.7, fog });
     const wood = glowMaterial({ kind: 'wood', color: '#54424a', color2: '#36282e', breakup: 0.3, scale: 0.1, bump: 0.8, vertexColors: true, rim: 0.6, fog });
     const iron = glowMaterial({ kind: 'iron', color: '#2a2a31', metalness: 0.45, roughness: 0.5, breakup: 0.12, scale: 0.04, bump: 0.3, vertexColors: true, rim: 1.1, fog });

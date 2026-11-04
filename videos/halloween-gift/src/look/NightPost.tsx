@@ -28,6 +28,7 @@ uniform float uFrame;
 uniform float uGrain;
 uniform vec3 uLiftLow;
 uniform vec3 uLiftHigh;
+uniform float uFoot;
 float fHash(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
@@ -40,6 +41,10 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   float k = (1.0 - smoothstep(0.86, 0.22, length(d))) * uVignette * mix(1.0, 0.55, smoothstep(0.5, 1.0, uv.y));
   vec3 dk = mix(vec3(0.55, 1.0, 1.0), vec3(1.0), smoothstep(0.15, 0.75, uv.y));
   c *= 1.0 - k * dk;
+  // the reference's foot: a deep maroon band across the bottom of the frame (its bottom fifth sits
+  // at about sRGB 45 20 22): green and blue go down much more than red
+  float foot = smoothstep(0.27, 0.02, uv.y) * uFoot;
+  c *= 1.0 - foot * vec3(0.4, 0.8, 0.82);
   // a painted floor: nothing goes black; plum low in the frame, slate high (the reference's darks
   // sit at about sRGB 40 14 16 low and 50 56 74 high)
   vec3 lift = mix(uLiftLow, uLiftHigh, smoothstep(0.05, 0.85, uv.y));
@@ -65,6 +70,8 @@ export class FinishEffect extends Effect {
         // the floor the final picture sits on (sRGB hex; the pass works in tone-mapped linear light)
         ['uLiftLow', new Uniform(new Color(liftLow))],
         ['uLiftHigh', new Uniform(new Color(liftHigh))],
+        // the maroon foot band's strength (set per frame: the door shots keep Clawd's feet clear)
+        ['uFoot', new Uniform(1)],
       ]),
     });
   }
@@ -89,8 +96,13 @@ export interface NightPostOptions {
   near?: string;
   far?: string;
   split?: number;
-  /** the warm-near hue shift, 0..1 */
+  /**
+   * the warm-near hue shift, 0..1 (off: by camera distance it turned every near thing orange in the
+   * close graveyard shots; the reference's warmth is the jack-o'-lantern's own light)
+   */
   warm?: number;
+  /** the maroon foot band across the bottom of the frame, 0..1 (eased per shot by the film) */
+  foot?: number;
 }
 
 export interface NightPostProps extends NightPostOptions {
@@ -104,7 +116,7 @@ const sstep = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, raysWeight = 0.1, dof = true, grain = 1, skyZ = -5.44, near = '#4a1a2e', far = '#2a5c80', split = 0, warm = 1 }: NightPostProps) {
+export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, raysWeight = 0.1, dof = true, grain = 1, skyZ = -5.44, near = '#4a1a2e', far = '#2a5c80', split = 0, warm = 0, foot = 1 }: NightPostProps) {
   const camera = useThree((s) => s.camera);
   const height = useThree((s) => s.size.height);
   const moon = useMemo(() => {
@@ -156,7 +168,10 @@ export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, ray
       hold.dof.cocMaterial.focusDistance = focus;
       hold.dof.cocMaterial.focusRange = Math.max(1.2, focus * 0.55);
     }
-    if (hold.finish) hold.finish.uniforms.get('uFrame')!.value = f;
+    if (hold.finish) {
+      hold.finish.uniforms.get('uFrame')!.value = f;
+      hold.finish.uniforms.get('uFoot')!.value = foot;
+    }
     if (hold.rays) {
       const at = moonOnPlane(camera.position, skyZ, new Vector3());
       const dist = at.distanceTo(camera.position);

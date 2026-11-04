@@ -29,7 +29,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { bump, fbm2 } from '../kit/field.ts';
 import { Curve, type P2 } from '../kit/spline.ts';
 import { storybookMaterial } from '../look/materials.ts';
-import { DOOR_FRONT, FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, groundHeight, houseFrame, LAND, PAGE, pageMask, PATH, pathDistance, pathHalfWidth, STONES } from './layout.ts';
+import { DOOR_FRONT, FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, groundHeight, groundHeightWith, houseFrame, LAND, PAGE, pageMask, PATH, PATH_POLYLINE, pathDistance, pathHalfWidth, rawHeightWith, STONES } from './layout.ts';
 
 // ---- fast, exact replicas of the layout's ground (verified when this module loads) ------------
 // layout's groundHeight costs ~90 µs a call (a 200-segment polyline scan with Math.hypot, and
@@ -180,27 +180,10 @@ class NearLine {
   }
 }
 
-const PATH_NEAR = new NearLine(PATH.polyline(200));
+const PATH_NEAR = new NearLine(PATH_POLYLINE);
 
-/** = layout's rawHeight */
-function rawFast(x: number, z: number): number {
-  const hill = 0.05 + 0.75 * smoothstep(1.4, -3.4, z) + 0.2 * bump(x, z, LAND.house.x, LAND.house.z, 2.6);
-  const back = 0.35 * bump(x, z, LAND.crag.x, LAND.crag.z + 0.4, 2.8);
-  const mounds = 0.2 * bump(x, z, LAND.ghostTree.x, LAND.ghostTree.z, 1.5) + 0.2 * bump(x, z, -5.0, 3.7, 2.3) + 0.26 * bump(x, z, 5.8, 3.9, 2.4) - 0.06 * bump(x, z, -0.6, 2.2, 1.8);
-  const lumps = 0.055 * fbm(x, z, 31, 4, 0.55) + 0.018 * fbm(x, z, 32, 3, 2.4);
-  return hill + back + mounds + lumps;
-}
-/** = layout's groundHeight */
-function groundFast(x: number, z: number): number {
-  const h = rawFast(x, z);
-  const { d, s } = PATH_NEAR.query(x, z);
-  const w = pathHalfWidth(s);
-  const t = smoothstep(w * 1.7, w * 0.7, d);
-  if (t === 0) return h * pageMask(x, z);
-  const p = PATH.pointAt(s);
-  const along = rawFast(p[0], p[1]) - 0.03;
-  return (h * (1 - t) + along * t) * pageMask(x, z);
-}
+/** = layout's groundHeight: the same formula (layout's factories) over the faster noise and path search */
+const groundFast = groundHeightWith(rawHeightWith(fbm), (x, z) => PATH_NEAR.query(x, z));
 
 /** True when the replicas match the layout exactly at a few hundred points (else: the layout's own). */
 const FAST = (() => {
