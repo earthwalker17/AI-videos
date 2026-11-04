@@ -15,8 +15,8 @@
  * The moon is HDR so the bloom haloes it; moonOnPlane gives the god rays' source.
  */
 import { useLayoutEffect, useMemo } from 'react';
-import { BackSide, Color, DoubleSide, ShaderMaterial, Vector3, type Side } from 'three';
-import { FLOOR } from '../world/layout.ts';
+import { BackSide, Color, DoubleSide, ShaderMaterial, Vector2, Vector3, type Side } from 'three';
+import { FLOOR, HERO, LAND } from '../world/layout.ts';
 import { NOISE3_GLSL, NOISE_GLSL } from './glsl.ts';
 import { NIGHT } from './materials.ts';
 
@@ -28,8 +28,15 @@ export const SKY_COLORS = {
   cloudDark: '#332c44',
   cloudLit: '#a3d9cf',
   glow: '#8fc6bb',
+  /** the luminous cyan haze behind the castle (the reference's brightest, most saturated sky) */
+  haze: '#2297b8',
   moon: '#eef3cf',
 } as const;
+
+/** toward the castle's haze from the hero eye (a direction: the sky stays at infinity) */
+const HAZE_DIR = new Vector3(LAND.crag.x - HERO.pos[0], 3.6 - HERO.pos[1], LAND.crag.z - HERO.pos[2]).normalize();
+/** its azimuth and elevation (the shader's: azimuth atan(x, −z), elevation asin(y)) */
+const HAZE_AE = new Vector2(Math.atan2(HAZE_DIR.x, -HAZE_DIR.z), Math.asin(HAZE_DIR.y));
 
 /** the moon's angular radius (radians) */
 export const MOON_RADIUS = 0.034;
@@ -47,7 +54,8 @@ const FRAG = /* glsl */ `
   ${NOISE_GLSL}
   ${NOISE3_GLSL}
   uniform float uSbTime, uMoonR, uHorizonEl, uIntensity, uFibre, uAlpha;
-  uniform vec3 uSbMoonDir, uTop, uMid, uHorizon, uCloud, uCloudDark, uCloudLit, uGlow, uMoon;
+  uniform vec3 uSbMoonDir, uTop, uMid, uHorizon, uCloud, uCloudDark, uCloudLit, uGlow, uMoon, uHaze;
+  uniform vec2 uHazeAE;
   varying vec3 vWorld;
   // a sheet ghost's silhouette in sky coordinates (centre c, size s): a dome over a tattered hem
   float ghost(vec2 p, vec2 c, float s, float lean) {
@@ -99,7 +107,16 @@ const FRAG = /* glsl */ `
     vec3 body = mix(uCloud, uCloudDark, smoothstep(thr + 0.05, thr + 0.35, d) * (1.0 - 0.6 * lit));
     body = mix(body, uMid * 0.85, 0.25 * (1.0 - smoothstep(0.05, 0.3, e)));
     vec3 cloudCol = body + uCloudLit * rim * (0.12 + 1.25 * lit) + uGlow * 0.18 * lit;
+    // the castle's haze: a wide luminous cyan behind it and down to the mist at its foot, the
+    // clouds thinning and lit through over it (the reference, about sRGB 28 121 148 beside the
+    // castle and 37 145 171 below it)
+    // a band: wide in azimuth, narrow in height (the sky above it stays dark slate)
+    float hzE = el - uHazeAE.y;
+    float hz = exp(-abs(az - uHazeAE.x) / 0.32 - max(hzE, 0.0) / 0.075 - max(-hzE, 0.0) / 0.05) * smoothstep(-0.04, 0.03, e);
+    cover *= 1.0 - 0.45 * hz;
+    cloudCol = mix(cloudCol, uHaze * 1.15, 0.45 * hz);
     col = mix(col + stars, cloudCol, cover * 0.94);
+    col = mix(col, uHaze, 0.55 * hz * (1.0 - cover * 0.6));
     // sheet ghosts hidden in the clouds, faint, upper left
     float gh = ghost(p, vec2(-0.55, 0.42), 0.07, 0.3) + ghost(p, vec2(-0.38, 0.5), 0.055, 0.2) + ghost(p, vec2(-0.72, 0.36), 0.06, 0.35) + ghost(p, vec2(-0.2, 0.47), 0.05, 0.15);
     col = mix(col, uCloudLit * 0.5, clamp(gh, 0.0, 1.0) * 0.2 * cover);
@@ -137,6 +154,8 @@ export function useSkyPortal({ dome = false }: SkyOptions = {}): ShaderMaterial 
         uCloudDark: { value: new Color(SKY_COLORS.cloudDark) },
         uCloudLit: { value: new Color(SKY_COLORS.cloudLit) },
         uGlow: { value: new Color(SKY_COLORS.glow) },
+        uHaze: { value: new Color(SKY_COLORS.haze) },
+        uHazeAE: { value: HAZE_AE },
         uMoon: { value: new Color(SKY_COLORS.moon) },
         uMoonR: { value: MOON_RADIUS },
         /** the horizon's elevation (radians): where the far hills meet the sky */

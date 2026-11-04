@@ -105,11 +105,30 @@ const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 /** the rim's height at angle th */
 function rimY(th: number): number {
   const R = rimR(th);
-  return crTop(CRAG_C.x + Math.cos(th) * R, CRAG_C.z + Math.sin(th) * R) - 0.05;
+  return crTop0(CRAG_C.x + Math.cos(th) * R, CRAG_C.z + Math.sin(th) * R) - 0.05;
 }
 
-/** the table's top height at (x, z): tilted down toward the viewer and down the right shoulder */
+/**
+ * The castle stands as built, then raised against the reference (2026-11-04 integration, measured
+ * at 1080p on the hero view: the reference's spires reach the frame's top and its buildings end
+ * near y 340 over a small outcrop): everything above LIFT_FROM (the crag, its road, the dead tree,
+ * the buildings) lifted LIFT, the crag stretched taller from the same foot (the far house, its
+ * knoll and the mist unchanged). BUILD_Y scales the buildings' height above the table (1: as built).
+ */
+const BUILD_Y = 1;
+const LIFT = 0.5;
+const LIFT_FROM = 0.2;
+/** the lift at castle-local height y (0 at the foot, LIFT from the table's top up) */
+const liftAt = (y: number) => LIFT * smoothstep(LIFT_FROM, TOP, y);
+
+/** the table's top height at (x, z) as the castle stands (castle-local): for anything placed on it */
 export function crTop(x: number, z: number): number {
+  const y = crTop0(x, z);
+  return y + liftAt(y);
+}
+
+/** the table's top height at (x, z) while it is built: tilted down toward the viewer and down the right shoulder */
+function crTop0(x: number, z: number): number {
   return 2.04 - 0.46 * smoothstep(-0.5, 0.95, z) - 0.34 * smoothstep(0.55, 1.55, x) + 0.03 * fbm2(x * 3.1, z * 3.1, 902, 3);
 }
 
@@ -132,7 +151,7 @@ function cragTable(out: Builder): void {
       const x = CRAG_C.x + cx * R * f;
       const z = CRAG_C.z + cz * R * f;
       // the rim rounds over a little
-      const y = crTop(x, z) - 0.05 * smoothstep(0.82, 1, f);
+      const y = crTop0(x, z) - 0.05 * smoothstep(0.82, 1, f);
       ring.push(new Vector3(x, y, z));
       sh.push(1.05 + 0.15 * fbm2(x * 2.5, z * 2.5, 903, 2) - 0.12 * smoothstep(0.9, 1, f));
     }
@@ -210,7 +229,7 @@ function catmull(pts: [number, number, number][], n: number): Vector3[] {
 
 /** A tapered polygonal tower from y0 to y1, leaning; vertex colour darker at its foot (one standing on the crag sinks into its top). */
 function tower(out: Builder, x: number, z: number, r0: number, r1: number, y0: number, y1: number, sides: number, lean: [number, number], turn = 0): void {
-  if (y0 <= TOP) y0 = Math.min(y0, crTop(x, z + r0) - 0.15, crTop(x, z - r0) - 0.15);
+  if (y0 <= TOP) y0 = Math.min(y0, crTop0(x, z + r0) - 0.15, crTop0(x, z - r0) - 0.15);
   for (let i = 0; i < sides; i++) {
     const a0 = turn + (i / sides) * TAU;
     const a1 = turn + ((i + 1) / sides) * TAU;
@@ -258,7 +277,7 @@ function coneRoof(out: Builder, x: number, z: number, r: number, y0: number, h: 
 
 /** An axis-aligned box with darker sides and foot (one standing on the crag sinks into its top). */
 function box(out: Builder, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, v = 1, a = 1): void {
-  if (y0 <= TOP && Math.hypot((x0 + x1) / 2 - CRAG_C.x, (z0 + z1) / 2 - CRAG_C.z) < 1.4) y0 = Math.min(y0, crTop(x0, z0) - 0.12, crTop(x1, z0) - 0.12, crTop(x0, z1) - 0.12, crTop(x1, z1) - 0.12);
+  if (y0 <= TOP && Math.hypot((x0 + x1) / 2 - CRAG_C.x, (z0 + z1) / 2 - CRAG_C.z) < 1.4) y0 = Math.min(y0, crTop0(x0, z0) - 0.12, crTop0(x1, z0) - 0.12, crTop0(x0, z1) - 0.12, crTop0(x1, z1) - 0.12);
   const p = (x: number, y: number, z: number) => new Vector3(x, y, z);
   const lo: RGBA = [v * 0.6, v * 0.6, v * 0.62, a];
   const hi: RGBA = [v, v, v, a];
@@ -359,9 +378,13 @@ function buildCastle(): CastleGeos {
   // the dead tree on the lip's tip
   {
     const tree = buildTree({ seed: 77, trunkLength: 0.42, trunkRadius: 0.028, levels: 3, lean: [-0.25, 0.05], roots: { count: 0, length: 0, radius: 0 }, minRadius: 0.004, tipRadius: 0.004, rim: 0.4 });
-    timber.add(tree, new Matrix4().makeTranslation(-1.55, crTop(-1.55, 0.06) - 0.06, 0.06).multiply(new Matrix4().makeRotationY(0.6)), [0.9, 0.9, 0.9, 1]);
+    timber.add(tree, new Matrix4().makeTranslation(-1.55, crTop0(-1.55, 0.06) - 0.06, 0.06).multiply(new Matrix4().makeRotationY(0.6)), [0.9, 0.9, 0.9, 1]);
     tree.dispose();
   }
+
+  // (where the buildings start in each builder: they are squashed toward the table after)
+  const bodies = [walls, roofs, timber, iron, warm, cyan];
+  const marks = bodies.map((b) => b.count);
 
   // the keep: tall, tapered, leaning, a jettied timber top on corbels, a tall hooked cone, a finial
   const keep = { x: 0.05, z: -0.18 };
@@ -436,7 +459,7 @@ function buildCastle(): CastleGeos {
   }
   // the right shoulder's lower house, by the road
   {
-    const y0 = crTop(1.2, 0.1) - 0.12;
+    const y0 = crTop0(1.2, 0.1) - 0.12;
     box(walls, 1.04, 1.34, y0, y0 + 0.34, -0.05, 0.2, 0.85);
     simpleGable(roofs, walls, { x0: 1.04, x1: 1.34, z0: -0.05, z1: 0.2, eave: y0 + 0.34, peak: y0 + 0.62, ridge: 'x', overhang: 0.04, verge: 0.03 });
   }
@@ -449,7 +472,7 @@ function buildCastle(): CastleGeos {
     simpleGable(roofs, walls, { x0: -0.27, x1: 0.26, z0: 0.18, z1: 0.42, eave: 2.42, peak: 2.6, ridge: 'x', overhang: 0.04, verge: 0.03 });
     box(walls, 0.6, 0.78, TOP - 0.1, 2.5, 0.3, 0.48, 0.95);
     tips.push(pyramidRoof(roofs, 0.6, 0.78, 0.3, 0.48, 2.5, 0.42, 0.03));
-    timber.quad(new Vector3(0.65, crTop(0.69, 0.5) - 0.02, 0.485), new Vector3(0.73, crTop(0.69, 0.5) - 0.02, 0.485), new Vector3(0.73, 2.16, 0.485), new Vector3(0.65, 2.16, 0.485), [0.35, 0.35, 0.35, 0.2]);
+    timber.quad(new Vector3(0.65, crTop0(0.69, 0.5) - 0.02, 0.485), new Vector3(0.73, crTop0(0.69, 0.5) - 0.02, 0.485), new Vector3(0.73, 2.16, 0.485), new Vector3(0.65, 2.16, 0.485), [0.35, 0.35, 0.35, 0.2]);
   }
 
   // the spires: a crooked thicket of thin towers at staggered heights, leaning every which way,
@@ -467,7 +490,7 @@ function buildCastle(): CastleGeos {
     { x: 0.27, z: 0.1, r: 0.075, y0: TOP - 0.1, y1: 3.22, h: 0.36, lean: [0.06, 0], hook: [0.1, 0], jetty: true },
   ];
   spires.forEach((s, i) => {
-    tower(walls, s.x, s.z, s.r, s.r * 0.9, Math.min(s.y0, crTop(s.x, s.z) - 0.15), s.y1, 8, s.lean, i);
+    tower(walls, s.x, s.z, s.r, s.r * 0.9, Math.min(s.y0, crTop0(s.x, s.z) - 0.15), s.y1, 8, s.lean, i);
     const tx = s.x + s.lean[0];
     const tz = s.z + s.lean[1];
     let top = s.y1;
@@ -486,7 +509,7 @@ function buildCastle(): CastleGeos {
   tower(walls, keep.x + 0.22, keep.z + 0.12, 0.075, 0.07, TOP - 0.1, 3.25, 8, [0.08, 0]);
   tips.push(coneRoof(roofs, keep.x + 0.3, keep.z + 0.12, 0.09, 3.25, 0.34, 8, [0.08, 0]));
   for (const x of [hall.x0 + 0.06, hall.x1 - 0.06]) {
-    const b0 = crTop(x, hall.z1 + 0.08) - 0.1;
+    const b0 = crTop0(x, hall.z1 + 0.08) - 0.1;
     walls.quad(new Vector3(x - 0.035, b0, hall.z1 + 0.13), new Vector3(x + 0.035, b0, hall.z1 + 0.13), new Vector3(x + 0.035, 2.4, hall.z1 + 0.005), new Vector3(x - 0.035, 2.4, hall.z1 + 0.005), [0.8, 0.8, 0.82, 0.7]);
   }
   // dark window recesses (unlit) scattered on the fronts
@@ -554,7 +577,7 @@ function buildCastle(): CastleGeos {
         [CRAG_C.x + Math.cos(thRim) * rimR(thRim) * 0.94, 0, CRAG_C.z + Math.sin(thRim) * rimR(thRim) * 0.94],
       ],
       6,
-    ).map((p) => new Vector3(p.x, crTop(p.x, p.z) + 0.014, p.z));
+    ).map((p) => new Vector3(p.x, crTop0(p.x, p.z) + 0.014, p.z));
     // switchbacks down the shoulder's face, in (angle, height)
     const legs: [number, number][] = [
       [thRim, rimY(thRim) - 0.06],
@@ -617,6 +640,16 @@ function buildCastle(): CastleGeos {
       prevB = Bp;
     }
   }
+
+  // the buildings squashed toward the table under them, then the crag, its road, the dead tree and
+  // the buildings lifted (BUILD_Y, LIFT: see crTop)
+  bodies.forEach((b, i) =>
+    b.warp((p) => {
+      const g = crTop0(p.x, p.z);
+      p.y = g + (p.y - g) * BUILD_Y;
+    }, marks[i]),
+  );
+  for (const b of [rock, road, ...bodies]) b.warp((p) => void (p.y += liftAt(p.y)));
 
   // the far house on its knoll at the crag's foot, clear of the cliff: a steep front gable in tiles,
   // a chimney up its left slope, one warm window and a door; the knoll a mound rising out of the hill
