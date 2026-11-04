@@ -294,6 +294,17 @@ export function applyPoints(pts: readonly V3[], m: Matrix4): V3[] {
   });
 }
 
+/**
+ * A hand-forged bar's radius at each of its `n` points: `r` swelling and thinning by about
+ * ±`amount` in two slow waves along it (phase `ph`), tapering by `taper` toward its end.
+ */
+export function swellRadii(n: number, r: number, amount: number, ph: number, taper = 0): number[] {
+  return Array.from({ length: n }, (_, i) => {
+    const t = n > 1 ? i / (n - 1) : 0;
+    return r * (1 + amount * (0.65 * Math.sin(t * 3.4 + ph) + 0.35 * Math.sin(t * 7.9 + ph * 1.7))) * (1 - taper * t);
+  });
+}
+
 /** Points along a straight bar from a to b with a gentle bow and wobble: `bend(t)` is the sideways offset vector at fraction t. */
 export function barPoints(a: V3, b: V3, n: number, bend?: (t: number) => V3): V3[] {
   _t.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]);

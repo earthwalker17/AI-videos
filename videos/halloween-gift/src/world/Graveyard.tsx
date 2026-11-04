@@ -10,20 +10,23 @@
  * stone's own colour: worn edges lighter, hollows darker, lichen blotches, rain streaks.
  *
  * Carving: the front faces sample one canvas atlas (drawn once, seeded): an albedo multiplier
- * (dark recesses, a light lip on the moon side) and a height for the bump. Worn pseudo
- * lettering, carved crosses, rings and arch borders; only the RIP stone says anything.
+ * (recesses a little darker than the face, weathered stone rather than ink, a light lip on the
+ * moon side) and a height for the bump, which carries the cut. Short epitaphs in carved capitals
+ * (a name, a date, a line; each letter worn to its own depth), carved crosses, rings and arch
+ * borders; the RIP stone's RIP IN PEACE cut deeper and darker.
  *
  * A few graves have an earth mound (or sunken earth) in front of the stone: a lumpy mesh lying
  * on the terrain, its edge pressed under the turf.
  *
- * Three draw calls (stone bodies, carved faces, earth), about 175k triangles; built in about 2 s.
+ * Four draw calls (stone bodies, the big cross's body, carved faces, earth), about 180k
+ * triangles; built in about 2 s.
  */
 import { rand, smoothstep } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferAttribute, BufferGeometry, CanvasTexture, Color, Euler, Matrix4, Quaternion, Vector3, type MeshStandardMaterial } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { breakField, chipped, chipSites, faceFacets, noise3, pseudoGlyph, stoneBounds, stoneField, strokeWord, surfaceNets, wordWidth, type NetMesh, type SDF, type StoneShape } from '../kit/stone.ts';
-import { storybookMaterial } from '../look/materials.ts';
+import { breakField, CARVED_GLYPHS, chipped, chipSites, faceFacets, noise3, stoneBounds, stoneField, strokeWord, surfaceNets, wordWidth, type Chip, type NetMesh, type SDF, type StoneShape, type V3 } from '../kit/stone.ts';
+import { NIGHT, storybookMaterial } from '../look/materials.ts';
 import { FLOOR, LAND, pathDistance, pathHalfWidth, STONES } from './layout.ts';
 import { surfaceHeight } from './Terrain.tsx';
 
@@ -56,6 +59,9 @@ interface Grave {
   /** chips knocked off */
   chips: number;
 }
+
+/** The big cross's grave id (after the stones and the RIP stone). */
+const CROSS_ID = STONES.length + 1;
 
 /** weathered limestone, granite and slate (sRGB): light stone, as the reference's moonlit graves */
 const PALETTE = ['#99aab3', '#8899a5', '#a9b5b6', '#a1a3a3', '#7d8d98', '#a2afb1'];
@@ -153,7 +159,7 @@ function graves(): Grave[] {
     lean: -0.15,
     tilt: -0.06,
     cell: 0.013,
-    color: new Color('#c9d1d4').multiplyScalar(1.3),
+    color: new Color('#c9d1d4').multiplyScalar(1.42),
     alpha: 0.7,
     motif: 'rip',
     lines: 0,
@@ -173,12 +179,13 @@ function graves(): Grave[] {
     sink: 0,
     arm: { at: 0.71, span: 0.94 * BC, hgt: 0.26 * BC },
     round: 0.008,
-    chamfer: 0.05,
-    roundVar: 0.8,
+    // (a narrow, wandering chamfer: an even broad bevel read as a greybox box)
+    chamfer: 0.03,
+    roundVar: 1,
     taper: 0.1,
     bulge: 0.06,
-    wear: 0.012,
-    wearFreq: 4,
+    wear: 0.016,
+    wearFreq: 5,
     plinth: { h: 0.16, out: 0.05 },
     cracks: [
       {
@@ -213,11 +220,12 @@ function graves(): Grave[] {
     lean: -CROSS_LEAN * Math.cos(crossYaw),
     tilt: CROSS_LEAN * Math.sin(crossYaw),
     cell: 0.0135,
-    color: new Color('#a3acb2').multiplyScalar(1.3),
+    // weathered maroon stone (the reference's dark plum cross, not pale plaster)
+    color: new Color('#9c7a7e').multiplyScalar(1.25),
     alpha: 0.5,
     motif: 'cross-panel',
     lines: 0,
-    chips: 26,
+    chips: 40,
   });
   return out;
 }
@@ -313,9 +321,6 @@ function lying(g: Grave, ground: GroundPatch): Matrix4 {
 
 // ---- the carving atlas ----------------------------------------------------------------------------
 
-/** A canvas that draws nothing (lays out lettering before it is cut). */
-const NOOP_CTX = { beginPath() {}, moveTo() {}, lineTo() {}, stroke() {} } as unknown as CanvasRenderingContext2D;
-
 /** The big cross's sunk panel border (stone-local x, y): inset from its stem and arms, open at the foot. */
 function crossPanel(s: StoneShape): [number, number][] {
   const a = s.arm!;
@@ -341,6 +346,24 @@ function crossPanel(s: StoneShape): [number, number][] {
 }
 
 const ATLAS = 2048;
+/** a carving's recess, as a fraction of the plate's albedo: the borders and crosses, the epitaphs, the RIP stone's letters */
+const TONE = 0.55;
+const LETTER_TONE = 0.7;
+const RIP_TONE = 0.42;
+
+/** Short epitaphs, one per lettered stone (seeded): a name, a date, a line. */
+const EPITAPHS: string[][] = [
+  ['HERE LIES', 'THOMAS', '1801-1866'],
+  ['IN MEMORY', 'OF ANNE', '1799'],
+  ['BELOVED', 'MARY', 'AGED 77'],
+  ['SLEEP WELL', 'HENRY', '1790-1851'],
+  ['ELSA', '1888'],
+  ['GONE HOME', '1842'],
+  ['R.I.P.', 'WALTER', '1812-1870'],
+  ['FOREVER', 'MISSED'],
+  ['OLD TOM', '1777'],
+  ['HERE RESTS', 'A GOOD DOG'],
+];
 /** canvas value of an uncarved face (the face material scales by its inverse) */
 const PLATE = 200;
 
@@ -368,7 +391,7 @@ function cellFor(g: Grave, slot: number): Cell {
   let pw: number;
   let ph: number;
   if (g.motif === 'rip') [px, py, pw, ph] = [0, 1152, 512, 768];
-  else if (g.id === STONES.length + 1) [px, py, pw, ph] = [512, 1152, 512, 896];
+  else if (g.id === CROSS_ID) [px, py, pw, ph] = [512, 1152, 512, 896];
   else [px, py, pw, ph] = [(slot % 8) * 256, Math.floor(slot / 8) * 384, 256, 384];
   const k = Math.min((pw - 8) / (r.x1 - r.x0), (ph - 8) / (r.y1 - r.y0));
   // centred in the cell
@@ -395,7 +418,7 @@ function drawCarving(a: CanvasRenderingContext2D, h: CanvasRenderingContext2D, g
    * bump's share, 0 where the geometry is cut already). The albedo paints the cut as lit from
    * above: a light lower lip (the wall that faces up), the dark recess, a darker upper wall.
    */
-  const groove = (p: (ctx: CanvasRenderingContext2D) => void, w: number, depth = 1, fill = false, hDepth = depth) => {
+  const groove = (p: (ctx: CanvasRenderingContext2D) => void, w: number, depth = 1, fill = false, hDepth = depth, tone = TONE) => {
     const px = w * c.k;
     const draw = (ctx: CanvasRenderingContext2D) => {
       p(ctx);
@@ -423,56 +446,61 @@ function drawCarving(a: CanvasRenderingContext2D, h: CanvasRenderingContext2D, g
       draw(a);
       a.restore();
     };
-    layer('#ffffff', 0.85, w * 0.9, w * 0.12, -w * 0.42);
-    layer('#1a1a1e', 0.95, w, 0, 0);
-    layer('#050506', 0.75, w * 0.5, 0, w * 0.24);
+    // the recess darkens to `tone` of the plate (weathered stone, not ink: the bump carries the cut),
+    // its upper wall a little darker still; the lower lip catches the light
+    const grey = (k: number) => {
+      const v = Math.round(PLATE * k);
+      return `rgb(${v},${v},${v})`;
+    };
+    layer('#ffffff', 0.7, w * 0.9, w * 0.12, -w * 0.42);
+    layer(grey(tone), 1, w, 0, 0);
+    layer(grey(tone * 0.78), 0.6, w * 0.5, 0, w * 0.24);
   };
   const hw = s.w / 2;
   const top = s.kind === 'cross' ? s.h : s.h;
-  // worn lettering: centred lines of even cap height, words of worn capitals (never readable)
+  // an epitaph: centred lines of carved capitals (the mason's alphabet), each letter worn to its own depth
+  const epitaph = EPITAPHS[Math.floor(r(90) * EPITAPHS.length)];
   const lettering = (yTop: number, lines: number, width: number, gh: number) => {
     let y = yTop;
-    for (let l = 0; l < lines; l++) {
-      const size = l === 0 ? gh * 1.12 : gh * (0.84 + 0.1 * r(120 + l));
-      const sp = size * 0.2;
-      const lineW = width * (l === 0 ? 0.78 + 0.22 * r(100 + l) : 0.5 + 0.45 * r(100 + l));
-      // lay the line out first (glyph widths from a dry run), then centre it
-      const items: { k: number; w: number }[] = [];
-      let used = 0;
-      let inWord = 0;
-      let wordLen = 3 + Math.floor(r(130 + l) * 5);
-      for (let k = 0; k < 40; k++) {
-        const kk = 1000 + l * 50 + k * 13;
-        if (inWord >= wordLen) {
-          items.push({ k: -1, w: size * 0.45 });
-          used += size * 0.45;
-          inWord = 0;
-          wordLen = 2 + Math.floor(r(kk + 7) * 6);
-          continue;
-        }
-        const w = pseudoGlyph(NOOP_CTX, 0, 0, size, (q) => r(kk + q));
-        if (used + w > lineW) break;
-        items.push({ k: kk, w });
-        used += w + sp;
-        inWord++;
-      }
-      while (items.length && items[items.length - 1].k < 0) used -= items.pop()!.w;
-      let x = -used / 2 + (r(110 + l) - 0.5) * 0.008;
-      for (const it of items) {
-        if (it.k >= 0) {
-          const x0 = x;
+    const text = epitaph.slice(0, Math.max(1, Math.min(lines, epitaph.length)));
+    text.forEach((line, l) => {
+      let size = l === 0 ? gh * 1.12 : gh * (0.86 + 0.08 * r(120 + l));
+      const sp = 0.16;
+      // fit the face: condense a little first (a mason's cut), then cut smaller
+      const w0 = wordWidth(line, sp) * size;
+      const cond = Math.max(0.78, Math.min(1, width / w0));
+      if (w0 * cond > width) size *= width / (w0 * cond);
+      const ww = wordWidth(line, sp) * size * cond;
+      let x = -ww / 2 + (r(110 + l) - 0.5) * 0.006;
+      const slant = (r(111 + l) - 0.5) * 0.04;
+      const base = y - size;
+      [...line].forEach((ch, k) => {
+        const glyph = CARVED_GLYPHS[ch];
+        if (!glyph) return;
+        const x0 = x;
+        if (ch !== ' ') {
+          // weathered: most letters cut clean, some shallow, a few nearly gone
+          const q = r(1000 + l * 50 + k);
+          const depth = q < 0.12 ? 0.3 : q < 0.35 ? 0.6 : 0.8 + 0.2 * r(1500 + l * 50 + k);
+          const jit = (j: number) => (rand(900 + g.id, `ep${l}:${k}`, j) - 0.5) * 0.03;
           groove(
             (ctx) => {
-              pseudoGlyph(ctx, x0, y, size, (q) => r(it.k + q));
+              ctx.save();
+              ctx.scale(cond, -1);
+              strokeWord(ctx, ch, x0 / cond, -base, size, { spacing: sp, jitter: jit, slant });
+              ctx.restore();
             },
-            size * 0.17,
-            0.55 + 0.45 * r(it.k + 11),
+            size * 0.2,
+            depth,
+            false,
+            depth,
+            LETTER_TONE,
           );
-          x += it.w + sp;
-        } else x += it.w;
-      }
-      y -= size * 1.65;
-    }
+        }
+        x += (glyph.w + sp) * size * cond;
+      });
+      y -= size * 1.6;
+    });
   };
   // an incised line following the stone's outline, inset
   const archBorder = (inset: number) => {
@@ -600,12 +628,12 @@ function drawCarving(a: CanvasRenderingContext2D, h: CanvasRenderingContext2D, g
         strokeWord(ctx, text, x / cond, -base, size, { spacing: sp, jitter: (k) => jit(k + k0), slant });
         ctx.restore();
       };
-      groove(word('RIP', -wR / 2, 0.47, big, 0.24, 0, 0.03), 0.032, 1);
+      groove(word('RIP', -wR / 2, 0.47, big, 0.24, 0, 0.03), 0.034, 1, false, 1, RIP_TONE);
       // as wide as the face allows inside the border (0.55 of the 0.62), condensed: 0.62 of RIP's height
       const small = 0.115;
       const cond = 0.8;
       const wP = wordWidth('IN PEACE', 0.12) * small * cond;
-      groove(word('IN PEACE', -wP / 2, 0.29, small, 0.12, 400, 0.02, cond), 0.02, 1);
+      groove(word('IN PEACE', -wP / 2, 0.29, small, 0.12, 400, 0.02, cond), 0.022, 1, false, 1, RIP_TONE);
       break;
     }
     default:
@@ -646,6 +674,11 @@ function carvingAtlas(list: Grave[], cells: Cell[]): { albedo: CanvasTexture; he
 // ---- building ---------------------------------------------------------------------------------
 
 const MOSS = new Color('#4f6a56');
+/** the big cross's moss (dark olive) and lichen (a dry grey-green crust) */
+const CROSS_MOSS = new Color('#3c4a36');
+const CROSS_LICHEN = new Color('#9aa08a');
+/** toward the moon (the cross's shaded side faces away from it) */
+const MOON = NIGHT.uSbMoonDir.value.clone().normalize();
 const LICHEN = new Color('#c4cdbd');
 const DAMP = new Color('#2c2a30');
 const ss = smoothstep;
@@ -676,6 +709,8 @@ function bake(p: Piece, cell: Cell, body: BufferGeometry[], face: BufferGeometry
   const n = new Vector3();
   const c = new Color();
   const seed = g.shape.seed;
+  const rip = g.motif === 'rip';
+  const bigCross = g.id === CROSS_ID;
   for (let i = 0; i < nv; i++) {
     const lx = mesh.positions[i * 3];
     const ly = mesh.positions[i * 3 + 1];
@@ -696,12 +731,23 @@ function bake(p: Piece, cell: Cell, body: BufferGeometry[], face: BufferGeometry
     c.multiplyScalar((1 + 1.1 * ss(0.04, 0.35, conv)) * (0.45 + 0.55 * ss(-0.4, -0.02, conv)) * (0.55 + 0.45 * open));
     // weathered lighter toward the top, darker and damper toward the foot; mottled light and dark
     c.multiplyScalar(0.72 + 0.5 * ss(-0.05, 1.0, ly / Math.max(0.2, g.shape.h)));
-    c.multiplyScalar(0.5 + 0.95 * (0.65 * noise3(lx * 7.5, ly * 7.5, lz * 7.5, seed + 20) + 0.35 * noise3(lx * 19, ly * 19, lz * 19, seed + 19)));
+    // (the RIP stone's face mottled less: its lettering must read through it)
+    const mott = rip ? [0.78, 0.44] : [0.5, 0.95];
+    c.multiplyScalar(mott[0] + mott[1] * (0.65 * noise3(lx * 7.5, ly * 7.5, lz * 7.5, seed + 20) + 0.35 * noise3(lx * 19, ly * 19, lz * 19, seed + 19)));
     // lichen blotches (pale) and moss patches (dark green) in the stone's own frame
     const l1 = noise3(lx * 11, ly * 11, lz * 11, seed + 21) + 0.5 * noise3(lx * 29, ly * 29, lz * 29, seed + 22);
-    c.lerp(LICHEN, ss(0.84, 1.04, l1) * 0.75);
+    c.lerp(LICHEN, ss(0.84, 1.04, l1) * (rip ? 0.35 : 0.75));
     const mo = noise3(lx * 6, ly * 6, lz * 6, seed + 23) + 0.4 * noise3(lx * 17, ly * 17, lz * 17, seed + 24) + 0.35 * Math.max(0, ny) + 0.25 * ss(-0.1, -0.35, conv);
     c.lerp(MOSS, ss(0.9, 1.2, mo) * 0.7);
+    if (bigCross) {
+      // the big cross: weathered maroon stone, darker and mossy on its shaded side, pale lichen
+      // crusts in blotches, dark rain streaks and grime in its hollows
+      const shadeSide = ss(0.15, -0.55, n.dot(MOON));
+      const mb = noise3(lx * 5, ly * 5, lz * 5, seed + 30) + 0.5 * noise3(lx * 14, ly * 14, lz * 14, seed + 31);
+      c.lerp(CROSS_MOSS, ss(0.6, 1.1, mb + 0.4 * shadeSide) * (0.15 + 0.3 * shadeSide));
+      c.lerp(CROSS_LICHEN, ss(0.95, 1.15, noise3(lx * 9, ly * 9, lz * 9, seed + 32) + 0.5 * noise3(lx * 23, ly * 23, lz * 23, seed + 33)) * 0.55 * (1 - 0.6 * shadeSide));
+      c.multiplyScalar(1 - 0.35 * ss(0.5, 0.8, noise3(lx * 30, ly * 1.6, lz * 30, seed + 34)) - 0.25 * ss(-0.05, -0.4, conv));
+    }
     // rain streaks down the faces from the top
     const st = noise3(lx * 38, ly * 2.2, lz * 38, seed + 25);
     c.multiplyScalar(1 - 0.28 * ss(0.55, 0.85, st) * (1 - Math.abs(ny)));
@@ -828,9 +874,33 @@ function compact(g: BufferGeometry): BufferGeometry {
   return out;
 }
 
+/**
+ * The big cross's damage: a corner of its right arm broken off (a big flat break), its stem's top
+ * and its left arm's end knocked, a bite out of an arm's underside (stone-local).
+ */
+function crossBreaks(s: StoneShape): Chip[] {
+  const at = s.arm!.at * s.h;
+  const hs = s.arm!.span / 2;
+  const hh = s.arm!.hgt / 2;
+  const hw = s.w / 2;
+  const ht = s.t / 2;
+  const n = (x: number, y: number, z: number): V3 => {
+    const l = Math.hypot(x, y, z);
+    return [x / l, y / l, z / l];
+  };
+  return [
+    { c: [hs, at + hh, ht * 0.3], n: n(1, 1.1, 0.35), depth: 0.055, radius: 0.15, scoop: false },
+    { c: [hs * 0.98, at - hh, ht], n: n(0.6, -0.7, 0.8), depth: 0.025, radius: 0.08, scoop: true },
+    { c: [-hw, s.h, ht * 0.6], n: n(-1, 1.2, 0.7), depth: 0.04, radius: 0.11, scoop: false },
+    { c: [-hs, at + hh * 0.2, ht], n: n(-1, 0.3, 0.9), depth: 0.03, radius: 0.09, scoop: false },
+    { c: [-hs * 0.55, at - hh, 0], n: n(0, -1, 0.3), depth: 0.022, radius: 0.07, scoop: true },
+    { c: [hw * 0.9, s.h * 0.4, ht], n: n(1, 0.1, 1), depth: 0.02, radius: 0.08, scoop: false },
+  ];
+}
+
 /** Mesh one grave (and its fallen top). */
 function meshGrave(g: Grave): Piece[] {
-  const ground = new GroundPatch(g.x, g.z, g.fallen ? 0.62 : g.id === STONES.length + 1 ? 0.8 : 0.45, 0.065);
+  const ground = new GroundPatch(g.x, g.z, g.fallen ? 0.62 : g.id === CROSS_ID ? 0.8 : 0.45, 0.065);
   const st = standing(g, ground);
   const shape: StoneShape = { ...g.shape, sink: st.sink };
   const b = stoneBounds(shape);
@@ -845,9 +915,10 @@ function meshGrave(g: Grave): Piece[] {
   const big = Math.min(2, shape.h / 0.5);
   // (none on the RIP stone: a tilted flat cut on its side, ending at its ball, steps its outline
   // beside the lettering and reads as a ledge)
-  const dressed = g.motif === 'rip' ? 0 : shape.kind === 'cross' ? Math.round(8 * big) : Math.round(10 + 6 * big);
-  const facets = faceFacets(raw, b.min, b.max, dressed, (k) => rand(g.shape.seed, 'facets', k), { depth: [0.0025, 0.006], radius: [0.06 * big, 0.12 * big], tilt: [0.05, 0.13], minY: 0.02 });
-  const field = chipped(raw, [...chips, ...facets]);
+  const crossBig = g.id === CROSS_ID;
+  const dressed = g.motif === 'rip' ? 0 : crossBig ? 34 : shape.kind === 'cross' ? Math.round(8 * big) : Math.round(10 + 6 * big);
+  const facets = faceFacets(raw, b.min, b.max, dressed, (k) => rand(g.shape.seed, 'facets', k), { depth: crossBig ? [0.004, 0.011] : [0.0025, 0.006], radius: [0.06 * big, 0.12 * big], tilt: [0.05, 0.13], minY: 0.02 });
+  const field = chipped(raw, [...chips, ...facets, ...(crossBig ? crossBreaks(shape) : [])]);
   const fracture = shape.split ? { brk: breakField(shape), body: stoneField({ ...shape, split: undefined }) } : undefined;
   const out: Piece[] = [{ grave: g, mesh: surfaceNets(field, b.min, b.max, g.cell), m: st.m, ground, fracture }];
   if (g.fallen && shape.split) {
@@ -932,6 +1003,8 @@ function moundGeometry(list: Grave[]): BufferGeometry | null {
 
 export interface GraveyardBuild {
   body: BufferGeometry;
+  /** the big cross's body (its own paint: a little lichen on its tops, no pale cap) */
+  cross: BufferGeometry;
   face: BufferGeometry;
   earth: BufferGeometry | null;
   albedo: CanvasTexture;
@@ -943,16 +1016,17 @@ export function buildGraveyard(): GraveyardBuild {
   const list = graves();
   const cells = list.map((g, i) => cellFor(g, i));
   const body: BufferGeometry[] = [];
+  const crossBody: BufferGeometry[] = [];
   const face: BufferGeometry[] = [];
   list.forEach((g, i) => {
-    for (const p of meshGrave(g)) bake(p, cells[i], body, face);
+    for (const p of meshGrave(g)) bake(p, cells[i], g.id === CROSS_ID ? crossBody : body, face);
   });
   const mb = mergeGeometries(body);
+  const mc = mergeGeometries(crossBody);
   const mf = mergeGeometries(face);
-  body.forEach((x) => x.dispose());
-  face.forEach((x) => x.dispose());
+  [...body, ...crossBody, ...face].forEach((x) => x.dispose());
   const { albedo, height } = carvingAtlas(list, cells);
-  return { body: mb, face: mf, earth: moundGeometry(list), albedo, height };
+  return { body: mb, cross: mc, face: mf, earth: moundGeometry(list), albedo, height };
 }
 
 /**
@@ -963,12 +1037,14 @@ export function buildGraveyard(): GraveyardBuild {
 export const STONE_AMBIENT = 0.85;
 
 /** The stones' paint: a cool storybook stone, its colour in the vertex colours, pale moonlit lichen on the tops. */
-function stoneMaterials(albedo: CanvasTexture, height: CanvasTexture): { body: MeshStandardMaterial; face: MeshStandardMaterial; earth: MeshStandardMaterial } {
+function stoneMaterials(albedo: CanvasTexture, height: CanvasTexture): { body: MeshStandardMaterial; cross: MeshStandardMaterial; face: MeshStandardMaterial; earth: MeshStandardMaterial } {
   const common = { kind: 'stone' as const, color2: '#a2c4d2', vertexColors: true, breakup: 0.4, scale: 0.085, bump: 1.3, topCoat: 0.6, rim: 0.5, ambient: STONE_AMBIENT, roughness: 0.88 };
   const body = storybookMaterial({ ...common, color: '#ffffff' });
+  // the big cross: a grey-green lichen dusting on its tops (a pale cap read as snow), a coarser bump
+  const cross = storybookMaterial({ ...common, color: '#ffffff', color2: '#77806e', topCoat: 0.2, breakup: 0.5, scale: 0.11, bump: 1.8 });
   const face = storybookMaterial({ ...common, color: new Color(1, 1, 1).multiplyScalar(255 / PLATE), map: albedo, bumpMap: height, bumpScale: 4 });
   const earth = storybookMaterial({ kind: 'earth', color: '#ffffff', color2: '#2a2124', vertexColors: true, breakup: 0.3, scale: 0.05, bump: 0.9, rim: 0.5, roughness: 0.95 });
-  return { body, face, earth };
+  return { body, cross, face, earth };
 }
 
 /** The tombstones, the big cross and the RIP stone, with the earth on some graves. */
@@ -980,6 +1056,7 @@ export function Graveyard() {
   useLayoutEffect(
     () => () => {
       built.body.dispose();
+      built.cross.dispose();
       built.face.dispose();
       built.earth?.dispose();
       built.albedo.dispose();
@@ -991,6 +1068,7 @@ export function Graveyard() {
   return (
     <>
       <mesh geometry={built.body} material={built.mats.body} castShadow receiveShadow />
+      <mesh geometry={built.cross} material={built.mats.cross} castShadow receiveShadow />
       <mesh geometry={built.face} material={built.mats.face} castShadow receiveShadow />
       {built.earth && <mesh geometry={built.earth} material={built.mats.earth} receiveShadow />}
     </>
@@ -999,7 +1077,7 @@ export function Graveyard() {
 
 /** The big cross's frame (stone-local → world) and its dimensions, for things anchored on it (the webs at its foot). */
 export function bigCrossFrame(): { m: Matrix4; stemHalf: number; armAt: number; armHalfSpan: number; armHalfHeight: number; halfThickness: number } {
-  const g = graves()[STONES.length + 1];
+  const g = graves()[CROSS_ID];
   const st = standing(g, new GroundPatch(g.x, g.z, 0.8, 0.065));
   const s = g.shape;
   return { m: st.m, stemHalf: s.w / 2, armAt: s.arm!.at * s.h, armHalfSpan: s.arm!.span / 2, armHalfHeight: s.arm!.hgt / 2, halfThickness: s.t / 2 };

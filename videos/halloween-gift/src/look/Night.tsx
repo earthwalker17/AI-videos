@@ -1,8 +1,9 @@
 /**
  * The night's light: the moon as one shadow-casting directional light from behind the world
- * (upper right, as in the reference, so every silhouette gets a rim), a teal sky / maroon ground
- * hemisphere, and a faint fill from the camera side that models faces (look/materials.ts's
- * storybook ambient keeps them off black, plum near the lens and teal beyond). A fixed set of lights:
+ * (upper right, low, as in the reference, so silhouettes get a rim), a violet-slate sky / maroon
+ * ground hemisphere, and a faint fill from the camera side that models faces (look/materials.ts's
+ * storybook ambient carries the reference's colour logic: maroon near the lens, plum slate in the
+ * mid-ground, the haze's cyan far off). A fixed set of lights:
  * lights never mount or unmount (that recompiles every material mid-chunk); practicals that come
  * and go change their intensity instead. Sets the storybook materials' shared uniforms.
  */
@@ -34,13 +35,14 @@ export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 
   return (
     <>
       <primitive object={target} />
-      <hemisphereLight args={['#4a7fa3', '#2c1628', 0.4]} />
+      {/* the sky's fill a violet slate (a teal one turned every up-facing thing near the lens blue-grey) */}
+      <hemisphereLight args={['#56587a', '#2c1628', 0.4]} />
       <directionalLight
         castShadow
         target={target}
         position={[cx + dir.x * D, FLOOR + dir.y * D, cz + dir.z * D]}
         intensity={2.6 * moon}
-        color="#c6dff0"
+        color="#b4e2f0"
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-shadow.hw}
         shadow-camera-right={shadow.hw}

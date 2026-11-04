@@ -6,15 +6,16 @@
  * moving average of his path, so his hops never shake the frame), swings round behind him and
  * rises as he climbs to the gates while the mist parts, follows him through the gateway and along
  * the lane, and arrives on the knock at V1's door two-shot. The door spread is V1's approved camera,
- * carried onto the house (fromV1Door, DOOR_SCALE; focus distances scaled too). Clawd's exit is a
- * follow; as he trots off the camera cranes up and out of the book onto the desk, the cover's
- * printed sky swinging down over the world, and lands on the slam: one path, no cut at all.
+ * carried onto the house (fromV1Door, DOOR_SCALE; focus distances scaled too). As Clawd trots off
+ * the camera swings up round him and backs away out of the book onto the desk, where the whole
+ * open book shows with its cover standing; the cover swings down (the world folding flat under it)
+ * and slams, and the camera eases in on the closed book for the end card: one path, no cut at all.
  *
  * Every pose is a pure function of the film frame: CamPath (centripetal Catmull-Rom through the
  * keys, a monotone C1 time warp, zero velocity only at holds).
  */
-import { lerp } from '@aiv/core';
-import { at, BAR, BEAT, FILM_FRAMES } from '../cues.ts';
+import { lerp, smoothstep } from '@aiv/core';
+import { at, BEAT, FILM_FRAMES } from '../cues.ts';
 import { DOOR_SCALE, FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, fromHouse, fromV1Door, GATE_POSTS, groundHeight, HERO, LAMPS, LAND, STONES } from '../world/layout.ts';
 import { clawdAt, ROUTE, routeAt } from './blocking.ts';
 import { CamPath, type CamKey, type CamPose } from './campath.ts';
@@ -224,8 +225,8 @@ const DESK_A: K = { pos: [12.6, 9.6, 16.8], look: [0, 1.3, 0], fov: 30, focus: 2
 const DESK_B: K = { pos: [9.4, 10.4, 17.6], look: [0, 1.5, 0.2], fov: 30, focus: 21 };
 /** Over the opening book, pushing in: the world grows out of the page below (not high above it: the crane down must stay gentle) */
 const OVER: K = { pos: [2.0, 8.6, 12.2], look: [0.6, FLOOR + 0.4, 0.4], fov: 36, focus: 13.5 };
-/** a three-quarter close on the pop-up spot beside the giant pumpkin */
-const POP: K = { pos: [0.15, FLOOR + 0.95, 5.3], look: [-0.95, FLOOR + 0.42, 3.05], fov: 36, focus: 2.6 };
+/** a three-quarter close on the pop-up spot beside the giant pumpkin: its face right of caption 1 (top left), its stem in frame */
+const POP: K = { pos: [0.0, FLOOR + 0.92, 4.85], look: [-1.4, FLOOR + 0.56, 2.9], fov: 44, focus: 2.43 };
 
 const truckFrames = (from: number, to: number, step: number) => {
   const out: number[] = [];
@@ -309,67 +310,95 @@ const V1_DOOR: { f: number; pos: V3; look: V3; fov: number; focus: number; hold?
   { f: at(33), pos: [0.9, V1F + 0.55, 2.7], look: [0.9, V1F + 0.5, 0.4], fov: 30, focus: 2.3, hold: true },
 ];
 
+/** the door spread's last hold (V1's at(33) key, carried onto the house): the pull-out starts from it */
+const DOOR_LAST: K = (() => {
+  const k = V1_DOOR[V1_DOOR.length - 1];
+  return { pos: fromV1Door(k.pos), look: fromV1Door(k.look), fov: k.fov, focus: k.focus * DOOR_SCALE };
+})();
+
 function doorKeys(): CamKey[] {
   return V1_DOOR.map((k) => ({ f: k.f, pos: fromV1Door(k.pos), look: fromV1Door(k.look), fov: k.fov, focus: k.focus * DOOR_SCALE, ...(k.hold ? { hold: true } : {}) }));
 }
 
-/** Clawd's exit: the camera trucks with him toward the far window (V1's follow offsets, scaled and turned), until the pull-out takes over. */
-function exitKeys(): CamKey[] {
-  const yaw = LAND.house.yaw ?? 0;
-  const turn = (x: number, z: number): [number, number] => [x * Math.cos(yaw) + z * Math.sin(yaw), -x * Math.sin(yaw) + z * Math.cos(yaw)];
-  const keys: CamKey[] = [];
-  for (const f of truckFrames(at(33, 2) + 6, OUT_OF_BOOK[0], 6)) {
-    const c = smoothed(f, 6);
-    const [lx, lz] = turn(0.9 * DOOR_SCALE, -2.0 * DOOR_SCALE);
-    const [px, pz] = turn(-1.1 * DOOR_SCALE, 2.8 * DOOR_SCALE);
-    keys.push({ f, pos: [c[0] + px, c[1] + 0.8 * DOOR_SCALE, c[2] + pz], look: [c[0] + lx, c[1] + 0.85 * DOOR_SCALE, c[2] + lz], fov: 34, focus: 3.0 * DOOR_SCALE });
-  }
-  return keys;
-}
+/**
+ * Out of the book (no cut): from the door's last hold the camera trucks right alongside Clawd as
+ * he trots off (the far window flips cold behind him), clear of the ghost tree on its right; then
+ * it pulls straight back and up out of the story onto the desk, mostly along its own line of sight
+ * (the world shrinks away rather than sliding across the frame); the immersion fades as it goes
+ * (film/beats.ts immersionAt: the dome, the fog and the foot band go and the room comes back).
+ * Its first frame, and the slam.
+ */
+export const OUT_OF_BOOK: readonly [number, number] = [at(33) + 6, at(35)];
+/** The cover comes down from the score's close riffle on at(34, 2) to the slam on 'book-slam' (film/beats.ts coverAt). */
+export const COVER_CLOSE: readonly [number, number] = [at(34, 2), at(35)];
+/**
+ * The crane out of the book. The camera leads Clawd as he trots off toward it, rises and pulls
+ * back past the ghost tree's far side (the tree stays out of the lens's way), and arrives on the
+ * desk well back, where the whole open book shows with its cover still standing behind the world.
+ * From there the cover is seen swinging down (film/beats.ts coverAt: from the riffle on at(34, 2),
+ * accelerating into the slam) while the world folds flat under it. After the slam the camera eases
+ * in on the closed book for the end card.
+ */
+const SLAM_WIDE: K = { pos: [14.4, 11.6, 16.4], look: [0.4, 3.4, -0.3], fov: 38, focus: 23.3 };
+/** where the camera has crept in to by the slam */
+const SLAM: K = { pos: [13.9, 11.3, 15.9], look: [0.4, 3.25, -0.25], fov: 38, focus: 22.5 };
+/** the end card: the closed book nearer, its cover behind the end card's words */
+const END: K = { pos: [8.4, 12.2, 18.6], look: [0.2, 2.6, -0.2], fov: 34, focus: 21.2 };
 
 /**
- * Out of the book (no cut): as Clawd trots off, the camera cranes up and back out of the story,
- * past the ghost tree on its right and over the page's front corner, onto the desk's framing of
- * the book for the slam; the immersion fades as it goes (film/beats.ts immersionAt: the dome, the
- * fog and the foot band go and the room comes back), and from up there the cover's printed sky
- * swings down over the miniature world like a lid. Its first frame, and the slam.
+ * The pull-out's shape (outKeys): from the door's last hold it orbits up round Clawd to his right
+ * (ORBIT: the ghost tree's low limbs reach to x 5.4 only, so the camera leaves on its right) and
+ * then backs away along a line toward SLAM_WIDE, its distance from what it looks at growing by a
+ * steady factor each frame (the world shrinks evenly instead of sliding across the frame), its aim
+ * moving from Clawd onto the book late, when everything is far away.
  */
-export const OUT_OF_BOOK: readonly [number, number] = [at(34) - 12, at(35)];
-/** The cover comes down from at(34, 3) to the slam on 'book-slam' (film/beats.ts coverAt). */
-export const COVER_CLOSE: readonly [number, number] = [at(34, 3), at(35)];
-/** the desk's framing of the book (the opening's, pulled back a little) for the slam and the end card */
-const DESK_SLAM: K = { pos: [7.4, 6.4, 13.8], look: [0, 1.1, 0.4], fov: 30, focus: 15 };
-
+const ORBIT = { az: (50 * Math.PI) / 180, el: (24 * Math.PI) / 180, d: 2.1 };
+const RISE = (24 * Math.PI) / 180;
 function outKeys(): CamKey[] {
-  const [f0, f1] = OUT_OF_BOOK;
-  const span = f1 - f0;
-  const lookAt = (f: number, u: number): V3 => {
+  const f0 = at(33);
+  const f1 = COVER_CLOSE[0] + 10;
+  const start = DOOR_LAST;
+  const sw = SLAM_WIDE.pos;
+  const swl = SLAM_WIDE.look;
+  const d1 = Math.hypot(sw[0] - swl[0], sw[1] - swl[1], sw[2] - swl[2]);
+  const dir1: V3 = [(sw[0] - swl[0]) / d1, (sw[1] - swl[1]) / d1, (sw[2] - swl[2]) / d1];
+  const az1 = Math.atan2(dir1[2], dir1[0]);
+  const el1 = Math.asin(dir1[1]);
+  const keys: CamKey[] = [];
+  for (let f = f0 + 4; f < f1; f += 3) {
+    const t = (f - f0) / (f1 - f0);
     const c = smoothed(f, 6);
-    return [lerp(c[0], DESK_SLAM.look[0], u), lerp(c[1] + 0.3, DESK_SLAM.look[1], u), lerp(c[2], DESK_SLAM.look[2], u)];
-  };
-  const key = (k: number, pos: V3, u: number, fov: number): CamKey => {
-    const f = f0 + span * k;
-    const look = lookAt(f, u);
-    return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
-  };
-  return [
-    // (spaced so the crane's speed swells and settles: about 2.5, 5, 4.7 and 2.5 units a beat)
-    key(0.25, [5.6, FLOOR + 1.0, 2.5], 0.1, 34),
-    key(0.5, [6.5, FLOOR + 3.0, 7.0], 0.5, 32),
-    key(0.75, [7.1, FLOOR + 4.4, 11.4], 0.88, 30.5),
-    { f: f1, ...DESK_SLAM, hold: true },
-  ];
+    const aim: V3 = [c[0], c[1] + 0.22, c[2]];
+    // 0..1: the orbit (the first third), then the back-away
+    const o = smoothstep(0, 0.5, t);
+    const b = smoothstep(0.2, 1, t);
+    const w = smoothstep(0.45, 1, t);
+    // from the door's aim onto Clawd, then onto the book
+    const a = smoothstep(0, 0.3, t);
+    const on: V3 = [lerp(start.look[0], aim[0], a), lerp(start.look[1], aim[1], a), lerp(start.look[2], aim[2], a)];
+    const look: V3 = [lerp(on[0], swl[0], w), lerp(on[1], swl[1], w), lerp(on[2], swl[2], w)];
+    // the start's own offset from Clawd, orbited round to ORBIT, then toward SLAM_WIDE's
+    const s0: V3 = [start.pos[0] - on[0], start.pos[1] - on[1], start.pos[2] - on[2]];
+    const d0 = Math.hypot(...s0);
+    const az0 = Math.atan2(s0[2], s0[0]);
+    const el0 = Math.asin(s0[1] / d0);
+    const az = lerp(lerp(az0, ORBIT.az, o), az1, b);
+    // rising over the ghost tree on the way (it stands between the house and the desk view): seen from above, not trunk-on
+    const el = lerp(lerp(el0, ORBIT.el, o), el1, b) + RISE * Math.sin(Math.PI * b);
+    const d = lerp(d0, ORBIT.d, o) * (d1 / ORBIT.d) ** b;
+    const pos: V3 = [look[0] + Math.cos(el) * Math.cos(az) * d, look[1] + Math.sin(el) * d, look[2] + Math.cos(el) * Math.sin(az) * d];
+    keys.push({ f, pos, look, fov: lerp(start.fov, SLAM_WIDE.fov, smoothstep(0.1, 0.9, t)), focus: d });
+  }
+  return [...keys, { f: f1, ...SLAM_WIDE, hold: true }, { f: OUT_OF_BOOK[1], ...SLAM, hold: true }];
 }
 
 /** One path from the desk at the start to the desk at the end: no cut anywhere. */
 const JOURNEY = new CamPath([
   ...worldKeys(),
   ...doorKeys(),
-  ...exitKeys(),
   ...outKeys(),
-  // on the desk for the end card: a slow drift back
-  { f: at(35) + BAR, pos: [7.9, 7.0, 14.6], look: [0, 1.1, 0.3], fov: 30, focus: 15.5 },
-  { f: FILM_FRAMES, pos: [8.3, 7.3, 15.2], look: [0, 1.1, 0.3], fov: 30, focus: 16, hold: true },
+  // on the desk for the end card: easing in on the closed book
+  { f: FILM_FRAMES, ...END, hold: true },
 ]);
 
 export function journeyAt(f: number): CamPose {

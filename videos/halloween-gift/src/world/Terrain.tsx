@@ -20,11 +20,18 @@
  * and the grass use `surfaceHeight` (the true surface). All of them sample the ground through
  * `ground`, an exact, faster replica of layout's groundHeight (checked against it when this
  * module loads; on any mismatch it falls back to layout's own). The door's yard
- * (DOOR_FRONT.yard, `yardMask`) is kept clear: short grass, no stones or leaves.
+ * (DOOR_FRONT.yard, `yardMask`) is kept flat and clear: dark trodden earth (the painting's near
+ * ground, not a pale lawn), a short path of flagstones from the door (`flagMask`, drawn per
+ * fragment), darker against the house's plinth; thick grass only round its trodden middle
+ * (`yardCentre`), no stones.
+ *
+ * The dirt's paint resolves the turf-to-dirt edge per fragment (the signed distance to the edge
+ * interpolated and made ragged below the grid, the turf's and the dirt's own colours on each
+ * vertex), so the edge never steps along the grid; the turf's sheen stops at it.
  */
 import { mix32, smoothstep } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
-import { BufferAttribute, BufferGeometry, CircleGeometry, Color, Matrix4, Vector3, type MeshStandardMaterial, type WebGLProgramParametersWithUniforms, type WebGLRenderer } from 'three';
+import { BufferAttribute, BufferGeometry, CircleGeometry, Color, Matrix4, Vector3, Vector4, type MeshStandardMaterial, type WebGLProgramParametersWithUniforms, type WebGLRenderer } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { bump, fbm2 } from '../kit/field.ts';
 import { Curve, type P2 } from '../kit/spline.ts';
@@ -316,6 +323,8 @@ export interface GroundShading {
   water?: number;
   /** grass: distances (from the camera) over which blades fade into the turf */
   fade?: [number, number];
+  /** the terrain's dirt: the track's edge and the yard's flagstones per fragment (terrainGeometry's aGr* attributes) */
+  edge?: boolean;
 }
 
 type Inject = (this: MeshStandardMaterial, shader: WebGLProgramParametersWithUniforms, renderer: WebGLRenderer) => void;
@@ -338,6 +347,16 @@ uniform vec2 uGrFade;
 #ifdef GR_WET
 attribute float aGrWet;
 attribute vec2 aGrDir;
+#endif
+#ifdef GR_EDGE
+attribute vec3 aGrTurf;
+attribute vec3 aGrDirt;
+attribute vec2 aGrEdge;
+attribute vec3 aGrYard;
+varying vec3 vGrTurf;
+varying vec3 vGrDirt;
+varying vec2 vGrEdge;
+varying vec3 vGrYard;
 #endif
 `;
 
@@ -368,6 +387,12 @@ objectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), vGrFade * 0.9));
 
 const GR_VERT_END = /* glsl */ `
 #include <fog_vertex>
+#ifdef GR_EDGE
+vGrTurf = aGrTurf;
+vGrDirt = aGrDirt;
+vGrEdge = aGrEdge;
+vGrYard = aGrYard;
+#endif
 #ifdef GR_WET
 vGrWet = aGrWet;
 vGrDir = aGrDir;
@@ -397,10 +422,89 @@ vec3 grPerturb(vec3 surfPos, vec3 surfNorm, vec2 dHdxy, float faceDir) {
   vec3 grad = sign(det) * (dHdxy.x * r1 + dHdxy.y * r2);
   return normalize(abs(det) * surfNorm - grad);
 }
-void main() {`;
+#ifdef GR_EDGE
+varying vec3 vGrTurf;
+varying vec3 vGrDirt;
+varying vec2 vGrEdge;
+varying vec3 vGrYard;
+// the house's frame (world to house-local x, z): origin x, z, cos and sin of its yaw
+uniform vec4 uGrHouse;
+// flagstones: jittered cells (stones about 0.3 m), the distance to the nearest joint, the stone's id
+vec2 grFlags(vec2 p) {
+  vec2 sc = vec2(3.0, 3.6);
+  vec2 q = p * sc;
+  vec2 i = floor(q);
+  vec2 f = fract(q);
+  float d1 = 8.0;
+  float d2 = 8.0;
+  float id = 0.0;
+  for (int y = -1; y <= 1; y++)
+    for (int x = -1; x <= 1; x++) {
+      vec2 g = vec2(float(x), float(y));
+      vec2 o = vec2(aivHash13(vec3(i + g, 2.3)), aivHash13(vec3(i + g, 6.1))) * 0.7 + 0.15;
+      float d = length((g + o - f) / sc);
+      if (d < d1) { d2 = d1; d1 = d; id = aivHash13(vec3(i + g, 8.7)); }
+      else if (d < d2) d2 = d;
+    }
+  return vec2((d2 - d1) * 0.5, id);
+}
+#endif
+void main() {
+  // the dirt's share at this fragment (the track's edge resolved per fragment), the yard's flags
+  float grEdgeM = 1.0;
+  float grFlag = 0.0;
+  vec2 grFl = vec2(1.0, 0.0);
+  float grWetK = 0.0;
+  float grRock = 0.0;
+  vec2 grRk = vec2(1.0, 0.0);`;
 
 const GR_FRAG_ROUGH = /* glsl */ `
 #include <roughnessmap_fragment>
+#ifdef GR_EDGE
+{
+  // the turf-to-dirt edge per fragment: the interpolated signed distance to it, made ragged below
+  // the grid by two octaves of noise that fade out before they are a pixel wide
+  float fwE = length(fwidth(vSbWorld.xz));
+  float n1 = aivNoise3(vec3(vSbWorld.xz * 24.0, 3.3)) - 0.5;
+  float n2 = aivNoise3(vec3(vSbWorld.xz * 57.0, 7.1)) - 0.5;
+  float e = vGrEdge.x + 0.05 * n1 * (1.0 - smoothstep(0.03, 0.08, fwE)) + 0.02 * n2 * (1.0 - smoothstep(0.012, 0.035, fwE));
+  float w = max(0.03, fwE * 1.5);
+  grEdgeM = smoothstep(w, -w, e) * vGrEdge.y;
+  vec3 vc = max(vec3(1e-3), mix(vGrTurf, vGrDirt, smoothstep(0.05, -0.05, vGrEdge.x) * vGrEdge.y));
+  vec3 fc = mix(vGrTurf, vGrDirt, grEdgeM);
+  diffuseColor.rgb *= fc / vc;
+  // the moon's silhouette rim (the storybook material's, weighted by the alpha) is no light for a
+  // flat floor: seen low and toward the moon it washed the trodden earth out to a pale, snow-like
+  // cyan. Little of it on the dirt (the turf's side of the edge keeps the turf's), almost none in the door yard
+  diffuseColor.a *= mix(mix(1.0, 0.55, grEdgeM), 0.08, vGrYard.z);
+  // the door yard's flagstones: grey-mauve stones of their own tones, dark joints, ragged at the path's sides
+  if (vGrYard.x > 0.01) {
+    vec2 d = vSbWorld.xz - uGrHouse.xy;
+    vec2 hl = vec2(d.x * uGrHouse.z - d.y * uGrHouse.w, d.x * uGrHouse.w + d.y * uGrHouse.z);
+    grFl = grFlags(hl);
+    float fwF = fwidth(grFl.x);
+    grFlag = smoothstep(0.35, 0.65, vGrYard.x + 0.25 * (aivNoise3(vec3(hl * 6.0, 1.9)) - 0.5));
+    float joint = 1.0 - smoothstep(0.008, 0.02 + fwF, grFl.x);
+    vec3 stone = vec3(0.105, 0.095, 0.105) * (0.75 + 0.5 * grFl.y) * (0.85 + 0.3 * aivNoise3(vec3(hl * 14.0, 4.4)));
+    vec3 flag = mix(stone, vec3(0.018, 0.014, 0.016), joint);
+    diffuseColor.rgb = mix(diffuseColor.rgb, flag, grFlag);
+    roughnessFactor = mix(roughnessFactor, 0.78, grFlag * (1.0 - joint));
+  }
+  // the front run's rock shelves: big irregular plates (a stretched cell pattern), each its own grey-mauve
+  // tone, cracks between them dark and ragged, the plates' edges worn paler (the moon's lip)
+  if (vGrYard.y > 0.01) {
+    vec2 q = vSbWorld.xz * vec2(0.62, 0.9) + 0.06 * vec2(aivNoise3(vec3(vSbWorld.xz * 7.0, 2.2)), aivNoise3(vec3(vSbWorld.xz * 7.0, 5.9)));
+    grRk = grFlags(q);
+    float fwR = fwidth(grRk.x);
+    grRock = smoothstep(0.25, 0.6, vGrYard.y + 0.3 * (aivNoise3(vec3(vSbWorld.xz * 3.0, 8.1)) - 0.5));
+    float crack = 1.0 - smoothstep(0.004, 0.012 + fwR, grRk.x);
+    float lip = smoothstep(0.012, 0.03, grRk.x) * (1.0 - smoothstep(0.03, 0.07, grRk.x));
+    vec3 plate = vec3(0.075, 0.062, 0.07) * (0.7 + 0.6 * grRk.y) * (0.8 + 0.4 * aivNoise3(vec3(vSbWorld.xz * 11.0, 3.7)));
+    plate = mix(plate, plate * 1.7, lip * (1.0 - smoothstep(0.08, 0.2, fwR)));
+    diffuseColor.rgb = mix(diffuseColor.rgb, mix(plate, vec3(0.012, 0.008, 0.01), crack), grRock);
+  }
+}
+#endif
 #ifdef GR_WET
 {
   vec2 d = normalize(vGrDir + vec2(1e-4, 0.0));
@@ -408,9 +512,10 @@ const GR_FRAG_ROUGH = /* glsl */ `
   // long thin wet streaks along the track (wheel and foot worn), and wet spots
   float streak = aivFbm3(vec3(q.x * 2.4, q.y * 24.0, 0.5));
   float spots = aivFbm3(vec3(vSbWorld.xz * 4.0, 1.7));
-  float wet = clamp(vGrWet + smoothstep(0.6, 0.74, streak) * (0.3 + 0.7 * vGrWet) + smoothstep(0.64, 0.78, spots) * 0.35, 0.0, 1.0);
+  float wet = clamp(vGrWet + smoothstep(0.6, 0.74, streak) * (0.3 + 0.7 * vGrWet) + smoothstep(0.64, 0.78, spots) * 0.35, 0.0, 1.0) * grEdgeM * (1.0 - grFlag) * (1.0 - 0.7 * grRock);
   roughnessFactor = mix(roughnessFactor, 0.3, wet);
   diffuseColor.rgb *= 1.0 - 0.45 * wet;
+  grWetK = wet;
 }
 #endif
 `;
@@ -432,6 +537,12 @@ const GR_FRAG_GRAIN = /* glsl */ `
   float h = aivNoise3(q) * (1.0 - smoothstep(0.12, 0.45, fw)) + 0.45 * aivNoise3(q * 2.3 + 3.1) * (1.0 - smoothstep(0.05, 0.2, fw));
   #endif
   float det = 1.0;
+  #ifdef GR_EDGE
+  // the flags: each stone's own gentle tilt and a rounded edge down into its joint; the rock
+  // shelves: each plate tilted its own way, broken down into its crack
+  h = mix(h, smoothstep(0.0, 0.05, grFl.x) * 1.6 + 0.4 * h, grFlag);
+  h = mix(h, smoothstep(0.0, 0.06, grRk.x) * 2.2 + (grRk.y - 0.5) * dot(vSbWorld.xz, vec2(8.0, 5.0)) * 0.35 + 0.4 * h, grRock);
+  #endif
   vec2 dh = vec2(dFdx(h), dFdy(h)) * uGrGrain.y * det;
   normal = grPerturb(-vViewPosition, normal, dh, faceDirection);
 }
@@ -457,6 +568,10 @@ const GR_FRAG_LIGHT = /* glsl */ `
   float grFwd = pow(max(dot(-grV, grL), 0.0), 4.0);
   float grNv = clamp(dot(normal, grV), 0.0, 1.0);
   float grG = 1.0 - grNv;
+  #ifdef GR_EDGE
+  // (the turf's sheen on the turf side of the edge only: no step where the turf's paint ends)
+  grFwd *= 1.0 - grEdgeM;
+  #endif
   reflectedLight.indirectDiffuse += diffuseColor.rgb * uSbRimColor * uSbRim * uGrSheen * grFwd * grG * grG * grG;
 #endif
 #ifdef GR_WATER
@@ -480,6 +595,17 @@ const GR_FRAG_LIGHT = /* glsl */ `
 }
 `;
 
+const GR_FRAG_SPEC = /* glsl */ `
+#include <lights_physical_fragment>
+#ifdef GR_EDGE
+// dry earth and stone have little grazing glare: a camera low and looking toward the low moon saw
+// the trodden dirt (the door yard most) as a pale, snow-like mirror of the moonlight. Only the
+// wet streaks and spots keep the full Fresnel (they are meant to catch the moon in thin lines).
+material.specularF90 = mix(0.12, 1.0, grWetK);
+material.specularColorBlended *= mix(0.5, 1.0, grWetK);
+#endif
+`;
+
 /** The ground's injection: the storybook's, then the ground's own terms (by defines). */
 function groundInject(this: MeshStandardMaterial, shader: WebGLProgramParametersWithUniforms, renderer: WebGLRenderer): void {
   SB_INJECT.call(this, shader, renderer);
@@ -488,6 +614,7 @@ function groundInject(this: MeshStandardMaterial, shader: WebGLProgramParameters
     .replace('void main() {', GR_FRAG_PARS)
     .replace('#include <roughnessmap_fragment>', GR_FRAG_ROUGH)
     .replace('#include <emissivemap_fragment>', GR_FRAG_GRAIN)
+    .replace('#include <lights_physical_fragment>', GR_FRAG_SPEC)
     .replace('#include <lights_fragment_end>', GR_FRAG_LIGHT);
 }
 
@@ -508,6 +635,7 @@ export function groundShading<M extends MeshStandardMaterial>(m: M, o: GroundSha
     uGrGrain: { value: [o.grain?.[0] ?? 0.04, o.grain?.[1] ?? 0] },
     uGrWater: { value: o.water ?? 0 },
     uGrFade: { value: [o.fade?.[0] ?? 1e3, o.fade?.[1] ?? 2e3] },
+    uGrHouse: { value: houseXform() },
   });
   const defs: Record<string, number> = {};
   if (o.sheen) defs.GR_SHEEN = 1;
@@ -518,6 +646,7 @@ export function groundShading<M extends MeshStandardMaterial>(m: M, o: GroundSha
   if (o.comb) defs.GR_COMB = 1;
   if (o.water) defs.GR_WATER = 1;
   if (o.fade) defs.GR_FADE = 1;
+  if (o.edge) defs.GR_EDGE = 1;
   m.defines = { ...(m.defines ?? {}), ...defs };
   const key = m.customProgramCacheKey();
   m.onBeforeCompile = groundInject;
@@ -528,6 +657,17 @@ export function groundShading<M extends MeshStandardMaterial>(m: M, o: GroundSha
 // ---- the door's yard (kept flat and clear for the door beats) --------------------------------
 
 const HOUSE_INV = new Matrix4().copy(houseFrame()).invert();
+/** World to house-local x, z for the shader: x_l = dx c - dz s, z_l = dx s + dz c, with (dx, dz) from its origin (x, z, c, s). */
+function houseXform(): Vector4 {
+  const e = HOUSE_INV.elements;
+  // the inverse maps x_l = e0 x + e8 z + e12, z_l = e2 x + e10 z + e14 (a rotation about y and a shift)
+  const c = e[0];
+  const sn = -e[8];
+  // the origin o solves e0 ox + e8 oz + e12 = 0 and e2 ox + e10 oz + e14 = 0
+  const ox = -(e[12] * c + e[14] * sn);
+  const oz = -(-e[12] * sn + e[14] * c);
+  return new Vector4(ox, oz, c, sn);
+}
 const _v = new Vector3();
 /** 1 inside the yard in front of the last house's door (DOOR_FRONT.yard), fading over `soft`. */
 export function yardMask(x: number, z: number, soft = 0.15): number {
@@ -536,6 +676,36 @@ export function yardMask(x: number, z: number, soft = 0.15): number {
   const ex = Math.min(_v.x - yx[0], yx[1] - _v.x);
   const ez = Math.min(_v.z - yz[0], yz[1] - _v.z);
   return smoothstep(-soft, soft, Math.min(ex, ez));
+}
+
+/** House-local (x, z) of a world point (the door at the origin, +z out of it). */
+export function houseLocal(x: number, z: number): [number, number] {
+  _v.set(x, 0, z).applyMatrix4(HOUSE_INV);
+  return [_v.x, _v.z];
+}
+
+/**
+ * The door yard's flagstones (0..1): a doorstep and a short path of flags from the door out
+ * across the yard, ragged at its sides, where the neighbour stands (Clawd waits on the trodden
+ * earth beside it).
+ */
+export function flagMask(x: number, z: number): number {
+  const [lx, lz] = houseLocal(x, z);
+  if (lz < -0.2 || lz > 2.2 || Math.abs(lx) > 1.2) return 0;
+  const half = 0.42 + 0.12 * smoothstep(0.2, 0.0, lz) + 0.05 * fbm(lx, lz, 131, 2, 3);
+  const side = smoothstep(0.06, -0.06, Math.abs(lx - 0.05 + 0.08 * lz) - half);
+  return side * smoothstep(-0.12, 0.0, lz) * smoothstep(1.9, 1.5, lz + 0.15 * fbm(lx, lz, 132, 2, 2));
+}
+
+/**
+ * The door yard's trodden middle (0..1), house-local: where the neighbour and Clawd stand and the
+ * flagstones run, kept to a sparse short stubble; the yard's margins around it grow thick.
+ */
+export function yardCentre(x: number, z: number): number {
+  const [lx, lz] = houseLocal(x, z);
+  const ex = Math.min(lx + 0.55, 1.2 - lx);
+  const ez = Math.min(lz + 0.3, 1.3 - lz);
+  return smoothstep(-0.12, 0.12, Math.min(ex, ez));
 }
 
 // ---- the track ------------------------------------------------------------------------------
@@ -760,7 +930,10 @@ export function surfaceDetail(x: number, z: number, tr: TrackInfo = trackAt(x, z
     const offA = 0.2 + 0.03 * fbm(tr.sa, 2.1, 95, 2, 1.1);
     const rutA = tr.apron > 0 ? Math.exp(-(((Math.abs(tr.ua) - offA) / 0.06) ** 2)) * (0.6 + 0.4 * fbm(tr.sa * 1.5, 0.7, 96, 2, 1)) * tr.apron : 0;
     const tread = 0.0045 * fbm(x, z, 98, 3, 7);
-    h += tr.m * (-0.008 - 0.017 * Math.max(rutP, rutA) + tread);
+    // the track's front run near the lens: trodden over rock, lumpy (ridged noise: low shelves and breaks)
+    const front = smoothstep(1.4, 2.0, z) * (0.4 + 0.6 * tr.apron);
+    const shelf = front > 0 ? front * (0.012 * (0.5 - Math.abs(fbm(x, z, 142, 3, 3.2))) + 0.005 * fbm(x, z, 143, 2, 8.5)) : 0;
+    h += tr.m * (-0.008 - 0.017 * Math.max(rutP, rutA) + tread + shelf);
   }
   // puddle hollows
   h -= 0.016 * puddleHollow(x, z);
@@ -811,6 +984,9 @@ const DIRT_DRY = new Color('#54474a');
 const DIRT_WET = new Color('#140e10');
 const DIRT_NEAR = new Color('#45212c');
 const ROCK = new Color('#393b48');
+/** the door yard's trodden earth (dark maroon-brown, the painting's near ground), its paler worn spots */
+const YARD = new Color('#3e3033');
+const YARD_WORN = new Color('#584649');
 
 /** The turf's colour at (x, z): patchy, long sweeps of light and dark, lighter on crests (relief > 0) and up the moonlit hill, darker in hollows. */
 export function turfColor(x: number, z: number, g: number, relief = 0, out = new Color()): Color {
@@ -845,6 +1021,13 @@ export function terrainGeometry(): BufferGeometry {
   const tracks: TrackInfo[] = new Array(n);
   const wet = new Float32Array(n);
   const dir = new Float32Array(n * 2);
+  // the track's edge resolved per fragment (the dirt material): the turf's and the dirt's own
+  // colours, the signed distance to the dirt's edge and the page's share; the yard's flagstones
+  const turfC = new Float32Array(n * 3);
+  const dirtC = new Float32Array(n * 3);
+  const edgeA = new Float32Array(n * 2);
+  const yardA = new Float32Array(n * 3);
+  const yardK = new Float32Array(n);
   for (let j = 0; j < nz; j++)
     for (let i = 0; i < nx; i++) {
       const k = j * nx + i;
@@ -905,19 +1088,48 @@ export function terrainGeometry(): BufferGeometry {
       // rock where the ground climbs to the crag
       const rocky = smoothstep(2.6, 1.2, Math.hypot(x - LAND.crag.x, z - LAND.crag.z)) * 0.8;
       c.lerp(ROCK, rocky);
+      // the door yard: dark trodden earth, paler where it is worn, darker in hollows (the turf gives way to it)
+      const ym = yardMask(x, z, 0.3);
+      yardK[k] = ym;
+      if (ym > 0) {
+        const worn = smoothstep(-0.1, 0.6, fbm(x, z, 133, 3, 2.2));
+        tmp.copy(YARD).lerp(YARD_WORN, worn * 0.6).multiplyScalar(0.85 + 0.3 * (0.5 + 0.5 * fbm(x, z, 134, 2, 7)) + 0.4 * Math.min(0, relief));
+        c.lerp(tmp, ym * 0.92);
+        yardA[k * 3] = flagMask(x, z);
+        yardA[k * 3 + 2] = ym;
+      }
       // the dirt: wet and dry patches, wetter in the ruts and in a ring around the puddles, plum near the lens
       const m = dirt[k];
-      if (m > 0) {
+      const tr = tracks[k];
+      edgeA[k * 2] = tr.edge;
+      edgeA[k * 2 + 1] = pageMask(x, z) ** 0.5;
+      turfC[k * 3] = c.r;
+      turfC[k * 3 + 1] = c.g;
+      turfC[k * 3 + 2] = c.b;
+      let wetV = 0;
+      if (m > 0 || tr.edge < 0.3) {
         const rut = smoothstep(0.002, -0.016, h - base[k] + 0.008);
         const ring = smoothstep(1.6, 1.0, puddleR(x, z));
-        const wetV = Math.min(1, smoothstep(0.05, 0.55, fbm(x, z, 43, 3, 1.6)) * 0.45 + rut * 0.65 + ring);
+        wetV = Math.min(1, smoothstep(0.05, 0.55, fbm(x, z, 43, 3, 1.6)) * 0.45 + rut * 0.65 + ring);
         const dry = Math.min(1, smoothstep(0.05, 0.7, fbm(x, z, 44, 3, 2.3)) * 0.6 + Math.max(0, relief) * 0.3);
         tmp.copy(DIRT).lerp(DIRT_DRY, dry * 0.75 * (1 - wetV)).lerp(DIRT_WET, wetV * 0.7);
         tmp.lerp(DIRT_NEAR, smoothstep(2.3, 4.0, z) * 0.6 * (1 - dry * 0.4));
         tmp.lerp(DIRT_DRY, smoothstep(0.25, 0.7, base[k]) * 0.6);
+        dirtC[k * 3] = tmp.r;
+        dirtC[k * 3 + 1] = tmp.g;
+        dirtC[k * 3 + 2] = tmp.b;
+      } else {
+        dirtC[k * 3] = c.r;
+        dirtC[k * 3 + 1] = c.g;
+        dirtC[k * 3 + 2] = c.b;
+      }
+      if (m > 0) {
+        // the track's front run (the hero view's foot, rows 840-1080: z ≈ 1.5 to 3.3, the path and
+        // the apron): bare rock breaking through the dirt in cracked shelves (drawn per fragment,
+        // no geometry: Clawd's walk crosses it), in patches
+        yardA[k * 3 + 1] = m * smoothstep(1.4, 2.0, z) * smoothstep(-0.35, 0.2, fbm(x, z, 144, 2, 1.4));
         c.lerp(tmp, m);
         wet[k] = wetV * m * (1 - 0.7 * smoothstep(0.3, 0.7, base[k]));
-        const tr = tracks[k];
         const tp = PATH.tangentAt(tr.s);
         const ta = APRON.tangentAt(tr.sa);
         const dx = tp[0] * (1 - tr.apron) + ta[0] * tr.apron;
@@ -930,9 +1142,23 @@ export function terrainGeometry(): BufferGeometry {
       }
       // contact darkness under the big landmarks that sit on the ground
       const under = Math.max(bump(x, z, LAND.bigPumpkin.x, LAND.bigPumpkin.z, 1.0) * 0.55, bump(x, z, LAND.roots.x + 0.22, LAND.roots.z - 0.06, 1.35) * 0.7, bump(x, z, LAND.ghostTree.x, LAND.ghostTree.z, 0.8) * 0.5, bump(x, z, LAND.oldTree.x, LAND.oldTree.z, 0.7) * 0.45, bump(x, z, LAND.bigCross.x, LAND.bigCross.z, 0.7) * 0.4);
-      c.multiplyScalar(1 - under);
+      // the house's plinth: the yard darkens against the front wall
+      let plinth = 1;
+      if (ym > 0) {
+        const [lx, lz] = houseLocal(x, z);
+        plinth = 1 - 0.5 * smoothstep(0.4, 0.0, lz) * smoothstep(3.0, 2.2, Math.abs(lx - 0.4)) * ym;
+      }
+      const pm = 1 - pageMask(x, z);
+      // (the same on the turf's and the dirt's own colours)
+      for (const arr of [turfC, dirtC]) {
+        tmp.setRGB(arr[k * 3], arr[k * 3 + 1], arr[k * 3 + 2]).multiplyScalar((1 - under) * plinth).lerp(PAPER, pm);
+        arr[k * 3] = tmp.r;
+        arr[k * 3 + 1] = tmp.g;
+        arr[k * 3 + 2] = tmp.b;
+      }
+      c.multiplyScalar((1 - under) * plinth);
       // the printed page at the margin
-      c.lerp(PAPER, 1 - pageMask(x, z));
+      c.lerp(PAPER, pm);
       col[k * 3] = c.r;
       col[k * 3 + 1] = c.g;
       col[k * 3 + 2] = c.b;
@@ -946,7 +1172,8 @@ export function terrainGeometry(): BufferGeometry {
       const b = a + 1;
       const cc = a + nx;
       const d = cc + 1;
-      const isDirt = Math.max(dirt[a], dirt[b], dirt[cc], dirt[d]) > 0.01 || Math.max(bareK[a], bareK[b], bareK[cc], bareK[d]) > 0.35;
+      // (the door yard is bare trodden earth: the dirt's paint, its flagstones)
+      const isDirt = Math.max(dirt[a], dirt[b], dirt[cc], dirt[d]) > 0.01 || Math.max(bareK[a], bareK[b], bareK[cc], bareK[d]) > 0.35 || Math.max(yardK[a], yardK[b], yardK[cc], yardK[d]) > 0.02;
       const out = isDirt ? dirtIdx : turfIdx;
       // split along the shorter-height diagonal (fewer creases across the ruts)
       if (Math.abs(height0[a] - height0[d]) < Math.abs(height0[b] - height0[cc])) out.push(a, cc, d, a, d, b);
@@ -957,6 +1184,10 @@ export function terrainGeometry(): BufferGeometry {
   g.setAttribute('color', new BufferAttribute(col, 3));
   g.setAttribute('aGrWet', new BufferAttribute(wet, 1));
   g.setAttribute('aGrDir', new BufferAttribute(dir, 2));
+  g.setAttribute('aGrTurf', new BufferAttribute(turfC, 3));
+  g.setAttribute('aGrDirt', new BufferAttribute(dirtC, 3));
+  g.setAttribute('aGrEdge', new BufferAttribute(edgeA, 2));
+  g.setAttribute('aGrYard', new BufferAttribute(yardA, 3));
   const index = new Uint32Array(turfIdx.length + dirtIdx.length);
   index.set(turfIdx, 0);
   index.set(dirtIdx, turfIdx.length);
@@ -1006,7 +1237,7 @@ export function Terrain({ grow = 1 }: { grow?: number }) {
   const { geometry, turf, dirt, water, waterGeo } = useMemo(() => {
     const geometry = terrainGeometry();
     const turf = groundShading(storybookMaterial({ kind: 'earth', vertexColors: true, roughness: 0.97, breakup: 0.3, scale: 0.18, bump: 0.6, color2: '#33585f' }), { sheen: TURF_SHEEN, shade: [PLUM, 0.45], grain: [0.045, 0.7], comb: true });
-    const dirt = groundShading(storybookMaterial({ kind: 'earth', vertexColors: true, roughness: 0.9, breakup: 0.3, scale: 0.12, bump: 1.0, color2: '#3a3035', rim: 1.0 }), { grain: [0.03, 0.6], wet: true, shade: [PLUM, 0.75] });
+    const dirt = groundShading(storybookMaterial({ kind: 'earth', vertexColors: true, roughness: 0.9, breakup: 0.3, scale: 0.12, bump: 1.0, color2: '#3a3035', rim: 1.0 }), { grain: [0.03, 0.6], wet: true, shade: [PLUM, 0.75], edge: true, sheen: TURF_SHEEN });
     const waterGeo = puddleGeometry();
     const water = groundShading(storybookMaterial({ color: '#020405', roughness: 0.05, metalness: 0, emissive: '#02070a', breakup: 0, rim: 0.5 }), { water: 1 });
     return { geometry, turf, dirt, water, waterGeo };

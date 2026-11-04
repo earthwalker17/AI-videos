@@ -2,10 +2,12 @@
  * The V2 post chain, in HDR linear light (packages/remotion-kit PostChain stages):
  *   stage 1  the painterly filter (look/paint.ts KuwaharaEffect), optional: it must see the
  *            whole rendered image before anything blurs or glows on top of it;
- *   last     depth of field (focus per shot), god rays from the moon, Pro-Mist bloom and the
- *            storybook split-tone grade (maroon shadows near, teal far), then neutral tone mapping;
- *   after    the finish on display values: a soft vignette and a film grain that changes every
- *            frame (QA's freeze check must still see a held shot as alive).
+ *   last     depth of field (focus per shot: shallow close up, deep in the wide shots, as the
+ *            painting is), soft god rays from the moon, Pro-Mist bloom and the storybook grade,
+ *            then neutral tone mapping;
+ *   after    the finish on display values: a deep maroon vignette and foot band that frame the
+ *            picture in near-black (FINISH_TINT_GLSL), the floor it sits on, and a film grain that
+ *            changes every frame (QA's freeze check must still see a held shot as alive).
  *
  * God rays: postprocessing's GodRaysEffect renders a light-source mesh, occluded by the scene's
  * depth, and smears it radially. The sky draws the moon itself (look/SkyPortal.tsx, a direction
@@ -22,6 +24,31 @@ import { KuwaharaEffect } from './paint.ts';
 import { StorybookGrade } from './Post.tsx';
 import { MOON_RADIUS, moonOnPlane } from './SkyPortal.tsx';
 
+/** The finish's vignette strength (FinishEffect's default; what FINISH_TINT_GLSL's callers pass). */
+export const FINISH_VIGNETTE = 0.8;
+/** The floor the finished picture sits on (sRGB hex): near-black maroon low in the frame, slate high. */
+export const FINISH_LIFT = { low: '#1a0505', high: '#131822' } as const;
+
+/**
+ * The finish's screen-space tint at a pixel, as a multiplier (uv 0..1 from the bottom left):
+ * the vignette (strength `v`) and the maroon foot band (`foot` 0..1). One definition for the
+ * finish and for any material that undoes the tint on its own pixels (world/Clawd2.tsx COMP_GLSL).
+ *  - the vignette: a deep oval that frames the picture in near-black, as the reference's corners
+ *    are (its bottom left sits at about sRGB 34 4 3); eased toward the top (the sky's corners stay
+ *    slate), and toward the bottom red darkens less than green and blue, so the corners go maroon;
+ *  - the foot: a deep maroon band across the bottom of the frame (the reference's bottom fifth
+ *    sits at about sRGB 45 20 22): green and blue go down much more than red.
+ */
+export const FINISH_TINT_GLSL = /* glsl */ `
+vec3 aivFinishTint(vec2 uv, float v, float foot) {
+  vec2 d = (uv - 0.5) * vec2(1.0, 0.82);
+  float k = smoothstep(0.22, 0.72, length(d)) * v * mix(1.0, 0.32, smoothstep(0.45, 1.0, uv.y));
+  vec3 dk = mix(vec3(0.6, 1.0, 1.0), vec3(1.0), smoothstep(0.15, 0.75, uv.y));
+  float fb = smoothstep(0.27, 0.02, uv.y) * foot;
+  return (1.0 - min(k * dk, vec3(0.95))) * (1.0 - fb * vec3(0.4, 0.8, 0.82));
+}
+`;
+
 const FINISH = /* glsl */ `
 uniform float uVignette;
 uniform float uFrame;
@@ -29,6 +56,7 @@ uniform float uGrain;
 uniform vec3 uLiftLow;
 uniform vec3 uLiftHigh;
 uniform float uFoot;
+${FINISH_TINT_GLSL}
 float fHash(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
@@ -36,17 +64,10 @@ float fHash(vec2 p) {
 }
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
   vec3 c = inputColor.rgb;
-  // vignette: a soft oval; toward the bottom corners red darkens less, so they go maroon
-  vec2 d = (uv - 0.5) * vec2(1.0, 0.82);
-  float k = (1.0 - smoothstep(0.86, 0.22, length(d))) * uVignette * mix(1.0, 0.55, smoothstep(0.5, 1.0, uv.y));
-  vec3 dk = mix(vec3(0.55, 1.0, 1.0), vec3(1.0), smoothstep(0.15, 0.75, uv.y));
-  c *= 1.0 - k * dk;
-  // the reference's foot: a deep maroon band across the bottom of the frame (its bottom fifth sits
-  // at about sRGB 45 20 22): green and blue go down much more than red
-  float foot = smoothstep(0.27, 0.02, uv.y) * uFoot;
-  c *= 1.0 - foot * vec3(0.4, 0.8, 0.82);
-  // a painted floor: nothing goes black; plum low in the frame, slate high (the reference's darks
-  // sit at about sRGB 40 14 16 low and 50 56 74 high)
+  // the vignette and the maroon foot band (FINISH_TINT_GLSL)
+  c *= aivFinishTint(uv, uVignette, uFoot);
+  // the floor the picture sits on: near-black maroon low in the frame, slate high (the
+  // reference's darkest darks are a deep maroon, its high darks slate)
   vec3 lift = mix(uLiftLow, uLiftHigh, smoothstep(0.05, 0.85, uv.y));
   c = lift + c * (1.0 - lift);
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -59,7 +80,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 
 /** Vignette and grain on display values (EffectAttribute.NONE: it stays after the tone mapping). */
 export class FinishEffect extends Effect {
-  constructor({ vignette = 0.5, grain = 1.0, liftLow = '#26090c', liftHigh = '#161c26' } = {}) {
+  constructor({ vignette = FINISH_VIGNETTE, grain = 1.0, liftLow = FINISH_LIFT.low as string, liftHigh = FINISH_LIFT.high as string } = {}) {
     super('FinishEffect', FINISH, {
       blendFunction: BlendFunction.NORMAL,
       attributes: EffectAttribute.NONE,
@@ -118,7 +139,7 @@ const sstep = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, raysWeight = 0.1, dof = true, grain = 1, skyZ = -5.44, near = '#4a1a2e', far = '#2a5c80', split = 0, warm = 0, foot = 1, paintMix = 1 }: NightPostProps) {
+export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, raysWeight = 0.055, dof = true, grain = 1, skyZ = -5.44, near = '#4a1a2e', far = '#2a5c80', split = 0, warm = 0, foot = 1, paintMix = 1 }: NightPostProps) {
   const camera = useThree((s) => s.camera);
   const height = useThree((s) => s.size.height);
   const moon = useMemo(() => {
@@ -142,7 +163,7 @@ export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, ray
       const list: AnyEffect[] = [];
       if (dof) list.push((hold.dof = new DepthOfFieldEffect(cam, { focusDistance: 6, focusRange: 3, bokehScale: 1.3, resolutionScale: 0.5 })));
       else hold.dof = null;
-      if (rays) list.push((hold.rays = new GodRaysEffect(cam, moon, { samples: 60, density: 0.9, decay: 0.9, weight: raysWeight, exposure: 0.45, clampMax: 1, blur: true, kernelSize: KernelSize.SMALL, resolutionScale: 0.5 })));
+      if (rays) list.push((hold.rays = new GodRaysEffect(cam, moon, { samples: 60, density: 0.65, decay: 0.9, weight: raysWeight, exposure: 0.45, clampMax: 1, blur: true, kernelSize: KernelSize.SMALL, resolutionScale: 0.5 })));
       else hold.rays = null;
       list.push(new BloomEffect({ mipmapBlur: true, luminanceThreshold: 0.78, luminanceSmoothing: 0.25, intensity: 0.75, radius: 0.75 }));
       const grade = new StorybookGrade();
@@ -167,8 +188,12 @@ export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, ray
   const after = useCallback((): AnyEffect[] => [(hold.finish = new FinishEffect({ grain }))], [hold, grain]);
   useLayoutEffect(() => {
     if (hold.dof) {
+      // the miniature's shallow focus close up; deep focus in the wide shots, as the painting is
+      // (its far castle as crisp as its near pumpkin): the range opens and the bokeh shrinks
+      const wide = sstep(2.5, 7, focus);
       hold.dof.cocMaterial.focusDistance = focus;
-      hold.dof.cocMaterial.focusRange = Math.max(1.2, focus * 0.55);
+      hold.dof.cocMaterial.focusRange = Math.max(1.2, focus * (0.55 + 2.45 * wide));
+      hold.dof.bokehScale = 1.3 - 0.9 * wide;
     }
     if (hold.finish) {
       hold.finish.uniforms.get('uFrame')!.value = f;

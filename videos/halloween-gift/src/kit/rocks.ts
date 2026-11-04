@@ -84,6 +84,14 @@ export interface RockParams {
   chips?: number;
   /** the top facet's tilt (radians): a sloped, wedge-like top; undefined: a random flat-ish top most of the time */
   topTilt?: number;
+  /**
+   * strata: the rock split into this many layers over its height (0 none), each layer's face set
+   * back by its own amount up to `strataDepth` (fraction of the radius) under a sharp ledge, a dark
+   * crack along every bedding line; `strataTilt` tilts the bedding (radians)
+   */
+  strata?: number;
+  strataDepth?: number;
+  strataTilt?: number;
 }
 
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
@@ -100,10 +108,10 @@ function smin(a: number, b: number, k: number): number {
  * A rounded block is cut by facet planes spread over it (Fibonacci directions, jittered), chips
  * at its corners and a top facet, every edge softened by a narrow smooth-minimum bevel (so the
  * moon's rim breaks into thin bright lines along the edges); low noise keeps the facets from
- * reading machined, grit roughens them, cracks groove across them.
+ * reading machined, grit roughens them, cracks groove across them, strata stack it into ledges.
  */
 export function rockGeometry(p: RockParams): BufferGeometry {
-  const { seed, detail = 3, facets = 8, cut = 0.3, noise = 0.05, freq = 1.6, size = [1, 1, 1], base = -0.55, ao = 0.55, crease = 34, boxy = 2, bevel = 0.03, grit = 0, gritFreq = 9, cracks = 0, chips = 0, topTilt } = p;
+  const { seed, detail = 3, facets = 8, cut = 0.3, noise = 0.05, freq = 1.6, size = [1, 1, 1], base = -0.55, ao = 0.55, crease = 34, boxy = 2, bevel = 0.03, grit = 0, gritFreq = 9, cracks = 0, chips = 0, topTilt, strata = 0, strataDepth = 0.06, strataTilt = 0.12 } = p;
   let k = 0;
   const r = () => rand(seed, 'rock', k++);
   const planes: { n: Vector3; o: number }[] = [];
@@ -136,6 +144,11 @@ export function rockGeometry(p: RockParams): BufferGeometry {
     return { n: new Vector3(Math.cos(t) * s, y, Math.sin(t) * s).normalize(), o: (r() - 0.5) * 0.5, w: 0.018 + 0.02 * r(), d: 0.03 + 0.03 * r(), seed: Math.floor(r() * 1e6) };
   });
   const ns = seed * 13 + 7;
+  // the bedding: a tilted axis, a phase, each layer's set-back (drawn last: a rock without strata is unchanged)
+  const sAz = r() * Math.PI * 2;
+  const sAxis = new Vector3(Math.sin(strataTilt) * Math.cos(sAz), Math.cos(strataTilt), Math.sin(strataTilt) * Math.sin(sAz));
+  const sPh = r();
+  const setBack = Array.from({ length: strata + 2 }, () => r());
   let g: BufferGeometry = new IcosahedronGeometry(1, detail);
   g.deleteAttribute('normal');
   g.deleteAttribute('uv');
@@ -166,6 +179,21 @@ export function rockGeometry(p: RockParams): BufferGeometry {
       const gv = (1 - sd / c.w) ** 2 * along;
       rad *= 1 - c.d * gv;
       crack = Math.max(crack, gv);
+    }
+    if (strata > 0) {
+      // layers over the height (bedding planes wander a little): each layer's face set back under
+      // the one above (a sharp ledge where they meet), a crack along the bedding line
+      q.copy(v).multiplyScalar(rad);
+      const hb = q.dot(sAxis) + 0.06 * fbm3(q.x * 2.2, q.y * 2.2, q.z * 2.2, ns + 11, 2);
+      const L = ((hb + 1) / 2) * strata + sPh;
+      const li = Math.floor(L);
+      const f = L - li;
+      const side = 1 - Math.abs(v.y) ** 3;
+      const back = strataDepth * (0.35 + 0.65 * setBack[((li % setBack.length) + setBack.length) % setBack.length]);
+      // the face recedes toward the layer's top, then the next layer's edge stands out over it
+      rad *= 1 - back * smoothstep(0.15, 0.92, f) * side;
+      const line = Math.exp(-(((1 - f) / 0.07) ** 2)) + Math.exp(-((f / 0.05) ** 2));
+      crack = Math.max(crack, Math.min(1, line) * 0.75 * side);
     }
     let x = v.x * rad * size[0];
     let y = v.y * rad * size[1];

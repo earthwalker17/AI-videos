@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { at, cues, FILM_FRAMES } from '../cues.ts';
 import { GATE_POSTS, PAGE, pathDistance } from '../world/layout.ts';
-import { APPEAL_SNATCH, bigPumpkinLitAt, paintAt, coverAt, doorOpenAt, farColdAt, footAt, gatesOpenAt, ghostLowerAt, growAt, immersionAt, letterAt, pailLitAt, popAt, POPS, pumpkinsLitAt, windowsAt } from './beats.ts';
+import { APPEAL_SNATCH, bigPumpkinLitAt, foldAt, worldOnAt, paintAt, coverAt, doorOpenAt, farColdAt, footAt, gatesOpenAt, ghostLowerAt, growAt, immersionAt, letterAt, pailLitAt, popAt, POPS, pumpkinsLitAt, windowsAt } from './beats.ts';
 import { clawdAt } from './blocking.ts';
 import { OUT_OF_BOOK } from './journey.ts';
 
@@ -56,9 +56,20 @@ describe('the V2 beats', () => {
     expect(gatesOpenAt(at(15))).toBeCloseTo(1, 9);
   });
 
+  it('never shows the world through the shut cover, and folds it flat before the cover reaches it', () => {
+    for (let f = at(3); f < FILM_FRAMES; f++) if (worldOnAt(f)) expect(coverAt(f), `frame ${f}`).toBeGreaterThan(0);
+    // the cover lifts before the world shows (the burst) and is shut once it has gone (the slam)
+    expect(worldOnAt(at(35) - 1)).toBe(true);
+    expect(worldOnAt(at(35))).toBe(false);
+    expect(foldAt(at(34, 2) - 1)).toBe(Infinity);
+    expect(foldAt(at(35) - 1)).toBeLessThan(0.2);
+    // the cover sweeps on ones: no frame of the close turns it by more than a fifth of its swing
+    for (let f = at(34, 2); f < at(35); f++) expect(coverAt(f) - coverAt(f + 1), `frame ${f}`).toBeLessThan(0.2);
+  });
+
   it('lands the beats on their cues', () => {
     expect(coverAt(at(4) - 1)).toBe(0);
-    expect(coverAt(at(34, 3) - 1)).toBe(1);
+    expect(coverAt(at(34, 2))).toBe(1);
     expect(coverAt(at(35))).toBe(0);
     expect(immersionAt(at(4))).toBe(0);
     expect(immersionAt(at(5))).toBe(1);

@@ -7,12 +7,16 @@
  * once inside no camera ever sees past the cover's edge. Where both show, they show the same
  * sky, so the cover's edge disappears.
  *
- * The palette and the masses follow the reference (measured, 2026-11-04): a slate sky overhead
- * (about sRGB 50 57 76), heavy swirling cloud banks darker to the upper left with sheet-ghost
- * shapes hidden in them, a bright cyan haze low behind the castle (about 44 124 152), the moon
- * upper right in a pale green-cyan halo with silver-lit cloud edges round it. Clouds are 3D noise
- * on the view direction (no seam anywhere round the dome) and drift from the frame, never a clock.
- * The moon is HDR so the bloom haloes it; moonOnPlane gives the god rays' source.
+ * The palette and the masses follow the reference (measured, 2026-11-05): deep slate overhead
+ * (about sRGB 50 58 78), heavy plum-slate storm clouds to the upper left with pale sheet ghosts
+ * streaming up and to the right through them (each shown only while its head is in the frame:
+ * a tail hanging from the frame's top read as a smudge on the lens), a deep cyan low down left
+ * of the gates (about 30 112 148), and the light: a luminous cyan window in the clouds behind the
+ * castle (about 20 130 160, its cumulus lit to 150-200) rising to the right round the moon, which
+ * sits upper right in a saturated cyan halo with its clouds silver-lit, crossing it thinly. The
+ * moon is a pale cream disc with soft maria, a little over 1 (the bloom haloes it, never clips it
+ * to a flat lemon). Clouds are 3D noise on the view direction (no seam anywhere round the dome)
+ * and drift from the frame, never a clock. moonOnPlane gives the god rays' source.
  */
 import { useLayoutEffect, useMemo } from 'react';
 import { BackSide, Color, DoubleSide, ShaderMaterial, Vector2, Vector3, type Side } from 'three';
@@ -21,31 +25,63 @@ import { NOISE3_GLSL, NOISE_GLSL } from './glsl.ts';
 import { NIGHT } from './materials.ts';
 
 export const SKY_COLORS = {
-  top: '#465c72',
-  mid: '#2c7896',
-  horizon: '#46aec6',
-  cloud: '#3e4a60',
-  cloudDark: '#332c44',
-  cloudLit: '#a3d9cf',
-  glow: '#8fc6bb',
-  /** the luminous cyan haze behind the castle (the reference's brightest, most saturated sky) */
-  haze: '#2297b8',
-  moon: '#eef3cf',
+  // (sRGB hex of the linear values the shader mixes: the post's neutral tone mapping takes about
+  // 0.04 off every channel and deepens the darks, so these sit lighter and greyer than the screen)
+  /** overhead: deep slate (the reference's top, about sRGB 50 58 78 on screen) */
+  top: '#525767',
+  /** the slate band above the horizon away from the light */
+  mid: '#454d5b',
+  /** low down away from the castle, left of the gates: a deep cyan (about 28 112 148 on screen) */
+  horizon: '#357998',
+  /** storm cloud away from the light: plum slate (about 52 50 72), thick parts darker */
+  cloud: '#565363',
+  cloudDark: '#433e4c',
+  /** a cloud's moonlit edge (silver lining) and the lit tops in the light */
+  cloudLit: '#b1e6dc',
+  /** the moon's halo: a saturated cyan, added */
+  glow: '#46b0b0',
+  /** the luminous window in the clouds behind the castle (about 20 125 155 on screen) */
+  haze: '#2389a5',
+  /** the moon: pale cream (about 235 233 185 on screen), a little over 1 at its brightest */
+  moon: '#e8f29c',
 } as const;
 
-/** toward the castle's haze from the hero eye (a direction: the sky stays at infinity) */
+/** toward the castle from the hero eye (a direction: the sky stays at infinity) */
 const HAZE_DIR = new Vector3(LAND.crag.x - HERO.pos[0], 3.6 - HERO.pos[1], LAND.crag.z - HERO.pos[2]).normalize();
 /** its azimuth and elevation (the shader's: azimuth atan(x, −z), elevation asin(y)) */
 const HAZE_AE = new Vector2(Math.atan2(HAZE_DIR.x, -HAZE_DIR.z), Math.asin(HAZE_DIR.y));
 
-/** the moon's angular radius (radians) */
-export const MOON_RADIUS = 0.034;
+/** the moon's angular radius (radians): about 49 px at the hero view's moon, as in the reference */
+export const MOON_RADIUS = 0.031;
+
+/**
+ * The sheet ghosts streaming up and to the right through the dark clouds over the gates (the
+ * reference's upper left), in sky coordinates: azimuth, elevation, size (radians, the head's
+ * radius is half of it) and the flight's angle from straight up (radians, clockwise).
+ */
+const GHOSTS_GLSL = /* glsl */ `
+  const vec4 SG0 = vec4(-0.135, 0.245, 0.032, 0.9);
+  const vec4 SG1 = vec4(-0.077, 0.272, 0.034, 0.95);
+  const vec4 SG2 = vec4(-0.007, 0.255, 0.036, 0.9);
+  const vec4 SG3 = vec4(0.075, 0.278, 0.03, 1.0);
+`;
 
 const VERT = /* glsl */ `
+  ${GHOSTS_GLSL}
   varying vec3 vWorld;
+  varying vec4 vGhostIn;
+  vec3 skyDir(vec2 ae) { return vec3(cos(ae.y) * sin(ae.x), sin(ae.y), -cos(ae.y) * cos(ae.x)); }
+  // 1 while a sky point is well inside the frame, 0 outside it (a ghost shows only with its head in view)
+  float inFrame(vec2 ae) {
+    vec4 c = projectionMatrix * (viewMatrix * vec4(skyDir(ae), 0.0));
+    if (c.w <= 0.0) return 0.0;
+    vec2 n = abs(c.xy / c.w);
+    return 1.0 - smoothstep(0.8, 0.97, max(n.x, n.y));
+  }
   void main() {
     vec4 w = modelMatrix * vec4(position, 1.0);
     vWorld = w.xyz;
+    vGhostIn = vec4(inFrame(SG0.xy), inFrame(SG1.xy), inFrame(SG2.xy), inFrame(SG3.xy));
     gl_Position = projectionMatrix * viewMatrix * w;
   }
 `;
@@ -53,21 +89,33 @@ const VERT = /* glsl */ `
 const FRAG = /* glsl */ `
   ${NOISE_GLSL}
   ${NOISE3_GLSL}
+  ${GHOSTS_GLSL}
   uniform float uSbTime, uMoonR, uHorizonEl, uIntensity, uFibre, uAlpha;
   uniform vec2 uWitch;
   uniform vec3 uSbMoonDir, uTop, uMid, uHorizon, uCloud, uCloudDark, uCloudLit, uGlow, uMoon, uHaze;
   uniform vec2 uHazeAE;
   varying vec3 vWorld;
-  // a ghost wisp in sky coordinates (centre c, size s): a soft hooded head trailing a long tail
-  // that tapers and bends down-wind and thins out (smoke in the clouds, not a cut-out sheet)
-  float ghost(vec2 p, vec2 c, float s, float lean) {
-    vec2 q = (p - c) / s;
-    q.x += lean * q.y;
-    float head = length(vec2(q.x * 1.2, max(q.y, 0.0) * 0.95)) - 0.5;
-    float t = clamp(-q.y / 2.4, 0.0, 1.0);
-    float tail = abs(q.x + 0.5 * t * t) - 0.46 * (1.0 - t) * (1.0 - 0.35 * t);
-    float d = q.y < 0.0 ? tail : head;
-    return smoothstep(0.28, -0.12, d) * (1.0 - smoothstep(0.45, 1.0, t));
+  varying vec4 vGhostIn;
+  // a sheet ghost flying through the clouds (g: azimuth, elevation, size, angle): a hooded head
+  // with a crisp crown, a body that tapers and curls into a trailing tail and melts into the cloud,
+  // two slanting eyeholes and a small open mouth. Returns its opacity (x), its holes (y) and its
+  // light (z: 1 on the crown, the side toward the moon, fading down the tail).
+  vec3 ghost(vec2 p, vec4 g) {
+    vec2 q = p - g.xy;
+    float c = cos(g.w), s = sin(g.w);
+    q = vec2(c * q.x - s * q.y, s * q.x + c * q.y) / g.z;
+    float t = clamp(-q.y / 2.6, 0.0, 1.0);
+    q.x += 0.35 * t * t;
+    float head = length(vec2(q.x * 1.08, max(q.y, 0.0) * 0.92)) - 0.5;
+    float body = abs(q.x) - 0.5 * (1.0 + 0.2 * t) * (1.0 - t * t);
+    float d = q.y < 0.0 ? min(body, head) : head;
+    float a = smoothstep(0.05, -0.05, d) * (1.0 - smoothstep(0.25, 0.95, t)) * (1.0 - 0.55 * t);
+    vec2 ex = vec2(abs(q.x), q.y) - vec2(0.17, 0.05);
+    ex = vec2(0.9 * ex.x + 0.45 * ex.y, -0.45 * ex.x + 0.9 * ex.y);
+    float eyes = smoothstep(1.0, 0.5, length(ex / vec2(0.065, 0.11)));
+    float mouth = smoothstep(1.0, 0.5, length((q - vec2(0.0, -0.22)) / vec2(0.055, 0.085)));
+    float light = smoothstep(-1.2, 0.4, q.y) * (0.75 + 0.25 * clamp(q.x * 2.0, -1.0, 1.0));
+    return vec3(a, max(eyes, mouth) * step(-0.5, q.y), light);
   }
   // the witch on her broom, flying toward +x (local units: the broom about 2.8 long), a signed distance
   float sdSeg(vec2 p, vec2 a, vec2 b, float r) {
@@ -107,7 +155,7 @@ const FRAG = /* glsl */ `
     vec3 q = dir * vec3(2.4, 4.6, 2.4) + vec3(uSbTime * 0.004, 0.0, uSbTime * 0.0025);
     float big = aivFbm3(q + 1.9 * (w - 0.5));
     float fine = aivFbm3(q * 3.1 + 5.0 + 0.8 * (w - 0.5));
-    return big * 0.78 + fine * 0.22;
+    return big * 0.74 + fine * 0.26;
   }
   void main() {
     vec3 dir = normalize(vWorld - cameraPosition);
@@ -116,50 +164,72 @@ const FRAG = /* glsl */ `
     vec2 p = vec2(az, el);
     float moonAng = acos(clamp(dot(dir, uSbMoonDir), -1.0, 1.0));
     float e = el - uHorizonEl;
-    // the gradient: a bright haze low down, teal, slate overhead
-    vec3 col = mix(uHorizon, uMid, smoothstep(0.0, 0.14, e));
-    col = mix(col, uTop, smoothstep(0.1, 0.42, e));
-    // the moon's halo: wide and pale, then tight and bright
-    col += uGlow * (0.12 * exp(-moonAng * 5.0) + 0.32 * exp(-moonAng * 16.0));
+    // the gradient: a deep cyan low down, a slate band, deep slate overhead
+    vec3 col = mix(uHorizon, uMid, smoothstep(-0.02, 0.13, e));
+    col = mix(col, uTop, smoothstep(0.12, 0.4, e));
+    // the light: a luminous window in the clouds behind the castle, from the mist at its foot up
+    // past the crag's top, rising to the right round the moon (the reference's brightest sky);
+    // left of the gates the sky stays the deep cyan of the horizon
+    float ba = az - uHazeAE.x;
+    float edgeN = aivFbm(p * vec2(7.0, 11.0) + 2.0) - 0.5;
+    float bankTop = 0.2 + 0.04 * smoothstep(-0.15, 0.28, ba) + 0.06 * edgeN;
+    float bank = smoothstep(-0.42, -0.22, ba + 0.08 * edgeN) * (1.0 - smoothstep(0.42, 0.66, ba)) * (1.0 - smoothstep(bankTop - 0.09, bankTop + 0.04, el)) * smoothstep(-0.16, -0.05, e);
+    col = mix(col, uHaze, bank);
+    // the moon's halo: a saturated cyan, wide and soft, then tight
+    float halo = 0.2 * exp(-moonAng * 6.0) + 0.7 * exp(-moonAng * 22.0);
+    col += uGlow * halo;
     // stars, sparse, between the clouds, fading toward the horizon and the moon
     vec2 g = floor(p * 160.0);
     float s = aivHash12(g);
     float tw = 0.65 + 0.35 * aivHash12(g + floor(uSbTime * 3.0));
     float star = step(0.993, s) * smoothstep(0.35, 0.0, length(fract(p * 160.0) - 0.5)) * tw;
-    vec3 stars = vec3(0.75, 0.9, 0.9) * star * smoothstep(0.12, 0.45, e) * smoothstep(0.25, 0.6, moonAng) * 0.7;
-    // clouds: heavier to the upper left, a clearing round the moon and a clear haze band low down
+    col += vec3(0.75, 0.9, 0.9) * star * smoothstep(0.12, 0.45, e) * smoothstep(0.25, 0.6, moonAng) * 0.7 * (1.0 - bank);
+    // the moon: a disc with soft maria and a darker limb, a little over 1 (the bloom haloes it a little)
+    float disc = smoothstep(uMoonR, uMoonR * 0.93, moonAng);
+    float maria = aivFbm(p * 46.0 + 4.0);
+    float rr = moonAng / uMoonR;
+    vec3 moon = uMoon * (1.24 - 0.46 * smoothstep(0.38, 0.72, maria)) * (1.0 - 0.12 * rr * rr);
+    col = mix(col, moon, disc);
+    // clouds: heavy storm clouds to the upper left, lit cumulus in the light, thin over the moon
     vec3 wq = dir * vec3(1.5, 2.8, 1.5) + vec3(uSbTime * 0.003, 0.0, 0.0);
     vec3 w = vec3(aivFbm3(wq + 3.1), aivFbm3(wq + 7.7), aivFbm3(wq + 11.3));
     float d = cloudField(dir, w);
     float heavy = 0.11 * smoothstep(0.25, -0.6, dir.x) + 0.07 * smoothstep(0.12, 0.55, e);
-    float thr = 0.36 - heavy + 0.2 * exp(-moonAng * 5.0) + 0.14 * (1.0 - smoothstep(0.03, 0.13, e));
-    float cover = smoothstep(thr, thr + 0.15, d) * smoothstep(-0.03, 0.05, e);
-    // silver linings: where the density falls toward the moon, the cloud's edge takes the light
+    float thr = 0.36 - heavy + 0.12 * exp(-moonAng * 14.0) + 0.14 * (1.0 - smoothstep(0.03, 0.13, e)) * (1.0 - 0.7 * bank);
+    float cover = smoothstep(thr, thr + 0.15, d) * smoothstep(-0.06, 0.03, e);
+    // the moon's side: where the density falls toward the moon the cloud faces it and takes the light
     vec3 toMoon = normalize(uSbMoonDir - dir * dot(uSbMoonDir, dir) + vec3(1e-5));
     float dm = cloudField(normalize(dir + toMoon * 0.03), w);
-    float rim = clamp((d - dm) * 10.0, 0.0, 1.0) * smoothstep(thr - 0.04, thr + 0.1, d) * (1.0 - smoothstep(thr + 0.1, thr + 0.32, d));
-    float lit = exp(-moonAng * 1.7);
-    vec3 body = mix(uCloud, uCloudDark, smoothstep(thr + 0.05, thr + 0.35, d) * (1.0 - 0.6 * lit));
-    body = mix(body, uMid * 0.85, 0.25 * (1.0 - smoothstep(0.05, 0.3, e)));
-    vec3 cloudCol = body + uCloudLit * rim * (0.12 + 1.25 * lit) + uGlow * 0.18 * lit;
-    // the castle's haze: a wide luminous cyan behind it and down to the mist at its foot, the
-    // clouds thinning and lit through over it (the reference, about sRGB 28 121 148 beside the
-    // castle and 37 145 171 below it)
-    // a band: wide in azimuth, narrow in height (the sky above it stays dark slate)
-    float hzE = el - uHazeAE.y;
-    float hz = exp(-abs(az - uHazeAE.x) / 0.32 - max(hzE, 0.0) / 0.075 - max(-hzE, 0.0) / 0.05) * smoothstep(-0.04, 0.03, e);
-    cover *= 1.0 - 0.45 * hz;
-    cloudCol = mix(cloudCol, uHaze * 1.15, 0.45 * hz);
-    col = mix(col + stars, cloudCol, cover * 0.94);
-    col = mix(col, uHaze, 0.55 * hz * (1.0 - cover * 0.6));
-    // sheet ghosts hidden in the clouds, faint, upper left
-    float gh = ghost(p, vec2(-0.55, 0.42), 0.07, 0.3) + ghost(p, vec2(-0.38, 0.5), 0.055, 0.2) + ghost(p, vec2(-0.72, 0.36), 0.06, 0.35) + ghost(p, vec2(-0.2, 0.47), 0.05, 0.15);
-    col = mix(col, uCloudLit * 0.5, clamp(gh, 0.0, 1.0) * 0.17 * cover);
-    // the moon: a disc with faint maria, HDR so the bloom haloes it
-    float disc = smoothstep(uMoonR, uMoonR * 0.94, moonAng);
-    float maria = aivFbm(p * 40.0 + 4.0);
-    vec3 moon = uMoon * (2.5 - 0.7 * smoothstep(0.45, 0.72, maria));
-    col = mix(col, moon, disc);
+    float facing = clamp((d - dm) * 9.0, 0.0, 1.0);
+    float rim = facing * smoothstep(thr - 0.04, thr + 0.08, d) * (1.0 - smoothstep(thr + 0.1, thr + 0.34, d));
+    float near = exp(-moonAng * 6.5);
+    float light = clamp(bank + near, 0.0, 1.0);
+    vec3 storm = mix(uCloud, uCloudDark, smoothstep(thr + 0.05, thr + 0.35, d) * (1.0 - 0.6 * near));
+    vec3 lit = mix(uHaze, uCloudLit, 0.15 + 0.5 * facing + 0.3 * near) * (0.92 + 0.6 * near);
+    vec3 cloudCol = mix(storm, lit, light) + uCloudLit * rim * (0.05 + 0.35 * light + 1.2 * near);
+    col = mix(col, cloudCol, cover * 0.94 * (1.0 - 0.4 * disc));
+    // the moon's own clouds: silver-lit streaks crossing its lower half and swirling under it (the
+    // reference's lit swirl below the moon), in the moon's frame (moon radii)
+    {
+      vec3 mr = normalize(cross(uSbMoonDir, vec3(0.0, 1.0, 0.0)));
+      vec3 mu = cross(mr, uSbMoonDir);
+      vec2 mq = vec2(dot(dir, mr), dot(dir, mu)) / uMoonR;
+      float streak = aivFbm(vec2(mq.x * 0.32 + uSbTime * 0.01, mq.y * 1.5 + 0.3 * sin(mq.x * 0.7)) + 11.0);
+      float mmask = exp(-dot((mq - vec2(0.2, -1.3)) / vec2(3.2, 1.35), (mq - vec2(0.2, -1.3)) / vec2(3.2, 1.35)));
+      float sv = smoothstep(0.4, 0.6, streak) * mmask * step(0.0, dot(dir, uSbMoonDir));
+      col = mix(col, uCloudLit * (1.05 + 0.25 * disc), sv * 0.9);
+    }
+    // the sheet ghosts in the clouds over the gates: pale, their eyeholes dark (none without a head in the frame)
+    vec3 g0 = ghost(p, SG0) * vGhostIn.x;
+    vec3 g1 = ghost(p, SG1) * vGhostIn.y;
+    vec3 g2 = ghost(p, SG2) * vGhostIn.z;
+    vec3 g3 = ghost(p, SG3) * vGhostIn.w;
+    float ga = clamp(g0.x + g1.x + g2.x + g3.x * 0.8, 0.0, 1.0);
+    float gl = clamp(g0.x * g0.z + g1.x * g1.z + g2.x * g2.z + g3.x * g3.z * 0.8, 0.0, 1.0);
+    float gh = clamp(g0.x * g0.y + g1.x * g1.y + g2.x * g2.y + g3.x * g3.y, 0.0, 1.0);
+    vec3 ghostCol = mix(uMid * 1.05, mix(uCloudLit, vec3(0.6, 0.6, 0.78), 0.5) * 0.36, gl);
+    col = mix(col, ghostCol, ga * (0.3 + 0.25 * cover) * (0.8 + 0.4 * edgeN) * (1.0 - bank));
+    col = mix(col, uCloudDark * 0.65, gh * 0.55 * (1.0 - bank));
     // the witch crosses the moon (uWitch: her progress 0..1, shown when .y is 1), a silhouette
     if (uWitch.y > 0.5 && moonAng < uMoonR * 5.0) {
       vec3 right = normalize(cross(uSbMoonDir, vec3(0.0, 1.0, 0.0)));

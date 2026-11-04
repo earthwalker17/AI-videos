@@ -14,9 +14,10 @@ import { useThree } from '@react-three/fiber';
 import { useLayoutEffect } from 'react';
 import { AbsoluteFill, useCurrentFrame } from 'remotion';
 import type { PerspectiveCamera } from 'three';
+import { smoothstep } from '@aiv/core';
 import { at, FPS } from '../cues.ts';
 import { useFilmFonts } from '../look/fonts.ts';
-import { GrowClock, Grows } from '../look/Grows.tsx';
+import { FoldClock, GrowClock, Grows } from '../look/Grows.tsx';
 import { NIGHT } from '../look/materials.ts';
 import { Night } from '../look/Night.tsx';
 import { NightPost } from '../look/NightPost.tsx';
@@ -29,7 +30,7 @@ import { Book2, BOOK_EDGE } from '../world/Book2.tsx';
 import { Clawd2, clawdSmooth, pail2World } from '../world/Clawd2.tsx';
 import { Desk2 } from '../world/Desk2.tsx';
 import { Grass } from '../world/Grass.tsx';
-import { fromHouse } from '../world/layout.ts';
+import { BOOK, FLOOR, fromHouse } from '../world/layout.ts';
 import { Letter2 } from '../world/Letter2.tsx';
 import { Neighbour } from '../world/Neighbour.tsx';
 import { Terrain } from '../world/Terrain.tsx';
@@ -37,6 +38,8 @@ import {
   bigPumpkinLitAt,
   BURST,
   coverAt,
+  foldAt,
+  worldOnAt,
   doorOpenAt,
   farColdAt,
   footAt,
@@ -53,7 +56,7 @@ import {
 } from './beats.ts';
 import { clawdAt, userAt } from './blocking.ts';
 import type { CamPose } from './campath.ts';
-import { journeyAt } from './journey.ts';
+import { COVER_CLOSE, journeyAt } from './journey.ts';
 
 export const NIGHT_BG = '#0a1118';
 
@@ -101,13 +104,15 @@ const CANDY_PAIL = (() => {
   return pail2World(c.pose, c.hop);
 })();
 
-/** the world is on stage from the cover's burst to the slam (under the closed cover otherwise; the cover is still half open at the hidden cut) */
-const WORLD_ON = [at(4), at(35) + 1] as const;
+/** the world's tallest point above the page (the ghost tree's crown, 5.9): the fold squashes everything under the cover by it */
+const FOLD_TALLEST = 6.2;
 
 function Picture({ f, pose }: { f: number; pose: CamPose }) {
   const imm = immersionAt(f);
   const grown = grownAt(f);
-  const world = f >= WORLD_ON[0] && f < WORLD_ON[1];
+  // as the cover starts down: the pieces the fold cannot squash (the mist cards, the halos, the room behind the door) fade
+  const closing = smoothstep(COVER_CLOSE[0], COVER_CLOSE[0] + 8, f);
+  const world = worldOnAt(f);
   const clawd = clawdAt(f);
   const letter = letterAt(f);
   return (
@@ -115,6 +120,7 @@ function Picture({ f, pose }: { f: number; pose: CamPose }) {
       <Night f={f} fps={FPS} shadow={shadowAt(f, imm)} />
       <FogAmount amount={imm} />
       <GrowClock f={f} schedule={GROW} />
+      <FoldClock tan={foldAt(f)} hingeZ={-BOOK.d / 2} floor={FLOOR} tallest={FOLD_TALLEST} />
       <SkyDome immersion={imm} witch={witchAt(f)} />
       <Desk2 f={f} props={imm < 0.999} beam={1 - imm} />
       <Book2 cover={coverAt(f)} f={f} immersion={imm} />
@@ -122,11 +128,11 @@ function Picture({ f, pose }: { f: number; pose: CamPose }) {
         <Grows page>
           <Terrain />
         </Grows>
-        <Grows fade={grown}>
+        <Grows fade={grown} hide={closing}>
           <Grass />
           <WorldScene f={f} camPos={pose.pos} fov={pose.fov} gates={gatesOpenAt(f)} door={doorOpenAt(f)} windows={windowsAt(f)} bigLit={bigPumpkinLitAt(f)} lit={pumpkinsLitAt(f)} farCold={farColdAt(f)} bats={false} />
         </Grows>
-        <WorldBats f={f} camPos={pose.pos} fov={pose.fov} />
+        {f < COVER_CLOSE[0] && <WorldBats f={f} camPos={pose.pos} fov={pose.fov} />}
         <Clawd2 pose={{ ...clawd.pose, pailLit: pailLitAt(f) }} hop={clawd.hop} f={f} smooth={clawdSmooth(clawdAt, f)} camPos={pose.pos} />
         <Neighbour pose={userAt(f)} f={f} pail={CANDY_PAIL} />
         <Letter2 rise={letter.rise} flip={letter.flip} sealed={letter.sealed} tabGone={letter.tabGone} crack={letter.crack} f={f} />

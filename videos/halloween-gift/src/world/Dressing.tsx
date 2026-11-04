@@ -1,21 +1,23 @@
 /**
  * The ground's dressing: everything that lies on or grows out of the turf and the track.
- *  - Rocks (kit/rocks.ts): chiselled, faceted boulders under and in front of the giant
+ *  - Rocks (kit/rocks.ts): chiselled, faceted, bedded and cracked boulders under and in front of the giant
  *    jack-o'-lantern (a low seat under it, SEAT_HEIGHT; an upright hero slab at its front left,
  *    a low wedge under its grin, chunks behind), more at the big cross and the root mass, stones
  *    along the track's edges and at the fence bases, a few sunk flat stones and broken slabs in
- *    the track (only their caps show), clustered pebbles; a soft dark contact shadow on the
+ *    the track (only their caps show), cracked rock ledges along its front run, clustered pebbles; a soft dark contact shadow on the
  *    ground under every stone. Three merged meshes.
- *  - The root mass in the front-right corner (LAND.roots): a broken, hollow stump and its roots
- *    grown with kit/tree.ts (its bark: furrows, plates, burls), the roots' radius swelling and
- *    knuckled along them, two roots climbing down from high on the stump, crawling roots that
- *    kink and arch over the ground; plum bark held up by a warm wrap fill, nearly black in its
+ *  - The root mass in the front-right corner (LAND.roots): a broad, gnarled, hollow stump and its
+ *    roots grown with kit/tree.ts (its bark: a few shallow furrows wandering far, big burls and
+ *    lumps, never a ribbed column), its broken top rolled over into rounded, lumpy shoulders, the
+ *    roots' radius swelling and knuckled along them, two roots climbing down from high on the
+ *    stump, crawling roots that kink and arch over the ground, buttresses creeping back over the
+ *    turf toward the RIP stone; plum bark held up by a warm wrap fill, nearly black in its
  *    hollows; tiny almond eyes (warm amber) in its dark gaps, where a ray from the hero camera
  *    sees them, blinking now and then from the frame number. Straw and tall grass grow on its
  *    roots (`rootGrass`, used by world/Grass.tsx).
  *  - Cobwebs (kit/cobweb.ts): old torn webs with long sagging tethers, between the roots, the
  *    rocks and the big cross, faintly warm, glinting where silk lies across the light.
- *  - Fallen leaves and twigs along the track's edges.
+ *  - Fallen leaves and twigs along the track's edges and round the door yard's trodden middle.
  * Everything stands at layout positions and sits in the ground: bases sink below the lowest
  * ground under their footprint (Terrain's surfaceHeight), vertex colour darkens them near it.
  */
@@ -29,7 +31,7 @@ import { growTree, surfacePoint, treeGeometry, type TreeSkeleton, type Tube, typ
 import { NIGHT, storybookMaterial } from '../look/materials.ts';
 import { bigCrossFrame } from './Graveyard.tsx';
 import { FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, HERO, LAND, PATH, pathHalfWidth } from './layout.ts';
-import { APRON, dirtHalf, fbm, groundShading, PLUM, surfaceHeight, trackAt, yardMask } from './Terrain.tsx';
+import { APRON, dirtHalf, fbm, groundShading, PLUM, surfaceHeight, trackAt, yardCentre, yardMask } from './Terrain.tsx';
 
 /** The hero camera (layout's HERO): webs face it, and the eyes are placed where it sees them. */
 const HERO_EYE = new Vector3(...HERO.pos);
@@ -62,8 +64,9 @@ export interface Boulder {
 }
 
 /** Upright chiselled slabs, chunky blocks and small stones: rockGeometry presets. */
-const SLAB: Partial<RockParams> = { detail: 22, facets: 9, cut: 0.42, noise: 0.035, freq: 1.4, boxy: 3, bevel: 0.022, grit: 0.012, gritFreq: 11, cracks: 2, chips: 5, topTilt: 0.5, ao: 0.6, crease: 32 };
-const CHUNK: Partial<RockParams> = { detail: 11, facets: 11, cut: 0.4, noise: 0.04, freq: 1.3, boxy: 2.8, bevel: 0.03, grit: 0.012, gritFreq: 10, cracks: 1, chips: 4, ao: 0.6, crease: 32 };
+// (bedded into ledges, cracked, sharp-edged: a smooth faceted blob read as soap)
+const SLAB: Partial<RockParams> = { detail: 22, facets: 9, cut: 0.42, noise: 0.035, freq: 1.4, boxy: 3, bevel: 0.014, grit: 0.016, gritFreq: 13, cracks: 3, chips: 7, topTilt: 0.5, ao: 0.65, crease: 28, strata: 3, strataDepth: 0.075, strataTilt: 0.2 };
+const CHUNK: Partial<RockParams> = { detail: 12, facets: 11, cut: 0.4, noise: 0.04, freq: 1.3, boxy: 2.8, bevel: 0.018, grit: 0.016, gritFreq: 12, cracks: 2, chips: 6, ao: 0.65, crease: 28, strata: 3, strataDepth: 0.06, strataTilt: 0.25 };
 const SMALL: Partial<RockParams> = { detail: 7, facets: 9, cut: 0.38, noise: 0.05, boxy: 2.6, bevel: 0.04, chips: 2, ao: 0.55, crease: 30 };
 
 const P = LAND.bigPumpkin;
@@ -246,23 +249,29 @@ function rockSets() {
     contacts.push({ x, z, r: s * 1.35, a: 0.45 });
     placed++;
   }
-  // three big broken slabs near the lens (the reference's slabs at the bottom of the frame)
-  for (let k = 0, placed = 0; k < 300 && placed < 3; k++) {
-    const sa = 1.5 + rand(39, k, 0) * 1.1;
+  // cracked rock ledges along the track's front run (the reference's slabs at the bottom of the
+  // frame): broad, flat, bedded and cracked, sharp-edged, a corner or an edge lifted out of the dirt
+  const ledges = Array.from({ length: 3 }, (_, i) => keep(rockGeometry({ seed: 470 + i, detail: 12, facets: 10, cut: 0.44, noise: 0.03, freq: 1.6, size: [1, 0.3, 0.7], base: -0.25, ao: 0.6, crease: 26, boxy: 3.4, bevel: 0.012, grit: 0.018, gritFreq: 14, chips: 6, cracks: 3, topTilt: 0.1, strata: 2, strataDepth: 0.1, strataTilt: 0.15 })));
+  // (the hero view's foot, rows 840-1080, sees the apron's first metre, z ≈ 2.2 to 3.3; only on
+  // the apron: Clawd's walk keeps to the path)
+  for (let k = 0, placed = 0; k < 600 && placed < 6; k++) {
+    const sa = 0.1 + rand(39, k, 0) * 1.1;
     const p = APRON.pointAt(sa);
     const t = APRON.tangentAt(sa);
-    const u = (rand(39, k, 1) * 2 - 1) * 0.55;
+    const u = (rand(39, k, 1) * 2 - 1) * 0.6;
     const x = p[0] - t[1] * u;
     const z = p[1] + t[0] * u;
-    const s = 0.16 + 0.12 * rand(39, k, 2);
-    if (!clear(x, z, s) || trackAt(x, z).m < 0.9) continue;
-    if (small.some((r) => Math.hypot(r.matrix.elements[12] - x, r.matrix.elements[14] - z) < s + 0.1)) continue;
-    const size: [number, number, number] = [s, s * 0.8, s * (0.6 + 0.3 * rand(39, k, 3))];
+    const s = 0.16 + 0.14 * rand(39, k, 2);
+    const trL = trackAt(x, z);
+    if (!clear(x, z, s * 0.8) || trL.m < 0.85 || trL.apron < 0.6) continue;
+    if (small.some((r) => Math.hypot(r.matrix.elements[12] - x, r.matrix.elements[14] - z) < s + 0.08)) continue;
+    const size: [number, number, number] = [s, s * (0.75 + 0.3 * rand(39, k, 3)), s * (0.6 + 0.3 * rand(39, k, 8))];
     const g = lowestGround(x, z, s * 0.6);
-    const q = new Quaternion().setFromEuler(new Euler((rand(39, k, 4) - 0.5) * 0.22, rand(39, k, 5) * 6.28, (rand(39, k, 6) - 0.5) * 0.22, 'YXZ'));
-    const m = new Matrix4().compose(new Vector3(x, g - 0.1 * s, z), q, new Vector3(...size));
-    small.push({ geometry: brokens[(k + 1) % brokens.length], matrix: m, tint: new Color('#b49aa6').multiplyScalar(0.9 + 0.2 * rand(39, k, 7)) });
-    contacts.push({ x, z, r: s * 1.3, a: 0.5 });
+    const q = new Quaternion().setFromEuler(new Euler((rand(39, k, 4) - 0.5) * 0.3, rand(39, k, 5) * 6.28, (rand(39, k, 6) - 0.5) * 0.3, 'YXZ'));
+    // sunk: only the ledge's top and its lifted edge stand out of the dirt
+    const m = new Matrix4().compose(new Vector3(x, g - 0.06 * s, z), q, new Vector3(...size));
+    small.push({ geometry: ledges[k % ledges.length], matrix: m, tint: new Color('#b49aa6').multiplyScalar(0.85 + 0.25 * rand(39, k, 7)) });
+    contacts.push({ x, z, r: s * 1.25, a: 0.5 });
     placed++;
   }
   // pebbles: about eighty, in clusters along the ruts' edges and the banks, a power-law of sizes, half sunk
@@ -368,8 +377,11 @@ function rp(a: number, d: number, h: number, abs = false): V3 {
   return [x, abs ? h : localGround(x, z) + h, z];
 }
 
-const STUMP_R = 0.44;
-const STUMP_H = 1.5;
+const STUMP_R = 0.5;
+/** The stump's height: a low, broad, gnarled mass (a tall one read as a ribbed column from above). */
+const STUMP_H = 1.42;
+/** heights on the stump scale with it (the plans were drawn for a 1.5 tall stump) */
+const SH = STUMP_H / 1.5;
 
 interface RootPlan {
   /** fraction up the stump where it leaves, radius (fraction of the stump's there), tip */
@@ -380,14 +392,33 @@ interface RootPlan {
   path: V3[];
 }
 
-/** The roots: two climbing down from high on the stump, crawling ones that kink and arch (the eyes' gaps). */
+/**
+ * A buttress root creeping away over the ground from the stump's foot (world angle `a`, length
+ * `len`): it leaves the stump's flank in a broad knuckle, arches over the turf in two or three
+ * humps (gaps under them: the eyes' hollows), its run kinking left and right, and dives in.
+ */
+function buttress(a: number, len: number, hump: number, k: number): V3[] {
+  const R = STUMP_R;
+  const n = 7;
+  const pts: V3[] = [[0, 0, 0], rp(a, R * 0.85, 0.34 * SH + 0.08 * rand(84, k, 0), true)];
+  for (let i = 1; i <= n; i++) {
+    const t = i / n;
+    const wob = (rand(84, k, i) - 0.5) * 0.16 * (1 - t * 0.5);
+    // humps: high near the stump, a lower arch farther out, then down into the ground
+    const h = hump * (0.9 * Math.exp(-(((t - 0.12) / 0.16) ** 2)) + 0.55 * Math.exp(-(((t - 0.52) / 0.14) ** 2)) + 0.3 * Math.exp(-(((t - 0.8) / 0.1) ** 2))) + 0.02 - 0.12 * t ** 4;
+    pts.push(rp(a + wob, R + len * t, h));
+  }
+  return pts;
+}
+
+/** The roots: two climbing down from high on the stump, crawling ones that kink and arch (the eyes' gaps), buttresses creeping back toward the RIP stone. */
 function rootPlans(): RootPlan[] {
   const A = CAM_A;
   const R = STUMP_R;
   return [
     // climbing roots: from high on the stump down to the ground toward the viewer's left (the reference's sloping mass)
-    { at: 0.62, radius: 0.4, tip: 0.3, path: [[0, 0, 0], rp(A + 0.72, R * 0.95, 0.98, true), rp(A + 0.8, R + 0.28, 0.62, true), rp(A + 0.86, R + 0.62, 0.2), rp(A + 0.9, R + 0.95, 0.06), rp(A + 0.95, R + 1.3, -0.1)] },
-    { at: 0.5, radius: 0.36, tip: 0.3, path: [[0, 0, 0], rp(A + 0.1, R * 0.95, 0.78, true), rp(A + 0.14, R + 0.22, 0.48, true), rp(A + 0.2, R + 0.5, 0.12), rp(A + 0.24, R + 0.78, 0.05), rp(A + 0.3, R + 1.0, -0.1)] },
+    { at: 0.62, radius: 0.42, tip: 0.3, path: [[0, 0, 0], rp(A + 0.72, R * 0.95, 0.98 * SH, true), rp(A + 0.8, R + 0.28, 0.62 * SH, true), rp(A + 0.86, R + 0.62, 0.2), rp(A + 0.9, R + 0.95, 0.06), rp(A + 0.95, R + 1.3, -0.1)] },
+    { at: 0.5, radius: 0.38, tip: 0.3, path: [[0, 0, 0], rp(A + 0.1, R * 0.95, 0.78 * SH, true), rp(A + 0.14, R + 0.22, 0.48 * SH, true), rp(A + 0.2, R + 0.5, 0.12), rp(A + 0.24, R + 0.78, 0.05), rp(A + 0.3, R + 1.0, -0.1)] },
     // crawling roots toward the viewer and the track: humped, kinked at an elbow, diving under
     { at: 0.06, radius: 0.36, tip: 0.25, path: [[0, 0, 0], rp(A + 0.42, R * 0.9, 0.3, true), rp(A + 0.44, R + 0.14, 0.14), rp(A + 0.5, R + 0.34, 0.17), rp(A + 0.47, R + 0.46, 0.05), rp(A + 0.53, R + 0.62, 0.11), rp(A + 0.58, R + 0.86, -0.09)] },
     { at: 0.05, radius: 0.34, tip: 0.25, path: [[0, 0, 0], rp(A + 1.2, R * 0.9, 0.28, true), rp(A + 1.24, R + 0.16, 0.1), rp(A + 1.32, R + 0.38, 0.15), rp(A + 1.28, R + 0.55, 0.04), rp(A + 1.36, R + 0.78, 0.07), rp(A + 1.42, R + 1.02, -0.08)] },
@@ -397,6 +428,11 @@ function rootPlans(): RootPlan[] {
     { at: 0.1, radius: 0.2, tip: 0.2, path: [[0, 0, 0], rp(A + 0.22, R * 0.9, 0.36, true), rp(A + 0.28, R + 0.1, 0.12), rp(A + 0.18, R + 0.3, 0.1), rp(A + 0.26, R + 0.5, 0.02), rp(A + 0.2, R + 0.72, 0.06), rp(A + 0.24, R + 0.95, -0.06)] },
     { at: 0.08, radius: 0.18, tip: 0.2, path: [[0, 0, 0], rp(A + 0.85, R * 0.9, 0.32, true), rp(A + 0.8, R + 0.12, 0.13), rp(A + 0.9, R + 0.32, 0.06), rp(A + 0.84, R + 0.52, 0.1), rp(A + 0.92, R + 0.8, -0.06)] },
     { at: 0.07, radius: 0.18, tip: 0.2, path: [[0, 0, 0], rp(A - 0.15, R * 0.9, 0.3, true), rp(A - 0.1, R + 0.12, 0.1), rp(A - 0.2, R + 0.3, 0.12), rp(A - 0.12, R + 0.5, 0.03), rp(A - 0.18, R + 0.7, -0.06)] },
+    // buttresses creeping back over the turf toward the RIP stone (the reference's roots along its foot, left of the mass)
+    { at: 0.08, radius: 0.4, tip: 0.18, path: buttress(-1.62, 2.1, 0.3, 0) },
+    { at: 0.07, radius: 0.34, tip: 0.18, path: buttress(-1.92, 1.75, 0.24, 1) },
+    { at: 0.06, radius: 0.3, tip: 0.2, path: buttress(-2.2, 1.15, 0.2, 2) },
+    { at: 0.07, radius: 0.3, tip: 0.2, path: buttress(-1.32, 1.6, 0.22, 3) },
   ];
 }
 
@@ -411,15 +447,16 @@ function rootSkeleton(): TreeSkeleton {
   const skel = growTree({
     seed: 77,
     levels: 2,
-    trunkPath: [ax(-0.25, 0, 0), ax(0.2, 0.02, 0.03), ax(0.62, -0.05, -0.04), ax(1.0, 0.05, -0.08), ax(1.3, 0.14, 0.0), ax(STUMP_H, 0.18, 0.06)],
+    trunkPath: [ax(-0.25, 0, 0), ax(0.2 * SH, 0.02, 0.03), ax(0.62 * SH, -0.05, -0.04), ax(1.0 * SH, 0.05, -0.08), ax(1.3 * SH, 0.12, 0.0), ax(STUMP_H, 0.15, 0.06)],
     trunkRadius: STUMP_R,
-    trunkTip: 0.82,
+    trunkTip: 0.86,
     trunkSection: 0.045,
     taperCurve: 0.9,
     rootFlare: 0.75,
     flareFrac: 0.3,
     pathGnarl: 0.9,
-    bark: { furrows: 6, depth: 0.2, twist: 0.3, lumps: 0.12, burls: 0.12, wander: 0.6, minRadius: 0.04 },
+    // broad, gnarled wood: few shallow furrows wandering far (never a ribbed hose), big burls and lumps
+    bark: { furrows: 3.2, depth: 0.11, twist: 0.1, lumps: 0.25, burls: 0.35, wander: 1.25, minRadius: 0.04 },
     roots: { count: 6, length: 0.85, radius: 0.45, forks: 1 },
     ground: localGround,
     hero: rootPlans().map((r) => ({ at: r.at, dir: [1, 0, 0] as V3, length: 1, radius: r.radius, tip: r.tip, path: r.path, children: 0 })),
@@ -441,7 +478,11 @@ function rootSkeleton(): TreeSkeleton {
   return skel;
 }
 
-/** The stump's broken top: a jagged rim of splinters over the trunk's last ring, and a dark hollow inside. */
+/**
+ * The stump's broken top: rounded, gnarled shoulders rolling over into a lumpy, weathered rim (a
+ * couple of low, blunt stubs of the old wood, worn round, never a sawtooth crest), and a dark
+ * hollow inside it.
+ */
 function stumpCap(skel: TreeSkeleton): BufferGeometry {
   const trunk = skel.tubes[0];
   const len = trunk.rings[trunk.rings.length - 1].along;
@@ -450,28 +491,43 @@ function stumpCap(skel: TreeSkeleton): BufferGeometry {
   const pos: number[] = [];
   const col: number[] = [];
   const idx: number[] = [];
+  const R = top.radius;
   const jag = (a: number) => {
-    let h = 0.05 * fbm(Math.cos(a) * 1.5, Math.sin(a) * 1.5, 230, 2, 1);
-    // splinters, higher at the back
+    // a lumpy rim, and two or three blunt, rounded stubs (higher at the back)
+    let h = 0.06 * fbm(Math.cos(a) * 1.4, Math.sin(a) * 1.4, 230, 3, 1) + 0.025 * fbm(Math.cos(a) * 4, Math.sin(a) * 4, 231, 2, 1);
     for (const [sa, sw, sh] of [
-      [CAM_A + 2.6, 0.35, 0.3],
-      [CAM_A + 1.3, 0.2, 0.14],
-      [CAM_A - 1.6, 0.28, 0.2],
-      [CAM_A + 0.5, 0.15, 0.08],
+      [CAM_A + 2.6, 0.6, 0.16],
+      [CAM_A - 1.5, 0.5, 0.1],
+      [CAM_A + 1.2, 0.35, 0.05],
     ] as const) {
       const d = Math.abs(Math.atan2(Math.sin(a - sa), Math.cos(a - sa)));
-      h += sh * Math.max(0, 1 - d / sw) ** 1.5;
+      const t = Math.max(0, 1 - d / sw);
+      h += sh * t * t * (3 - 2 * t);
     }
     return Math.max(0, h);
   };
-  // rings: the bark's surface at the top ring, the splintered rim, the inner wall, the hollow's floor
+  // rings: the bark at the top ring, the shoulder rolling over (rounded), the rim's crest, its
+  // inner lip, the hollow's wall and floor; (inset fraction of R, height over the top ring + jag share, AO)
+  const ROLL: [number, number, number, number][] = [
+    [0.0, 0.0, 0.0, 0.9],
+    [0.05, 0.05, 0.45, 0.92],
+    [0.17, 0.085, 0.8, 0.95],
+    [0.3, 0.095, 1.0, 0.92],
+    [0.43, 0.075, 0.95, 0.75],
+    [0.52, 0.035, 0.8, 0.5],
+  ];
   const rings: ((a: number, d: Vector3) => [Vector3, number])[] = [
-    (_a, d) => [surfacePoint(skel, trunk, len, d), 0.9],
-    (a, d) => [surfacePoint(skel, trunk, len, d).addScaledVector(top.tangent, jag(a)).addScaledVector(d, -0.02), 0.95],
-    (a, d) => [top.pos.clone().addScaledVector(d, top.radius * 0.8).addScaledVector(top.tangent, jag(a) * 0.8 - 0.01), 0.7],
-    (_a, d) => [top.pos.clone().addScaledVector(d, top.radius * 0.66).addScaledVector(top.tangent, -0.12), 0.25],
-    (_a, d) => [top.pos.clone().addScaledVector(d, top.radius * 0.36).addScaledVector(top.tangent, -0.4), 0.08],
-    (_a, d) => [top.pos.clone().addScaledVector(d, 0.001).addScaledVector(top.tangent, -0.46), 0.05],
+    ...ROLL.map(
+      ([inset, up, js, ao]) =>
+        (a: number, d: Vector3): [Vector3, number] => {
+          // (in from the bark's own surface there, so the roll follows its lumps and burls)
+          const base = surfacePoint(skel, trunk, len, d).lerp(top.pos, inset);
+          return [base.addScaledVector(top.tangent, up * R + jag(a) * js), ao];
+        },
+    ),
+    (a, d) => [surfacePoint(skel, trunk, len, d).lerp(top.pos, 0.6).addScaledVector(top.tangent, jag(a) * 0.4 - 0.1), 0.25],
+    (_a, d) => [top.pos.clone().addScaledVector(d, R * 0.26).addScaledVector(top.tangent, -0.3), 0.08],
+    (_a, d) => [top.pos.clone().addScaledVector(d, 0.001).addScaledVector(top.tangent, -0.36), 0.05],
   ];
   const b = new Vector3().crossVectors(top.tangent, top.normal);
   for (const ring of rings)
@@ -539,7 +595,7 @@ function cavity(g: BufferGeometry, skel: TreeSkeleton): void {
         let m = 0;
         for (let q = -3; q <= 3; q++) m += rr[(((j + q) % R) + R) % R];
         const c = (rr[j] - m / 7) / Math.max(1e-3, ring.radius);
-        const k = Math.max(0.22, Math.min(1.35, 1 + 6 * c));
+        const k = Math.max(0.4, Math.min(1.3, 1 + 4.5 * c));
         col.setXYZ(base + j, col.getX(base + j) * k, col.getY(base + j) * k, col.getZ(base + j) * k);
       }
     });
@@ -655,7 +711,7 @@ function eyeSpots(mass: BufferGeometry): EyeSpot[] {
         if (d < depth[k]) depth[k] = d;
       }
   }
-  // a gap: behind its surroundings to the left, the right and above, by at least 7 cm
+  // a gap: behind its surroundings to the left, the right and above, by at least 4 cm (the deepest first)
   const R = 5;
   const cands: { x: number; y: number; open: number; score: number }[] = [];
   for (let y = 2; y < H - R - 1; y++)
@@ -673,8 +729,10 @@ function eyeSpots(mass: BufferGeometry): EyeSpot[] {
       if (open > 50) continue;
       const gap = Math.min(d, open + 0.6) - open;
       // the pair needs the cells beside it open too
-      if (gap < 0.07 || depth[y * W + x - 1] < open + 0.04 || depth[y * W + x + 1] < open + 0.04) continue;
-      cands.push({ x, y, open, score: Math.min(gap, 0.3) + 0.08 * (1 - y / H) });
+      if (gap < 0.04 || depth[y * W + x - 1] < open + 0.03 || depth[y * W + x + 1] < open + 0.03) continue;
+      // (the reference's eyes sit in the mass's mid-height hollows, about rows 800-880 of the hero frame)
+      const row = 540 * (1 - (Ylo + ((y + 0.5) / H) * (Yhi - Ylo)));
+      cands.push({ x, y, open, score: Math.min(gap, 0.3) + 0.12 * Math.exp(-(((row - 840) / 70) ** 2)) });
     }
   cands.sort((p, q) => q.score - p.score);
   const ray = (x: number, y: number) => new Vector3(X0 + ((x + 0.5) / W) * (X1 - X0), Ylo + ((y + 0.5) / H) * (Yhi - Ylo), 0.5).unproject(HERO_CAM).sub(HERO_EYE).normalize();
@@ -744,7 +802,8 @@ function RootMass({ f }: { f: number }) {
   const { geo, mat, eyes, warm, dim, sockets, socketMat } = useMemo(() => {
     const geo = massGeometry();
     // plum bark, lichen on its tops; a warm wrap fill so the faces toward the viewer hold their value
-    const mat = groundShading(storybookMaterial({ kind: 'stone', vertexColors: true, color: '#58484a', color2: '#6a7e86', breakup: 0.45, scale: 0.14, bump: 1.3, rim: 1.2, topCoat: 0.6, roughness: 0.9, ambient: 0.45 }), { wrap: ['#c8b8c0', 0.22], shade: PLUM_SHADE });
+    // (a low rim: on bark ridges a strong one breaks into scattered white flecks)
+    const mat = groundShading(storybookMaterial({ kind: 'stone', vertexColors: true, color: '#6e565c', color2: '#71868e', breakup: 0.55, scale: 0.1, bump: 2.2, rim: 0.85, topCoat: 0.55, roughness: 0.9, ambient: 0.62 }), { wrap: ['#c8b8c0', 0.34], shade: PLUM_SHADE, grain: [0.02, 0.6] });
     const spots = eyeSpots(geo);
     const eyes = spots.map((e) => ({ geo: eyePairGeometry(e.dir, e.s), p: e.p, glow: e.glow }));
     const sockets = socketGeometry(spots);
@@ -830,6 +889,18 @@ function webThreads(): Thread[] {
     const g = grassTop(hub.x, hub.z);
     out.push(...orbWeb({ seed: 2, hub, anchors: [a1, a2, c1, g, c2], radials: 10, rings: 6, torn: 0.45, broken: 0.2, tethers: [grassTop(c1.x - 0.3, c1.z + 0.15)] }));
   }
+  // low between the first two buttresses, over the turf by the eyes (the reference's torn web across the roots)
+  const bt1 = hero[9];
+  const bt2 = hero[10];
+  if (bt1 && bt2) {
+    const p1 = on(bt1, 0.16, V(0, 1, 0));
+    const p2 = on(bt1, 0.4, V(0, 1, 0));
+    const q1 = on(bt2, 0.18, V(0, 1, 0));
+    const q2 = on(bt2, 0.44, V(0, 1, 0));
+    const g = grassTop((p2.x + q2.x) / 2, (p2.z + q2.z) / 2);
+    const hub = p1.clone().add(p2).add(q1).add(q2).add(g).multiplyScalar(0.2).add(V(0, 0.04, 0));
+    out.push(...orbWeb({ seed: 6, hub, anchors: [p1, p2, g, q2, q1], radials: 11, rings: 6, torn: 0.42, broken: 0.15, tethers: [stumpAt(rootAngle(9) + 0.2, 0.45), grassTop(q2.x + 0.2, q2.z - 0.1)] }));
+  }
   // the big cross's foot: from its stem's right edge down to the boulders and the grass (the reference's lower-left web)
   {
     const b0 = BOULDERS[8];
@@ -901,7 +972,7 @@ function leavesGeometry(): BufferGeometry {
   const v = new Vector3();
   const q = new Quaternion();
   let placed = 0;
-  for (let k = 0; k < 9000 && placed < 420; k++) {
+  for (let k = 0; k < 9000 && placed < 520; k++) {
     const x = -2.8 + rand(70, k, 0) * 7.5;
     const z = -1.6 + rand(70, k, 1) * 6.2;
     const tr = trackAt(x, z);
@@ -909,8 +980,10 @@ function leavesGeometry(): BufferGeometry {
     const edgeBand = 1 - Math.min(1, Math.abs(tr.edge + 0.02) / 0.16);
     const onDirt = tr.m > 0.5 ? 0.12 : 0;
     const drift = 0.5 + 0.5 * fbm(x, z, 71, 2, 1.6);
-    if (rand(70, k, 2) > (edgeBand * 0.8 + onDirt) * drift * (0.35 + 0.65 * smoothstep(0.4, 3.6, z))) continue;
-    if (Math.hypot(x - ROOT_C.x, z - ROOT_C.z) < ROOTS_FOOTPRINT.r * 0.8 || yardMask(x, z) > 0.3) continue;
+    const yardM = yardMask(x, z, 0.3) * 0.55;
+    if (rand(70, k, 2) > (edgeBand * 0.8 + onDirt) * drift * (0.35 + 0.65 * smoothstep(0.4, 3.6, z)) + yardM * drift) continue;
+    // (in the door yard only round its trodden middle, where the actors stand)
+    if (Math.hypot(x - ROOT_C.x, z - ROOT_C.z) < ROOTS_FOOTPRINT.r * 0.8 || (yardMask(x, z) > 0.3 && yardCentre(x, z) > 0.3)) continue;
     if (Math.abs(tr.u) < pathHalfWidth(tr.s) * 0.35 && tr.apron < 0.5) continue;
     const isTwig = rand(70, k, 3) < 0.14;
     const len = isTwig ? 0.06 + 0.1 * rand(70, k, 4) : 0.035 + 0.03 * rand(70, k, 4);

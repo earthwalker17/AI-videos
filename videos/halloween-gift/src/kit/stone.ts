@@ -8,8 +8,8 @@
  * vertex (convex edges > 0, crevices < 0) lets the caller lighten worn edges and darken hollows.
  *
  * Carving lives in a canvas (drawn once, seeded) mapped on the front faces: `CARVED_GLYPHS` are
- * hand-cut stroke letters (only those needed for RIP IN PEACE) and `pseudoGlyph` draws worn,
- * unreadable lettering.
+ * hand-cut stroke capitals and figures (a mason's alphabet for short epitaphs and dates) and
+ * `pseudoGlyph` draws worn, unreadable lettering.
  *
  * Deterministic: noise is hashed from coordinates and seeds (@aiv/core mix32), randomness comes
  * from the caller's seeded `rand`. Generic: no film imports.
@@ -709,7 +709,7 @@ export function surfaceNets(sdf: SDF, min: V3, max: V3, cell: number): NetMesh {
 
 /**
  * Hand-cut stroke letters in a unit box (x right 0..w, y up 0..1), each a list of strokes, each
- * stroke a polyline (arcs pre-sampled). Only the letters a carving here needs.
+ * stroke a polyline (arcs pre-sampled): the capitals and figures the carvings here need.
  */
 const arc = (cx: number, cy: number, rx: number, ry: number, a0: number, a1: number, n = 10): [number, number][] =>
   Array.from({ length: n + 1 }, (_, i) => {
@@ -801,6 +801,34 @@ export const CARVED_GLYPHS: Record<string, { w: number; strokes: [number, number
   },
   C: { w: 0.7, strokes: [arc(0.4, 0.5, 0.32, 0.5, Math.PI * 0.28, Math.PI * 1.72, 16)] },
   ' ': { w: 0.4, strokes: [] },
+  // the rest of a mason's alphabet, for the epitaphs (the same hand: stems at 0.08, bowls of arcs)
+  B: { w: 0.64, strokes: [[[0.08, 0], [0.08, 1]], [[0.08, 1], [0.34, 1], ...arc(0.34, 0.76, 0.22, 0.24, Math.PI / 2, -Math.PI / 2, 8).slice(1), [0.08, 0.52]], [[0.08, 0.52], [0.36, 0.52], ...arc(0.36, 0.26, 0.24, 0.26, Math.PI / 2, -Math.PI / 2, 8).slice(1), [0.08, 0]]] },
+  D: { w: 0.72, strokes: [[[0.08, 0], [0.08, 1]], [[0.08, 1], [0.3, 1], ...arc(0.3, 0.5, 0.33, 0.5, Math.PI / 2, -Math.PI / 2, 12).slice(1), [0.08, 0]]] },
+  F: { w: 0.56, strokes: [[[0.52, 1], [0.08, 1], [0.08, 0]], [[0.08, 0.52], [0.42, 0.52]]] },
+  G: { w: 0.74, strokes: [arc(0.4, 0.5, 0.32, 0.5, Math.PI * 0.26, Math.PI * 1.88, 16), [[0.46, 0.42], [0.72, 0.42], [0.72, 0.16]]] },
+  H: { w: 0.72, strokes: [[[0.08, 0], [0.08, 1]], [[0.64, 0], [0.64, 1]], [[0.08, 0.52], [0.64, 0.52]]] },
+  L: { w: 0.54, strokes: [[[0.08, 1], [0.08, 0], [0.5, 0]]] },
+  M: { w: 0.86, strokes: [[[0.06, 0], [0.08, 1], [0.43, 0.16], [0.78, 1], [0.8, 0]]] },
+  O: { w: 0.78, strokes: [arc(0.39, 0.5, 0.33, 0.5, 0, Math.PI * 2, 20)] },
+  S: { w: 0.6, strokes: [[...arc(0.3, 0.75, 0.23, 0.25, Math.PI * 0.12, Math.PI * 1.5, 10), ...arc(0.3, 0.25, 0.25, 0.25, Math.PI * 0.5, -Math.PI * 0.86, 10).slice(1)]] },
+  T: { w: 0.64, strokes: [[[0.04, 1], [0.6, 1]], [[0.32, 1], [0.32, 0]]] },
+  V: { w: 0.7, strokes: [[[0.04, 1], [0.35, 0], [0.66, 1]]] },
+  W: { w: 0.98, strokes: [[[0.04, 1], [0.25, 0], [0.49, 0.78], [0.73, 0], [0.94, 1]]] },
+  Y: { w: 0.68, strokes: [[[0.04, 1], [0.34, 0.5], [0.64, 1]], [[0.34, 0.5], [0.34, 0]]] },
+  U: { w: 0.7, strokes: [[[0.08, 1], [0.08, 0.32], ...arc(0.35, 0.32, 0.27, 0.32, Math.PI, Math.PI * 2, 10).slice(1), [0.62, 1]]] },
+  K: { w: 0.66, strokes: [[[0.08, 0], [0.08, 1]], [[0.6, 1], [0.08, 0.4]], [[0.26, 0.58], [0.62, 0]]] },
+  '0': { w: 0.56, strokes: [arc(0.28, 0.5, 0.22, 0.5, 0, Math.PI * 2, 18)] },
+  '1': { w: 0.36, strokes: [[[0.06, 0.8], [0.2, 1], [0.2, 0]]] },
+  '2': { w: 0.56, strokes: [[...arc(0.28, 0.72, 0.22, 0.28, Math.PI * 0.85, -Math.PI * 0.22, 10), [0.06, 0], [0.52, 0]]] },
+  '3': { w: 0.56, strokes: [[...arc(0.27, 0.75, 0.21, 0.25, Math.PI * 0.85, -Math.PI * 0.5, 10), ...arc(0.27, 0.25, 0.24, 0.25, Math.PI * 0.5, -Math.PI * 0.85, 10).slice(1)]] },
+  '4': { w: 0.6, strokes: [[[0.42, 0], [0.42, 1], [0.04, 0.32], [0.58, 0.32]]] },
+  '5': { w: 0.56, strokes: [[[0.5, 1], [0.12, 1], [0.1, 0.55], ...arc(0.27, 0.32, 0.24, 0.32, Math.PI * 0.75, -Math.PI * 0.85, 10)]] },
+  '6': { w: 0.58, strokes: [[[0.48, 0.98], [0.2, 0.64], [0.08, 0.32]], arc(0.3, 0.3, 0.22, 0.3, 0, Math.PI * 2, 16)] },
+  '7': { w: 0.56, strokes: [[[0.04, 1], [0.52, 1], [0.2, 0]]] },
+  '8': { w: 0.56, strokes: [arc(0.28, 0.76, 0.19, 0.24, 0, Math.PI * 2, 14), arc(0.28, 0.27, 0.23, 0.27, 0, Math.PI * 2, 14)] },
+  '9': { w: 0.58, strokes: [arc(0.28, 0.7, 0.22, 0.3, 0, Math.PI * 2, 16), [[0.5, 0.66], [0.4, 0.3], [0.12, 0.02]]] },
+  '.': { w: 0.24, strokes: [[[0.1, 0.02], [0.13, 0.08]]] },
+  '-': { w: 0.42, strokes: [[[0.07, 0.48], [0.35, 0.48]]] },
 };
 
 /** Draw a word of carved letters as strokes (the caller sets stroke style, width and joins). */

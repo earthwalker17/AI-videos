@@ -9,7 +9,7 @@
 import { clamp, progress, smoothstep } from '@aiv/core';
 import { at } from '../cues.ts';
 import { FLOOR, PAGE } from '../world/layout.ts';
-import { OUT_OF_BOOK } from './journey.ts';
+import { COVER_CLOSE, OUT_OF_BOOK } from './journey.ts';
 
 /** The score's six pops as the cover bursts (audio/foley.ts: at(4) + 6 + k × 3), left to right. */
 export const POPS = [0, 1, 2, 3, 4, 5].map((k) => at(4) + 6 + k * 3);
@@ -57,15 +57,40 @@ export const grownAt = (f: number): number => progress(f, GROW.from, GROW.from +
 export const BURST = { start: at(3), count: 14, size: 1.45, speed: 6.0, scatter: 0.6, rise: 1.4, stagger: 22 } as const;
 export const COVER_CRACK = 3.2 / 90;
 
-/** The cover, 0 closed .. 1 standing open (90°): the crack for the bats on bar 3, bursts open on bar 4, slams on bar 35 (V1's curve). */
+/**
+ * The cover, 0 closed .. 1 standing open (90°): the crack for the bats on bar 3, bursts open on
+ * bar 4, and closes on the score's riffle (film/journey.ts COVER_CLOSE): it tips over slowly, like
+ * a lid let go, and falls faster and faster into the slam on bar 35 (t^2.5: about 74° half way,
+ * 46° with a quarter of the time left, 9° on the last frame before it).
+ */
+export const CLOSE_POW = 2.5;
 export function coverAt(f: number): number {
   if (f < at(4)) {
     const up = smoothstep(BURST.start - 6, BURST.start, f);
     const down = smoothstep(BURST.start + 24, BURST.start + 32, f);
     return COVER_CRACK * up * (1 - down);
   }
-  if (f < at(34, 3)) return progress(f, at(4), at(4) + 18, 'outCubic');
-  return 1 - progress(f, at(34, 3), at(35), 'inCubic');
+  const [c0, c1] = COVER_CLOSE;
+  if (f < c0) return progress(f, at(4), at(4) + 18, 'outCubic');
+  return 1 - clamp((f - c0) / (c1 - c0), 0, 1) ** CLOSE_POW;
+}
+
+/**
+ * The world is on stage from the cover's burst (bar 4) until the cover lies shut on it at the slam
+ * (bar 35): while it is shut (coverAt 0) nothing of the world may show through it.
+ */
+export const WORLD_ON: readonly [number, number] = [at(4) + 1, at(35)];
+export const worldOnAt = (f: number): boolean => f >= WORLD_ON[0] && f < WORLD_ON[1];
+
+/**
+ * The world folding flat under the closing cover, like a pop-up book's pieces (look/materials.ts
+ * setFold): the cover's angle above the page, as tan(angle), for the fold to squash every point at
+ * distance d from the hinge to at most d × tan(angle) above the page; Infinity while the cover
+ * stands (nothing folds).
+ */
+export function foldAt(f: number): number {
+  if (f < COVER_CLOSE[0] || f >= COVER_CLOSE[1]) return Infinity;
+  return Math.tan((coverAt(f) * Math.PI) / 2);
 }
 
 /**

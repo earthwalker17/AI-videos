@@ -7,11 +7,12 @@
  * `visible`, so no component's object visibility is touched). While it grows nothing in it casts
  * a shadow (the shadow pass does not see the grow). Outside a Grows nothing grows: the book,
  * the desk and the actors keep their shape. The opt-in is set on the materials each frame, so a
- * piece built later is caught too.
+ * piece built later is caught too. `hide` (0..1) takes those other pieces away again as the cover
+ * closes (FoldClock folds only the storybook materials), without touching the shadows.
  */
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import type { Group, Material, Mesh, ShaderMaterial } from 'three';
-import { setGrow, type GrowSchedule } from './materials.ts';
+import { setFold, setGrow, type GrowSchedule } from './materials.ts';
 
 interface SbMaterial extends Material {
   userData: { sb?: { uSbGrowOn?: { value: number } }; baseOpacity?: number };
@@ -23,7 +24,17 @@ export function GrowClock({ f, schedule }: { f: number; schedule: GrowSchedule }
   return null;
 }
 
-export function Grows({ page = false, fade = 1, children }: { page?: boolean; fade?: number; children: ReactNode }) {
+/**
+ * Sets the world's fold under the closing cover for the frame (film/beats.ts foldAt: tan of the
+ * cover's angle, Infinity while it stands): the grown world squashes flat about the page, nearest
+ * the hinge first, so nothing pokes through the cover as it comes down.
+ */
+export function FoldClock({ tan, hingeZ, floor, tallest }: { tan: number; hingeZ: number; floor: number; tallest: number }) {
+  useLayoutEffect(() => setFold(tan, hingeZ, floor, tallest), [tan, hingeZ, floor, tallest]);
+  return null;
+}
+
+export function Grows({ page = false, fade = 1, hide = 0, children }: { page?: boolean; fade?: number; hide?: number; children: ReactNode }) {
   const ref = useRef<Group>(null);
   useLayoutEffect(() => {
     ref.current?.traverse((o) => {
@@ -34,10 +45,10 @@ export function Grows({ page = false, fade = 1, children }: { page?: boolean; fa
       for (const m of Array.isArray(mat) ? mat : [mat]) {
         const on = m.userData.sb?.uSbGrowOn;
         if (on) on.value = page ? 2 : 1;
-        else if (!m.transparent || (m as ShaderMaterial).isShaderMaterial) m.visible = fade >= 0.999;
+        else if (!m.transparent || (m as ShaderMaterial).isShaderMaterial) m.visible = fade >= 0.999 && hide <= 0.001;
         else {
           m.userData.baseOpacity ??= m.opacity;
-          m.opacity = m.userData.baseOpacity * fade;
+          m.opacity = m.userData.baseOpacity * fade * (1 - hide);
         }
       }
     });

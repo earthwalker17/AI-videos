@@ -216,26 +216,58 @@ const POT: [number, number][] = [
   [0.164, 0.194],
   [0.149, 0.217],
   [0.141, 0.231],
-  [0.143, 0.24],
-  [0.153, 0.246],
-  [0.162, 0.253],
-  [0.167, 0.263],
-  [0.165, 0.273],
-  [0.157, 0.279],
-  [0.147, 0.278],
-  [0.139, 0.271],
+  [0.143, 0.239],
+  [0.155, 0.243],
+  [0.168, 0.25],
+  [0.175, 0.26],
+  [0.175, 0.27],
+  [0.168, 0.278],
+  [0.156, 0.281],
+  [0.145, 0.278],
+  [0.138, 0.27],
   [0.134, 0.259],
   [0.131, 0.246],
   [0.12, 0.236],
 ];
 
+/** The pot's profile resampled (three points per span): enough rows for the hammer's dents. */
+function potProfile(): Vector2[] {
+  const out: Vector2[] = [];
+  for (let i = 0; i < POT.length - 1; i++) {
+    const [r0, y0] = POT[i];
+    const [r1, y1] = POT[i + 1];
+    const n = y1 - y0 > 0.02 ? 3 : 1;
+    for (let k = 0; k < n; k++) out.push(new Vector2(r0 + ((r1 - r0) * k) / n, y0 + ((y1 - y0) * k) / n + LEG_H));
+  }
+  const [rl, yl] = POT[POT.length - 1];
+  out.push(new Vector2(rl, yl + LEG_H));
+  return out;
+}
+
+/** Hammered iron: shallow round dents in rows (a cell pattern in angle and height), 0 on a dent's floor .. 1 between. */
+function hammer(a: number, y: number, seed: number): number {
+  const u = (a / TAU) * 46;
+  const v = y * 70;
+  const iu = Math.floor(u);
+  const iv = Math.floor(v);
+  let best = 9;
+  for (let dv = -1; dv <= 1; dv++)
+    for (let du = -1; du <= 1; du++) {
+      const cu = iu + du;
+      const cv = iv + dv;
+      const cell = (((cu % 46) + 46) % 46) * 1000 + cv;
+      const ox = rand(seed, 9101, cell);
+      const oy = rand(seed, 9102, cell);
+      best = Math.min(best, Math.hypot(u - (cu + 0.15 + 0.7 * ox), v - (cv + 0.15 + 0.7 * oy)));
+    }
+  return smoothstep(0.0, 0.62, best);
+}
+
 function cauldronIron(seed: number): BufferGeometry {
   const parts: BufferGeometry[] = [];
-  const pot = new LatheGeometry(
-    POT.map(([r, y]) => new Vector2(r, y + LEG_H)),
-    44,
-  );
-  // cast unevenly: lumps, a dent, the rim a little out of round
+  const pot = new LatheGeometry(potProfile(), 92);
+  // cast and hammered unevenly: lumps, rows of shallow hammer dents over the belly, a big dent,
+  // the rim a little out of round (a smooth ball read as plastic)
   const p = pot.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i);
@@ -244,7 +276,8 @@ function cauldronIron(seed: number): BufferGeometry {
     const r = Math.hypot(x, z);
     if (r < 1e-4) continue;
     const a = Math.atan2(z, x);
-    const k = 1 + 0.012 * (noise3(x * 30, y * 30, z * 30, seed) - 0.5) + 0.018 * Math.cos(2 * a + 0.7) * smoothstep(0.2, 0.3, y) - 0.03 * Math.exp(-((a - 2.2) ** 2) / 0.08 - ((y - 0.17) ** 2) / 0.002);
+    const belly = smoothstep(LEG_H + 0.015, LEG_H + 0.05, y) * smoothstep(LEG_H + 0.232, LEG_H + 0.21, y);
+    const k = 1 + 0.012 * (noise3(x * 30, y * 30, z * 30, seed) - 0.5) - 0.022 * (1 - hammer(a + Math.PI, y, seed)) * belly + 0.018 * Math.cos(2 * a + 0.7) * smoothstep(0.2, 0.3, y) - 0.03 * Math.exp(-((a - 2.2) ** 2) / 0.08 - ((y - 0.17) ** 2) / 0.002);
     p.setX(i, x * k);
     p.setZ(i, z * k);
   }
@@ -462,35 +495,97 @@ function frothBalls(seed: number): FrothBall[] {
   }
   return out;
 }
-/** The froth's balls merged (unit spheres, moved per frame); uv.x picks the glow (violet .. cyan, brighter on top). */
-function frothGeometry(balls: FrothBall[]): { geo: BufferGeometry; unit: Float32Array; per: number } {
-  const ball = new SphereGeometry(1, 8, 5);
-  const per = ball.attributes.position.count;
-  const parts = balls.map((b) => {
-    const g = ball.clone();
-    const p = g.attributes.position;
-    const uv = g.attributes.uv;
-    for (let i = 0; i < p.count; i++) uv.setXY(i, clamp01(0.15 + 0.6 * b.tint + 0.25 * smoothstep(-0.2, 0.8, p.getY(i))), 0.5);
-    return g;
-  });
-  // the froth's body under the balls: a glowing low dome over the whole brew (no dark gaps)
-  const body = new SphereGeometry(1, 28, 8, 0, TAU, 0, Math.PI / 2);
-  {
-    const p = body.attributes.position;
-    const uv = body.attributes.uv;
-    for (let i = 0; i < p.count; i++) {
-      const y = p.getY(i);
-      p.setXYZ(i, p.getX(i) * BREW_R * 0.99, BREW_Y + LEG_H + 0.004 + y * 0.034, p.getZ(i) * BREW_R * 0.99);
-      uv.setXY(i, 0.35 + 0.35 * y, 0.5);
+/** The froth's surface: a polar grid over the brew and just past the rim (rings, segments). */
+const FROTH_RINGS = 22;
+const FROTH_SEGS = 64;
+const FROTH_REACH = BREW_R * 1.24;
+
+/** Polynomial smooth maximum (blend width k): the foam's cells run together in rounded creases. */
+function smax(a: number, b: number, k: number): number {
+  const h = Math.max(k - Math.abs(a - b), 0) / k;
+  return Math.max(a, b) + h * h * k * 0.25;
+}
+
+/**
+ * The froth: ONE surface, the smooth union of every bubble's cap and a low dome (a heap of
+ * separate spheres read as identical balls), its cells merged into creases; uv.x picks the glow
+ * (violet .. cyan by the dominant bubble's tint, brighter on top). Heights are set per frame
+ * (frothHeights) in the balls' own turning frame (the mesh turns with them).
+ */
+function frothGeometry(): { geo: BufferGeometry; xz: Float32Array } {
+  const n = 1 + FROTH_RINGS * FROTH_SEGS;
+  const pos = new Float32Array(n * 3);
+  const uv = new Float32Array(n * 2);
+  const xz = new Float32Array(n * 2);
+  for (let r = 0; r <= FROTH_RINGS; r++)
+    for (let k = 0; k < (r === 0 ? 1 : FROTH_SEGS); k++) {
+      const i = r === 0 ? 0 : 1 + (r - 1) * FROTH_SEGS + k;
+      // denser toward the rim (where the overflow slumps over it)
+      const d = FROTH_REACH * (r / FROTH_RINGS) ** 0.85;
+      const a = (k / FROTH_SEGS) * TAU + (r % 2) * (Math.PI / FROTH_SEGS);
+      xz[i * 2] = Math.cos(a) * d;
+      xz[i * 2 + 1] = Math.sin(a) * d;
+      pos[i * 3] = xz[i * 2];
+      pos[i * 3 + 2] = xz[i * 2 + 1];
     }
-    body.computeVertexNormals();
+  const idx: number[] = [];
+  const at = (r: number, k: number) => (r === 0 ? 0 : 1 + (r - 1) * FROTH_SEGS + (((k % FROTH_SEGS) + FROTH_SEGS) % FROTH_SEGS));
+  for (let k = 0; k < FROTH_SEGS; k++) idx.push(0, at(1, k + 1), at(1, k));
+  for (let r = 1; r < FROTH_RINGS; r++)
+    for (let k = 0; k < FROTH_SEGS; k++) {
+      // (odd rings are turned half a segment: a triangle strip without long slivers)
+      const o = r % 2;
+      idx.push(at(r, k), at(r, k + 1), at(r + 1, k + 1 - o), at(r, k), at(r + 1, k + 1 - o), at(r + 1, k - o));
+    }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(pos, 3).setUsage(DynamicDrawUsage));
+  g.setAttribute('uv', new BufferAttribute(uv, 2).setUsage(DynamicDrawUsage));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  return { geo: g, xz };
+}
+
+/** The froth's heights at film time t (in the balls' frame): the caps of the breathing bubbles, smooth-unioned over the dome. */
+function frothHeights(froth: { geo: BufferGeometry; xz: Float32Array }, balls: FrothBall[], t: number): void {
+  const pos = froth.geo.attributes.position as BufferAttribute;
+  const uvA = froth.geo.attributes.uv as BufferAttribute;
+  const P = pos.array as Float32Array;
+  const U = uvA.array as Float32Array;
+  const B = balls.map((b) => {
+    const k = 1 + 0.12 * Math.sin(t * b.w + b.ph) + 0.05 * Math.sin(t * b.w * 2.3 + b.ph * 1.7);
+    return { x: Math.cos(b.a) * b.d, z: Math.sin(b.a) * b.d, y: b.h + 0.004 * Math.sin(t * b.w * 0.7 + b.ph), r: b.r * k * 1.15, tint: b.tint };
+  });
+  const y0 = BREW_Y + LEG_H;
+  const n = froth.xz.length / 2;
+  for (let i = 0; i < n; i++) {
+    const x = froth.xz[i * 2];
+    const z = froth.xz[i * 2 + 1];
+    const d = Math.hypot(x, z) / BREW_R;
+    // the low dome under the foam; past the brew's edge the surface runs on inside the rolled
+    // lip's iron (hidden), never out under it, so only the overflow bubbles' caps show over the rim
+    let h = d < 1 ? 0.004 + 0.034 * Math.sqrt(Math.max(0, 1 - d * d)) : 0.012;
+    let top = -1;
+    let tint = 0.35;
+    for (const c of B) {
+      const dx = x - c.x;
+      const dz = z - c.z;
+      const q = c.r * c.r - dx * dx - dz * dz;
+      if (q <= -c.r * c.r * 0.3) continue;
+      const cap = c.y + (q > 0 ? Math.sqrt(q) * 0.85 : -Math.sqrt(-q) * 0.6);
+      if (cap > top) {
+        top = cap;
+        tint = c.tint;
+      }
+      h = smax(h, cap, 0.006);
+    }
+    P[i * 3 + 1] = y0 + h;
+    U[i * 2] = clamp01(0.15 + 0.6 * tint + 0.25 * smoothstep(0.0, 0.06, h));
+    U[i * 2 + 1] = 0.5;
   }
-  parts.push(body);
-  const geo = mergeGeometries(parts, false);
-  parts.forEach((g) => g.dispose());
-  ball.dispose();
-  (geo.attributes.position as BufferAttribute).setUsage(DynamicDrawUsage);
-  return { geo, unit: Float32Array.from(geo.attributes.position.array as Float32Array), per };
+  pos.needsUpdate = true;
+  uvA.needsUpdate = true;
+  froth.geo.computeVertexNormals();
 }
 
 /** Bubbles: each a seeded cycle (rise out of the froth, swell, pop, a fresh spot); foam at the rim. */
@@ -580,7 +675,7 @@ export function Cauldron({ f }: { f: number }) {
     const steamTex = steamTexture();
     const steam = billboards(STEAM + FROTH, steamTex, '#5fe4f4', '#9cc8dc', 1.8);
     const balls = frothBalls(CAULDRON_SEED);
-    const froth = frothGeometry(balls);
+    const froth = frothGeometry();
     const frothRamp = ramp([
       [0, '#3a3aa8'],
       [0.45, '#4c80f0'],
@@ -666,24 +761,9 @@ export function Cauldron({ f }: { f: number }) {
     sp.needsUpdate = true;
     sd.needsUpdate = true;
     built.fireMat.emissiveIntensity = 0.9 * (1 + 0.1 * Math.sin(t * 2.1) + 0.06 * Math.sin(t * 3.7 + 1));
-    // the froth breathes: each ball swells and settles on its own slow sines
+    // the froth breathes: each bubble's cap swells and settles on its own slow sines (the mesh turns with them)
     {
-      const fp = built.froth.geo.attributes.position as BufferAttribute;
-      const arr = fp.array as Float32Array;
-      const per = built.froth.per;
-      built.balls.forEach((b, i) => {
-        const k = 1 + 0.12 * Math.sin(t * b.w + b.ph) + 0.05 * Math.sin(t * b.w * 2.3 + b.ph * 1.7);
-        const rr = b.r * k;
-        const cx = Math.cos(b.a + 0.05 * t) * b.d;
-        const cz = Math.sin(b.a + 0.05 * t) * b.d;
-        const cy = BREW_Y + LEG_H + b.h + 0.004 * Math.sin(t * b.w * 0.7 + b.ph);
-        for (let v = i * per; v < (i + 1) * per; v++) {
-          arr[v * 3] = cx + built.froth.unit[v * 3] * rr;
-          arr[v * 3 + 1] = cy + built.froth.unit[v * 3 + 1] * rr * 0.85;
-          arr[v * 3 + 2] = cz + built.froth.unit[v * 3 + 2] * rr;
-        }
-      });
-      fp.needsUpdate = true;
+      frothHeights(built.froth, built.balls, t);
       built.froth.geo.computeBoundingSphere();
       built.halo.pos.setXYZ(0, 0, BREW_Y + LEG_H + 0.07, 0);
       built.halo.data.setXYZW(0, 0.85 + 0.04 * Math.sin(t * 0.8), 0.32 + 0.03 * Math.sin(t * 1.3), 0, 0.5 + 0.3 * Math.sin(t * 0.4));
@@ -701,7 +781,7 @@ export function Cauldron({ f }: { f: number }) {
       <mesh geometry={built.fire} material={built.fireMat} receiveShadow />
       <mesh geometry={built.brew} material={built.brewMat} position-y={BREW_Y + LEG_H} rotation-y={t * 0.05} />
       <primitive object={built.bubbles} />
-      <mesh geometry={built.froth.geo} material={built.frothMat} frustumCulled={false} />
+      <mesh geometry={built.froth.geo} material={built.frothMat} rotation-y={-0.05 * t} frustumCulled={false} />
       <mesh geometry={built.halo.geo} material={built.halo.mat} frustumCulled={false} renderOrder={3} />
       <mesh geometry={built.steam.geo} material={built.steam.mat} frustumCulled={false} renderOrder={3} />
     </group>
@@ -1244,7 +1324,7 @@ export function propsStats(): Record<string, number> {
     cauldronFire: tri(cauldronFire(CAULDRON_SEED)),
     brew: tri(brewDisc()),
     bubbles: (BUBBLES + FOAM) * tri(new SphereGeometry(1, 10, 8)),
-    froth: tri(frothGeometry(frothBalls(CAULDRON_SEED)).geo),
+    froth: tri(frothGeometry().geo),
     steam: (STEAM + FROTH) * 2,
     coffinWood: parts.wood.reduce((a, p) => a + tri(p.geo), 0) + tri(sh.wood),
     coffinIron: parts.nails.length * 20 + tri(sh.iron),

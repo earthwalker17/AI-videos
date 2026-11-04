@@ -7,15 +7,17 @@
  * The fence: a crooked, hand-made picket fence of wrought iron about 0.55–0.8 tall, bold bars
  * (radius ≥ 0.0125: fewer, thicker bars do not shimmer) with spear finials (bulbs in some bays),
  * a bottom rail and a top rail that follows the bars' tops and sags between the posts, posts
- * about every 0.8 with urn finials, one bay of rings per line. Every bar leans (the lean wanders
- * along the line, ±6–10°), stands its own height (±20%) and its own distance from the last
- * (±30%); bent and missing bars come in clusters; one bay sags toward the viewer; bases sunk
- * into the turf, rusted and darkened at the ground. Near a lamp the line steps round its base.
+ * about every 0.8 with urn finials, one bay of rings per line. Every bar leans (its own ±6° on a
+ * lean that wanders along the line), stands its own height (±15% on a slow wander), its own
+ * distance from the last (±30%), wobbles along its length and swells and thins (hand-forged);
+ * bent and missing bars come in clusters; one bay sags toward the viewer; bases sunk into the
+ * turf, rusted and darkened at the ground; the rails never thinner than about 1.6 px from the
+ * hero camera. Near a lamp the line steps round its base.
  *
  * The gates: two tall, wobbly, twig-like leaves, each hung on its own iron stile (no pillars),
  * rolled apart about their feet so their tops splay into a V even when shut, as the reference's;
- * their tops rise in an arch to where they meet, their bars bend in two or three slow waves and
- * swell and thin along their length, crook toward the hinge at the top and end in spear tips of
+ * their tops rise in an arch to where they meet, their bars bend in two or three slow waves (2-5
+ * cm, twig-like) and swell and thin along their length by about 30%, crook toward the hinge at the top and end in spear tips of
  * uneven height above the arch rail; a paired middle rail, a brace and a pair of scrolls. `open`
  * 0..1 swings them away from the graveyard into the lane: the left leaf 80°, the right leaf 135°
  * (back against the fence: the lane turns right behind it, and at 80° that leaf would stand in
@@ -29,10 +31,10 @@
 import { rand, smoothstep } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
 import { AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Color, Euler, Matrix4, MeshBasicMaterial, Quaternion, SpriteMaterial, SRGBColorSpace, Vector3 } from 'three';
-import { applyPoints, barPoints, bulbProfile, IronBuilder, scrollPoints, spearProfile, urnProfile, type Profile, type Shade, type V3 } from '../kit/iron.ts';
+import { applyPoints, barPoints, bulbProfile, IronBuilder, scrollPoints, spearProfile, swellRadii, urnProfile, type Profile, type Shade, type V3 } from '../kit/iron.ts';
 import { noise3 } from '../kit/stone.ts';
 import { storybookMaterial } from '../look/materials.ts';
-import { FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, GATE_POSTS, LAMPS, PATH, STOPS } from './layout.ts';
+import { FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, GATE_POSTS, HERO, LAMPS, PATH, STOPS } from './layout.ts';
 import { surfaceHeight } from './Terrain.tsx';
 
 const ss = smoothstep;
@@ -227,12 +229,13 @@ function buildFenceLine(b: IronBuilder, st: ShadeState, spec: FenceLineSpec): vo
         continue;
       }
       // height: ±20% (a slow wander along the line and each bar's own)
-      const h = 0.66 * (1 + 0.24 * (noise3(sj * 1.3, 0.2, spec.seed, 74) - 0.5) + 0.2 * (r('bh', id) - 0.5)) - sag * 0.04;
+      const h = 0.66 * (1 + 0.24 * (noise3(sj * 1.3, 0.2, spec.seed, 74) - 0.5) + 0.3 * (r('bh', id) - 0.5)) - sag * 0.04;
       // lean along the line and across it: a slow wander (bars pushed over together) and each
       // bar's own, up to about ±10°; the sagging bay leans toward the viewer
       const wander = (noise3(sj * 0.8, 1.3, spec.seed, 75) - 0.5) * 0.26;
-      const la = (r('la', id) - 0.5) * 0.1 + wander;
-      const lc = (r('lc', id) - 0.5) * 0.09 + sag * 0.2 + (noise3(sj * 0.7, 2.9, spec.seed, 76) - 0.5) * 0.14;
+      // (each bar's own lean up to ±6°, on top of the wander: never a row of plumb bars)
+      const la = (r('la', id) - 0.5) * 0.21 + wander;
+      const lc = (r('lc', id) - 0.5) * 0.16 + sag * 0.2 + (noise3(sj * 0.7, 2.9, spec.seed, 76) - 0.5) * 0.14;
       const nx = -f.tz;
       const nz = f.tx;
       const dx = f.tx * la + nx * lc;
@@ -246,11 +249,13 @@ function buildFenceLine(b: IronBuilder, st: ShadeState, spec: FenceLineSpec): vo
       const pts = barPoints([f.x, gb - 0.07, f.z], top, 6, (t) => {
         // a bent bar kinks above its middle; every bar wobbles a little
         const kink = bent ? Math.max(0, t - 0.4) * bk : 0;
-        const w = 0.006 * Math.sin(t * 6 + ph) + 0.003 * Math.sin(t * 13 + ph * 2);
-        return [Math.cos(ba) * kink + nx * w, 0, Math.sin(ba) * kink + nz * w];
+        const w = (0.012 * Math.sin(t * 5 + ph) + 0.005 * Math.sin(t * 11 + ph * 2)) * Math.sin(Math.PI * Math.min(1, t * 1.2));
+        const wl = 0.008 * Math.sin(t * 4 + ph * 0.7) * t;
+        return [Math.cos(ba) * kink + nx * w + f.tx * wl, 0, Math.sin(ba) * kink + nz * w + f.tz * wl];
       });
       st.alpha = 0.3;
-      b.tube(pts, BAR_R + 0.002 * r('br', id), 6);
+      // hand-forged: each bar its own thickness, swelling and thinning along it
+      b.tube(pts, swellRadii(pts.length, BAR_R * (0.9 + 0.3 * r('br', id)), 0.22, r('brp', id) * 6.28), 6);
       const broken = r('brk', id) < 0.06;
       if (!broken) {
         const tip = pts[pts.length - 1];
@@ -284,12 +289,21 @@ function buildFenceLine(b: IronBuilder, st: ShadeState, spec: FenceLineSpec): vo
       }
     }
   }
-  // the rails: crooked bars through every upright
+  // the rails: crooked bars through every upright (never thinner than about 1.6 px from the hero camera: a thinner one shimmers)
   st.alpha = 0.3;
   st.ground = null;
-  if (bottom.length > 1) b.tube(bottom, 0.0115, 6);
-  if (topRail.length > 1) b.tube(topRail, 0.0115, 6);
+  if (bottom.length > 1) b.tube(bottom, railRadii(bottom), 6);
+  if (topRail.length > 1) b.tube(topRail, railRadii(topRail), 6);
 }
+
+/** The hero camera (layout's HERO): the rails keep a minimum width as it sees them. */
+const HERO_EYE = new Vector3(...HERO.pos);
+/** world radius per metre of distance for 1.6 px of radius in the hero view (1080 rows over its vertical fov) */
+const PX_RADIUS = (1.6 * 2 * Math.tan((HERO.fov * Math.PI) / 360)) / 1080;
+function railRadii(pts: readonly V3[]): number[] {
+  return pts.map((p) => Math.max(0.0115, PX_RADIUS * HERO_EYE.distanceTo(_rv.set(p[0], p[1], p[2]))));
+}
+const _rv = new Vector3();
 
 function fenceGeometry(): BufferGeometry {
   const st: ShadeState = { alpha: 0.3, ground: null };
@@ -416,7 +430,7 @@ function leafGeometry(seed: number, y0: number): BufferGeometry {
     xs.push(W * u + j);
   }
   // a slow bend common to the leaf (its bars were bent together), then each bar's own
-  const common1 = (r('c1') - 0.5) * 0.04;
+  const common1 = (r('c1') - 0.5) * 0.06;
   const bars: V3[][] = [];
   xs.forEach((x, k) => {
     const free = k === xs.length - 1;
@@ -424,13 +438,14 @@ function leafGeometry(seed: number, y0: number): BufferGeometry {
     const over = free ? 0.06 + 0.03 * r('ov', k) : 0.05 + 0.11 * r('ov', k);
     const H = topY(x) + over;
     const kk = free ? 0.45 : 1;
-    const a1 = (common1 + (r('a1', k) - 0.5) * 0.045) * kk;
-    const a2 = (r('a2', k) - 0.5) * 0.04 * kk;
-    const a3 = (r('a3', k) - 0.5) * 0.02 * kk;
+    // (two to five centimetres: twig-like, every bar of the reference bends)
+    const a1 = (common1 + (r('a1', k) - 0.5) * 0.075) * kk;
+    const a2 = (r('a2', k) - 0.5) * 0.07 * kk;
+    const a3 = (r('a3', k) - 0.5) * 0.04 * kk;
     const p2 = r('p2', k) * 6.28;
     const p3 = r('p3', k) * 6.28;
     // out of the leaf's plane too, so edge-on the bars part instead of stacking into a slab
-    const bz = (r('bz', k) - 0.5) * 0.05;
+    const bz = (r('bz', k) - 0.5) * 0.07;
     const pz = r('pz', k) * 6.28;
     // the crook: the bar's top bends toward the hinge, more toward the meeting edge
     const crook = (0.04 + 0.06 * r('cr', k)) * (0.3 + 0.7 * u);
@@ -440,12 +455,8 @@ function leafGeometry(seed: number, y0: number): BufferGeometry {
       return [bend + c, 0, bz * Math.sin(Math.PI * t * 1.3 + pz) * Math.sin(Math.PI * t)];
     });
     // the bar swells and thins along its length, and tapers a little toward the top
-    const rb = free ? 0.016 : 0.0128 + 0.0022 * r('rb', k);
-    const ph = r('rp', k) * 6.28;
-    const rad = pts.map((_, i) => {
-      const t = i / (pts.length - 1);
-      return rb * (1 + 0.14 * Math.sin(t * 3.4 + ph)) * (1 - 0.1 * t);
-    });
+    const rb = free ? 0.016 : 0.0115 + 0.005 * r('rb', k);
+    const rad = swellRadii(pts.length, rb, free ? 0.14 : 0.3, r('rp', k) * 6.28, 0.12);
     st.alpha = free ? 0.42 : 0.32;
     b.tube(pts, rad, free ? 8 : 6, { capStart: true });
     // a spear tip of its own size; one or two bent over
@@ -461,8 +472,9 @@ function leafGeometry(seed: number, y0: number): BufferGeometry {
   // the rails: through the stile's axis and every bar, a little crooked
   st.alpha = 0.32;
   const rail = (y: number, k: number, rr = 0.011) => {
-    const pts: V3[] = [[0, y, 0], ...bars.map((p, i) => atHeight(p, y + 0.008 * Math.sin(i * 2.1 + k) + 0.012 * (r('rw', k) - 0.5)))];
-    b.tube(pts, rr, 6);
+    const tilt = (r('rt', k) - 0.5) * 0.06;
+    const pts: V3[] = [[0, y, 0], ...bars.map((p, i) => atHeight(p, y + tilt * ((i + 1) / bars.length) + 0.014 * Math.sin(i * 2.1 + k) + 0.016 * (r('rw', k * 10 + i) - 0.5)))];
+    b.tube(pts, swellRadii(pts.length, rr, 0.2, k * 1.7), 6);
   };
   rail(y0 + 0.07, 1);
   // the reference's paired middle rails

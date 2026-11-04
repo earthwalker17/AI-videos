@@ -7,29 +7,33 @@
  *  - a procedural bump (stone, bark, wood grain, iron pitting) from screen derivatives of a
  *    world-space height, no textures;
  *  - moon rim light: silhouette edges that face the moon glow cool (stronger when the moon is
- *    behind the subject, as in the reference);
+ *    behind the subject, as in the reference), soft, capped, and faded out where its falloff is
+ *    narrower than a few pixels (no crawling 1 px lines on thin branches and cloth edges);
  *  - the storybook ambient: a soft wrapped fill whose colour follows the distance from the lens
- *    (plum near, teal in the mid-ground), so faces in shadow keep a painted mid-value instead of
- *    going black (the reference's darkest areas are plum-grey, never black);
- *  - height fog with a depth colour ramp (dark near, bright cyan mid, teal far), moon in-scatter
- *    and slowly drifting fbm density, plus an aerial term that grows with distance alone, all
- *    computed from the true world position (instancing and wind included).
+ *    (maroon near, plum slate in the mid-ground, the haze's cyan far off), so the shadows keep the
+ *    reference's plum and maroon under its cyan light;
+ *  - height fog with a depth colour ramp (near-black plum near, slate mid, cyan far), the moon's
+ *    cyan in-scatter and slowly drifting fbm density, plus an aerial term that grows with
+ *    distance (thinned as the camera rises over the page), all computed from the true world
+ *    position (instancing and wind included).
  * Features are switched with `defines` and the injection is ONE module-level function, so three
  * keys every variant to its own program (no closures sharing a cache key) and recompiles cannot
  * strand uniforms: the shared uniforms below are module-scope objects set once per frame.
  */
-import { Color, MeshStandardMaterial, Vector3, Vector4, type MeshStandardMaterialParameters, type WebGLProgramParametersWithUniforms } from 'three';
+import { Color, MeshStandardMaterial, Vector2, Vector3, Vector4, type MeshStandardMaterialParameters, type WebGLProgramParametersWithUniforms } from 'three';
 import { NOISE3_GLSL } from './glsl.ts';
 
 /** Uniforms every storybook material shares (set per frame by the light rig and the film). */
 export const NIGHT = {
   uSbTime: { value: 0 },
-  /** unit vector toward the moon, world space */
-  uSbMoonDir: { value: new Vector3(0.494, 0.163, -0.863).normalize() },
+  /** unit vector toward the moon, world space (azimuth 0.52, elevation 0.143: the reference's moon, upper right) */
+  uSbMoonDir: { value: new Vector3(0.4923, 0.1425, -0.8587).normalize() },
   uSbRimColor: { value: new Color('#a6dcef') },
   uSbRim: { value: 1.0 },
-  uSbFogNear: { value: new Color('#141a2b') },
-  uSbFogMid: { value: new Color('#2b5f7c') },
+  // the reference's colour logic: plum and maroon darks near, slate in the mid-ground, under
+  // saturated cyan light (the far fog, the in-scatter toward the moon)
+  uSbFogNear: { value: new Color('#0e0a14') },
+  uSbFogMid: { value: new Color('#484650') },
   uSbFogFar: { value: new Color('#2f98b8') },
   uSbMoonGlow: { value: new Color('#8ccbd8') },
   /** distances (world units) where the ramp turns mid, then far */
@@ -38,10 +42,13 @@ export const NIGHT = {
   uSbFog: { value: new Vector3(0.06, 1.6, 1.5) },
   /** aerial perspective: from this distance, 1 / its length, its most */
   uSbAir: { value: new Vector3(4.0, 0.075, 0.5) },
-  /** the storybook ambient's colour near the lens and in the mid-ground, and where it turns */
-  uSbAmbNear: { value: new Color('#4a3040') },
-  uSbAmbFar: { value: new Color('#3d6b80') },
-  uSbAmbDist: { value: new Vector3(3.5, 12.0, 1.0) },
+  /** the storybook ambient's colour near the lens (maroon) and in the mid-ground (plum slate), and where it turns */
+  uSbAmbNear: { value: new Color('#2a1620') },
+  uSbAmbFar: { value: new Color('#463c52') },
+  uSbAmbDist: { value: new Vector3(3.5, 9.0, 1.0) },
+  /** beyond the mid-ground (the castle, the far hills) the ambient turns to the haze's cyan light, and where it does */
+  uSbAmbHaze: { value: new Color('#2f728e') },
+  uSbAmbHazeDist: { value: new Vector2(10.5, 15.0) },
   /** how much of the fog there is, 0..1 (0: the desk shots, faded in as the camera enters the story) */
   uSbFogOn: { value: 1 },
   /**
@@ -51,6 +58,13 @@ export const NIGHT = {
    */
   uSbGrow: { value: new Vector4(1e6, 0, 18, 14) },
   uSbGrowPage: { value: new Vector4(-8, 16, 1.5, 0) },
+  /**
+   * The world folding flat under the closing cover (look/Grows.tsx FoldClock, film/beats.ts
+   * foldAt): tan of the cover's angle above the page (1e9: open, nothing folds), the hinge's z,
+   * the page's height and the tallest the world stands; each point at distance d from the hinge
+   * is squashed about the page to d × tan / tallest of its height (a pop-up folding shut).
+   */
+  uSbFold: { value: new Vector4(1e9, -5.5, 1.5, 6.5) },
 };
 
 /** Set the shared per-frame values (seconds from the film frame, never a clock). */
@@ -71,6 +85,10 @@ export interface GrowSchedule {
 export function setGrow(f: number, s: GrowSchedule): void {
   NIGHT.uSbGrow.value.set(f, s.from, s.sweep, s.dur);
   NIGHT.uSbGrowPage.value.set(s.x0, s.width, s.floor, 0);
+}
+/** Set the fold for a frame (Infinity: the cover stands, nothing folds); hinge z, the page's height, the world's tallest point above it. */
+export function setFold(tan: number, hingeZ: number, floor: number, tallest: number): void {
+  NIGHT.uSbFold.value.set(Number.isFinite(tan) ? tan : 1e9, hingeZ, floor, tallest);
 }
 
 export type PaintKind = 'plain' | 'stone' | 'bark' | 'wood' | 'iron' | 'earth' | 'grass' | 'cloth' | 'shingle';
@@ -116,6 +134,7 @@ uniform vec4 uSbGrow;
 uniform vec4 uSbGrowPage;
 uniform float uSbGrowOn;
 uniform float uSbGrowX;
+uniform vec4 uSbFold;
 // film/beats.ts riseAt(f, popAt(x)): paper springing up, easing in, overshooting to 1.1, settling
 float sbRise(float x) {
   float u = clamp((x - uSbGrowPage.x) / uSbGrowPage.y, 0.0, 1.0);
@@ -173,6 +192,11 @@ const VERT_WORLD = /* glsl */ `
     float gx = uSbGrowX < -1.5e4 ? o.x : (uSbGrowX < -0.5e4 ? w.x : uSbGrowX);
     vSbGrow = sbRise(gx);
     w.y = uSbGrowPage.z + (w.y - uSbGrowPage.z) * vSbGrow;
+    // folded flat under the closing cover: squashed about the page, more the nearer the hinge
+    if (uSbFold.x < 1e8) {
+      float fold = clamp(max(w.z - uSbFold.y, 0.0) * uSbFold.x / uSbFold.w, 0.0, 1.0);
+      w.y = uSbFold.z + (w.y - uSbFold.z) * fold;
+    }
     mvPosition = viewMatrix * w;
     gl_Position = projectionMatrix * mvPosition;
   }
@@ -196,6 +220,7 @@ varying vec3 vSbNormalW;
 varying float vSbMask;
 varying float vSbGrow;
 uniform float uSbGrowOn;
+uniform vec4 uSbGrowPage;
 uniform float uSbTime;
 uniform vec3 uSbMoonDir;
 uniform vec3 uSbRimColor;
@@ -211,6 +236,8 @@ uniform vec3 uSbAir;
 uniform vec3 uSbAmbNear;
 uniform vec3 uSbAmbFar;
 uniform vec3 uSbAmbDist;
+uniform vec3 uSbAmbHaze;
+uniform vec2 uSbAmbHazeDist;
 uniform float uSbAmbMul;
 uniform vec3 uSbColor2;
 uniform float uSbBreakup;
@@ -323,20 +350,27 @@ const FRAG_OUT = /* glsl */ `
 {
   vec3 sbRay = vSbWorld - cameraPosition;
   float sbDist = length(sbRay);
-  // the storybook ambient: a wrapped fill, plum near the lens, teal in the mid-ground
+  // the storybook ambient: a wrapped fill, maroon near the lens, plum slate in the mid-ground, cyan far off
   {
     vec3 amb = mix(uSbAmbNear, uSbAmbFar, smoothstep(uSbAmbDist.x, uSbAmbDist.y, sbDist));
+    amb = mix(amb, uSbAmbHaze, smoothstep(uSbAmbHazeDist.x, uSbAmbHazeDist.y, sbDist));
     vec3 nW = normalize(vSbNormalW);
     float wrapA = clamp(0.62 + 0.22 * nW.y + 0.22 * dot(nW, uSbMoonDir), 0.2, 1.1);
     outgoingLight += diffuseColor.rgb * amb * wrapA * uSbAmbDist.z * uSbAmbMul;
   }
-  // moon rim: silhouette edges facing the moon, stronger when the moon is behind the subject
+  // moon rim: silhouette edges facing the moon, stronger when the moon is behind the subject; on
+  // the surface's own (unbumped) normal, capped, and gone where its falloff would be
+  // narrower than a few pixels (a thin branch, a cloth's edge, a small far thing): there it would
+  // be a 1-3 px unfiltered line that crawls as the camera moves
   vec3 V = normalize(vViewPosition);
   vec3 Lv = normalize((viewMatrix * vec4(uSbMoonDir, 0.0)).xyz);
-  float facing = max(dot(normal, V), 0.0);
-  float edge = pow(max(1.0 - facing, 0.0), 3.0);
-  float toward = smoothstep(-0.25, 0.65, dot(normal, Lv));
+  vec3 nG = normalize(nonPerturbedNormal);
+  float facing = max(dot(nG, V), 0.0);
+  float edge = pow(max(1.0 - facing, 0.0), 3.0) * (1.0 - smoothstep(0.1, 0.32, fwidth(facing)));
+  float toward = smoothstep(-0.25, 0.65, dot(nG, Lv));
   float behind = mix(0.55, 1.0, smoothstep(0.3, -0.6, dot(Lv, V)));
+  // its peak capped (a glow, never a white line); (assets patch the line below by its text: keep it)
+  edge = min(edge, 0.45 / max(toward * behind * uSbRim * uSbRimMul, 1e-3));
   outgoingLight += uSbRimColor * edge * toward * behind * uSbRim * uSbRimMul * diffuseColor.a;
   // height fog with a depth ramp and moon in-scatter
   if (uSbFogOn > 0.0 && uSbFogMul > 0.0) {
@@ -346,12 +380,16 @@ const FRAG_OUT = /* glsl */ `
     float hC = max(cameraPosition.y - uSbFog.z, 0.0);
     float drift = aivFbm3(vec3(vSbWorld.xz * 0.35 + vec2(uSbTime * 0.03, uSbTime * 0.012), uSbTime * 0.02));
     float dens = uSbFog.x * 0.5 * (exp(-hF * uSbFog.y) + exp(-hC * uSbFog.y)) * (0.65 + 0.7 * drift);
-    float air = (1.0 - exp(-max(dist - uSbAir.x, 0.0) * uSbAir.y)) * uSbAir.z;
+    // the aerial term by distance, thinned as the camera rises over the page (seen from above, the
+    // grown world is a model under a little air, not a valley under a sky of it)
+    float camH = max(cameraPosition.y - uSbGrowPage.z, 0.0);
+    float air = (1.0 - exp(-max(dist - uSbAir.x, 0.0) * uSbAir.y)) * uSbAir.z * mix(1.0, 0.3, smoothstep(2.5, 6.0, camH));
     float amt = (1.0 - (1.0 - (1.0 - exp(-dens * dist))) * (1.0 - air)) * uSbFogMul * uSbFogOn;
     vec3 col = mix(uSbFogNear, uSbFogMid, smoothstep(uSbFogDist.x * 0.4, uSbFogDist.y, dist));
     col = mix(col, uSbFogFar, smoothstep(uSbFogDist.y, uSbFogDist.z, dist));
-    float sc = pow(max(dot(normalize(ray), uSbMoonDir), 0.0), 6.0);
-    col += uSbMoonGlow * sc * 0.6;
+    // the moon's in-scatter: the saturated cyan light over everything seen toward the moon
+    float sc = pow(max(dot(normalize(ray), uSbMoonDir), 0.0), 8.0);
+    col += uSbMoonGlow * sc * 1.2;
     outgoingLight = mix(outgoingLight, col, clamp(amt, 0.0, 1.0));
   }
 }

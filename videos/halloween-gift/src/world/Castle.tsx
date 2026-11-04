@@ -1,19 +1,22 @@
 /**
  * The castle on its crag, behind the hill between the gates and the last house (LAND.crag), as in
- * the reference: a rocky table rising out of the hill and the mist, seamed cliffs on the left under
- * an overhanging lip with a dead tree on its tip, a broad moonlit shoulder sloping about 45° into the
- * hill at the front and right (where the hero eye sees it), its top crowded with a crooked thicket
+ * the reference: a rocky table floating on a thick bright mist bank (in the hero view the crag stops
+ * at about y 480), seamed cliffs on the left under an overhanging lip with a dead tree on its tip,
+ * ledges with dark risers in strata down its faces, a steep moonlit shoulder at the front and right
+ * (where the hero eye sees it), its top crowded with a crooked thicket
  * of thin leaning towers: a tall keep with a jettied top, a hall with an overhanging timber upper
  * storey, a dormer, an oriel and a stair tower, a gabled middle block, thin spires with jettied
  * timber tops and hooked conical roofs, iron finials, a few pin-prick lit windows (warm, one cyan).
- * A pale road leaves the gate, runs off the rim and switchbacks down the shoulder's face, then round
- * the foot to the far house (LAND.farHouse): a small front-gabled house on its own knoll, clear of
+ * A road leaves the gate, runs off the rim and switchbacks down the shoulder's face as a ledge cut
+ * into it (a dark riser under its outer edge), then round the foot to the far house
+ * (LAND.farHouse): a small front-gabled house on its own knoll, clear of
  * the cliff, one warm window, its chimney smoking (camera-facing puffs drifting from the frame).
  *
  * All of it rides a parallax `offset` so it keeps its forced-perspective distance in moving shots
  * (the film passes (camera − HERO.pos) × [0.75, 0.45, 0]); its rock reaches well below the ground
- * and thin layered mist hides its foot, so the offset never shows a floating base. Dark, hazed and
- * silhouette-first with a moon rim. 10 draw calls.
+ * and the mist hides its foot, so the offset never shows a base. Silhouette-first in the haze, its
+ * buildings modelled by a painter's key from the upper left (the moon behind them lights almost
+ * nothing the hero eye sees). 10 draw calls.
  */
 import { rand, smoothstep } from '@aiv/core';
 import { useThree } from '@react-three/fiber';
@@ -85,11 +88,21 @@ function cliffR(th: number, y: number): number {
   let r = R * (1 + 0.05 * t);
   // undercut only under the lip (the left), where the dead tree leans out
   r *= 1 - 0.3 * lip * smoothstep(0.0, 0.14, t) * (1 - 0.5 * smoothstep(0.4, 0.9, t));
-  // the shoulder slopes out about 45° into the hill
-  r += shoulder(th) * Math.max(0, yr - y) * 0.95 * smoothstep(0, 0.12, t);
+  // the shoulder slopes out into the hill, steeply (at 45° it ran a broad face down to the hill
+  // like a mesa's; the mist at its foot hides the rest, so the crag reads as floating)
+  r += shoulder(th) * Math.max(0, yr - y) * SHOULDER_RUN * smoothstep(0, 0.12, t);
   return r;
 }
 const CLIFF_BOT = -1.1;
+/** how far the shoulder runs out per unit of drop (0.95 was about 45°) */
+const SHOULDER_RUN = 0.5;
+/** the strata: ledges every 1 / STRATA in height, each a step out with a dark riser under its lip */
+const STRATA = 3.4;
+/** where (0 at a ledge's lip .. 1 at the next one down) a point sits in its stratum */
+function strataPhase(th: number, y: number): number {
+  const v = y * STRATA + fbm2(th * 3, 0.2, 907, 2) * 1.5;
+  return v - Math.floor(v);
+}
 /**
  * The crag's radius at angle th and height y as its mesh has it: the smooth radius (a sloping
  * shoulder right and front, the undercut lip left), then vertical seams and columns, ledges and
@@ -98,8 +111,9 @@ const CLIFF_BOT = -1.1;
 function cragR(th: number, y: number): number {
   const shd = shoulder(th);
   const seam = 1 - Math.abs(fbm2(th * 9.5, y * 0.35, 904, 3));
-  const strata = Math.round(y * 4.2 + fbm2(th * 3, 0.2, 907, 2) * 1.5) / 4.2 - y;
-  return cliffR(th, y) * (1 + (1 - 0.6 * shd) * (0.1 * (seam - 0.6) + 0.035 * fbm2(th * 22, y * 1.6, 905, 2) + 0.03 * strata + 0.018 * Math.sin(y * 13 + th * 3)) + 0.012 * fbm2(th * 6, y * 2, 908, 2));
+  // each stratum leans out toward its lip (a ledge), so its top catches the light and its riser is in shadow
+  const strata = 1 - strataPhase(th, y);
+  return cliffR(th, y) * (1 + (1 - 0.5 * shd) * (0.1 * (seam - 0.6) + 0.035 * fbm2(th * 22, y * 1.6, 905, 2) + 0.07 * (strata - 0.5) + 0.018 * Math.sin(y * 13 + th * 3)) + 0.012 * fbm2(th * 6, y * 2, 908, 2));
 }
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 /** the rim's height at angle th */
@@ -136,7 +150,7 @@ function crTop0(x: number, z: number): number {
 function cragTable(out: Builder): void {
   const NA = 132;
   const tops = [0, 0.22, 0.45, 0.66, 0.82, 0.93, 1];
-  const NC = 20;
+  const NC = 44;
   const BOT = CLIFF_BOT;
   const P: Vector3[][] = [];
   const shade: number[][] = [];
@@ -163,8 +177,11 @@ function cragTable(out: Builder): void {
       ring.push(new Vector3(CRAG_C.x + cx * cragR(th, y), y, CRAG_C.z + cz * cragR(th, y)));
       const seam = 1 - Math.abs(fbm2(th * 9.5, y * 0.35, 904, 3));
       const low = smoothstep(BOT, 1.4, y);
-      // the shoulder's moonlit slope stays lighter (its top coat does the rest); the cliffs darken down
-      sh.push((0.62 + 0.25 * seam) * (0.45 + 0.55 * low) * (1 - shd) + shd * (0.78 + 0.3 * seam));
+      // the shoulder's moonlit slope stays lighter (its top coat does the rest); the cliffs darken down;
+      // under each ledge's lip a dark riser, and dark cracks down the seams
+      const riser = 1 - 0.55 * smoothstep(0.35, 0.02, strataPhase(th, y));
+      const crack = 1 - 0.4 * smoothstep(0.82, 0.97, seam);
+      sh.push(((0.62 + 0.25 * seam) * (0.45 + 0.55 * low) * (1 - shd) + shd * (0.78 + 0.3 * seam)) * riser * crack);
     }
     P.push(ring);
     shade.push(sh);
@@ -338,6 +355,19 @@ function pyramidRoof(out: Builder, x0: number, x1: number, z0: number, z1: numbe
     out.tri(m[i], m[j], c, [[0.85, 0.85, 0.88, 0.9], [0.85, 0.85, 0.88, 0.9], [1.15, 1.15, 1.15, 0.9]]);
   }
   return c;
+}
+
+/** the castle's painted key light (castle-local): from the upper left, toward the viewer */
+const KEY = new Vector3(-0.55, 0.5, 0.67).normalize();
+/** Multiply a builder's vertex colours by the painted key on their normals (lit 1.43, away 0.38). */
+function paintKey(b: Builder): void {
+  for (let v = 0; v < b.count; v++) {
+    const d = b.nor[v * 3] * KEY.x + b.nor[v * 3 + 1] * KEY.y + b.nor[v * 3 + 2] * KEY.z;
+    const k = 0.38 + 1.05 * smoothstep(-0.3, 0.85, d);
+    b.col[v * 4] *= k;
+    b.col[v * 4 + 1] *= k;
+    b.col[v * 4 + 2] *= k;
+  }
 }
 
 interface CastleGeos {
@@ -565,7 +595,7 @@ function buildCastle(): CastleGeos {
   // the road: a pale ribbon from the gate along the plateau's front, off the rim and down the
   // shoulder's moonlit slope in switchbacks, then round the foot to the far house's door
   {
-    const onSlope = (th: number, y: number, out = 0.06) => {
+    const onSlope = (th: number, y: number, out = 0.035) => {
       const r = cragR(th, y) + out;
       return new Vector3(CRAG_C.x + Math.cos(th) * r, y, CRAG_C.z + Math.sin(th) * r);
     };
@@ -635,6 +665,19 @@ function buildCastle(): CastleGeos {
         const fn = new Vector3().subVectors(prevB, prevA).cross(new Vector3().subVectors(Bp, prevA));
         if (fn.dot(n) > 0) road.quad(prevA, prevB, Bp, A, col);
         else road.quad(prevA, A, Bp, prevB, col);
+        // on the face the road is a ledge cut into the slope: a dark riser drops from its outer
+        // (lower) edge back into the rock, so it reads as a shelf, not a pale line painted on
+        if (onFace) {
+          const lo = A.y < Bp.y ? A : Bp;
+          const plo = prevA.y < prevB.y ? prevA : prevB;
+          const down = (q: Vector3) => q.clone().add(new Vector3(0, -0.075, 0)).addScaledVector(radial, -0.05);
+          const r0 = plo.clone().addScaledVector(radial, 0.005);
+          const r1 = lo.clone().addScaledVector(radial, 0.005);
+          const rc: RGBA = [0.3, 0.3, 0.32, 0.4];
+          const rn = new Vector3().subVectors(r1, r0).cross(new Vector3().subVectors(down(r0), r0));
+          if (rn.dot(radial) > 0) rock.quad(r0, down(r0), down(r1), r1, rc);
+          else rock.quad(r0, r1, down(r1), down(r0), rc);
+        }
       }
       prevA = A;
       prevB = Bp;
@@ -650,6 +693,10 @@ function buildCastle(): CastleGeos {
     }, marks[i]),
   );
   for (const b of [rock, road, ...bodies]) b.warp((p) => void (p.y += liftAt(p.y)));
+  // the painter's key on the buildings: faces turned up and to the left toward the viewer take
+  // the haze's light, those turned away fall dark (the moon behind them lights almost nothing the
+  // hero eye sees; without this the castle read as one flat cut-out)
+  for (const b of [walls, roofs]) paintKey(b);
 
   // the far house on its knoll at the crag's foot, clear of the cliff: a steep front gable in tiles,
   // a chimney up its left slope, one warm window and a door; the knoll a mound rising out of the hill
@@ -787,21 +834,31 @@ function cardGeometry(n: number): BufferGeometry {
   return g;
 }
 
-/** the mist banks at the crag's foot and round the far house (castle-local) */
+/**
+ * The mist (castle-local): a thick bright bank in front of the shoulder's lower face (in the hero
+ * view it covers screen y 440-600, so the crag stops at about y 480 as the reference's floats),
+ * feathered at its top; low banks round the far house's knoll and the cliffs' feet, the house
+ * itself left standing clear above them.
+ */
 const MIST: { at: [number, number, number]; w: number; h: number; a: number }[] = [
-  // low banks at the foot, two or three thin overlapping layers each (translucent haze)
-  { at: [-1.6, 0.42, 1.1], w: 1.9, h: 0.45, a: 0.36 },
-  { at: [-1.0, 0.6, 1.3], w: 1.3, h: 0.34, a: 0.26 },
-  { at: [-0.2, 0.45, 1.25], w: 2.1, h: 0.5, a: 0.38 },
-  { at: [0.4, 0.58, 1.4], w: 1.6, h: 0.42, a: 0.28 },
-  { at: [1.2, 0.5, 1.5], w: 1.9, h: 0.5, a: 0.38 },
-  { at: [2.1, 0.6, 1.2], w: 1.6, h: 0.6, a: 0.34 },
-  { at: [-2.3, 0.6, 0.6], w: 1.7, h: 0.65, a: 0.38 },
-  { at: [-0.7, 0.92, 1.05], w: 1.2, h: 0.32, a: 0.2 },
-  { at: [1.8, 1.3, 1.0], w: 1.0, h: 0.3, a: 0.16 },
+  // the front bank, thick at the bottom
+  { at: [0.5, 0.55, 1.9], w: 1.9, h: 0.75, a: 0.85 },
+  { at: [1.5, 0.6, 1.9], w: 1.9, h: 0.75, a: 0.85 },
+  { at: [2.4, 0.75, 1.5], w: 1.6, h: 0.7, a: 0.75 },
+  { at: [0.4, 0.95, 1.75], w: 1.7, h: 0.5, a: 0.65 },
+  { at: [1.4, 1.0, 1.7], w: 1.8, h: 0.5, a: 0.65 },
+  // its feathered top
+  { at: [0.6, 1.25, 1.6], w: 1.8, h: 0.36, a: 0.35 },
+  { at: [1.7, 1.3, 1.4], w: 1.4, h: 0.32, a: 0.3 },
+  // between the far house and the crag's front, the house's foot, the cliffs' feet
+  { at: [-0.35, 0.8, 1.35], w: 1.0, h: 0.55, a: 0.55 },
+  { at: [-1.3, 0.28, 0.95], w: 1.3, h: 0.28, a: 0.5 },
+  { at: [-1.9, 0.8, 0.35], w: 1.5, h: 0.6, a: 0.7 },
+  { at: [-2.6, 0.6, 0.2], w: 1.4, h: 0.65, a: 0.6 },
+  { at: [3.0, 0.9, 0.9], w: 1.5, h: 0.7, a: 0.6 },
 ];
 const PUFFS = 7;
-const MIST_CYAN = new Color('#3fb6d2');
+const MIST_CYAN = new Color('#40a6c2');
 /**
  * How much of the aerial fog the castle takes (1: as any surface at its distance): less, so its
  * silhouette, moonlit roofs and windows keep the reference's contrast against the haze and the
@@ -831,14 +888,15 @@ export function Castle({ f, offset = [0, 0, 0], fps = 24 }: CastleProps) {
   const mats = useMemo(
     () => ({
       // the crag's moonlit shoulder glows through the haze as in the reference (more of the fog's light)
-      rock: storybookMaterial({ kind: 'stone', color: '#4f7884', color2: '#7fd3df', breakup: 0.36, scale: 0.28, bump: 1.1, topCoat: 0.62, vertexColors: true, rim: 1.5, fog: CASTLE_FOG * 1.3 }),
-      walls: storybookMaterial({ kind: 'stone', color: '#526474', color2: '#3a4652', breakup: 0.32, scale: 0.1, bump: 0.6, vertexColors: true, rim: 1.6, fog: CASTLE_FOG }),
-      roofs: storybookMaterial({ kind: 'stone', color: '#5d6e80', color2: '#93adb5', breakup: 0.25, scale: 0.05, bump: 0.4, topCoat: 0.55, vertexColors: true, rim: 1.6, fog: CASTLE_FOG }),
+      rock: storybookMaterial({ kind: 'stone', color: '#4f7884', color2: '#8fe6f0', breakup: 0.36, scale: 0.28, bump: 1.1, topCoat: 0.85, vertexColors: true, rim: 1.5, fog: 0.75 }),
+      walls: storybookMaterial({ kind: 'stone', color: '#5a7086', color2: '#3a4652', breakup: 0.32, scale: 0.1, bump: 0.6, vertexColors: true, rim: 2.0, fog: CASTLE_FOG }),
+      roofs: storybookMaterial({ kind: 'stone', color: '#5d6e80', color2: '#a6d2dc', breakup: 0.25, scale: 0.05, bump: 0.4, topCoat: 0.8, vertexColors: true, rim: 2.0, fog: CASTLE_FOG }),
       timber: storybookMaterial({ kind: 'wood', color: '#2a2428', color2: '#1a1618', breakup: 0.2, scale: 0.08, vertexColors: true, rim: 1.0, fog: CASTLE_FOG }),
       iron: storybookMaterial({ kind: 'iron', color: '#1b1d22', metalness: 0.4, roughness: 0.5, breakup: 0.1, scale: 0.04, vertexColors: true, rim: 1.2, fog: CASTLE_FOG }),
       warm: storybookMaterial({ color: '#000000', emissive: '#ffb35c', emissiveIntensity: 1.45, fog: 0.35, rim: 0, ambient: 0, breakup: 0, side: DoubleSide }),
       cyan: storybookMaterial({ color: '#000000', emissive: '#7be8f6', emissiveIntensity: 1.45, fog: 0.35, rim: 0, ambient: 0, breakup: 0, side: DoubleSide }),
-      road: storybookMaterial({ kind: 'stone', color: '#d2e2de', color2: '#eef8f2', breakup: 0.2, scale: 0.08, bump: 0.3, topCoat: 0.7, vertexColors: true, rim: 0.6, fog: 0.9 }),
+      // the road dimmer than the moonlit rock round it (a pale ribbon read as a decal)
+      road: storybookMaterial({ kind: 'stone', color: '#a3b8b8', color2: '#c2d6d2', breakup: 0.25, scale: 0.08, bump: 0.3, topCoat: 0.45, vertexColors: true, rim: 0.6, fog: 0.8 }),
       mist: new MeshBasicMaterial({ map: tex.mist, vertexColors: true, transparent: true, depthWrite: false, fog: false }),
       smoke: new MeshBasicMaterial({ map: tex.smoke, vertexColors: true, transparent: true, depthWrite: false, fog: false }),
     }),
@@ -861,12 +919,12 @@ export function Castle({ f, offset = [0, 0, 0], fps = 24 }: CastleProps) {
     const far = NIGHT.uSbFogFar.value as Color;
     const glow = NIGHT.uSbMoonGlow.value as Color;
     // toward the reference's luminous cyan banks (about sRGB 37 145 171 under the castle)
-    const mistColor = mid.clone().lerp(far, 0.6).lerp(glow, 0.25).lerp(MIST_CYAN, 0.55);
+    const mistColor = mid.clone().lerp(far, 0.6).lerp(glow, 0.25).lerp(MIST_CYAN, 0.85);
     const mist: Card[] = MIST.map((m, i) => ({
       at: new Vector3(m.at[0] + 0.12 * Math.sin(t * 0.08 + i * 1.7), m.at[1] + 0.02 * Math.sin(t * 0.13 + i), m.at[2]),
       w: m.w,
       h: m.h,
-      alpha: Math.min(0.6, m.a * 1.3),
+      alpha: m.a,
       color: mistColor,
     }));
     const smokeColor = mid.clone().lerp(glow, 0.4).lerp(new Color('#9aa6ac'), 0.3);
@@ -887,7 +945,9 @@ export function Castle({ f, offset = [0, 0, 0], fps = 24 }: CastleProps) {
   const pos: [number, number, number] = [BASE.x + offset[0], BASE.y + offset[1], BASE.z + offset[2]];
   return (
     <group position={pos} rotation-y={CRAG_YAW}>
-      <mesh geometry={geos.rock} material={mats.rock} castShadow receiveShadow />
+      {/* the crag takes no shadow: the buildings' shadows, from the low moon behind, darkened the
+          whole table the reference has moonlit */}
+      <mesh geometry={geos.rock} material={mats.rock} castShadow />
       <mesh geometry={geos.walls} material={mats.walls} castShadow receiveShadow />
       <mesh geometry={geos.roofs} material={mats.roofs} castShadow receiveShadow />
       <mesh geometry={geos.timber} material={mats.timber} castShadow />

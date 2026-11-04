@@ -83,9 +83,12 @@ function EndNotice({ f, fonts }: { f: number; fonts: FilmFonts }) {
   const o = fade(f, span('end'), 8, 2);
   if (o <= 0) return null;
   const t = f - at(36);
+  // a soft dusk scrim under the words (the caption plate's plum), so they hold at least 4.5:1
+  // over whatever of the book lies behind them: its lit page edges, the cover's gilt, the ribbon
   return (
-    <AbsoluteFill style={{ justifyContent: 'flex-end', alignItems: 'center', paddingBottom: h * 0.07, opacity: o, color: '#DCE6B7', textAlign: 'center' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: h * 0.03, marginBottom: h * 0.03 }}>
+    <AbsoluteFill style={{ justifyContent: 'flex-end', alignItems: 'center', paddingBottom: h * 0.07, opacity: o, color: '#DCE6B7', textAlign: 'center', textShadow: `0 0 ${h * 0.012}px rgba(20, 10, 24, 0.9)` }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: h * 0.46, background: 'linear-gradient(to bottom, rgba(30, 16, 34, 0) 0%, rgba(30, 16, 34, 0.62) 38%, rgba(30, 16, 34, 0.8) 100%)' }} />
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: h * 0.03, marginBottom: h * 0.03 }}>
         <div style={{ fontFamily: fonts.serif, fontSize: h * 0.08, letterSpacing: '0.02em' }}>The End</div>
         {t >= 0 && (
           <div style={{ width: h * 0.1, height: h * 0.1, background: '#C8322A', color: '#fff7f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: fonts.cjk, fontSize: h * 0.07, fontWeight: 900, borderRadius: h * 0.008, transform: `rotate(-6deg) scale(${1.5 - 0.5 * progress(t, 0, 4, 'outCubic')})` }}>
@@ -93,8 +96,8 @@ function EndNotice({ f, fonts }: { f: number; fonts: FilmFonts }) {
           </div>
         )}
       </div>
-      <div style={{ fontFamily: fonts.sans, fontSize: h * 0.048 }}>Fan parody. Not affiliated with Anthropic. Fictional email.</div>
-      <div style={{ fontFamily: fonts.cjk, fontSize: h * 0.042 }}>粉丝恶搞，与 Anthropic 无关，邮件纯属虚构。</div>
+      <div style={{ position: 'relative', fontFamily: fonts.sans, fontSize: h * 0.048 }}>Fan parody. Not affiliated with Anthropic. Fictional email.</div>
+      <div style={{ position: 'relative', fontFamily: fonts.cjk, fontSize: h * 0.042 }}>粉丝恶搞，与 Anthropic 无关，邮件纯属虚构。</div>
     </AbsoluteFill>
   );
 }

@@ -73,11 +73,12 @@ export function candleFlicker(f: number, seed = 0): number {
  * the cavity, orange high and far from the flame, hot yellow by it (0.72..1).
  */
 const RAMP: [number, string][] = [
-  [0, '#000000'],
-  [0.15, '#2e1004'],
-  [0.2, '#3c1606'],
-  [0.26, '#4a1c06'],
-  [0.38, '#6c2a0a'],
+  // (an ember floor: the lit rind never goes cold grey, a faint warmth through the shell)
+  [0, '#160700'],
+  [0.15, '#44180a'],
+  [0.2, '#56200a'],
+  [0.26, '#64280c'],
+  [0.38, '#7e3410'],
   [0.7, '#e07a1c'],
   [0.715, '#a4400c'],
   [0.84, '#e47e1c'],
@@ -86,11 +87,11 @@ const RAMP: [number, string][] = [
 ];
 /** the small pumpkins glow yellower (cream-gold faces at a distance, as the reference's stack) */
 const SMALL_RAMP: [number, string][] = [
-  [0, '#000000'],
-  [0.12, '#2c1004'],
-  [0.16, '#3a1606'],
-  [0.26, '#5a2808'],
-  [0.38, '#8a3e0e'],
+  [0, '#140700'],
+  [0.12, '#401808'],
+  [0.16, '#4e1e08'],
+  [0.26, '#66300a'],
+  [0.38, '#8e4210'],
   [0.7, '#f0a640'],
   [0.715, '#d07a20'],
   [0.84, '#f4ac44'],
@@ -123,7 +124,8 @@ const SKY_PARS = 'uniform vec3 uPkSky;\nuniform vec3 uPkSkyDir;\n';
 const SKY_RIM = /* glsl */ `
   {
     // the sky's teal edge on the side away from the moon (view space: from the screen's left)
-    float skyEdge = pow(max(1.0 - facing, 0.0), 2.4);
+    // (a narrow edge: a broad one turned the whole shadow side grey-blue plastic)
+    float skyEdge = pow(max(1.0 - facing, 0.0), 3.2);
     float skyTo = smoothstep(-0.15, 0.75, dot(normal, uPkSkyDir));
     outgoingLight += uPkSky * skyEdge * skyTo * diffuseColor.a;
   }`;
@@ -150,9 +152,10 @@ interface PumpkinPaint {
 }
 
 /** A pumpkin's paint (`size`: its width, for the noise scale): the rind's furrows run up the ribs. */
-function pumpkinPaint(size: number, rim = 1, stops: [number, string][] = RAMP, sky = 0.55): PumpkinPaint {
+function pumpkinPaint(size: number, rim = 1, stops: [number, string][] = RAMP, sky = 0.2): PumpkinPaint {
   const r = ramp(stops);
-  const mat = storybookMaterial({ kind: 'bark', vertexColors: true, color: '#ffffff', color2: '#5a3c1c', breakup: 0.14, scale: size * 0.22, bump: 0.45, rim, roughness: 0.9, emissive: '#ffffff', emissiveMap: r, emissiveIntensity: 0 });
+  // a dry, pitted rind (a stronger, finer bump; a warm brown breakup), never glossy
+  const mat = storybookMaterial({ kind: 'bark', vertexColors: true, color: '#ffffff', color2: '#6a3412', breakup: 0.24, scale: size * 0.07, bump: 1.3, rim, roughness: 0.84, emissive: '#ffffff', emissiveMap: r, emissiveIntensity: 0 });
   const key = mat.customProgramCacheKey();
   const ud = mat.userData as unknown as SkyData;
   ud.sbInject = mat.onBeforeCompile;
@@ -317,7 +320,7 @@ export function BigPumpkin({ f, lit = 1 }: { f: number; lit?: number }) {
     const shade: V3 = [m.x * Math.cos(yaw) - m.z * Math.sin(yaw), m.y, m.x * Math.sin(yaw) + m.z * Math.cos(yaw)];
     const b = buildPumpkin({ ...giantSpec(11, BIG_WIDTH), shade });
     const contact = discGeometry([{ x: P.x, z: P.z, rx: BIG_WIDTH * 0.5, rz: BIG_WIDTH * 0.45, yaw: (P.yaw ?? 0) + FACE_TURN, amt: 0.9, y: seat + 0.018 }]);
-    return { b, paint: pumpkinPaint(BIG_WIDTH, 1.1, RAMP, 1.1), contact, shadow: shadowMaterial() };
+    return { b, paint: pumpkinPaint(BIG_WIDTH, 0.9, RAMP, 0.7), contact, shadow: shadowMaterial() };
   }, [P.x, P.z, P.yaw, seat]);
   useLayoutEffect(
     () => () => {
@@ -643,7 +646,7 @@ export function PumpkinPatch({ f, lit = 1, porch = true }: { f: number; lit?: nu
       if (!it.onTop) shadows.push({ x: it.x, z: it.z, rx: it.width * 0.72, rz: it.width * 0.66, yaw: it.yaw, amt: 0.75, y: null });
       if (it.lit) pools.push({ x: it.x + Math.sin(it.yaw) * it.width * 0.75, z: it.z + Math.cos(it.yaw) * it.width * 0.75, rx: it.width * 1.1, rz: it.width * 0.8, yaw: it.yaw, amt: it.onTop ? 0.5 : 1, y: null });
     }
-    return { geo, paint: pumpkinPaint(0.22, 1, SMALL_RAMP, 0.45), shadowGeo: discGeometry(shadows), poolGeo: discGeometry(pools), shadow: shadowMaterial(), pool: poolMaterial() };
+    return { geo, paint: pumpkinPaint(0.22, 1, SMALL_RAMP, 0.2), shadowGeo: discGeometry(shadows), poolGeo: discGeometry(pools), shadow: shadowMaterial(), pool: poolMaterial() };
   }, [porch]);
   useLayoutEffect(
     () => () => {

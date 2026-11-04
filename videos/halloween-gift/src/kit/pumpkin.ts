@@ -630,7 +630,7 @@ function bodyModel(s: PumpkinSpec) {
   const R = (k: number | string, j = 0) => rand(s.seed, k, j);
   // uneven rib boundaries (fractions of a turn), each rib's own bulge
   const bounds: number[] = [];
-  for (let k = 0; k <= N; k++) bounds.push((k + (k === 0 || k === N ? 0 : (R('rb', k) - 0.5) * 0.55)) / N);
+  for (let k = 0; k <= N; k++) bounds.push((k + (k === 0 || k === N ? 0 : (R('rb', k) - 0.5) * 0.8)) / N);
   const bulge = Array.from({ length: N }, (_, k) => 0.72 + 0.56 * R('bulge', k));
   const ph = R('phase') * TAU;
   const w1 = R('w1') * TAU;
@@ -1133,7 +1133,7 @@ export function buildPumpkin(s: PumpkinSpec): PumpkinBuild {
   const groove = lin(s.colors.groove);
   const patch = lin(s.colors.patch);
   const flesh = lin(s.colors.flesh);
-  const ribTint = Array.from({ length: N }, (_, k) => [0.88 + 0.24 * rand(s.seed, 'rt', k), 0.86 + 0.28 * rand(s.seed, 'rt2', k)]);
+  const ribTint = Array.from({ length: N }, (_, k) => [0.88 + 0.24 * rand(s.seed, 'rt', k), 0.9 + 0.16 * rand(s.seed, 'rt2', k)]);
   const halo = 0.06 * s.width;
   const pool = new Pool();
   const tmp = [0, 0, 0];
@@ -1142,7 +1142,8 @@ export function buildPumpkin(s: PumpkinSpec): PumpkinBuild {
 
   /** the rind's paint at a body point (info filled by `point`) */
   const rindPaint = (p: number[], th: number, el: number, q: Info): [number, number, number, number, number] => {
-    const lobeK = Math.pow(q.lobe, 0.6);
+    // (the lobes hold the skin colour well into the grooves: one-for-one dark grooves read as a striped ball)
+    const lobeK = Math.pow(q.lobe, 0.38);
     let r = groove[0] + (skin[0] - groove[0]) * lobeK;
     let g = groove[1] + (skin[1] - groove[1]) * lobeK;
     let b = groove[2] + (skin[2] - groove[2]) * lobeK;
@@ -1157,24 +1158,28 @@ export function buildPumpkin(s: PumpkinSpec): PumpkinBuild {
     r += (patch[0] - r) * pk;
     g += (patch[1] - g) * pk;
     b += (patch[2] - b) * pk;
-    const scab = smoothstep(0.72, 0.8, noise3((p[0] * 22) / s.width, (p[1] * 22) / s.width, (p[2] * 22) / s.width, s.seed + 40));
+    const scab = smoothstep(0.7, 0.78, noise3((p[0] * 22) / s.width, (p[1] * 22) / s.width, (p[2] * 22) / s.width, s.seed + 40));
+    // healed scars: long thin pale scratches across the ribs (noise stretched along a slant), corky
+    const sc = noise3((p[0] * 4 + p[1] * 9) / s.width, (p[1] * 70 - p[0] * 30) / s.width, (p[2] * 6) / s.width, s.seed + 41);
+    const scar = smoothstep(0.74, 0.8, sc) * smoothstep(0.35, 0.7, noise3((p[0] * 3) / s.width, (p[1] * 3) / s.width, (p[2] * 3) / s.width, s.seed + 42));
     // painted streaks along the meridians (broad and fine), and a dark stroke down every groove
     const st = noise3(Math.cos(th) * 13, Math.sin(th) * 13, el * 1.3, s.seed + 44) - 0.5;
     const fine = noise3(Math.cos(th) * 38, Math.sin(th) * 38, el * 2.6, s.seed + 45) - 0.5;
     const streak = 1 + 0.8 * st + 0.3 * fine;
-    const stroke = 1 - 0.42 * (1 - smoothstep(0.0, 0.16, q.lobe));
+    const stroke = 1 - 0.26 * (1 - smoothstep(0.0, 0.12, q.lobe));
     // the crowns caught pale (a dry, dusty tan dabbed along the ribs' backs)
     const crown = smoothstep(0.7, 1, q.lobe) * smoothstep(0.35, 0.75, noise3(Math.cos(th) * 9, Math.sin(th) * 9, el * 3.1, s.seed + 46));
     r += (skin[0] * 1.25 + 0.06 - r) * crown * 0.45;
     g += (skin[1] * 1.3 + 0.05 - g) * crown * 0.45;
     b += (skin[2] * 1.5 + 0.04 - b) * crown * 0.45;
-    // the shadow side painted cool and grey (toward an olive slate), the top caught light
+    // the shadow side painted duller and darker (a plum-brown), the top caught light
     if (s.shade) {
       const away = smoothstep(0.1, -0.7, q.n[0] * s.shade[0] + q.n[1] * s.shade[1] + q.n[2] * s.shade[2]) * (1 - smoothstep(0.4, 0.9, q.dy));
       const lum = 0.3 * r + 0.59 * g + 0.11 * b;
-      r += (lum * 0.8 - r) * away * 0.45;
-      g += (lum * 0.95 - g) * away * 0.45;
-      b += (lum * 1.35 - b) * away * 0.45;
+      // (toward a dull plum-brown, a little: an olive slate turned the back of the rind green)
+      r += (lum * 1.05 - r) * away * 0.22;
+      g += (lum * 0.82 - g) * away * 0.22;
+      b += (lum * 0.95 - b) * away * 0.22;
     }
     // the teeth: carved paler and lit warm by the glow around them (the reference's tan fangs)
     if (q.tooth > 0) {
@@ -1182,6 +1187,9 @@ export function buildPumpkin(s: PumpkinSpec): PumpkinBuild {
       g += (skin[1] * 1.15 + 0.02 - g) * q.tooth * 0.6;
       b += (skin[2] * 1.1 - b) * q.tooth * 0.6;
     }
+    r += (skin[0] * 0.9 + 0.05 - r) * scar * 0.5;
+    g += (skin[1] * 1.1 + 0.045 - g) * scar * 0.5;
+    b += (skin[2] * 1.3 + 0.03 - b) * scar * 0.5;
     const k = (1 - 0.45 * scab) * streak * stroke * (0.58 + 0.42 * smoothstep(-0.9, -0.2, q.dy)) * (1 + 0.6 * smoothstep(0.25, 0.85, q.dy));
     const glow = q.sdh < 9 ? Math.max(0.15 * Math.exp(-(Math.max(0, q.sdh) * a) / halo), 0.2 * q.tooth) : 0;
     // the rim (alpha) low in the grooves: their walls face sideways and would outline every rib
@@ -1656,7 +1664,8 @@ export function pumpkinHalf(s: PumpkinSpec): { a: number; c: number } {
 
 // ---- seeded variety ---------------------------------------------------------------------------
 
-const SKIN = { skin: '#d4a05a', groove: '#4a2814', patch: '#8a7848', stem: '#524a48', flesh: '#f0c27a' };
+// a muted ochre-orange rind (the reference's), dark brown furrows, sun-browned (never olive-green) patches
+const SKIN = { skin: '#b4662e', groove: '#4a2210', patch: '#7a4e2c', stem: '#524a48', flesh: '#f0c27a' };
 
 /** The giant jack-o'-lantern: squat and heavy, deep ribs, warts, deep-carved and angry. */
 export function giantSpec(seed: number, width: number): PumpkinSpec {
@@ -1670,8 +1679,8 @@ export function giantSpec(seed: number, width: number): PumpkinSpec {
     dimple: 0.27,
     lopsided: 0.12,
     lean: 0.07,
-    warts: 5,
-    wartSize: 0.012,
+    warts: 9,
+    wartSize: 0.016,
     wall: 0.07,
     carve: 'angry',
     faceYaw: 0,
@@ -1705,8 +1714,8 @@ export function smallSpec(seed: number, width: number, carve: Carve, face = 1): 
     dimple: 0.18 + 0.15 * r(4),
     lopsided: 0.02 + 0.06 * r(5),
     lean: (r(6) - 0.5) * 0.16,
-    warts: r(7) < 0.4 ? 2 + Math.floor(r(8) * 3) : 0,
-    wartSize: 0.01,
+    warts: r(7) < 0.6 ? 2 + Math.floor(r(8) * 4) : 0,
+    wartSize: 0.012,
     wall: 0.08,
     carve,
     faceYaw: 0,
@@ -1721,7 +1730,7 @@ export function smallSpec(seed: number, width: number, carve: Carve, face = 1): 
     vine: r(15) < 0.35,
     cols: plain ? 7 : 8,
     rows: plain ? 30 : 38,
-    colors: { ...SKIN, skin: r(16) < 0.5 ? '#c8803e' : '#c08a48' },
+    colors: { ...SKIN, skin: r(16) < 0.5 ? '#c06c32' : '#b4622c' },
   };
 }
 

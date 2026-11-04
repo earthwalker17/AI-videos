@@ -25,8 +25,8 @@ import { BOULDERS, rootGrass, ROOTS_FOOTPRINT } from './Dressing.tsx';
 import { graveFootprints } from './Graveyard.tsx';
 import { COFFIN_FOOTPRINT } from './Props2.tsx';
 import { patchItems } from './Pumpkins.tsx';
-import { FLOOR, LAND, PAGE, pageMask } from './layout.ts';
-import { bareMask, fbm, fenceDistance, ground, groundShading, surfaceHeight, trackAt, turfColor, TURF_SHEEN, turfSweep, yardMask } from './Terrain.tsx';
+import { FLOOR, houseFrame, LAND, PAGE, pageMask } from './layout.ts';
+import { bareMask, fbm, fenceDistance, flagMask, ground, groundShading, surfaceHeight, trackAt, turfColor, TURF_SHEEN, turfSweep, yardCentre, yardMask } from './Terrain.tsx';
 
 /** world/Graveyard.tsx's footprints on the ground (stones, fallen tops, the RIP stone, the big cross) */
 const GRAVES = graveFootprints();
@@ -243,6 +243,7 @@ function site(x: number, z: number) {
 }
 const smoothKnee = (v: number) => Math.max(0, Math.min(1, v));
 
+
 function scatter(cell: number, densityScale: number): Tuft[] {
   const out: Tuft[] = [];
   const q = new Quaternion();
@@ -278,9 +279,14 @@ function scatter(cell: number, densityScale: number): Tuft[] {
         if (dist > FAR_MAX || rand(21, i, j) > 0.35 + 0.65 * smoothKnee(0.5 + 1.4 * fbm(x, z, 77, 2, 0.9))) continue;
         kind = rand(19, i, j) < 0.5 ? 'far' : 'far2';
       }
-      if (st.yard > 0.5) kind = 'short';
+      // the yard's trodden middle: a sparse, short stubble (its margins: the denser pass below)
+      const centre = st.yard > 0.02 ? yardCentre(x, z) : 0;
+      if (centre > 0.5 || flagMask(x, z) > 0.3) {
+        if (rand(22, i, j) < 0.55) continue;
+        kind = 'short';
+      }
       const h = surfaceHeight(x, z, st.tr);
-      let hs = (0.75 + 0.5 * rand(7, i, j)) * (1 + 0.35 * st.unkempt) * (1 - 0.45 * st.nearTrack) * (1 - 0.4 * st.yard) * (1 - 0.35 * st.bare);
+      let hs = (0.75 + 0.5 * rand(7, i, j)) * (1 + 0.35 * st.unkempt) * (1 - 0.45 * st.nearTrack) * (1 - 0.4 * centre) * (1 - 0.35 * st.bare);
       // tall and straw grass: heights vary in low patches (0.5..1.3)
       if (kind === 'tall' || kind === 'straw') hs *= 0.5 + 0.8 * smoothKnee(0.5 + 0.9 * fbm(x, z, 76, 2, 1.7)) * (0.6 + 0.4 * st.clump);
       if (kind === 'straw' && st.nearTrack > 0.3) hs *= 0.8;
@@ -305,6 +311,41 @@ function scatter(cell: number, densityScale: number): Tuft[] {
       // the turf's long sweeps of light and dark (Terrain), so blades and turf move together
       const sweep = Math.max(0.6, 1 + 0.25 * turfSweep(x, z));
       c.multiplyScalar((0.8 + 0.35 * rand(16, i, j)) * (1 + 0.2 * crest) * (0.55 + 1.0 * (lit - 0.25)) * sweep);
+      out.push({ x, z, kind: KINDS.indexOf(kind), m, c });
+    }
+  // the door yard's margins (round its trodden middle and the flags, and the turf just past it):
+  // three to four times the tufts, in clumps of every kind, mid and tall turf, straw, a few short
+  const hf = houseFrame();
+  const lp = new Vector3();
+  const YC = cell * 0.5;
+  for (let i = 0; i * YC < 4.8; i++)
+    for (let j = 0; j * YC < 3.0; j++) {
+      lp.set(-2.1 + (i + rand(23, i, j)) * YC, 0, -0.25 + (j + rand(23, i, j + 9999)) * YC).applyMatrix4(hf);
+      const x = lp.x;
+      const z = lp.z;
+      const yard = yardMask(x, z, 0.4);
+      if (yard <= 0.01) continue;
+      const centre = yardCentre(x, z);
+      const margin = yard * (1 - centre) * (1 - smoothstep(0.1, 0.4, flagMask(x, z)));
+      // clumps and gaps (a low noise), so the margins are not an even lawn
+      const clumpY = smoothKnee(0.35 + 1.2 * fbm(x, z, 135, 2, 2.6));
+      if (rand(24, i, j) > 0.85 * margin * clumpY) continue;
+      const st = site(x, z);
+      if (!st) continue;
+      const kr = rand(25, i, j);
+      const kind: Kind = kr < 0.12 ? 'short' : kr < 0.42 ? 'mid' : kr < 0.66 ? 'mid2' : kr < 0.86 ? 'tall' : 'straw';
+      let hs = (0.7 + 0.6 * rand(26, i, j)) * (0.55 + 0.6 * clumpY);
+      if (kind === 'tall' || kind === 'straw') hs *= 0.5 + 0.7 * smoothKnee(0.5 + 0.9 * fbm(x, z, 136, 2, 1.9));
+      q.setFromAxisAngle(up, (rand(27, i, j) - 0.5) * 1.1);
+      tilt.setFromAxisAngle(ax, (rand(28, i, j) - 0.5) * 0.45);
+      q.multiply(tilt);
+      const s = 0.75 + 0.5 * rand(29, i, j);
+      const m = new Matrix4().compose(new Vector3(x, surfaceHeight(x, z, st.tr) - 0.006, z), q, new Vector3(s, hs, s));
+      const c = new Color();
+      if (kind === 'straw') c.copy(STRAW_DARK).lerp(STRAW, rand(30, i, j)).multiplyScalar(0.8);
+      else c.copy(TEAL_DARK).lerp(TEAL, 0.25 + 0.6 * rand(30, i, j)).lerp(OLIVE, Math.max(0, fbm(x, z, 137, 2, 1.3)) * 0.9);
+      // darker than the open turf's (the yard is in the cottage's shade): it must not read as frost
+      c.multiplyScalar((0.55 + 0.35 * rand(31, i, j)) * (0.8 + 0.25 * turfSweep(x, z)));
       out.push({ x, z, kind: KINDS.indexOf(kind), m, c });
     }
   // tufts of straw and tall grass on top of the root mass's roots (Dressing)
