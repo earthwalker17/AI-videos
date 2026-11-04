@@ -287,8 +287,20 @@ export function pageBlockGeometry(s: PageBlockSpec): PageBlock {
   const L = 2 * D + W;
   const cA = D / L;
   const cB = (D + W) / L;
+  // a pure function of the height alone, asked for at every vertex of a row: worked out once per height
+  const perHeight = (fn: (v: number) => number) => {
+    const memo = new Map<number, number>();
+    return (v: number) => {
+      let r = memo.get(v);
+      if (r === undefined) {
+        r = fn(v);
+        memo.set(v, r);
+      }
+      return r;
+    };
+  };
   // each signature stands a little in or out of its neighbours; the leaves wave slightly
-  const sigOff = (v: number, k: number) => {
+  const sigOffAt = (v: number, k: number) => {
     const t = v * signatures;
     const i = Math.min(signatures - 1, Math.floor(t));
     const f = t - i;
@@ -299,6 +311,8 @@ export function pageBlockGeometry(s: PageBlockSpec): PageBlock {
     const groove = Math.exp(-(((f > 0.5 ? 1 - f : f) / 0.07) ** 2));
     return a + (b - a) * m - 0.5 * groove;
   };
+  const sigs = [0, 1, 2].map((k) => perHeight((v) => sigOffAt(v, k)));
+  const sigOff = (v: number, k: number) => sigs[k](v);
   const proudAt = (u: number, v: number) => {
     let o = 0;
     for (const p of proud) {
@@ -318,6 +332,11 @@ export function pageBlockGeometry(s: PageBlockSpec): PageBlock {
     const held = smooth(z0, z0 + 1.2, z);
     return (0.003 * sigOff(v, k) + 0.003 * fbm2(z * 0.7, v * 5, seed + 2 + k) - 0.18 * concave * conc(v)) * held + proudAt(u, v);
   };
+  // the corners' displacements, where the faces meet (each face's ends follow them)
+  const foreA = perHeight((v) => foreD(x0, v, cA));
+  const foreB = perHeight((v) => foreD(x1, v, cB));
+  const sideA = perHeight((v) => sideD(z1, v, 1, cA));
+  const sideB = perHeight((v) => sideD(z1, v, 2, cB));
   const H = y1 - y0;
   const nv = 80;
   const surface = (u: number, v: number): V3 => {
@@ -325,18 +344,18 @@ export function pageBlockGeometry(s: PageBlockSpec): PageBlock {
     if (u <= cA) {
       // head (left, x0): z from the spine to the corner
       const z = z0 + (u / cA) * D;
-      const zEnd = z1 + foreD(x0, v, cA);
+      const zEnd = z1 + foreA(v);
       return [x0 - sideD(z, v, 1, u), y, z0 + (zEnd - z0) * (u / cA)];
     }
     if (u <= cB) {
       const x = x0 + ((u - cA) / (cB - cA)) * W;
-      const xa = x0 - sideD(z1, v, 1, cA);
-      const xb = x1 + sideD(z1, v, 2, cB);
+      const xa = x0 - sideA(v);
+      const xb = x1 + sideB(v);
       const xx = xa + ((xb - xa) * (x - x0)) / W;
       return [xx, y, z1 + foreD(x, v, u)];
     }
     const z = z1 - ((u - cB) / (1 - cB)) * D;
-    const zEnd = z1 + foreD(x1, v, cB);
+    const zEnd = z1 + foreB(v);
     const zz = z0 + ((zEnd - z0) * (z - z0)) / D;
     return [x1 + sideD(z, v, 2, u), y, zz];
   };

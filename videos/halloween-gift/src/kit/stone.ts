@@ -29,7 +29,6 @@ const TABLE = (() => {
   for (let i = 0; i < t.length; i++) t[i] = mix32(Math.imul(i, 0x8da6b343) ^ 0x2f6b9e37) / 4294967296;
   return t;
 })();
-const L = (x: number, y: number, z: number) => TABLE[(x & TM) + TN * ((y & TM) + TN * (z & TM))];
 
 /** Stateless 3D value noise in [0, 1) (periodic over 32 units; seeds shift the lattice). */
 export function noise3(x: number, y: number, z: number, seed: number): number {
@@ -45,14 +44,21 @@ export function noise3(x: number, y: number, z: number, seed: number): number {
   u = u * u * (3 - 2 * u);
   v = v * v * (3 - 2 * v);
   w = w * w * (3 - 2 * w);
-  const a = L(xi, yi, zi);
-  const b = L(xi + 1, yi, zi);
-  const c = L(xi, yi + 1, zi);
-  const d = L(xi + 1, yi + 1, zi);
-  const e = L(xi, yi, zi + 1);
-  const f = L(xi + 1, yi, zi + 1);
-  const g = L(xi, yi + 1, zi + 1);
-  const h = L(xi + 1, yi + 1, zi + 1);
+  // (L's lattice index, its wrapped coordinates worked out once for the eight corners)
+  const ix0 = xi & TM;
+  const ix1 = (xi + 1) & TM;
+  const iy0 = TN * (yi & TM);
+  const iy1 = TN * ((yi + 1) & TM);
+  const iz0 = TN * TN * (zi & TM);
+  const iz1 = TN * TN * ((zi + 1) & TM);
+  const a = TABLE[ix0 + iy0 + iz0];
+  const b = TABLE[ix1 + iy0 + iz0];
+  const c = TABLE[ix0 + iy1 + iz0];
+  const d = TABLE[ix1 + iy1 + iz0];
+  const e = TABLE[ix0 + iy0 + iz1];
+  const f = TABLE[ix1 + iy0 + iz1];
+  const g = TABLE[ix0 + iy1 + iz1];
+  const h = TABLE[ix1 + iy1 + iz1];
   const x0 = a + (b - a) * u;
   const x1 = c + (d - c) * u;
   const x2 = e + (f - e) * u;
@@ -147,6 +153,85 @@ export function polyline2(x: number, y: number, pts: readonly (readonly [number,
   return { d: best, t: bt };
 }
 
+/**
+ * `polyline2` for one fixed polyline, its segments worked out once (bit-identical: the same
+ * arithmetic in the same order), and `near`: false only where every segment lies more than
+ * `reach` away (a box test), so a caller that ignores the line beyond `reach` can skip it.
+ */
+export class Polyline {
+  private readonly ax: Float64Array;
+  private readonly ay: Float64Array;
+  private readonly vx: Float64Array;
+  private readonly vy: Float64Array;
+  private readonly l2: Float64Array;
+  private readonly lens: Float64Array;
+  private readonly acc: Float64Array;
+  private readonly box: Float64Array;
+  private readonly total: number;
+  private readonly res = { d: Infinity, t: 0 };
+  constructor(pts: readonly (readonly [number, number])[], reach: number) {
+    const n = Math.max(0, pts.length - 1);
+    this.ax = new Float64Array(n);
+    this.ay = new Float64Array(n);
+    this.vx = new Float64Array(n);
+    this.vy = new Float64Array(n);
+    this.l2 = new Float64Array(n);
+    this.lens = new Float64Array(n);
+    this.acc = new Float64Array(n);
+    this.box = new Float64Array(n * 4);
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      this.lens[i - 1] = l;
+      total += l;
+    }
+    this.total = total || 1;
+    let acc = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1];
+      const k = i - 1;
+      this.ax[k] = ax;
+      this.ay[k] = ay;
+      this.vx[k] = pts[i][0] - ax;
+      this.vy[k] = pts[i][1] - ay;
+      this.l2[k] = this.vx[k] * this.vx[k] + this.vy[k] * this.vy[k] || 1e-12;
+      this.acc[k] = acc;
+      acc += this.lens[k];
+      this.box[k * 4] = Math.min(ax, pts[i][0]) - reach;
+      this.box[k * 4 + 1] = Math.max(ax, pts[i][0]) + reach;
+      this.box[k * 4 + 2] = Math.min(ay, pts[i][1]) - reach;
+      this.box[k * 4 + 3] = Math.max(ay, pts[i][1]) + reach;
+    }
+  }
+  /** True unless (x, y) is more than `reach` from every segment (NaN is near). */
+  near(x: number, y: number): boolean {
+    const b = this.box;
+    for (let k = 0; k < b.length; k += 4) if (!(x < b[k] || x > b[k + 1] || y < b[k + 2] || y > b[k + 3])) return true;
+    return false;
+  }
+  /** = polyline2(x, y, pts) (the result object is reused). */
+  at(x: number, y: number): { d: number; t: number } {
+    let best = Infinity;
+    let bt = 0;
+    const n = this.ax.length;
+    for (let k = 0; k < n; k++) {
+      const ax = this.ax[k];
+      const ay = this.ay[k];
+      const vx = this.vx[k];
+      const vy = this.vy[k];
+      const t = Math.min(1, Math.max(0, ((x - ax) * vx + (y - ay) * vy) / this.l2[k]));
+      const d = Math.hypot(x - ax - vx * t, y - ay - vy * t);
+      if (d < best) {
+        best = d;
+        bt = (this.acc[k] + t * this.lens[k]) / this.total;
+      }
+    }
+    this.res.d = best;
+    this.res.t = bt;
+    return this.res;
+  }
+}
+
 // ---- chips ------------------------------------------------------------------------------------
 
 /** A chip knocked off an edge: a flat facet (plane) or a scoop (sphere), limited to a ball. */
@@ -164,25 +249,99 @@ export interface Chip {
 /** The field with the chips cut out. */
 export function chipped(sdf: SDF, chips: readonly Chip[]): SDF {
   if (!chips.length) return sdf;
-  return (x, y, z) => {
+  /** the field d with chip k's cut taken at (x, y, z) (d as it is beyond its ball) */
+  const cutAt = (k: Chip, x: number, y: number, z: number, d: number): number => {
+    const dx = x - k.c[0];
+    const dy = y - k.c[1];
+    const dz = z - k.c[2];
+    const r2 = dx * dx + dy * dy + dz * dz;
+    if (r2 > k.radius * k.radius * 2.56) return d;
+    const r = Math.sqrt(r2);
+    let cut: number;
+    if (k.scoop) {
+      // a sphere centred outside the surface along n
+      const ox = dx - k.n[0] * (k.radius - k.depth);
+      const oy = dy - k.n[1] * (k.radius - k.depth);
+      const oz = dz - k.n[2] * (k.radius - k.depth);
+      cut = Math.sqrt(ox * ox + oy * oy + oz * oz) - k.radius;
+    } else {
+      // the half space beyond the facet plane, inside the ball
+      cut = Math.max(-(dx * k.n[0] + dy * k.n[1] + dz * k.n[2] + k.depth), r - k.radius);
+    }
+    return Math.max(d, -cut);
+  };
+  const all = (x: number, y: number, z: number): number => {
     let d = sdf(x, y, z);
-    for (const k of chips) {
-      const dx = x - k.c[0];
-      const dy = y - k.c[1];
-      const dz = z - k.c[2];
+    for (const k of chips) d = cutAt(k, x, y, z, d);
+    return d;
+  };
+  // Where the chips reach: a grid over their balls lists each cell's chips (in order), so a sample
+  // tests only those that can reach it (the same test in the same order, the others would fail it:
+  // the same field, much faster). Each ball is widened by 1e-6 against rounding.
+  const PAD = 1e-6;
+  const reach = chips.map((k) => Math.sqrt(k.radius * k.radius * 2.56) * (1 + 1e-9) + PAD);
+  if (!chips.every((k, i) => Number.isFinite(reach[i]) && k.c.every(Number.isFinite))) return all;
+  const lo: V3 = [Infinity, Infinity, Infinity];
+  const hi: V3 = [-Infinity, -Infinity, -Infinity];
+  chips.forEach((k, i) => {
+    for (let a = 0; a < 3; a++) {
+      lo[a] = Math.min(lo[a], k.c[a] - reach[i]);
+      hi[a] = Math.max(hi[a], k.c[a] + reach[i]);
+    }
+  });
+  const cs = Math.max(0.02, Math.min(...reach) * 0.75);
+  const n = [0, 1, 2].map((a) => Math.max(1, Math.ceil((hi[a] - lo[a]) / cs)));
+  const lists: number[][] = Array.from({ length: n[0] * n[1] * n[2] }, () => []);
+  chips.forEach((k, ci) => {
+    const r = reach[ci];
+    const i0 = [0, 1, 2].map((a) => Math.max(0, Math.floor((k.c[a] - r - lo[a]) / cs) - 1));
+    const i1 = [0, 1, 2].map((a) => Math.min(n[a] - 1, Math.floor((k.c[a] + r - lo[a]) / cs) + 1));
+    for (let kk = i0[2]; kk <= i1[2]; kk++)
+      for (let j = i0[1]; j <= i1[1]; j++)
+        for (let i = i0[0]; i <= i1[0]; i++) {
+          // the cell's box (padded) against the ball
+          let q = 0;
+          const ijk = [i, j, kk];
+          for (let a = 0; a < 3; a++) {
+            const b0 = lo[a] + ijk[a] * cs - PAD;
+            const b1 = lo[a] + (ijk[a] + 1) * cs + PAD;
+            const e = k.c[a] < b0 ? b0 - k.c[a] : k.c[a] > b1 ? k.c[a] - b1 : 0;
+            q += e * e;
+          }
+          if (q <= r * r) lists[i + n[0] * (j + n[1] * kk)].push(ci);
+        }
+  });
+  const [nx, ny, nz] = n;
+  const [x0, y0, z0] = lo;
+  const cells = lists.map((l) => Int32Array.from(l));
+  // each chip packed: c, n, depth, radius, its ball (radius² · 2.56), radius − depth, scoop (cutAt's terms, the same values)
+  const F = new Float64Array(chips.length * 11);
+  chips.forEach((k, i) => F.set([k.c[0], k.c[1], k.c[2], k.n[0], k.n[1], k.n[2], k.depth, k.radius, k.radius * k.radius * 2.56, k.radius - k.depth, k.scoop ? 1 : 0], i * 11));
+  return (x, y, z) => {
+    const i = Math.floor((x - x0) / cs);
+    const j = Math.floor((y - y0) / cs);
+    const kk = Math.floor((z - z0) / cs);
+    // outside every ball (NaN goes the long way, as before)
+    if (!(i >= 0 && j >= 0 && kk >= 0 && i < nx && j < ny && kk < nz)) return x === x && y === y && z === z ? sdf(x, y, z) : all(x, y, z);
+    let d = sdf(x, y, z);
+    const list = cells[i + nx * (j + ny * kk)];
+    for (let q = 0; q < list.length; q++) {
+      // = cutAt(chips[list[q]], x, y, z, d)
+      const o = list[q] * 11;
+      const dx = x - F[o];
+      const dy = y - F[o + 1];
+      const dz = z - F[o + 2];
       const r2 = dx * dx + dy * dy + dz * dz;
-      if (r2 > k.radius * k.radius * 2.56) continue;
+      if (r2 > F[o + 8]) continue;
       const r = Math.sqrt(r2);
       let cut: number;
-      if (k.scoop) {
-        // a sphere centred outside the surface along n
-        const ox = dx - k.n[0] * (k.radius - k.depth);
-        const oy = dy - k.n[1] * (k.radius - k.depth);
-        const oz = dz - k.n[2] * (k.radius - k.depth);
-        cut = Math.sqrt(ox * ox + oy * oy + oz * oz) - k.radius;
+      if (F[o + 10]) {
+        const ox = dx - F[o + 3] * F[o + 9];
+        const oy = dy - F[o + 4] * F[o + 9];
+        const oz = dz - F[o + 5] * F[o + 9];
+        cut = Math.sqrt(ox * ox + oy * oy + oz * oz) - F[o + 7];
       } else {
-        // the half space beyond the facet plane, inside the ball
-        cut = Math.max(-(dx * k.n[0] + dy * k.n[1] + dz * k.n[2] + k.depth), r - k.radius);
+        cut = Math.max(-(dx * F[o + 3] + dy * F[o + 4] + dz * F[o + 5] + F[o + 6]), r - F[o + 7]);
       }
       d = Math.max(d, -cut);
     }
@@ -367,9 +526,10 @@ export function surfaceNets(sdf: SDF, min: V3, max: V3, cell: number): NetMesh {
   const nz = Math.max(2, Math.ceil((max[2] - min[2]) / cell) + 1);
   const val = new Float32Array(nx * ny * nz);
   const P = (i: number, j: number, k: number) => i + nx * (j + ny * k);
-  for (let k = 0; k < nz; k++)
+  // (in P's order: one running index)
+  for (let k = 0, p = 0; k < nz; k++)
     for (let j = 0; j < ny; j++)
-      for (let i = 0; i < nx; i++) val[P(i, j, k)] = sdf(min[0] + i * cell, min[1] + j * cell, min[2] + k * cell);
+      for (let i = 0; i < nx; i++) val[p++] = sdf(min[0] + i * cell, min[1] + j * cell, min[2] + k * cell);
 
   const cx = nx - 1;
   const cy = ny - 1;
@@ -380,16 +540,31 @@ export function surfaceNets(sdf: SDF, min: V3, max: V3, cell: number): NetMesh {
   // the 12 edges of a cell as pairs of corner bits (corner bit = i + 2j + 4k)
   const EDGES = [0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7];
   const cv = new Float64Array(8);
+  // a cell's corners from its first: corner b at +(b & 1), +nx·(b >> 1 & 1), +nx·ny·(b >> 2 & 1)
+  const sY = nx;
+  const sZ = nx * ny;
   for (let k = 0; k < cz; k++)
     for (let j = 0; j < cy; j++)
       for (let i = 0; i < cx; i++) {
-        let mask = 0;
-        for (let b = 0; b < 8; b++) {
-          const v = val[P(i + (b & 1), j + ((b >> 1) & 1), k + ((b >> 2) & 1))];
-          cv[b] = v;
-          if (v < 0) mask |= 1 << b;
-        }
+        const p = P(i, j, k);
+        const v0 = val[p];
+        const v1 = val[p + 1];
+        const v2 = val[p + sY];
+        const v3 = val[p + sY + 1];
+        const v4 = val[p + sZ];
+        const v5 = val[p + sZ + 1];
+        const v6 = val[p + sZ + sY];
+        const v7 = val[p + sZ + sY + 1];
+        const mask = (v0 < 0 ? 1 : 0) | (v1 < 0 ? 2 : 0) | (v2 < 0 ? 4 : 0) | (v3 < 0 ? 8 : 0) | (v4 < 0 ? 16 : 0) | (v5 < 0 ? 32 : 0) | (v6 < 0 ? 64 : 0) | (v7 < 0 ? 128 : 0);
         if (mask === 0 || mask === 255) continue;
+        cv[0] = v0;
+        cv[1] = v1;
+        cv[2] = v2;
+        cv[3] = v3;
+        cv[4] = v4;
+        cv[5] = v5;
+        cv[6] = v6;
+        cv[7] = v7;
         let sx = 0;
         let sy = 0;
         let sz = 0;
@@ -421,10 +596,11 @@ export function surfaceNets(sdf: SDF, min: V3, max: V3, cell: number): NetMesh {
   for (let k = 0; k < nz; k++)
     for (let j = 0; j < ny; j++)
       for (let i = 0; i < nx; i++) {
-        const v0 = val[P(i, j, k)];
+        const p = P(i, j, k);
+        const v0 = val[p];
         // x edge: cells around it in (y, z), counter-clockwise about +x
         if (i < cx && j > 0 && k > 0 && j < cy && k < cz) {
-          const v1 = val[P(i + 1, j, k)];
+          const v1 = val[p + 1];
           if (v0 < 0 !== v1 < 0) {
             const a = vid[C(i, j - 1, k - 1)];
             const b = vid[C(i, j, k - 1)];
@@ -436,7 +612,7 @@ export function surfaceNets(sdf: SDF, min: V3, max: V3, cell: number): NetMesh {
         }
         // y edge: cells around it in (z, x), counter-clockwise about +y
         if (j < cy && i > 0 && k > 0 && i < cx && k < cz) {
-          const v1 = val[P(i, j + 1, k)];
+          const v1 = val[p + sY];
           if (v0 < 0 !== v1 < 0) {
             const a = vid[C(i - 1, j, k - 1)];
             const b = vid[C(i - 1, j, k)];
@@ -448,7 +624,7 @@ export function surfaceNets(sdf: SDF, min: V3, max: V3, cell: number): NetMesh {
         }
         // z edge: cells around it in (x, y), counter-clockwise about +z
         if (k < cz && i > 0 && j > 0 && i < cx && j < cy) {
-          const v1 = val[P(i, j, k + 1)];
+          const v1 = val[p + sZ];
           if (v0 < 0 !== v1 < 0) {
             const a = vid[C(i - 1, j - 1, k)];
             const b = vid[C(i, j - 1, k)];
@@ -768,6 +944,80 @@ export function halfWidth(s: StoneShape, y: number): number {
   return (s.w / 2) * (1 + (s.taper ?? 0) * Math.min(1.3, Math.max(0, 1 - y / s.h)));
 }
 
+/**
+ * `outline` for one stone, its constants worked out once (the same arithmetic: the field asks
+ * for it ~10⁵ times a stone, and the round arch's springing alone took a 3-step iteration).
+ */
+function outlineOf(s: StoneShape): (x: number, y0: number) => number {
+  const skew = s.skew ?? 0;
+  const taper = s.taper ?? 0;
+  const hw0 = s.w / 2;
+  const sink = s.sink;
+  const h = s.h;
+  // = halfWidth(s, y)
+  const hwAt = (y: number) => hw0 * (1 + taper * Math.min(1.3, Math.max(0, 1 - y / h)));
+  const shear = (x: number, y0: number) => y0 - skew * x * Math.min(1, Math.max(0, y0 / h));
+  switch (s.kind) {
+    case 'round': {
+      const sh = s.shoulders ?? 0;
+      let hwA = hw0 * (1 - sh);
+      if (sh === 0 && s.taper)
+        for (let it = 0; it < 3; it++) {
+          const R0 = hwA * (s.arch ?? 1);
+          const yS0 = s.h - R0 + Math.sqrt(Math.max(0, R0 * R0 - hwA * hwA));
+          hwA = hw0 * (1 + s.taper * Math.min(1.3, Math.max(0, 1 - yS0 / s.h)));
+        }
+      const R = hwA * (s.arch ?? 1);
+      const cy = s.h - R;
+      const yS = cy + Math.sqrt(Math.max(0, R * R - hwA * hwA));
+      const ySh = yS - 0.012 - sh * 0.15;
+      if (sh > 0)
+        return (x, y0) => {
+          const y = shear(x, y0);
+          const ax = Math.abs(x);
+          const arch = Math.max(ax - hwA, Math.min(y - yS, Math.hypot(x, y - cy) - R));
+          return Math.max(Math.min(arch, Math.max(ax - hwAt(y), y - ySh)), -(y0 + sink));
+        };
+      return (x, y0) => {
+        const y = shear(x, y0);
+        return Math.max(Math.max(Math.abs(x) - hwAt(y), Math.min(y - yS, Math.hypot(x, y - cy) - R)), -(y0 + sink));
+      };
+    }
+    case 'gothic': {
+      const sh = s.shoulders ?? 0;
+      const hwA = hw0 * (1 - sh);
+      const R = hwA * 1.9;
+      const ha = Math.sqrt(R * R - (R - hwA) * (R - hwA));
+      const yS = s.h - ha;
+      const off = hwA - R;
+      const yS1 = yS - 0.01;
+      return (x, y0) => {
+        const y = shear(x, y0);
+        const ax = Math.abs(x);
+        const lens = Math.max(Math.hypot(x - off, y - yS) - R, Math.hypot(x + off, y - yS) - R);
+        const d = sh > 0 ? Math.min(Math.max(ax - hwA, Math.min(y - yS, lens)), Math.max(ax - hwAt(y), y - yS1)) : Math.max(ax - hwAt(y), Math.min(y - yS, lens));
+        return Math.max(d, -(y0 + sink));
+      };
+    }
+    case 'cross': {
+      const a = s.arm ?? { at: 0.72, span: s.w * 3, hgt: s.w };
+      const sy = (s.h - s.sink) / 2;
+      const sby = (s.h + s.sink) / 2 - 0.006;
+      const ay = s.h * a.at;
+      const abx = a.span / 2 - 0.006;
+      const aby = a.hgt / 2 - 0.006;
+      return (x, y0) => {
+        const y = shear(x, y0);
+        const stem = sdBox2(x, y - sy, hwAt(y) - 0.006, sby) - 0.006;
+        const arm = sdBox2(x, y - ay, abx, aby) - 0.006;
+        return Math.max(smin(stem, arm, 0.02), -(y0 + sink));
+      };
+    }
+    default:
+      return (x, y0) => outline(s, x, y0);
+  }
+}
+
 /** The 2D outline of a slab-like stone (signed distance in x, y). */
 function outline(s: StoneShape, x: number, y0: number): number {
   // a skewed top: the outline's upper part is sheared, the base stays level
@@ -864,46 +1114,67 @@ export function stoneField(s: StoneShape): SDF {
   const wf = s.wearFreq ?? 14;
   const rv = s.roundVar ?? 0.6;
   const band = wear * 3 + 0.02;
+  // each crack's and groove's bounds widened by its reach (3 widths) and a margin far beyond
+  // rounding: outside them polyline2's distance exceeds 3 widths, so the test can be skipped
+  const reach = (list: { pts: [number, number][]; width: number; depth: number }[] | undefined) => (list ?? []).map((c) => ({ width: c.width, depth: c.depth, w3: c.width * 3, line: new Polyline(c.pts, c.width * 3 * (1 + 1e-9) + 1e-9) }));
+  const cracks = reach(s.cracks);
+  const grooves = reach(s.grooves);
+  // (the shape's constants, once: the same values the expressions below took per sample)
+  const outlineAt = outlineOf(s);
+  const obeliskKind = s.kind === 'obelisk';
+  const h = s.h;
+  const hw0 = s.w / 2;
+  const taper = s.taper ?? 0;
+  const h45 = s.h * 0.45;
+  const hMin = Math.max(s.h, 1e-3);
+  const t2 = s.t / 2;
+  const bulge = s.bulge ?? 0;
+  const taper4 = taper * 0.4;
+  const chamfer = s.chamfer;
+  const round = s.round;
+  const kCh = Math.min(s.round, 0.006);
+  const pl = s.plinth ? { pw: halfWidth(s, 0) + s.plinth.out, pt: s.t / 2 + s.plinth.out, cy: (s.plinth.h - s.sink) / 2, hy: (s.plinth.h + s.sink) / 2, r: s.round * 0.8 } : null;
   const base: SDF = (x, y, z) => {
-    if (s.kind === 'obelisk') return obelisk(s, x, y, z);
-    const d2 = outline(s, x, y);
-    const hw = Math.max(halfWidth(s, y), 1e-3);
+    if (obeliskKind) return obelisk(s, x, y, z);
+    const d2 = outlineAt(x, y);
+    // (halfWidth(s, y) and the taper's share of the thickness share their clamp)
+    const tw = Math.min(1.3, Math.max(0, 1 - y / h));
+    const hw = Math.max(hw0 * (1 + taper * tw), 1e-3);
     const ux = Math.min(1, Math.abs(x) / hw);
-    const uy = (y - s.h * 0.45) / Math.max(s.h, 1e-3);
-    const th = (s.t / 2) * (1 + (s.bulge ?? 0) * (1 - ux * ux) * Math.max(0, 1 - uy * uy * 2.2) + (s.taper ?? 0) * 0.4 * Math.min(1.3, Math.max(0, 1 - y / s.h)));
+    const uy = (y - h45) / hMin;
+    const th = t2 * (1 + bulge * (1 - ux * ux) * Math.max(0, 1 - uy * uy * 2.2) + taper4 * tw);
     let d: number;
-    if (s.chamfer) {
+    if (chamfer) {
       // a flat chamfer whose width wanders, its edges softened by a narrow round
       const ez = Math.abs(z) - th;
-      const k = Math.min(s.round, 0.006);
+      const k = kCh;
       d = Math.max(d2, ez);
       if (Math.abs(d) < band) {
-        const ch = s.chamfer * (1 + rv * (noise3(x * 4.3, y * 4.3, z * 4.3, seed + 12) * 2 - 1));
+        const ch = chamfer * (1 + rv * (noise3(x * 4.3, y * 4.3, z * 4.3, seed + 12) * 2 - 1));
         d = smax(smax(d2, ez, k), (d2 + ez + Math.max(0.002, ch)) * Math.SQRT1_2, k);
       }
     } else {
-      d = extrudeRound(d2, z, th, Math.min(s.round, th * 0.9));
+      d = extrudeRound(d2, z, th, Math.min(round, th * 0.9));
       if (rv > 0 && Math.abs(d) < band) {
-        const r = Math.max(0.002, s.round * (1 + rv * (noise3(x * 5.1, y * 5.1, z * 5.1, seed + 11) * 2 - 1)));
+        const r = Math.max(0.002, round * (1 + rv * (noise3(x * 5.1, y * 5.1, z * 5.1, seed + 11) * 2 - 1)));
         d = extrudeRound(d2, z, th, Math.min(r, th * 0.9));
       }
     }
-    if (s.plinth) {
-      const pw = halfWidth(s, 0) + s.plinth.out;
-      const pt = s.t / 2 + s.plinth.out;
-      d = smin(d, sdRoundBox(x, y - (s.plinth.h - s.sink) / 2, z, pw, (s.plinth.h + s.sink) / 2, pt, s.round * 0.8), 0.01);
-    }
-    for (const c of s.cracks ?? []) {
-      const p = polyline2(x, y, c.pts);
-      if (p.d > c.width * 3) continue;
+    if (pl) d = smin(d, sdRoundBox(x, y - pl.cy, z, pl.pw, pl.hy, pl.pt, pl.r), 0.01);
+    for (const c of cracks) {
+      // (well clear of every segment: polyline2 would find it beyond 3 widths too)
+      if (!c.line.near(x, y)) continue;
+      const p = c.line.at(x, y);
+      if (p.d > c.w3) continue;
       const hwid = c.width * (1 - 0.8 * p.t * p.t);
       const groove = Math.max(p.d - hwid, th - c.depth - Math.abs(z));
       d = Math.max(d, -groove);
     }
     if (z > 0)
-      for (const c of s.grooves ?? []) {
-        const p = polyline2(x, y, c.pts);
-        if (p.d > c.width * 3) continue;
+      for (const c of grooves) {
+        if (!c.line.near(x, y)) continue;
+        const p = c.line.at(x, y);
+        if (p.d > c.w3) continue;
         // a V-ish channel: full depth on its line, shallower toward its lips
         const groove = Math.max(p.d - c.width, th - c.depth * (1 - 0.45 * (p.d / c.width) ** 2) - z);
         d = Math.max(d, -groove);

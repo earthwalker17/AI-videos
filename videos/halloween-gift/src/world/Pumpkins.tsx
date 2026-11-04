@@ -28,19 +28,25 @@ import { rand } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
 import {
   AdditiveBlending,
+  BackSide,
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
   Color,
   CustomBlending,
   DstColorFactor,
+  FrontSide,
   LinearFilter,
+  Matrix4,
   Mesh,
+  Ray,
   Raycaster,
   ShaderMaterial,
+  Sphere,
   SRGBColorSpace,
   Vector3,
   ZeroFactor,
+  type Material,
   type MeshStandardMaterial,
   type WebGLProgramParametersWithUniforms,
   type WebGLRenderer,
@@ -475,9 +481,119 @@ function place(b: PumpkinBuild, item: PatchItem) {
   b.geometry.computeBoundingBox();
 }
 
+/**
+ * `raycaster.intersectObject(mesh, false)` for a ray straight down, with the same hits in the same
+ * order (bit-identical: three's own bounding tests and triangle test, the same distances, the same
+ * stable sort), but only the triangles whose (x, z) bounds hold the ray are tested: a grid over
+ * x, z lists them (each bound widened by 1e-6, far beyond the triangle test's rounding). Mesh.raycast
+ * tries every triangle of a 15k-triangle pumpkin for each of a few thousand rays. Non-indexed
+ * geometry without groups only (anything else goes to three).
+ */
+class DownCast {
+  private readonly cells: Int32Array[] = [];
+  private readonly x0: number;
+  private readonly z0: number;
+  private readonly nx: number;
+  private readonly nz: number;
+  private readonly exact: boolean;
+  private static readonly CELL = 0.01;
+  private static readonly PAD = 1e-6;
+  private readonly sphere = new Sphere();
+  private readonly local = new Ray();
+  private readonly inverse = new Matrix4();
+  private readonly at = new Vector3();
+  private readonly a = new Vector3();
+  private readonly b = new Vector3();
+  private readonly c = new Vector3();
+  private readonly point = new Vector3();
+  private readonly world = new Vector3();
+  constructor(private readonly mesh: Mesh) {
+    const g = mesh.geometry;
+    const p = g.attributes.position;
+    this.exact = g.index === null && g.groups.length === 0 && !g.morphAttributes.position && !Array.isArray(mesh.material) && g.drawRange.start === 0 && g.drawRange.count === Infinity;
+    let x0 = Infinity;
+    let z0 = Infinity;
+    let x1 = -Infinity;
+    let z1 = -Infinity;
+    for (let i = 0; i < p.count; i++) {
+      x0 = Math.min(x0, p.getX(i));
+      x1 = Math.max(x1, p.getX(i));
+      z0 = Math.min(z0, p.getZ(i));
+      z1 = Math.max(z1, p.getZ(i));
+    }
+    const C = DownCast.CELL;
+    const D = DownCast.PAD;
+    this.x0 = x0 - 2 * D;
+    this.z0 = z0 - 2 * D;
+    this.nx = Math.max(1, Math.ceil((x1 - x0 + 4 * D) / C) + 1);
+    this.nz = Math.max(1, Math.ceil((z1 - z0 + 4 * D) / C) + 1);
+    if (!this.exact) return;
+    const lists: number[][] = Array.from({ length: this.nx * this.nz }, () => []);
+    for (let t = 0; t + 2 < p.count; t += 3) {
+      const ax = p.getX(t);
+      const bx = p.getX(t + 1);
+      const cx = p.getX(t + 2);
+      const az = p.getZ(t);
+      const bz = p.getZ(t + 1);
+      const cz = p.getZ(t + 2);
+      const i0 = Math.max(0, Math.floor((Math.min(ax, bx, cx) - D - this.x0) / C));
+      const i1 = Math.min(this.nx - 1, Math.floor((Math.max(ax, bx, cx) + D - this.x0) / C));
+      const j0 = Math.max(0, Math.floor((Math.min(az, bz, cz) - D - this.z0) / C));
+      const j1 = Math.min(this.nz - 1, Math.floor((Math.max(az, bz, cz) + D - this.z0) / C));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) lists[j * this.nx + i].push(t);
+    }
+    for (const l of lists) this.cells.push(Int32Array.from(l));
+  }
+  /** The hits of a downward ray (raycaster.ray), nearest first: as intersectObject(mesh, false) gives them. */
+  hits(raycaster: Raycaster): { distance: number; point: Vector3 }[] {
+    const { mesh, sphere, local } = this;
+    const ray = raycaster.ray;
+    if (!this.exact || ray.direction.x !== 0 || ray.direction.z !== 0 || !mesh.layers.test(raycaster.layers)) return raycaster.intersectObject(mesh, false);
+    const geometry = mesh.geometry;
+    const material = mesh.material as Material;
+    if (material === undefined) return [];
+    // (Mesh.raycast's early-outs, as it does them)
+    if (geometry.boundingSphere === null) geometry.computeBoundingSphere();
+    sphere.copy(geometry.boundingSphere!);
+    sphere.applyMatrix4(mesh.matrixWorld);
+    local.copy(ray).recast(raycaster.near);
+    if (sphere.containsPoint(local.origin) === false) {
+      if (local.intersectSphere(sphere, this.at) === null) return [];
+      if (local.origin.distanceToSquared(this.at) > (raycaster.far - raycaster.near) ** 2) return [];
+    }
+    this.inverse.copy(mesh.matrixWorld).invert();
+    local.copy(ray).applyMatrix4(this.inverse);
+    if (geometry.boundingBox !== null && local.intersectsBox(geometry.boundingBox) === false) return [];
+    const out: { distance: number; point: Vector3 }[] = [];
+    // the local ray is vertical too (a rigid or identity matrix keeps it so; anything else goes to three)
+    if (local.direction.x !== 0 || local.direction.z !== 0) return raycaster.intersectObject(mesh, false);
+    const i = Math.floor((local.origin.x - this.x0) / DownCast.CELL);
+    const j = Math.floor((local.origin.z - this.z0) / DownCast.CELL);
+    if (i < 0 || j < 0 || i >= this.nx || j >= this.nz) return out;
+    const p = geometry.attributes.position;
+    const cull = material.side === FrontSide;
+    for (const t of this.cells[j * this.nx + i]) {
+      this.a.fromBufferAttribute(p, t);
+      this.b.fromBufferAttribute(p, t + 1);
+      this.c.fromBufferAttribute(p, t + 2);
+      const hit = material.side === BackSide ? local.intersectTriangle(this.c, this.b, this.a, true, this.point) : local.intersectTriangle(this.a, this.b, this.c, cull, this.point);
+      if (hit === null) continue;
+      this.world.copy(this.point).applyMatrix4(mesh.matrixWorld);
+      const distance = ray.origin.distanceTo(this.world);
+      if (distance < raycaster.near || distance > raycaster.far) continue;
+      out.push({ distance, point: this.world.clone() });
+    }
+    out.sort((u, v) => u.distance - v.distance);
+    return out;
+  }
+}
+
 /** Seat the stack's top on the two built below it: the most any of its low vertices must rise (bodies only: no stems). */
 function seatOnTop(top: { b: PumpkinBuild; item: PatchItem }, below: { b: PumpkinBuild; item: PatchItem }[]) {
-  const meshes = below.map((q) => ({ m: new Mesh(q.b.geometry), roof: q.item.y + (q.b.top - q.b.bottom) + 0.004 }));
+  const meshes = below.map((q) => {
+    const m = new Mesh(q.b.geometry);
+    return { m, cast: new DownCast(m), roof: q.item.y + (q.b.top - q.b.bottom) + 0.004 };
+  });
   const ray = new Raycaster();
   const p = top.b.geometry.attributes.position;
   let minY = Infinity;
@@ -489,8 +605,8 @@ function seatOnTop(top: { b: PumpkinBuild; item: PatchItem }, below: { b: Pumpki
     const y = p.getY(i);
     if (y > minY + h * 0.35) continue;
     ray.set(new Vector3(p.getX(i), y + 2, p.getZ(i)), dir);
-    for (const { m, roof } of meshes)
-      for (const hit of ray.intersectObject(m, false))
+    for (const { cast, roof } of meshes)
+      for (const hit of cast.hits(ray))
         if (hit.point.y <= roof) {
           lift = Math.max(lift, hit.point.y - y);
           break;

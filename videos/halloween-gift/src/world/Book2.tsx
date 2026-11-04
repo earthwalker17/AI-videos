@@ -85,9 +85,15 @@ const LEAVES = SIGNATURES * 8;
 
 // ---- low-resolution noise fields, sampled bilinearly ------------------------------------------------
 
-function noiseField(w: number, h: number, seed: number, freq: number, oct = 4): (u: number, v: number) => number {
+/** A w × h lattice of fbm2 values, `freq` apart. */
+function noiseGrid(w: number, h: number, seed: number, freq: number, oct = 4): Float32Array {
   const a = new Float32Array(w * h);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) a[j * w + i] = fbm2(i * freq, j * freq, seed, oct);
+  return a;
+}
+
+function noiseField(w: number, h: number, seed: number, freq: number, oct = 4): (u: number, v: number) => number {
+  const a = noiseGrid(w, h, seed, freq, oct);
   return (u, v) => {
     const x = Math.min(w - 1.001, Math.max(0, u * (w - 1)));
     const y = Math.min(h - 1.001, Math.max(0, v * (h - 1)));
@@ -98,6 +104,25 @@ function noiseField(w: number, h: number, seed: number, freq: number, oct = 4): 
     const k = j * w + i;
     return (a[k] * (1 - fx) + a[k + 1] * fx) * (1 - fy) + (a[k + w] * (1 - fx) + a[k + w + 1] * fx) * fy;
   };
+}
+
+/**
+ * One axis of a grid's bilinear lookup for n pixels at t(0..n−1) (0..1 across the grid): each
+ * pixel's cell and its two weights, in noiseField's own arithmetic, so a pixel loop that reads
+ * them gets the very values the sampler returns.
+ */
+function gridAxis(n: number, size: number, t: (i: number) => number): { i: Int32Array; f: Float64Array; g: Float64Array } {
+  const I = new Int32Array(n);
+  const F = new Float64Array(n);
+  const G = new Float64Array(n);
+  for (let k = 0; k < n; k++) {
+    const x = Math.min(size - 1.001, Math.max(0, t(k) * (size - 1)));
+    const i = Math.floor(x);
+    I[k] = i;
+    F[k] = x - i;
+    G[k] = 1 - F[k];
+  }
+  return { i: I, f: F, g: G };
 }
 
 // ---- the cover's outside: cloth, foil, wear --------------------------------------------------------
@@ -315,12 +340,158 @@ function drawFoil(m: CanvasRenderingContext2D, W: number, H: number, fonts: Film
   for (const s of [-1, 1]) bat(jx + s * 1.9 * U, jy - 0.05 * U, 0.2 * U, s * 0.15);
 }
 
+let clothFields: Float32Array[] | null = null;
+/** The cloth's noise fields (mottle, patch, wear, fine): built once per page (the cover draws twice on a fresh one). */
+function clothGrids(): Float32Array[] {
+  clothFields ??= [noiseGrid(260, 180, 82, 0.09, 4), noiseGrid(260, 180, 83, 0.045, 3), noiseGrid(520, 360, 84, 0.06, 4), noiseGrid(520, 360, 85, 0.35, 2)];
+  return clothFields;
+}
+
+/**
+ * The cover's cloth and foil, pixel by pixel (colour into D, ORM into O) from the foil's mask and
+ * its blur: four noise fields sampled bilinearly, and everything that depends on a row or a column
+ * only worked out once for it.
+ */
+function clothPixels(mask: Uint8ClampedArray, blur: Uint8ClampedArray, W: number, H: number, D: Uint8ClampedArray, O: Uint8ClampedArray) {
+  const [mA, pA, wA, fA] = clothGrids();
+  // the lookups: the coarse fields (mottle, patch) at (u, v), the fine ones (wear, fine) at (u, v),
+  // and the fine field again at (3u, 3v) and (2u, 2v)
+  const cx = gridAxis(W, 260, (x) => x / W);
+  const cy = gridAxis(H, 180, (y) => y / H);
+  const fx1 = gridAxis(W, 520, (x) => x / W);
+  const fy1 = gridAxis(H, 360, (y) => y / H);
+  const fx3 = gridAxis(W, 520, (x) => (x / W) * 3);
+  const fy3 = gridAxis(H, 360, (y) => (y / H) * 3);
+  const fx2 = gridAxis(W, 520, (x) => (x / W) * 2);
+  const fy2 = gridAxis(H, 360, (y) => (y / H) * 2);
+  const [cxi, cxf, cxg] = [cx.i, cx.f, cx.g];
+  const [f1i, f1f, f1g] = [fx1.i, fx1.f, fx1.g];
+  const [f3i, f3f, f3g] = [fx3.i, fx3.f, fx3.g];
+  const [f2i, f2f, f2g] = [fx2.i, fx2.f, fx2.g];
+  // per column: the distance in from the side edges, how far into a corner's zone, the rub's falloffs
+  const colEdge = new Float64Array(W);
+  const colCorner = new Float64Array(W);
+  const colE07 = new Float64Array(W);
+  const colE05 = new Float64Array(W);
+  for (let x = 0; x < W; x++) {
+    const u = x / W;
+    const wx = -HW + u * BOOK.w;
+    colEdge[x] = HW - Math.abs(wx);
+    colCorner[x] = Math.max(0, Math.abs(wx) - (HW - 1.2));
+    colE07[x] = Math.exp(-colEdge[x] / 0.07);
+    colE05[x] = Math.exp(-colEdge[x] / 0.5);
+  }
+  for (let y = 0; y < H; y++) {
+    const v = y / H;
+    const z = -HD + v * BOOK.d;
+    const rowEdge = HD - Math.abs(z);
+    const rowCorner = Math.max(0, Math.abs(z) - (HD - 1.2));
+    const rowE07 = Math.exp(-rowEdge / 0.07);
+    const rowE05 = Math.exp(-rowEdge / 0.5);
+    const grime = (1 - smooth(-HD, -HD + 0.6, z)) * 0.35;
+    // the hinge groove a little in from the spine edge
+    const gz = z - (-HD + 0.42);
+    const groove = Math.exp(-((gz / 0.025) ** 2));
+    const ridge = Math.exp(-(((gz - 0.06) / 0.03) ** 2));
+    const dk = (1 - grime) * (1 - 0.45 * groove) * (1 + 0.18 * ridge);
+    const wy = (y >> 1) % 2;
+    const cr = cy.i[y] * 260;
+    const cf = cy.f[y];
+    const cg = cy.g[y];
+    const r1 = fy1.i[y] * 520;
+    const f1 = fy1.f[y];
+    const g1 = fy1.g[y];
+    const r3 = fy3.i[y] * 520;
+    const f3 = fy3.f[y];
+    const g3 = fy3.g[y];
+    const r2 = fy2.i[y] * 520;
+    const f2 = fy2.f[y];
+    const g2 = fy2.g[y];
+    for (let x = 0; x < W; x++) {
+      const k = (y * W + x) * 4;
+      const mv = mask[k] / 255;
+      const bv = blur[k] / 255;
+      // the cloth: plum, mottled, rubbed lighter to the edges and the corners, grime by the spine
+      // (the edge distance is the nearer of the column's and the row's, so are its falloffs; hypot(a, 0) = a)
+      const ce = colEdge[x];
+      const e07 = ce < rowEdge ? colE07[x] : rowE07;
+      const e05 = ce < rowEdge ? colE05[x] : rowE05;
+      const cc = colCorner[x];
+      const corner = rowCorner === 0 ? cc : cc === 0 ? rowCorner : Math.hypot(cc, rowCorner);
+      const ci = cr + cxi[x];
+      const ccf = cxf[x];
+      const ccg = cxg[x];
+      const pv = (pA[ci] * ccg + pA[ci + 1] * ccf) * cg + (pA[ci + 260] * ccg + pA[ci + 261] * ccf) * cf;
+      const rub = Math.min(1, e07 * 0.9 + 0.5 * smooth(0.6, 1.5, corner) * (0.5 + 0.5 * pv) + 0.25 * smooth(0.2, 0.6, pv) * e05);
+      const mo = (mA[ci] * ccg + mA[ci + 1] * ccf) * cg + (mA[ci + 260] * ccg + mA[ci + 261] * ccf) * cf;
+      const wv = (x >> 1) % 2 === wy ? 1 : -1;
+      let R = 72 + 10 * mo + 3 * wv;
+      let G = 31 + 6 * mo + 2 * wv;
+      let B = 46 + 8 * mo + 3 * wv;
+      R += (128 - R) * rub * 0.75;
+      G += (86 - G) * rub * 0.75;
+      B += (96 - B) * rub * 0.75;
+      R *= dk;
+      G *= dk;
+      B *= dk;
+      // a worn deboss shows the cloth, pressed darker
+      const pressed = 1 - 0.28 * bv;
+      const h = 0.62 + 0.012 * wv + 0.03 * mo - 0.2 * bv - 0.06 * groove + 0.03 * ridge;
+      O[k] = Math.max(0, Math.min(255, h * 255));
+      D[k + 3] = 255;
+      O[k + 3] = 255;
+      // the foil: gold in the debossed ground, its walls darker, rubbed off where worn (outside the
+      // mask, or worn through, the cloth alone: the blend below with foil 0, term for term)
+      let foil = 0;
+      if (mv !== 0) {
+        const fi = r1 + f1i[x];
+        const ff = f1f[x];
+        const fg = f1g[x];
+        const wear = (wA[fi] * fg + wA[fi + 1] * ff) * g1 + (wA[fi + 520] * fg + wA[fi + 521] * ff) * f1;
+        const fn = (fA[fi] * fg + fA[fi + 1] * ff) * g1 + (fA[fi + 520] * fg + fA[fi + 521] * ff) * f1;
+        const worn = smooth(0.34, 0.58, wear + 0.25 * fn + 0.4 * rub);
+        foil = mv * (1 - worn);
+      }
+      if (foil === 0) {
+        D[k] = Math.max(0, Math.min(255, R * pressed));
+        D[k + 1] = Math.max(0, Math.min(255, G * pressed));
+        D[k + 2] = Math.max(0, Math.min(255, B * pressed));
+        O[k + 1] = Math.max(0, Math.min(255, (0.88 - 0.14 * rub) * 255));
+        O[k + 2] = 0;
+        continue;
+      }
+      const wall = Math.max(0, bv - mv) + Math.max(0, mv - bv);
+      const si = r3 + f3i[x];
+      const sf = f3f[x];
+      const sg = f3g[x];
+      const sparkle = 0.9 + 0.1 * ((fA[si] * sg + fA[si + 1] * sf) * g3 + (fA[si + 520] * sg + fA[si + 521] * sf) * f3);
+      const fr = 224 * sparkle * (1 - 0.3 * wall);
+      const fgr = 184 * sparkle * (1 - 0.32 * wall);
+      const fb = 84 * sparkle * (1 - 0.4 * wall);
+      D[k] = Math.max(0, Math.min(255, R * pressed * (1 - foil) + fr * foil));
+      D[k + 1] = Math.max(0, Math.min(255, G * pressed * (1 - foil) + fgr * foil));
+      D[k + 2] = Math.max(0, Math.min(255, B * pressed * (1 - foil) + fb * foil));
+      const ti = r2 + f2i[x];
+      const tf = f2f[x];
+      const tg = f2g[x];
+      const fine2 = (fA[ti] * tg + fA[ti + 1] * tf) * g2 + (fA[ti + 520] * tg + fA[ti + 521] * tf) * f2;
+      O[k + 1] = Math.max(0, Math.min(255, (0.88 - 0.14 * rub) * (1 - foil) * 255 + (0.26 + 0.14 * fine2) * foil * 255));
+      O[k + 2] = Math.max(0, Math.min(255, foil * 255));
+    }
+  }
+}
+
 interface Art {
   map: CanvasTexture;
   orm: CanvasTexture;
 }
 
-/** The cover's outside (colour, and ORM: R height, G roughness, B metal); canvas top = the spine. */
+/**
+ * The cover's outside (colour, and ORM: R height, G roughness, B metal); canvas top = the spine.
+ * Drawn twice on a fresh page, before the fonts are in and again once they are. The first draw is
+ * never seen but stays: what the page drew before changes how a later canvas's text rasters (not
+ * drawing Letter2's faces before the fonts changed this cover's pixels), so it is part of the film.
+ */
 function coverArt(fonts: FilmFonts): Art {
   const W = 3072;
   const H = 2112;
@@ -333,67 +504,11 @@ function coverArt(fonts: FilmFonts): Art {
   b.filter = 'none';
   const mask = m.getImageData(0, 0, W, H).data;
   const blur = b.getImageData(0, 0, W, H).data;
-  const mottle = noiseField(260, 180, 82, 0.09, 4);
-  const patch = noiseField(260, 180, 83, 0.045, 3);
-  const fwear = noiseField(520, 360, 84, 0.06, 4);
-  const fine = noiseField(520, 360, 85, 0.35, 2);
   const { c, g } = canvas(W, H);
   const { c: oc, g: o } = canvas(W, H);
   const img = g.createImageData(W, H);
   const orm = o.createImageData(W, H);
-  const D = img.data;
-  const O = orm.data;
-  for (let y = 0; y < H; y++) {
-    const v = y / H;
-    const z = -HD + v * BOOK.d;
-    for (let x = 0; x < W; x++) {
-      const u = x / W;
-      const wx = -HW + u * BOOK.w;
-      const k = (y * W + x) * 4;
-      const mv = mask[k] / 255;
-      const bv = blur[k] / 255;
-      // the cloth: plum, mottled, rubbed lighter to the edges and the corners, grime by the spine
-      const edge = Math.min(HW - Math.abs(wx), HD - Math.abs(z));
-      const corner = Math.hypot(Math.max(0, Math.abs(wx) - (HW - 1.2)), Math.max(0, Math.abs(z) - (HD - 1.2)));
-      const rub = Math.min(1, Math.exp(-edge / 0.07) * 0.9 + 0.5 * smooth(0.6, 1.5, corner) * (0.5 + 0.5 * patch(u, v)) + 0.25 * smooth(0.2, 0.6, patch(u, v)) * Math.exp(-edge / 0.5));
-      const mo = mottle(u, v);
-      const wv = (x >> 1) % 2 === (y >> 1) % 2 ? 1 : -1;
-      const grime = (1 - smooth(-HD, -HD + 0.6, z)) * 0.35;
-      // the hinge groove a little in from the spine edge
-      const gz = z - (-HD + 0.42);
-      const groove = Math.exp(-((gz / 0.025) ** 2));
-      const ridge = Math.exp(-(((gz - 0.06) / 0.03) ** 2));
-      let R = 72 + 10 * mo + 3 * wv;
-      let G = 31 + 6 * mo + 2 * wv;
-      let B = 46 + 8 * mo + 3 * wv;
-      R += (128 - R) * rub * 0.75;
-      G += (86 - G) * rub * 0.75;
-      B += (96 - B) * rub * 0.75;
-      const dk = (1 - grime) * (1 - 0.45 * groove) * (1 + 0.18 * ridge);
-      R *= dk;
-      G *= dk;
-      B *= dk;
-      // the foil: gold in the debossed ground, its walls darker, rubbed off where worn
-      const worn = smooth(0.34, 0.58, fwear(u, v) + 0.25 * fine(u, v) + 0.4 * rub);
-      const foil = mv * (1 - worn);
-      const wall = Math.max(0, bv - mv) + Math.max(0, mv - bv);
-      const sparkle = 0.9 + 0.1 * fine(u * 3, v * 3);
-      const fr = 224 * sparkle * (1 - 0.3 * wall);
-      const fg = 184 * sparkle * (1 - 0.32 * wall);
-      const fb = 84 * sparkle * (1 - 0.4 * wall);
-      // a worn deboss shows the cloth, pressed darker
-      const pressed = 1 - 0.28 * bv;
-      D[k] = Math.max(0, Math.min(255, R * pressed * (1 - foil) + fr * foil));
-      D[k + 1] = Math.max(0, Math.min(255, G * pressed * (1 - foil) + fg * foil));
-      D[k + 2] = Math.max(0, Math.min(255, B * pressed * (1 - foil) + fb * foil));
-      D[k + 3] = 255;
-      const h = 0.62 + 0.012 * wv + 0.03 * mo - 0.2 * bv - 0.06 * groove + 0.03 * ridge;
-      O[k] = Math.max(0, Math.min(255, h * 255));
-      O[k + 1] = Math.max(0, Math.min(255, (0.88 - 0.14 * rub) * (1 - foil) * 255 + (0.26 + 0.14 * fine(u * 2, v * 2)) * foil * 255));
-      O[k + 2] = Math.max(0, Math.min(255, foil * 255));
-      O[k + 3] = 255;
-    }
-  }
+  clothPixels(mask, blur, W, H, img.data, orm.data);
   g.putImageData(img, 0, 0);
   o.putImageData(orm, 0, 0);
   bc.width = 1;

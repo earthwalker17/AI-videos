@@ -27,7 +27,7 @@ import { rand, smoothstep } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
 import { AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, DoubleSide, Float32BufferAttribute, RepeatWrapping, SRGBColorSpace, Vector3 } from 'three';
 import { FPS } from '../cues.ts';
-import { fbm2 } from '../kit/field.ts';
+import { fbm2Fast as fbm2 } from '../kit/field.ts';
 import { findTube, surfacePoint, type Ring } from '../kit/tree.ts';
 import { storybookMaterial } from '../look/materials.ts';
 import { matte } from './Bats.tsx';
@@ -1019,21 +1019,21 @@ function build(hooks: Hooks): Built {
     }
     const e = eyes(g);
     const eb = eyeAll.pos.length / 3;
-    eyeAll.pos.push(...e.pos);
-    eyeAll.uv.push(...e.uv);
-    eyeAll.depth.push(...e.depth);
+    pushAll(eyeAll.pos, e.pos);
+    pushAll(eyeAll.uv, e.uv);
+    pushAll(eyeAll.depth, e.depth);
     for (const i of e.idx) eyeAll.idx.push(eb + i);
     for (let i = 0; i < e.pos.length / 3; i++) {
       eyeAll.ghost.push(gi);
       eyeAll.centre.push(g.eyeD);
     }
-    eyeAll.nrm.push(...normals(e.pos, e.idx));
+    pushAll(eyeAll.nrm, normals(e.pos, e.idx));
   });
   const w = wraps(hooks);
   {
     const base = lines.pos.length / 3;
-    lines.pos.push(...w.pos);
-    lines.col.push(...w.col);
+    pushAll(lines.pos, w.pos);
+    pushAll(lines.col, w.col);
     for (let i = 0; i < w.pos.length / 3; i++) lines.uv.push(0, 0);
     for (const i of w.idx) lines.idx.push(base + i);
     const wn = normals(w.pos, w.idx);
@@ -1064,16 +1064,21 @@ function build(hooks: Hooks): Built {
   };
 }
 
+/** dst.push(...src), without spreading a long array into arguments */
+function pushAll(dst: number[], src: ArrayLike<number>): void {
+  for (let i = 0; i < src.length; i++) dst.push(src[i]);
+}
+
 function append(all: Builder, b: Builder, gi: number, ghostIdx: number[], restN: number[], n: ArrayLike<number>): void {
   const base = all.pos.length / 3;
-  all.pos.push(...b.pos);
-  all.col.push(...b.col);
-  all.uv.push(...b.uv);
+  pushAll(all.pos, b.pos);
+  pushAll(all.col, b.col);
+  pushAll(all.uv, b.uv);
   for (const i of b.idx) all.idx.push(base + i);
-  all.depth.push(...b.depth);
-  all.free.push(...b.free);
-  all.phase.push(...b.phase);
-  all.rope.push(...b.rope);
+  pushAll(all.depth, b.depth);
+  pushAll(all.free, b.free);
+  pushAll(all.phase, b.phase);
+  pushAll(all.rope, b.rope);
   for (let i = 0; i < b.pos.length / 3; i++) {
     ghostIdx.push(gi);
     restN.push(n[i * 3], n[i * 3 + 1], n[i * 3 + 2]);

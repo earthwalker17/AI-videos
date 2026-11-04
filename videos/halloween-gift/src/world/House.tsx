@@ -58,7 +58,7 @@ import {
 } from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { TessellateModifier } from 'three/examples/jsm/modifiers/TessellateModifier.js';
-import { fbm2 } from '../kit/field.ts';
+import { fbm2Fast as fbm2 } from '../kit/field.ts';
 import { Builder, cresting, finial, gablePlanes, ridgeCap, shingles, underGable, type Gable, type RGBA, type RoofPlane, type ShingleSpec, type V3 } from '../kit/roof.ts';
 import { useFilmFonts } from '../look/fonts.ts';
 import { storybookMaterial, type Paint } from '../look/materials.ts';

@@ -38,13 +38,8 @@ import { DOOR_FRONT, FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, groundHeight, groundHe
 // with the hash inlined, the same nearest-segment search over a grid of candidate lists. If the
 // layout changes and they no longer match, everything falls back to layout's own functions.
 
+// (@aiv/core hash32 of integers a, b, c: mix32(mix32(mix32(H0 ^ m(a)) ^ m(b)) ^ m(c)), m(v) = mix32((v | 0) + HK))
 const HK = 0x632be5ab;
-function hashI3(a: number, b: number, c: number): number {
-  let h = 0x9e3779b9;
-  h = mix32(h ^ mix32((a | 0) + HK));
-  h = mix32(h ^ mix32((b | 0) + HK));
-  return mix32(h ^ mix32((c | 0) + HK));
-}
 /** = @aiv/core valueNoise */
 function vnoise(x: number, z: number, seed: number): number {
   const xi = Math.floor(x);
@@ -53,10 +48,16 @@ function vnoise(x: number, z: number, seed: number): number {
   const fz = z - zi;
   const u = fx * fx * (3 - 2 * fx);
   const v = fz * fz * (3 - 2 * fz);
-  const h00 = hashI3(seed, xi, zi) / 4294967296;
-  const h10 = hashI3(seed, xi + 1, zi) / 4294967296;
-  const h01 = hashI3(seed, xi, zi + 1) / 4294967296;
-  const h11 = hashI3(seed, xi + 1, zi + 1) / 4294967296;
+  // hash32(seed, x, z) at the four corners, the seed's and the columns' mixes shared
+  const hs = mix32(0x9e3779b9 ^ mix32((seed | 0) + HK));
+  const hx0 = mix32(hs ^ mix32((xi | 0) + HK));
+  const hx1 = mix32(hs ^ mix32(((xi + 1) | 0) + HK));
+  const mz0 = mix32((zi | 0) + HK);
+  const mz1 = mix32(((zi + 1) | 0) + HK);
+  const h00 = mix32(hx0 ^ mz0) / 4294967296;
+  const h10 = mix32(hx1 ^ mz0) / 4294967296;
+  const h01 = mix32(hx0 ^ mz1) / 4294967296;
+  const h11 = mix32(hx1 ^ mz1) / 4294967296;
   const a = h00 + (h10 - h00) * u;
   const b = h01 + (h11 - h01) * u;
   return a + (b - a) * v;
@@ -97,6 +98,13 @@ class NearLine {
   private readonly nx: number;
   private readonly nz: number;
   private readonly cs: number;
+  /** each segment's bounds (x0, x1, z0, z1), and a scratch list of the candidates' squared distances to them */
+  private readonly box: Float64Array;
+  private readonly lb: Float64Array;
+  /** the last query (a sample asks for the same point a few times: the ground, then the track) */
+  private qx = NaN;
+  private qz = NaN;
+  private held = false;
   d = 0;
   s = 0;
   px = 0;
@@ -114,6 +122,8 @@ class NearLine {
     this.l2 = new Float64Array(n);
     this.seg = new Float64Array(n);
     this.acc = new Float64Array(n);
+    this.box = new Float64Array(n * 4);
+    this.lb = new Float64Array(n);
     let acc = 0;
     for (let i = 0; i < n; i++) {
       const [ax, az] = line[i];
@@ -126,6 +136,10 @@ class NearLine {
       this.seg[i] = Math.sqrt(this.l2[i]);
       this.acc[i] = acc;
       acc += this.seg[i];
+      this.box[i * 4] = Math.min(ax, bx);
+      this.box[i * 4 + 1] = Math.max(ax, bx);
+      this.box[i * 4 + 2] = Math.min(az, bz);
+      this.box[i * 4 + 3] = Math.max(az, bz);
     }
     this.x0 = -PAGE.w / 2 - 0.5;
     this.z0 = -PAGE.d / 2 - 0.5;
@@ -137,9 +151,24 @@ class NearLine {
       for (let i = 0; i < this.nx; i++) {
         const cx = this.x0 + (i + 0.5) * cs;
         const cz = this.z0 + (j + 0.5) * cs;
+        // every segment's distance from the cell's centre, and the nearest (m); a segment whose
+        // bounds lie beyond the nearest box's segment by more than the list's slack (2 half
+        // diagonals + 1e-9) can be neither, so it is not measured (NaN: never listed)
+        let kn = -1;
+        let near = Infinity;
+        for (let k = 0; k < n; k++) {
+          const v = this.boxDist2(k, cx, cz);
+          ds[k] = v;
+          if (v < near) {
+            near = v;
+            kn = k;
+          }
+        }
+        const ub = kn >= 0 ? this.segDist(kn, cx, cz) : Infinity;
+        const far = (ub + 2 * half + 2e-9) * (ub + 2 * half + 2e-9);
         let m = Infinity;
         for (let k = 0; k < n; k++) {
-          ds[k] = this.segDist(k, cx, cz);
+          ds[k] = ds[k] > far ? NaN : this.segDist(k, cx, cz);
           if (ds[k] < m) m = ds[k];
         }
         const list: number[] = [];
@@ -151,8 +180,28 @@ class NearLine {
     const t = Math.min(1, Math.max(0, ((x - this.ax[k]) * this.vx[k] + (z - this.az[k]) * this.vz[k]) / this.l2[k]));
     return Math.hypot(x - (this.ax[k] + this.vx[k] * t), z - (this.az[k] + this.vz[k] * t));
   }
-  /** Sets d, s (arc length), the nearest point and its segment's direction. */
+  /** Squared distance from (x, z) to segment k's bounds: a lower bound of its distance (to rounding). */
+  private boxDist2(k: number, x: number, z: number): number {
+    const b = this.box;
+    const o = k * 4;
+    const ex = x < b[o] ? b[o] - x : x > b[o + 1] ? x - b[o + 1] : 0;
+    const ez = z < b[o + 2] ? b[o + 2] - z : z > b[o + 3] ? z - b[o + 3] : 0;
+    return ex * ex + ez * ez;
+  }
+  /** Forget the last query (its fields were changed from outside). */
+  forget(): void {
+    this.held = false;
+  }
+  /**
+   * Sets d, s (arc length), the nearest point and its segment's direction. The same search in the
+   * same order (the first nearest segment wins), but what cannot win is not measured exactly: a
+   * candidate whose bounds lie beyond the distance to the candidate with the nearest bounds
+   * (1e-9 of margin), or whose plain √(dx² + dz²) exceeds the nearest so far by more than a
+   * relative 1e-12 (Math.hypot differs from it by an ulp or two). Asking again for the last point
+   * returns it as it is.
+   */
   query(x: number, z: number): this {
+    if (this.held && Object.is(x, this.qx) && Object.is(z, this.qz)) return this;
     const i = Math.floor((x - this.x0) / this.cs);
     const j = Math.floor((z - this.z0) / this.cs);
     const list = i >= 0 && j >= 0 && i < this.nx && j < this.nz ? this.cells[j * this.nx + i] : null;
@@ -160,10 +209,35 @@ class NearLine {
     let bk = 0;
     let bt = 0;
     const n = list ? list.length : this.ax.length;
+    const lb = this.lb;
+    let near = Infinity;
+    let kn = -1;
     for (let q = 0; q < n; q++) {
       const k = list ? list[q] : q;
+      const v = this.boxDist2(k, x, z);
+      lb[q] = v;
+      if (v < near) {
+        near = v;
+        kn = k;
+      }
+    }
+    let lim = Infinity;
+    if (kn >= 0) {
+      const t = Math.min(1, Math.max(0, ((x - this.ax[kn]) * this.vx[kn] + (z - this.az[kn]) * this.vz[kn]) / this.l2[kn]));
+      const ex = x - (this.ax[kn] + this.vx[kn] * t);
+      const ez = z - (this.az[kn] + this.vz[kn] * t);
+      const ub = Math.sqrt(ex * ex + ez * ez) * (1 + 1e-12);
+      lim = (ub + 1e-9) * (ub + 1e-9);
+    }
+    for (let q = 0; q < n; q++) {
+      if (lb[q] > lim) continue;
+      const k = list ? list[q] : q;
       const t = Math.min(1, Math.max(0, ((x - this.ax[k]) * this.vx[k] + (z - this.az[k]) * this.vz[k]) / this.l2[k]));
-      const d = Math.hypot(x - (this.ax[k] + this.vx[k] * t), z - (this.az[k] + this.vz[k] * t));
+      const dx = x - (this.ax[k] + this.vx[k] * t);
+      const dz = z - (this.az[k] + this.vz[k] * t);
+      const r = Math.sqrt(dx * dx + dz * dz);
+      if (r > best * (1 + 1e-12) && r !== Infinity) continue;
+      const d = Math.hypot(dx, dz);
       if (d < best) {
         best = d;
         bk = k;
@@ -176,6 +250,9 @@ class NearLine {
     this.pz = this.az[bk] + this.vz[bk] * bt;
     this.tx = this.vx[bk] / this.seg[bk];
     this.tz = this.vz[bk] / this.seg[bk];
+    this.qx = x;
+    this.qz = z;
+    this.held = true;
     return this;
   }
 }
@@ -208,6 +285,7 @@ function nearPath(x: number, z: number): NearLine {
     const a = pathDistance(x, z);
     q.d = a.d;
     q.s = a.s;
+    q.forget();
   }
   return q;
 }
@@ -611,17 +689,23 @@ function xz(p: [number, number]): { x: number; z: number } {
 
 /** 0..1 inside a puddle's hollow (1 at its centre). */
 /** The nearest puddle's normalised radius at (x, z) (1 at its hollow's edge; large far away). */
+/** each puddle's turn, once */
+const PUDDLE_CS = PUDDLES.map((p) => [Math.cos(p.yaw), Math.sin(p.yaw)]);
 function puddleR(x: number, z: number): number {
   let best = 9;
-  for (const p of PUDDLES) {
-    const c = Math.cos(p.yaw);
-    const sn = Math.sin(p.yaw);
+  // (the same noise for every puddle here: worked out at most once)
+  let n = NaN;
+  for (let k = 0; k < PUDDLES.length; k++) {
+    const p = PUDDLES[k];
+    const c = PUDDLE_CS[k][0];
+    const sn = PUDDLE_CS[k][1];
     const dx = x - p.x;
     const dz = z - p.z;
     const a = (dx * c - dz * sn) / (p.rx * 1.25);
     const b = (dx * sn + dz * c) / (p.rz * 1.25);
     if (a * a + b * b > 3.2) continue;
-    best = Math.min(best, Math.hypot(a, b) + 0.12 * fbm(x, z, 97, 2, 9));
+    if (n !== n) n = fbm(x, z, 97, 2, 9);
+    best = Math.min(best, Math.hypot(a, b) + 0.12 * n);
   }
   return best;
 }
@@ -638,20 +722,26 @@ export function fenceDistance(x: number, z: number): number {
   return Math.min(FENCES[0].query(x, z).d, FENCES[1].query(x, z).d);
 }
 
+/** Each unbroken stone's mound: its facing, centre and length (graveMound's per-stone constants, once). */
+const MOUNDS = STONES.filter((s) => s.kind !== 'broken').map((s) => {
+  const fx = Math.sin(s.yaw);
+  const fz = Math.cos(s.yaw);
+  return { fx, fz, cx: s.x + fx * 0.36 * (s.h / 0.5), cz: s.z + fz * 0.36 * (s.h / 0.5), ra: 0.34 * Math.max(0.8, s.h / 0.5) };
+});
+
 /** The grave mound in front of each stone: 0..1. */
 export function graveMound(x: number, z: number): number {
   let m = 0;
-  for (const s of STONES) {
-    if (s.kind === 'broken') continue;
-    const fx = Math.sin(s.yaw);
-    const fz = Math.cos(s.yaw);
-    const cx = s.x + fx * 0.36 * (s.h / 0.5);
-    const cz = s.z + fz * 0.36 * (s.h / 0.5);
-    const a = ((x - cx) * fx + (z - cz) * fz) / (0.34 * Math.max(0.8, s.h / 0.5));
+  // (the same noise for every stone here: worked out at most once)
+  let n = NaN;
+  for (const s of MOUNDS) {
+    const { fx, fz, cx, cz } = s;
+    const a = ((x - cx) * fx + (z - cz) * fz) / s.ra;
     const b = ((x - cx) * fz - (z - cz) * fx) / 0.19;
     const r2 = a * a + b * b;
     if (r2 > 1.6) continue;
-    const q = r2 + 0.3 * fbm(x, z, 103, 2, 6);
+    if (n !== n) n = fbm(x, z, 103, 2, 6);
+    const q = r2 + 0.3 * n;
     if (q < 1) m = Math.max(m, (1 - q) ** 0.8);
   }
   return m;

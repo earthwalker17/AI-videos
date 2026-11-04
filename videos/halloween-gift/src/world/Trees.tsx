@@ -23,11 +23,13 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { rand } from '@aiv/core';
 import { FPS } from '../cues.ts';
 import { buildConifer, type ConiferParams } from '../kit/conifer.ts';
-import { fbm2 } from '../kit/field.ts';
+import { fbm2Fast as fbm2 } from '../kit/field.ts';
 import { findTube, growTree, surfacePoint, treeGeometry, type TreeParams, type TreeSkeleton, type V3 } from '../kit/tree.ts';
 import { NIGHT, storybookMaterial } from '../look/materials.ts';
 import { MOON_RADIUS } from '../look/SkyPortal.tsx';
-import { FLOOR, groundHeight, HERO, LAND } from './layout.ts';
+import { FLOOR, HERO, LAND } from './layout.ts';
+// (Terrain's ground: layout's groundHeight, bit-identical and faster; the trees sample it per vertex)
+import { ground as groundHeight } from './Terrain.tsx';
 
 // ---- placement --------------------------------------------------------------------------------
 

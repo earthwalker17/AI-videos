@@ -35,7 +35,7 @@
  */
 import { rand } from '@aiv/core';
 import { BufferAttribute, BufferGeometry, Vector3 } from 'three';
-import { fbm2 } from './field.ts';
+import { fbm2Fast as fbm2 } from './field.ts';
 import { Curve } from './spline.ts';
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -853,6 +853,12 @@ function sectionAt(tube: Tube, a: number, along: number): number {
  * furrow's depth factor (0..2: some run deep, some fade out and the plates merge), and the
  * strand's swell. The furrows wander by a warp that closes around the tube.
  */
+/**
+ * A furrow's depth and width, and a strand's swell, depend only on its index and the ring (`along`):
+ * a ring's vertices share them. Remembered for the last ring asked about (the same values).
+ */
+const furrowMemo = { p: null as TreeParams | null, tube: null as Tube | null, along: NaN, deep: new Map<number, [number, number]>(), swell: new Map<number, number>() };
+
 function furrowAt(p: TreeParams, tube: Tube, a: number, along: number): { groove: number; deep: number; swell: number } {
   const bark = p.bark;
   const n = tube.furrows;
@@ -867,20 +873,36 @@ function furrowAt(p: TreeParams, tube: Tube, a: number, along: number): { groove
   const i = Math.round(u);
   const d = Math.abs(u - i);
   const fi = ((i % n) + n) % n;
-  const deep = Math.max(0, Math.min(2.3, 1 + 1.3 * fbm2(fi * 7.31 + 0.5, along * 0.85, seed + 2, 2, 1)));
-  const w = 0.13 + 0.06 * fbm2(fi * 3.7 + 1.3, along * 1.6, seed + 3, 2, 1);
+  const memo = furrowMemo;
+  if (memo.p !== p || memo.tube !== tube || !Object.is(memo.along, along)) {
+    memo.p = p;
+    memo.tube = tube;
+    memo.along = along;
+    memo.deep.clear();
+    memo.swell.clear();
+  }
+  let dw = memo.deep.get(fi);
+  if (!dw) {
+    dw = [Math.max(0, Math.min(2.3, 1 + 1.3 * fbm2(fi * 7.31 + 0.5, along * 0.85, seed + 2, 2, 1))), 0.13 + 0.06 * fbm2(fi * 3.7 + 1.3, along * 1.6, seed + 3, 2, 1)];
+    memo.deep.set(fi, dw);
+  }
+  const [deep, w] = dw;
   const groove = Math.exp(-(d * d) / (w * w));
   const sid = ((Math.floor(u) % n) + n) % n;
-  const swell = 0.5 + 0.5 * fbm2(sid * 3.7 + 0.5, along * 1.3, seed + 1, 2, 1);
+  let swell = memo.swell.get(sid);
+  if (swell === undefined) {
+    swell = 0.5 + 0.5 * fbm2(sid * 3.7 + 0.5, along * 1.3, seed + 1, 2, 1);
+    memo.swell.set(sid, swell);
+  }
   return { groove, deep, swell };
 }
 
-/** Radial displacement (fraction of the radius) of the bark at angle `a`, `along`, on a ring of `radius`. */
-function barkAt(p: TreeParams, tube: Tube, a: number, along: number, radius: number): number {
+/** Radial displacement (fraction of the radius) of the bark at angle `a`, `along`, on a ring of `radius` (`fu`: furrowAt there, when known). */
+function barkAt(p: TreeParams, tube: Tube, a: number, along: number, radius: number, fu?: { groove: number; deep: number; swell: number } | null): number {
   const bark = p.bark;
   if (!bark || tube.furrows === 0) return 0;
   const seed = 500 + tube.id * 11;
-  const f = furrowAt(p, tube, a, along);
+  const f = fu ?? furrowAt(p, tube, a, along);
   const depth = bark.depth * (tube.root ? 0.6 : 1);
   const ridge = -depth * f.groove * f.deep + depth * 0.3 * (1 - f.groove) * f.swell;
   // lumps and burls: functions of (cos a, sin a, along), so they close around the tube; broad and smooth
@@ -982,11 +1004,12 @@ export function treeGeometry(skel: TreeSkeleton): BufferGeometry {
         const c = Math.cos(a);
         const s = Math.sin(a);
         const kn = tube.name === 'trunk' && p.knots ? knotAt(p.knots, tube, r, a, along, radius) : null;
+        // (the furrows here, for the bark and the occlusion both)
+        const fu = tube.furrows > 0 ? furrowAt(p, tube, a, along) : null;
         // inside a knot the bark is smoothed so the carving reads
-        const rr = radius * sectionAt(tube, a, along) * (1 + barkAt(p, tube, a, along, radius) * (kn ? 1 - 0.8 * kn.smooth : 1)) + (kn ? kn.h : 0);
+        const rr = radius * sectionAt(tube, a, along) * (1 + barkAt(p, tube, a, along, radius, fu) * (kn ? 1 - 0.8 * kn.smooth : 1)) + (kn ? kn.h : 0);
         const v = new Vector3(pos.x + (c * normal.x + s * binormal.x) * rr, pos.y + (c * normal.y + s * binormal.y) * rr, pos.z + (c * normal.z + s * binormal.z) * rr);
         grid.push(v);
-        const fu = tube.furrows > 0 ? furrowAt(p, tube, a, along) : null;
         let o = (0.6 + 0.4 * crotch) * (fu ? 1 - 0.42 * fu.groove * Math.min(1, fu.deep) : 1) * (kn ? kn.ao : 1);
         // the rim's mask: none on thin twigs (they would read as neon wire), this tree's share
         // elsewhere; little near the ground and on the roots (the moon is behind the hill there)

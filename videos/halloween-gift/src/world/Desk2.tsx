@@ -506,6 +506,9 @@ function plankGeometry(): BufferGeometry {
     const nx = 110;
     const X0 = -DESK.w / 2;
     const vOf = (z: number) => 1 - (i + (z - PLANK_Z[i]) / (PLANK_Z[i + 1] - PLANK_Z[i])) / PLANKS;
+    // the plank's undulation and its tone vary along it only: one value per column, not per vertex
+    const wave = Array.from({ length: nx + 1 }, (_, a) => fbm2((X0 + (DESK.w * a) / nx) * 0.15, i * 3.1, 63));
+    const tone = Array.from({ length: nx + 1 }, (_, a) => fbm2((a / nx) * 30, i, 64));
     const g = gridGeometry(
       nx,
       prof.length - 1,
@@ -516,12 +519,12 @@ function plankGeometry(): BufferGeometry {
         const top = y > -0.03 ? 1 : 0;
         // worn round at the desk's ends
         const end = Math.min(x - X0, DESK.w / 2 - x);
-        const yy = y + top * (lift + tilt * (z - zc) - cup * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) + 0.004 * fbm2(x * 0.15, i * 3.1, 63) - 0.03 * (1 - smooth(0, 0.12, end)));
+        const yy = y + top * (lift + tilt * (z - zc) - cup * Math.sin(Math.PI * Math.min(1, Math.max(0, t))) + 0.004 * wave[a] - 0.03 * (1 - smooth(0, 0.12, end)));
         return [x, yy, z];
       },
       (a, j) => [a / nx, vOf(prof[j][0])],
       (a, j) => {
-        const k = prof[j][2] * (0.92 + 0.08 * fbm2((a / nx) * 30, i, 64));
+        const k = prof[j][2] * (0.92 + 0.08 * tone[a]);
         return [k, k, k, 0.15];
       },
       () => [0, 1, 0],

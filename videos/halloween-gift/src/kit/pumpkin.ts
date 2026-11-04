@@ -158,6 +158,215 @@ function sdPoly(px: number, py: number, v: Float64Array): number {
   return s * Math.sqrt(d);
 }
 
+/**
+ * `sdPoly` over one fixed polygon, bit-identical (the same arithmetic per edge) and much faster:
+ * its edges worked out once, and a grid that tells, per cell, which edges can be the nearest
+ * (the distance is the least of theirs, as of all) and, away from the outline, the sign.
+ */
+class PolyField {
+  private readonly n: number;
+  private readonly v0x: number;
+  private readonly v0y: number;
+  private readonly e: Float64Array;
+  /** scratch: each edge's squared distance to its bounds */
+  private readonly lb: Float64Array;
+  private readonly grid: { x0: number; y0: number; cs: number; nx: number; ny: number; cells: Int32Array[]; sign: Int8Array; rows: Int32Array[] };
+  /** the polygon's bounds */
+  readonly x0: number;
+  readonly x1: number;
+  readonly y0: number;
+  readonly y1: number;
+  constructor(v: Float64Array, pad = 0.35) {
+    const n = v.length / 2;
+    this.n = n;
+    this.v0x = v[0];
+    this.v0y = v[1];
+    this.lb = new Float64Array(n);
+    // per edge: vix, viy, ex, ey, |e|² (or 1e-12), vjy, then its bounds x0, x1, y0, y1
+    this.e = new Float64Array(n * 10);
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    for (let i = 0, j = n - 1; i < n; j = i, i++) {
+      const vix = v[i * 2];
+      const viy = v[i * 2 + 1];
+      const ex = v[j * 2] - vix;
+      const ey = v[j * 2 + 1] - viy;
+      const o = i * 10;
+      this.e[o] = vix;
+      this.e[o + 1] = viy;
+      this.e[o + 2] = ex;
+      this.e[o + 3] = ey;
+      this.e[o + 4] = ex * ex + ey * ey || 1e-12;
+      this.e[o + 5] = v[j * 2 + 1];
+      this.e[o + 6] = Math.min(vix, v[j * 2]);
+      this.e[o + 7] = Math.max(vix, v[j * 2]);
+      this.e[o + 8] = Math.min(viy, v[j * 2 + 1]);
+      this.e[o + 9] = Math.max(viy, v[j * 2 + 1]);
+      x0 = Math.min(x0, vix);
+      x1 = Math.max(x1, vix);
+      y0 = Math.min(y0, viy);
+      y1 = Math.max(y1, viy);
+    }
+    this.x0 = x0;
+    this.x1 = x1;
+    this.y0 = y0;
+    this.y1 = y1;
+    this.grid = this.buildGrid(pad);
+  }
+  /** sdPoly's squared distance from (px, py) to edge o (its offset in `e`). */
+  private edge2(o: number, px: number, py: number): number {
+    const E = this.e;
+    const ex = E[o + 2];
+    const ey = E[o + 3];
+    const wx = px - E[o];
+    const wy = py - E[o + 1];
+    const t = clamp((wx * ex + wy * ey) / E[o + 4], 0, 1);
+    const bx = wx - ex * t;
+    const by = wy - ey * t;
+    return bx * bx + by * by;
+  }
+  /** = sdPoly(px, py, v): from the grid where (px, py) falls in it, else in full */
+  sd(px: number, py: number): number {
+    const g = this.grid;
+    const i = Math.floor((px - g.x0) / g.cs);
+    const j = Math.floor((py - g.y0) / g.cs);
+    if (!(i >= 0 && j >= 0 && i < g.nx && j < g.ny)) return this.full(px, py);
+    const c = j * g.nx + i;
+    const list = g.cells[c];
+    let d = (px - this.v0x) ** 2 + (py - this.v0y) ** 2;
+    for (let q = 0; q < list.length; q++) {
+      const dd = this.edge2(list[q], px, py);
+      if (dd < d) d = dd;
+    }
+    const s = g.sign[c] !== 0 ? g.sign[c] : this.crossingOf(g.rows[j], px, py);
+    return s * Math.sqrt(d);
+  }
+  /**
+   * The crossing test over the edges listed (offsets): those whose heights reach the row of the
+   * point (an edge that does not reach py never flips the sign; the flips commute).
+   */
+  private crossingOf(list: Int32Array, px: number, py: number): number {
+    const E = this.e;
+    let s = 1;
+    for (let q = 0; q < list.length; q++) {
+      const o = list[q];
+      const viy = E[o + 1];
+      const c1 = py >= viy;
+      const c2 = py < E[o + 5];
+      if (c1 === c2 && c1 === (E[o + 2] * (py - viy) > E[o + 3] * (px - E[o]))) s = -s;
+    }
+    return s;
+  }
+  /** sdPoly's sign at (px, py): its crossing test over every edge */
+  private crossing(px: number, py: number): number {
+    const E = this.e;
+    let s = 1;
+    for (let o = 0; o < this.n * 10; o += 10) {
+      const viy = E[o + 1];
+      const c1 = py >= viy;
+      const c2 = py < E[o + 5];
+      // (sdPoly's flip: c1, c2 and c3 all true or all false)
+      if (c1 === c2 && c1 === (E[o + 2] * (py - viy) > E[o + 3] * (px - E[o]))) s = -s;
+    }
+    return s;
+  }
+  /** = sdPoly(px, py, v), every edge looked at (only the nearest bounds' edges measured) */
+  full(px: number, py: number): number {
+    const lb = this.lb;
+    const n = this.n;
+    // (NaN: no edge is nearest, every bound test fails, and d is NaN already)
+    let near = Infinity;
+    let on = -1;
+    for (let k = 0, o = 0; k < n; k++, o += 10) {
+      const q = this.box2(o, px, py);
+      lb[k] = q;
+      if (q < near) {
+        near = q;
+        on = o;
+      }
+    }
+    const lim = on >= 0 ? (Math.sqrt(this.edge2(on, px, py)) + 1e-12) ** 2 : Infinity;
+    let d = (px - this.v0x) ** 2 + (py - this.v0y) ** 2;
+    for (let k = 0, o = 0; k < n; k++, o += 10) {
+      if (lb[k] > lim) continue;
+      const dd = this.edge2(o, px, py);
+      if (dd < d) d = dd;
+    }
+    return this.crossing(px, py) * Math.sqrt(d);
+  }
+  /** squared distance from (px, py) to edge o's bounds */
+  private box2(o: number, px: number, py: number): number {
+    const E = this.e;
+    const qx = px < E[o + 6] ? E[o + 6] - px : px > E[o + 7] ? px - E[o + 7] : 0;
+    const qy = py < E[o + 8] ? E[o + 8] - py : py > E[o + 9] ? py - E[o + 9] : 0;
+    return qx * qx + qy * qy;
+  }
+  /**
+   * A grid over the bounds (and `pad` round them): per cell, the edges that can be nearest to a
+   * point in it (within the nearest edge's distance from the cell's centre plus two half
+   * diagonals, and 1e-9: as world/Terrain's NearLine), and the sign where the cell lies wholly on
+   * one side, more than 1e-9 clear of the outline (there every point's crossing test gives the
+   * centre's: rounding can flip it only within ~1e-15 of an edge); 0 where the outline is near.
+   */
+  private buildGrid(pad: number): { x0: number; y0: number; cs: number; nx: number; ny: number; cells: Int32Array[]; sign: Int8Array; rows: Int32Array[] } {
+    const n = this.n;
+    const x0 = this.x0 - pad;
+    const y0 = this.y0 - pad;
+    const span = Math.max(this.x1 - this.x0, this.y1 - this.y0) + 2 * pad;
+    const cs = Math.max(1e-4, span / 48);
+    const nx = Math.max(1, Math.ceil((this.x1 + pad - x0) / cs));
+    const ny = Math.max(1, Math.ceil((this.y1 + pad - y0) / cs));
+    const cells: Int32Array[] = [];
+    const sign = new Int8Array(nx * ny);
+    const rows: Int32Array[] = [];
+    if (!(n > 0 && Number.isFinite(span) && nx * ny <= 1e5)) return { x0, y0, cs, nx: 0, ny: 0, cells, sign, rows };
+    // each row's edges: those whose heights reach the row's (1e-9 wider, for a point's rounding into it)
+    for (let j = 0; j < ny; j++) {
+      const r0 = y0 + j * cs - 1e-9;
+      const r1 = y0 + (j + 1) * cs + 1e-9;
+      const list: number[] = [];
+      for (let k = 0; k < n; k++) if (!(this.e[k * 10 + 9] < r0 || this.e[k * 10 + 8] > r1)) list.push(k * 10);
+      rows.push(Int32Array.from(list));
+    }
+    const half = (cs * Math.SQRT2) / 2;
+    const ds = new Float64Array(n);
+    for (let j = 0; j < ny; j++)
+      for (let i = 0; i < nx; i++) {
+        const cx = x0 + (i + 0.5) * cs;
+        const cy = y0 + (j + 0.5) * cs;
+        let near = Infinity;
+        let kn = -1;
+        for (let k = 0; k < n; k++) {
+          ds[k] = this.box2(k * 10, cx, cy);
+          if (ds[k] < near) {
+            near = ds[k];
+            kn = k;
+          }
+        }
+        const ub = Math.sqrt(this.edge2(kn * 10, cx, cy));
+        const far = (ub + 2 * half + 2e-9) ** 2;
+        let m = Infinity;
+        for (let k = 0; k < n; k++) {
+          ds[k] = ds[k] > far ? NaN : Math.sqrt(this.edge2(k * 10, cx, cy));
+          if (ds[k] < m) m = ds[k];
+        }
+        const list: number[] = [];
+        for (let k = 0; k < n; k++) if (ds[k] - half <= m + half + 1e-9) list.push(k * 10);
+        cells.push(Int32Array.from(list));
+        sign[j * nx + i] = m > half + 1e-9 ? this.crossingOf(rows[j], cx, cy) : 0;
+      }
+    return { x0, y0, cs, nx, ny, cells, sign, rows };
+  }
+  /** Squared distance from (px, py) to the polygon's bounds (0 inside them). */
+  boxDist2(px: number, py: number): number {
+    const qx = Math.max(this.x0 - px, px - this.x1, 0);
+    const qy = Math.max(this.y0 - py, py - this.y1, 0);
+    return qx * qx + qy * qy;
+  }
+}
+
 const polyArea = (p: Poly | [number, number][]) => {
   let s = 0;
   for (let i = 0; i < p.length; i++) {
@@ -462,11 +671,35 @@ function bodyModel(s: PumpkinSpec) {
     }
   const pad = 0.3;
   const inBox = (u: number, v: number) => u > uMin - pad && u < uMax + pad && v > vMin - pad && v < vMax + pad;
+  const holeP = holeF.map((p) => new PolyField(p));
+  const eyeP = eyeF.map((p) => new PolyField(p));
+  const mouthP = mouthF ? new PolyField(mouthF) : null;
+  const envP = envF ? new PolyField(envF) : null;
+  const holeBox = new Float64Array(holeP.length);
+  /**
+   * The nearest hole's signed distance (the first nearest, as a scan in order finds it). A hole
+   * whose bounds lie beyond the exact distance to the hole with the nearest bounds cannot be the
+   * nearest (outside its bounds a point is outside it, at least that far): it is not measured.
+   */
   const sdHoles = (u: number, v: number) => {
     if (!inBox(u, v)) return 9;
+    let kn = -1;
+    let bn = Infinity;
+    for (let k = 0; k < holeP.length; k++) {
+      holeBox[k] = holeP[k].boxDist2(u, v);
+      if (holeBox[k] < bn) {
+        bn = holeBox[k];
+        kn = k;
+      }
+    }
+    // (beyond ub + 1e-12, far beyond rounding: such a hole's distance exceeds ub)
+    const ub = kn >= 0 ? holeP[kn].sd(u, v) : Infinity;
+    const lim = ub + 1e-12;
+    const lim2 = lim * lim;
     let sd = 9;
-    for (const p of holeF) {
-      const q = sdPoly(u, v, p);
+    for (let k = 0; k < holeP.length; k++) {
+      if (k !== kn && (lim < 0 ? holeBox[k] > 0 : holeBox[k] > lim2)) continue;
+      const q = k === kn ? ub : holeP[k].sd(u, v);
       if (q < sd) sd = q;
     }
     return sd;
@@ -479,6 +712,11 @@ function bodyModel(s: PumpkinSpec) {
   const proudH = s.proud * 0.012 * s.width;
   const sc = s.faceScale;
 
+  // (the lobe profile's constant powers, once)
+  const lobeE = 0.006;
+  const lobeP = s.ribSharp / 2;
+  const lobeE0 = Math.pow(lobeE, lobeP);
+  const lobeE1 = Math.pow(1 + lobeE, lobeP);
   /** the rib coordinate at a direction: which rib, where across it, the lobe's profile */
   const ribAt = (th: number, dy: number, out: Info) => {
     const tw = th + 0.06 * Math.sin(2 * th + w1) + 0.04 * Math.sin(3 * th + w2) + twist * dy + ph;
@@ -488,11 +726,9 @@ function bodyModel(s: PumpkinSpec) {
     while (k < N - 1 && f >= bounds[k + 1]) k++;
     const t = clamp((f - bounds[k]) / (bounds[k + 1] - bounds[k]), 0, 1);
     const sn = Math.sin(Math.PI * t);
-    const e = 0.006;
-    const p = s.ribSharp / 2;
     out.k = k;
     out.t = t;
-    out.lobe = (Math.pow(sn * sn + e, p) - Math.pow(e, p)) / (Math.pow(1 + e, p) - Math.pow(e, p));
+    out.lobe = (Math.pow(sn * sn + lobeE, lobeP) - lobeE0) / (lobeE1 - lobeE0);
   };
   /** the azimuth of rib coordinate f at height dy (the warp inverted by Newton steps) */
   const thFor = (f: number, dy: number) => {
@@ -552,13 +788,13 @@ function bodyModel(s: PumpkinSpec) {
           for (let e = 0; e < eyeF.length; e++) {
             const above = smoothstep(eyeV[e] - 0.01 * sc, eyeV[e] + 0.05 * sc, v);
             if (above <= 0) continue;
-            const q = (sdPoly(u, v, eyeF[e]) - 0.055 * sc) / (0.04 * sc);
+            const q = (eyeP[e].sd(u, v) - 0.055 * sc) / (0.04 * sc);
             r += browH * Math.exp(-q * q) * above;
           }
-          if (envF && mouthF && proudH > 0) {
-            const inEnv = smoothstep(0.004 * sc, -0.014 * sc, sdPoly(u, v, envF));
+          if (envP && mouthP && proudH > 0) {
+            const inEnv = smoothstep(0.004 * sc, -0.014 * sc, envP.sd(u, v));
             if (inEnv > 0) {
-              const sm = sdPoly(u, v, mouthF);
+              const sm = mouthP.sd(u, v);
               if (sm > 0) {
                 r += proudH * inEnv * smoothstep(0, 0.05 * sc, sm);
                 rb.tooth = inEnv;
