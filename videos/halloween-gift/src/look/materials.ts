@@ -42,7 +42,7 @@ export const NIGHT = {
   uSbAmbNear: { value: new Color('#4a3040') },
   uSbAmbFar: { value: new Color('#3d6b80') },
   uSbAmbDist: { value: new Vector3(3.5, 12.0, 1.0) },
-  /** 0 disables fog (the desk shots) */
+  /** how much of the fog there is, 0..1 (0: the desk shots, faded in as the camera enters the story) */
   uSbFogOn: { value: 1 },
   /**
    * The world growing out of the page (look/Grows.tsx opts a subtree in): the film frame, the
@@ -339,7 +339,7 @@ const FRAG_OUT = /* glsl */ `
   float behind = mix(0.55, 1.0, smoothstep(0.3, -0.6, dot(Lv, V)));
   outgoingLight += uSbRimColor * edge * toward * behind * uSbRim * uSbRimMul * diffuseColor.a;
   // height fog with a depth ramp and moon in-scatter
-  if (uSbFogOn > 0.5 && uSbFogMul > 0.0) {
+  if (uSbFogOn > 0.0 && uSbFogMul > 0.0) {
     vec3 ray = sbRay;
     float dist = sbDist;
     float hF = max(vSbWorld.y - uSbFog.z, 0.0);
@@ -347,7 +347,7 @@ const FRAG_OUT = /* glsl */ `
     float drift = aivFbm3(vec3(vSbWorld.xz * 0.35 + vec2(uSbTime * 0.03, uSbTime * 0.012), uSbTime * 0.02));
     float dens = uSbFog.x * 0.5 * (exp(-hF * uSbFog.y) + exp(-hC * uSbFog.y)) * (0.65 + 0.7 * drift);
     float air = (1.0 - exp(-max(dist - uSbAir.x, 0.0) * uSbAir.y)) * uSbAir.z;
-    float amt = (1.0 - (1.0 - (1.0 - exp(-dens * dist))) * (1.0 - air)) * uSbFogMul;
+    float amt = (1.0 - (1.0 - (1.0 - exp(-dens * dist))) * (1.0 - air)) * uSbFogMul * uSbFogOn;
     vec3 col = mix(uSbFogNear, uSbFogMid, smoothstep(uSbFogDist.x * 0.4, uSbFogDist.y, dist));
     col = mix(col, uSbFogFar, smoothstep(uSbFogDist.y, uSbFogDist.z, dist));
     float sc = pow(max(dot(normalize(ray), uSbMoonDir), 0.0), 6.0);
