@@ -54,6 +54,12 @@ laptop GPU through ANGLE/D3D11), 2026-11-04, same assets throughout:
   of moving grass by 42 % at about 0.3 s a 1080p frame on that GPU (measured on a 12-frame
   span without grain).
 
+- With the real graveyard and buildings in place (2026-11-04, later): a deep maroon band
+  across the bottom fifth of the frame (green and blue darkened about 80 %, red 40 %, after tone
+  mapping), a greyer near ambient (`#5e2a32` → `#4a3040`), a more cyan sky, and the landmarks
+  moved to the reference's screen positions (projected numerically, not by eye) took the hero to
+  value-grid 0.044 and palette distance 9.4.
+
 Not verified: how far the same settings carry to other shots of the film (the door close-ups,
 the desk); they are checked when those stills are rendered.
 
@@ -69,5 +75,9 @@ the desk); they are checked when those stills are rendered.
   much as the darks: the value structure flattens. The fill has to depend on distance.
 - A warm grade near the lens also warms anything dark-red near the lens: a plum-coloured root
   mass went crimson until its own fill was lowered.
+- A stand-in with a strong, wide practical light (here a point light reaching 6 units) tints
+  everything near it; judge the shared look with stand-ins unlit, or the grade gets tuned against
+  a light that will not be in the film.
+- A maroon foot band is a per-shot setting: across a close shot it darkens the actors' feet.
 - Depth of field blurs the sky the most (it is the farthest thing): clouds turn to mush unless
   the blur is gentle.

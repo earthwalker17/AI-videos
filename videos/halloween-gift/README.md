@@ -28,15 +28,22 @@ at the same scale all through), the storybook material, sky portal, night rig an
 paths, the V2 blocking (`film/blocking.ts`, on ones, tested against the score's footfalls), the
 camera journey (`film/journey.ts`, previewed by the `Journey` lookdev composition), the email
 card in DOM and canvas (pixel-matched). Asset families are built by bounded implementers on
-their own lookdev entries (`src/lookdev/*.entry.ts`), four batches of two: ground and trees;
-graveyard and buildings; props and creatures; characters and the book.
+their own lookdev entries (`src/lookdev/*.entry.ts`), four batches of two: ground and trees and
+graveyard and buildings are in; props and creatures are building; characters and the book follow.
+`src/lookdev/World.tsx` is the whole world as built (`WorldScene`) through the journey's cameras
+(`WorldShots`: hero, truck, shoo, climb, gates, lane, door, door open). The hero view's landmarks
+were moved to the reference's screen positions (projected numerically): value-grid 0.044 and
+palette distance 9.4 against the reference at 1080p (`aiv still --ref`).
 
 **Next:** finish the asset batches, a critique loop against the references, then the
 checkpoint for the user (hero vista, graveyard truck, door two-shot, email, book and bats, with
 the measured numbers); after it, assemble the V2 film (`src/film/Film.tsx` on the new world),
 `WORDS.email` = the email's read path (the one remaining cue edit), drafts with motion QA, and
-the 1080p review cut. Open points: the moon rays flare in the door shots; the gates sit just
-left of three door cameras (judge on the door stills, move the house back if they clutter).
+the 1080p review cut. Open points: the castle reads twice the reference's size and too dark (its
+proportions, a pass in `world/Castle.tsx`); the lane camera passes a swung gate leaf close to the
+lens (journey tuning); the maroon foot band (`NightPost` `foot`) eases down in the door shots;
+the moon rays may flare in the door shots; walk 2's footstep pan should recede (the camera now
+trails him).
 
 ## How it was made
 - **Picture:** Remotion 4 with React Three Fiber (`src/`). A storybook on a desk opens into
