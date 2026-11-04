@@ -77,7 +77,7 @@ interface GhostDesign {
 const DESIGNS: GhostDesign[] = [
   { rope: 0.05, length: 0.84, head: 0.15, hem: 0.31, drop: 0.4, period: 3.9, yaw: -0.2, seed: 11, eye: { len: 0.46, h: 0.13, sep: 0.42, slant: 0.5, y: -0.1 }, corners: 0.09 },
   { rope: 0.24, length: 1.22, head: 0.118, hem: 0.215, drop: 0.4, period: 4.6, yaw: 0.16, seed: 12, eye: { len: 0.44, h: 0.15, sep: 0.34, slant: 0.34, y: -0.2 }, corners: 0.06 },
-  { rope: 0.16, length: 1.08, head: 0.138, hem: 0.27, drop: 'peek', period: 3.4, yaw: -0.05, seed: 13, eye: { len: 0.52, h: 0.12, sep: 0.39, slant: 0.44, y: -0.12 }, corners: 0.1 },
+  { rope: 0.05, length: 1.08, head: 0.138, hem: 0.27, drop: 'peek', period: 3.4, yaw: -0.05, seed: 13, eye: { len: 0.52, h: 0.12, sep: 0.39, slant: 0.44, y: -0.12 }, corners: 0.1 },
 ];
 /** the peek ghost's eyes above the ground at lower = 1 (the shoo: its hem ~0.35 above Clawd's hat) */
 export const PEEK_EYES = 1.8;
@@ -85,6 +85,19 @@ export const PEEK_EYES = 1.8;
 const PEEK_YAW = 0.72;
 /** `lower` beyond 1 lets a ghost on down, to this */
 const LOWER_MAX = 1.5;
+/**
+ * The peek ghost at rest is gathered up under the limb: only its head and this much of the sheet
+ * hang open, the rest bunched up beneath in a short, narrowing bundle (GATHER_TAIL long) with its
+ * eyes shut; as it is let down to peek the sheet pays out of the bundle to its full length and
+ * the eyes open, and it gathers back up as it is snatched away (so in the hero view it does not
+ * hang in front of the castle's crag).
+ */
+const GATHER_MIN = 0.3;
+const GATHER_TAIL = 0.12;
+/** a depth on the sheet as hung when only `ell` of it is open (the rest bunched up under it) */
+const gatheredDepth = (d: number, ell: number) => (d <= ell ? d : ell + GATHER_TAIL * (1 - Math.exp(-(d - ell) / GATHER_TAIL)));
+/** how much narrower the bunched cloth hangs than the open sheet at that depth (it tapers to a sack's round bottom) */
+const gatheredWidth = (d: number, ell: number) => (d <= ell ? 1 : 0.28 + 0.72 * Math.exp(-(d - ell) / 0.09));
 
 /** columns round a ghost; rows: the tuft, the head, the body, the strips */
 const COLS = 96;
@@ -920,6 +933,8 @@ interface Built {
   eyeRest: Float32Array;
   eyeRestN: Float32Array;
   eyeDepth: Float32Array;
+  /** the depth of each eye vertex's eye centre (the shut eyes squash onto it) */
+  eyeCentre: Float32Array;
   tris: number;
 }
 
@@ -960,7 +975,7 @@ function build(hooks: Hooks): Built {
   const lines = builder();
   const lineGhost: number[] = [];
   const lineN: number[] = [];
-  const eyeAll = { pos: [] as number[], uv: [] as number[], idx: [] as number[], depth: [] as number[], ghost: [] as number[], nrm: [] as number[] };
+  const eyeAll = { pos: [] as number[], uv: [] as number[], idx: [] as number[], depth: [] as number[], ghost: [] as number[], nrm: [] as number[], centre: [] as number[] };
   set.forEach(({ g, drop }, gi) => {
     for (const inner of [false, true]) {
       const b = builder();
@@ -1008,7 +1023,10 @@ function build(hooks: Hooks): Built {
     eyeAll.uv.push(...e.uv);
     eyeAll.depth.push(...e.depth);
     for (const i of e.idx) eyeAll.idx.push(eb + i);
-    for (let i = 0; i < e.pos.length / 3; i++) eyeAll.ghost.push(gi);
+    for (let i = 0; i < e.pos.length / 3; i++) {
+      eyeAll.ghost.push(gi);
+      eyeAll.centre.push(g.eyeD);
+    }
     eyeAll.nrm.push(...normals(e.pos, e.idx));
   });
   const w = wraps(hooks);
@@ -1041,6 +1059,7 @@ function build(hooks: Hooks): Built {
     eyeRest: Float32Array.from(eyeAll.pos),
     eyeRestN: Float32Array.from(eyeAll.nrm),
     eyeDepth: Float32Array.from(eyeAll.depth),
+    eyeCentre: Float32Array.from(eyeAll.centre),
     tris: (all.idx.length + lines.idx.length + eyeAll.idx.length) / 3,
   };
 }
@@ -1070,6 +1089,10 @@ interface GhostPose {
   hook: V3;
   ropeLen: number;
   flutter: number;
+  /** how much of the sheet hangs open (Infinity: all of it; the peek ghost's gathered rest: GATHER_MIN) */
+  ell: number;
+  /** the eyes, 0 shut .. 1 open */
+  eyeOpen: number;
 }
 
 /** The yaw that faces a hook toward the hero eye (0 faces +z). */
@@ -1132,7 +1155,11 @@ function posesAt(f: number, lower: readonly number[], hooks: Hooks, drops: reado
       o[bi * 3 + 1] = hook[1] + r[4] * -ropeLen;
       o[bi * 3 + 2] = hook[2] + r[7] * -ropeLen;
     }
-    return { m, o, rm, hook, ropeLen, flutter: t * TAU * 0.55 };
+    // the peek ghost pays its sheet out of the bundle over the first part of its let-down, and opens its eyes
+    const peek = d.drop === 'peek';
+    const ell = peek ? GATHER_MIN + smoothstep(0.05, 0.65, lo) * MAX_DEPTH * 1.2 : Infinity;
+    const eyeOpen = peek ? smoothstep(0.35, 0.75, lo) : 1;
+    return { m, o, rm, hook, ropeLen, flutter: t * TAU * 0.55, ell, eyeOpen };
   });
 }
 
@@ -1159,7 +1186,8 @@ export function ghostMarks(f: number, lower: readonly number[] = [0, 0, 0], hook
   return set.map(({ g }, gi) => {
     const p = poses[gi];
     const e = surface(g, Math.PI / 2, g.eyeD);
-    return { tie: placeAt(p, 0, 0, 0, 0), eyes: placeAt(p, e[0], e[1], e[2], g.eyeD), bottom: placeAt(p, 0, -g.bottom, 0, g.bottom), hem: g.d.hem };
+    const bd = gatheredDepth(g.bottom, p.ell);
+    return { tie: placeAt(p, 0, 0, 0, 0), eyes: placeAt(p, e[0], e[1], e[2], g.eyeD), bottom: placeAt(p, 0, -bd, 0, bd), hem: g.d.hem };
   });
 }
 
@@ -1310,11 +1338,22 @@ function posePart(pt: Part, poses: GhostPose[]): void {
       N[i * 3 + 2] = m[6] * nx + m[7] * ny + m[8] * nz;
       continue;
     }
-    const bi = Math.min(BINS - 1, Math.round(pt.depth[i] / BIN_DEPTH));
+    // the peek ghost's sheet bunched up under its open part (its rest), paid out as it is let down
+    let dep = pt.depth[i];
+    let lx = x;
+    let ly = y;
+    let lz = z;
+    if (dep > g.ell) {
+      const d2 = gatheredDepth(dep, g.ell);
+      const s = gatheredWidth(dep, g.ell);
+      lx *= s;
+      lz *= s;
+      ly += dep - d2;
+      dep = d2;
+    }
+    const bi = Math.min(BINS - 1, Math.round(dep / BIN_DEPTH));
     const m = g.m;
     const o = bi * 9;
-    let lx = x;
-    let lz = z;
     const fr = pt.free[i];
     if (fr > 0) {
       // the strips and threads flutter: a little, more at their tips
@@ -1323,9 +1362,9 @@ function posePart(pt: Part, poses: GhostPose[]): void {
       lx += 0.01 * e * Math.sin(g.flutter + ph + y * 6);
       lz += 0.008 * e * Math.sin(g.flutter * 1.37 + ph * 1.3);
     }
-    P[i * 3] = g.o[bi * 3] + m[o] * lx + m[o + 1] * y + m[o + 2] * lz;
-    P[i * 3 + 1] = g.o[bi * 3 + 1] + m[o + 3] * lx + m[o + 4] * y + m[o + 5] * lz;
-    P[i * 3 + 2] = g.o[bi * 3 + 2] + m[o + 6] * lx + m[o + 7] * y + m[o + 8] * lz;
+    P[i * 3] = g.o[bi * 3] + m[o] * lx + m[o + 1] * ly + m[o + 2] * lz;
+    P[i * 3 + 1] = g.o[bi * 3 + 1] + m[o + 3] * lx + m[o + 4] * ly + m[o + 5] * lz;
+    P[i * 3 + 2] = g.o[bi * 3 + 2] + m[o + 6] * lx + m[o + 7] * ly + m[o + 8] * lz;
     const nx = pt.restN[i * 3];
     const ny = pt.restN[i * 3 + 1];
     const nz = pt.restN[i * 3 + 2];
@@ -1427,7 +1466,9 @@ export function Ghosts({ f, lower = [0, 0, 0], hooks = GHOST_HOOKS }: GhostsProp
       const m = g.m;
       const o = bi * 9;
       const x = built.eyeRest[i * 3];
-      const y = built.eyeRest[i * 3 + 1];
+      // shut: squashed onto the eye's middle line (the peek ghost asleep in its bundle)
+      const yc = -built.eyeCentre[i];
+      const y = yc + (built.eyeRest[i * 3 + 1] - yc) * Math.max(0.04, g.eyeOpen);
       const z = built.eyeRest[i * 3 + 2];
       E[i * 3] = g.o[bi * 3] + m[o] * x + m[o + 1] * y + m[o + 2] * z;
       E[i * 3 + 1] = g.o[bi * 3 + 1] + m[o + 3] * x + m[o + 4] * y + m[o + 5] * z;

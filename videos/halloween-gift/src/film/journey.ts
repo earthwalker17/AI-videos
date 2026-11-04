@@ -99,8 +99,9 @@ export const obstacleAt = (o: CameraObstacle, f: number | undefined): boolean =>
 export const CAMERA_OBSTACLES: readonly CameraObstacle[] = [
   hanging('ghost 0', 3.54, 2.54, 1.85, 3.1),
   hanging('ghost 1', 2.72, 2.22, 1.45, 3.05),
-  hanging('ghost 2 (the peek)', 1.5, 1.55, 1.4, 2.85),
-  { ...hanging('ghost 2 (let down)', 1.5, 1.55, 0.55, 2.85), when: PEEKING },
+  // the peek ghost gathered up under the limb at rest (world/Ghosts.tsx GATHER_MIN), let down only while it peeks
+  hanging('ghost 2 (the peek)', 1.5, 1.55, 2.3, 2.95),
+  { ...hanging('ghost 2 (let down)', 1.5, 1.55, 0.55, 2.95), when: PEEKING },
   ...STONES.map((s, i) => ({ name: `stone ${i} (${s.kind})`, x: s.x, z: s.z, r: 0.28, h: s.h + 0.1 })),
   // world/Graveyard.tsx's cross is 2.3 tall and its leaning arm reaches 1.02 in plan
   { name: 'big cross', x: LAND.bigCross.x, z: LAND.bigCross.z, r: 1.05, h: 2.4 },
