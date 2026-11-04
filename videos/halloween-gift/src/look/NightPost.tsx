@@ -103,6 +103,8 @@ export interface NightPostOptions {
   warm?: number;
   /** the maroon foot band across the bottom of the frame, 0..1 (eased per shot by the film) */
   foot?: number;
+  /** the painterly pass's strength, 0..1 (eased by the film where type is close to the lens) */
+  paintMix?: number;
 }
 
 export interface NightPostProps extends NightPostOptions {
@@ -116,7 +118,7 @@ const sstep = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, raysWeight = 0.1, dof = true, grain = 1, skyZ = -5.44, near = '#4a1a2e', far = '#2a5c80', split = 0, warm = 0, foot = 1 }: NightPostProps) {
+export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, raysWeight = 0.1, dof = true, grain = 1, skyZ = -5.44, near = '#4a1a2e', far = '#2a5c80', split = 0, warm = 0, foot = 1, paintMix = 1 }: NightPostProps) {
   const camera = useThree((s) => s.camera);
   const height = useThree((s) => s.size.height);
   const moon = useMemo(() => {
@@ -131,10 +133,10 @@ export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, ray
     },
     [moon],
   );
-  const hold = useMemo(() => ({ dof: null as DepthOfFieldEffect | null, rays: null as GodRaysEffect | null, finish: null as FinishEffect | null }), []);
+  const hold = useMemo(() => ({ dof: null as DepthOfFieldEffect | null, rays: null as GodRaysEffect | null, finish: null as FinishEffect | null, paint: null as KuwaharaEffect | null }), []);
   // the painter's radius is in 1080p pixels: half-size drafts paint the same strokes
   const px = (paint * height) / 1080;
-  const stages = useCallback((): AnyEffect[][] => (px > 0 ? [[new KuwaharaEffect({ radius: px, sharpness })]] : []), [px, sharpness]);
+  const stages = useCallback((): AnyEffect[][] => (px > 0 ? [[(hold.paint = new KuwaharaEffect({ radius: px, sharpness }))]] : ((hold.paint = null), [])), [hold, px, sharpness]);
   const effects = useCallback(
     (cam: Camera): AnyEffect[] => {
       const list: AnyEffect[] = [];
@@ -172,6 +174,7 @@ export function NightPost({ f, focus, paint = 0, sharpness = 8, rays = true, ray
       hold.finish.uniforms.get('uFrame')!.value = f;
       hold.finish.uniforms.get('uFoot')!.value = foot;
     }
+    if (hold.paint) hold.paint.uniforms.get('uMix')!.value = paintMix;
     if (hold.rays) {
       const at = moonOnPlane(camera.position, skyZ, new Vector3());
       const dist = at.distanceTo(camera.position);

@@ -8,6 +8,7 @@
 import { progress } from '@aiv/core';
 import { AbsoluteFill, useVideoConfig } from 'remotion';
 import { at, cues, FPS, WORDS } from '../cues.ts';
+import { APPEAL_SNATCH } from '../film/beats.ts';
 import { journeyAt } from '../film/journey.ts';
 import type { FilmFonts } from '../look/fonts.ts';
 import { letter2Corners } from '../world/Letter2.tsx';
@@ -41,8 +42,8 @@ function Caption({ f, id, words, fonts }: { f: number; id: string; words: { en: 
 /** in once the last slat has flipped (film/beats.ts letterAt: at(25, 2) + 18), out onto the sealed 3D face before the letter sinks back (at(29)) */
 const EMAIL_IN = at(25, 2) + 18;
 const EMAIL_OUT = at(29) - 2;
-/** the bat takes the Appeal button on bar 27 beat 3 and carries it off down to the lower left (never across the words) */
-const GRAB = at(27, 3);
+/** the bat takes the Appeal button on bar 27 beat 3 (film/beats.ts APPEAL_SNATCH) and carries it off down to the lower left (never across the words) */
+const GRAB = APPEAL_SNATCH;
 
 function Email({ f, fonts }: { f: number; fonts: FilmFonts }) {
   const { width: W, height: H } = useVideoConfig();

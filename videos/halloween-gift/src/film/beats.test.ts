@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { at, FILM_FRAMES } from '../cues.ts';
+import { at, cues, FILM_FRAMES } from '../cues.ts';
 import { GATE_POSTS, PAGE, pathDistance } from '../world/layout.ts';
-import { bigPumpkinLitAt, coverAt, doorOpenAt, farColdAt, footAt, gatesOpenAt, ghostLowerAt, growAt, immersionAt, letterAt, pailLitAt, popAt, POPS, pumpkinsLitAt, windowsAt } from './beats.ts';
+import { APPEAL_SNATCH, bigPumpkinLitAt, paintAt, coverAt, doorOpenAt, farColdAt, footAt, gatesOpenAt, ghostLowerAt, growAt, immersionAt, letterAt, pailLitAt, popAt, POPS, pumpkinsLitAt, windowsAt } from './beats.ts';
 import { clawdAt } from './blocking.ts';
 import { OUT_OF_BOOK } from './journey.ts';
 
@@ -20,6 +20,7 @@ const beats: [string, (f: number) => number][] = [
   ['far window', farColdAt],
   ['foot', footAt],
   ['windows', windowsAt],
+  ['paint', paintAt],
   ['grow (page middle)', (f) => growAt(f, 0)],
 ];
 
@@ -78,6 +79,10 @@ describe('the V2 beats', () => {
     expect(letterAt(at(25, 2) + 18).flip).toBe(1);
     expect(letterAt(at(26) - 1).sealed).toBe(false);
     expect(letterAt(at(26)).sealed).toBe(true);
+    // the 3D face loses the Appeal tab on the score's snatch
+    expect(APPEAL_SNATCH).toBe(cues.events.find((e) => e.id === 'appeal-snatch')!.frame);
+    expect(letterAt(APPEAL_SNATCH - 1).tabGone).toBe(false);
+    expect(letterAt(APPEAL_SNATCH).tabGone).toBe(true);
     expect(farColdAt(at(33, 3) + 5)).toBe(1);
     expect(footAt(at(10))).toBe(1);
     expect(footAt(at(20))).toBeCloseTo(0.3, 9);

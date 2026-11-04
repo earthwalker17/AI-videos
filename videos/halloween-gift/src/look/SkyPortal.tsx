@@ -54,6 +54,7 @@ const FRAG = /* glsl */ `
   ${NOISE_GLSL}
   ${NOISE3_GLSL}
   uniform float uSbTime, uMoonR, uHorizonEl, uIntensity, uFibre, uAlpha;
+  uniform vec2 uWitch;
   uniform vec3 uSbMoonDir, uTop, uMid, uHorizon, uCloud, uCloudDark, uCloudLit, uGlow, uMoon, uHaze;
   uniform vec2 uHazeAE;
   varying vec3 vWorld;
@@ -67,6 +68,39 @@ const FRAG = /* glsl */ `
     float tail = abs(q.x + 0.5 * t * t) - 0.46 * (1.0 - t) * (1.0 - 0.35 * t);
     float d = q.y < 0.0 ? tail : head;
     return smoothstep(0.28, -0.12, d) * (1.0 - smoothstep(0.45, 1.0, t));
+  }
+  // the witch on her broom, flying toward +x (local units: the broom about 2.8 long), a signed distance
+  float sdSeg(vec2 p, vec2 a, vec2 b, float r) {
+    vec2 pa = p - a, ba = b - a;
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    return length(pa - ba * h) - r;
+  }
+  float sdTri(vec2 p, vec2 a, vec2 b, vec2 c) {
+    vec2 e0 = b - a, e1 = c - b, e2 = a - c;
+    vec2 v0 = p - a, v1 = p - b, v2 = p - c;
+    vec2 pq0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
+    vec2 pq1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
+    vec2 pq2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+    float s = sign(e0.x * e2.y - e0.y * e2.x);
+    vec2 d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)), vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))), vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+    return -sqrt(d.x) * sign(d.y);
+  }
+  float witch(vec2 w) {
+    // the broom: stick and bristles
+    float d = sdSeg(w, vec2(-1.1, -0.05), vec2(1.15, 0.12), 0.055);
+    d = min(d, sdTri(w, vec2(-1.0, -0.02), vec2(-1.72, 0.22), vec2(-1.62, -0.32)));
+    // the body hunched forward, a leg and boot hanging below the stick
+    d = min(d, sdTri(w, vec2(-0.42, -0.02), vec2(0.42, 0.04), vec2(0.06, 0.66)) - 0.03);
+    d = min(d, sdSeg(w, vec2(0.12, 0.0), vec2(0.3, -0.34), 0.07));
+    // the cape streaming back in two tattered points
+    d = min(d, sdTri(w, vec2(-0.2, 0.5), vec2(-1.05, 0.3), vec2(-0.3, 0.06)));
+    d = min(d, sdTri(w, vec2(-0.3, 0.32), vec2(-0.95, -0.02), vec2(-0.25, 0.04)));
+    // an arm to the stick, the head, the hat's cone bent back and its brim
+    d = min(d, sdSeg(w, vec2(0.15, 0.44), vec2(0.62, 0.1), 0.06));
+    d = min(d, length((w - vec2(0.08, 0.7)) * vec2(1.0, 1.1)) - 0.14);
+    d = min(d, sdTri(w, vec2(-0.12, 0.76), vec2(0.28, 0.8), vec2(-0.18, 1.24)) - 0.02);
+    d = min(d, length((w - vec2(0.07, 0.78)) * vec2(1.0, 4.0)) - 0.3);
+    return d;
   }
   // cloud density in a direction (warped 3D noise; the warp is passed in so a neighbour shares it)
   float cloudField(vec3 dir, vec3 w) {
@@ -126,6 +160,18 @@ const FRAG = /* glsl */ `
     float maria = aivFbm(p * 40.0 + 4.0);
     vec3 moon = uMoon * (2.5 - 0.7 * smoothstep(0.45, 0.72, maria));
     col = mix(col, moon, disc);
+    // the witch crosses the moon (uWitch: her progress 0..1, shown when .y is 1), a silhouette
+    if (uWitch.y > 0.5 && moonAng < uMoonR * 5.0) {
+      vec3 right = normalize(cross(uSbMoonDir, vec3(0.0, 1.0, 0.0)));
+      vec3 upv = cross(right, uSbMoonDir);
+      vec2 q = vec2(dot(dir, right), dot(dir, upv)) / uMoonR;
+      float t = uWitch.x;
+      vec2 at = vec2(mix(-2.7, 2.7, t), 0.22 - 0.4 * t + 0.18 * sin(3.14159 * t));
+      float S = 0.5;
+      float sd = witch((q - at) / S) * S;
+      float aa = max(fwidth(sd), 1e-4);
+      col = mix(col, vec3(0.018, 0.022, 0.035), (1.0 - smoothstep(-aa, aa, sd)));
+    }
     // paper fibre through the cover's print (none on the dome)
     float fibre = 1.0 - uFibre * 0.05 * (1.0 - aivFbm3(vWorld * 40.0));
     gl_FragColor = vec4(col * fibre * uIntensity, uAlpha);
@@ -136,6 +182,12 @@ export interface SkyOptions {
   /** the dome (BackSide, no fibre, fades in with immersion) or the cover's print */
   dome?: boolean;
 }
+
+/**
+ * The witch crossing the moon, shared by every sky (the dome, and the cover's print that stands in
+ * front of it inside the story): her progress 0..1 and 1 while she flies (set by SkyDome's witch).
+ */
+const WITCH = { value: new Vector2(0, 0) };
 
 /** The sky material: the cover's printed sky, or the dome's (see SkyDome). */
 export function useSkyPortal({ dome = false }: SkyOptions = {}): ShaderMaterial {
@@ -164,6 +216,8 @@ export function useSkyPortal({ dome = false }: SkyOptions = {}): ShaderMaterial 
         uIntensity: { value: 1 },
         uFibre: { value: dome ? 0 : 1 },
         uAlpha: { value: 1 },
+        // the witch crossing the moon: shared by the dome and the cover's print (whichever shows the moon)
+        uWitch: WITCH,
       },
       vertexShader: VERT,
       fragmentShader: FRAG,
@@ -180,13 +234,15 @@ export const DOME_RADIUS = 60;
 /**
  * The sky all round the world. `immersion` 0..1: hidden at 0 (the room shows round the book), the
  * full sky at 1 (inside the story). Pass the same to the cover's print so its fibre fades too.
+ * `witch` 0..1: the witch on her broom crossing the moon, left to right (outside 0..1: none).
  */
-export function SkyDome({ immersion = 1 }: { immersion?: number }) {
+export function SkyDome({ immersion = 1, witch = -1 }: { immersion?: number; witch?: number }) {
   const mat = useSkyPortal({ dome: true });
   const geo = useMemo(() => [DOME_RADIUS, 64, 32] as const, []);
   useLayoutEffect(() => {
     mat.uniforms.uAlpha.value = immersion;
-  }, [mat, immersion]);
+    WITCH.value.set(Math.max(0, Math.min(1, witch)), witch >= 0 && witch <= 1 ? 1 : 0);
+  }, [mat, immersion, witch]);
   return (
     <mesh material={mat} position={[0, FLOOR, 0]} visible={immersion > 0} frustumCulled={false} renderOrder={-1}>
       <sphereGeometry args={geo} />

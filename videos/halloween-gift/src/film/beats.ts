@@ -92,6 +92,16 @@ function coldSnap(f: number, from: number): number {
   return SNAP[i] + (SNAP[i + 1] - SNAP[i]) * (t - i);
 }
 
+/**
+ * The witch on her broom crosses the moon while the hero view holds (bar 5 beat 2 .. bar 8):
+ * look/SkyPortal.tsx SkyDome's witch, her progress 0 .. 1 at a steady pace; -1 when she is not flying.
+ */
+export function witchAt(f: number): number {
+  const a = at(5, 2);
+  const b = at(8);
+  return f < a || f > b ? -1 : (f - a) / (b - a);
+}
+
 /** The giant jack-o'-lantern: lights on bar 5 (over four frames), out on the seal. */
 export function bigPumpkinLitAt(f: number): number {
   return progress(f, at(5), at(5) + 4) * coldSnap(f, at(26));
@@ -145,11 +155,15 @@ export function doorOpenAt(f: number): number {
   return progress(f, at(20), at(20) + 16, 'outCubic') * (1 - progress(f, at(33), at(33) + 10, 'inOutCubic'));
 }
 
-/** The gift letter: its rise from the yard's slot, the slats' flip to the email, the 封号 seal, face A's wax seal cracking. */
+/** A bat snatches the email's Appeal tab (src/cues.ts 'appeal-snatch'): the DOM card's tab flies off with it, the 3D face is drawn without it from then on. */
+export const APPEAL_SNATCH = at(27, 3);
+
+/** The gift letter: its rise from the yard's slot, the slats' flip to the email, the 封号 seal, the Appeal tab taken, face A's wax seal cracking. */
 export interface LetterBeat {
   rise: number;
   flip: number;
   sealed: boolean;
+  tabGone: boolean;
   crack: number;
 }
 export function letterAt(f: number): LetterBeat {
@@ -159,6 +173,7 @@ export function letterAt(f: number): LetterBeat {
     // the slats flip top to bottom on the second ding (each slat's own stagger is the letter's)
     flip: progress(f, at(25, 2), at(25, 2) + 18, 'linear'),
     sealed: f >= at(26),
+    tabGone: f >= APPEAL_SNATCH,
     crack: progress(f, at(23), at(23) + 4, 'outCubic'),
   };
 }
@@ -176,6 +191,15 @@ export function farColdAt(f: number): number {
 export function footAt(f: number): number {
   const door = smoothstep(at(16, 3), at(17), f);
   return immersionAt(f) * (1 - 0.7 * door);
+}
+
+/**
+ * The painterly pass's strength (NightPost paintMix): off while the gift letter's email face is
+ * close to the lens (the Kuwahara strokes break its type into dashes, and the DOM card that
+ * crossfades over it is crisp), eased out before the crossfade in and back once the letter has sunk.
+ */
+export function paintAt(f: number): number {
+  return 1 - smoothstep(at(25), at(25, 2) + 12, f) * (1 - smoothstep(at(29) + 6, at(29) + 20, f));
 }
 
 /** The cottage's windows (House `windows`): bright from afar, dimmed for the door spread so the red papers lead. */

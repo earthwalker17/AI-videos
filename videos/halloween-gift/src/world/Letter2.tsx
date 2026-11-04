@@ -917,6 +917,8 @@ export interface Letter2Props {
   flip: number;
   /** the 封号 seal on face B */
   sealed: boolean;
+  /** the bat has taken the Appeal tab (face B drawn without it: film/beats.ts letterAt) */
+  tabGone?: boolean;
   /** the wax seal cracking, 0..1 */
   crack: number;
   f: number;
@@ -926,22 +928,25 @@ export interface Letter2Props {
   place?: boolean;
 }
 
-export function Letter2({ rise, flip, sealed, crack, f, quiver, place = true }: Letter2Props) {
+export function Letter2({ rise, flip, sealed, tabGone = false, crack, f, quiver, place = true }: Letter2Props) {
   const { fonts, ready } = useFilmFonts();
   const faces = useMemo(() => {
     const a = textCanvas(CW, CH);
     drawFaceA(a.g, CW, CH, fonts);
     const b0 = textCanvas(CW, CH);
     const b1 = textCanvas(CW, CH);
+    const b2 = textCanvas(CW, CH);
     drawEmailCard(b0.g, CW, CH, fonts, { tab: { dx: 0, dy: 0 }, seal: null });
     drawEmailCard(b1.g, CW, CH, fonts, { tab: { dx: 0, dy: 0 }, seal: { scale: 1, shake: 0 } });
-    const tex = [a.c, b0.c, b1.c].map((c) => {
+    // sealed, and the Appeal tab gone with the bat
+    drawEmailCard(b2.g, CW, CH, fonts, { tab: null, seal: { scale: 1, shake: 0 } });
+    const tex = [a.c, b0.c, b1.c, b2.c].map((c) => {
       const t = new CanvasTexture(c);
       t.colorSpace = SRGBColorSpace;
       t.anisotropy = 8;
       return t;
     });
-    return { a: tex[0], b: [tex[1], tex[2]] };
+    return { a: tex[0], b: [tex[1], tex[2], tex[3]] };
     // drawn with `ready` true (the stage mounts only then: fillTextChecked throws otherwise)
   }, [fonts, ready]);
   const built = useMemo(() => {
@@ -986,7 +991,7 @@ export function Letter2({ rise, flip, sealed, crack, f, quiver, place = true }: 
       built.aMat.map = faces.a;
       built.aMat.emissiveMap = faces.a;
     }
-    const bm = faces.b[sealed ? 1 : 0];
+    const bm = faces.b[sealed ? (tabGone ? 2 : 1) : 0];
     if (built.bMat.map !== bm) {
       if (!built.bMat.map) built.bMat.needsUpdate = true;
       built.bMat.map = bm;

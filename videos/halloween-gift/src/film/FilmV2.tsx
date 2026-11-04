@@ -45,9 +45,11 @@ import {
   grownAt,
   immersionAt,
   letterAt,
+  paintAt,
   pailLitAt,
   pumpkinsLitAt,
   windowsAt,
+  witchAt,
 } from './beats.ts';
 import { clawdAt, userAt } from './blocking.ts';
 import type { CamPose } from './campath.ts';
@@ -113,7 +115,7 @@ function Picture({ f, pose }: { f: number; pose: CamPose }) {
       <Night f={f} fps={FPS} shadow={shadowAt(f, imm)} />
       <FogAmount amount={imm} />
       <GrowClock f={f} schedule={GROW} />
-      <SkyDome immersion={imm} />
+      <SkyDome immersion={imm} witch={witchAt(f)} />
       <Desk2 f={f} props={imm < 0.999} beam={1 - imm} />
       <Book2 cover={coverAt(f)} f={f} immersion={imm} />
       <group visible={world}>
@@ -127,7 +129,7 @@ function Picture({ f, pose }: { f: number; pose: CamPose }) {
         <WorldBats f={f} camPos={pose.pos} fov={pose.fov} />
         <Clawd2 pose={{ ...clawd.pose, pailLit: pailLitAt(f) }} hop={clawd.hop} f={f} smooth={clawdSmooth(clawdAt, f)} camPos={pose.pos} />
         <Neighbour pose={userAt(f)} f={f} pail={CANDY_PAIL} />
-        <Letter2 rise={letter.rise} flip={letter.flip} sealed={letter.sealed} crack={letter.crack} f={f} />
+        <Letter2 rise={letter.rise} flip={letter.flip} sealed={letter.sealed} tabGone={letter.tabGone} crack={letter.crack} f={f} />
       </group>
       <group visible={f >= BURST.start - 2 && f < at(5)}>
         <BatBurst f={f} start={BURST.start} origin={BOOK_EDGE.origin} dir={BOOK_EDGE.dir} count={BURST.count} size={BURST.size} gap={BOOK_EDGE.gap} speed={BURST.speed} scatter={BURST.scatter} rise={BURST.rise} stagger={BURST.stagger} ambient={0.25} tone={0.6} />
@@ -149,7 +151,7 @@ export function FilmV2() {
           <color attach="background" args={[NIGHT_BG]} />
           <Rig pose={pose} />
           <Picture f={f} pose={pose} />
-          <NightPost f={f} focus={pose.focus} {...LOOK_POST} foot={footAt(f)} />
+          <NightPost f={f} focus={pose.focus} {...LOOK_POST} foot={footAt(f)} paintMix={paintAt(f)} />
         </Stage3D>
       )}
       <OverlayV2 f={f} fonts={fonts} />
