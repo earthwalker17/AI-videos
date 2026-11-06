@@ -46,6 +46,14 @@ Built when the first film needs them, not before:
     share its cleanup;
   - every chunk starts Remotion's local server again (about 1 s), because the shared-server
     option is internal API.
+  - a page's first frame can composite DOM work over the 3D frame differently from mid-chunk:
+    *A Halloween Gift*'s per-frame grain canvas over the email card and a CSS shadow under the
+    bat's tab differed on three chunk-start frames between the final and the review cut
+    (invisible in motion; 1,426 of 1,440 frames identical). Draw DOM canvases on the CPU
+    (`willReadFrequently`) or give the engine one warm-up frame per chunk, then test with
+    `aiv still --check` on frames right after a chunk start;
+  - a few dark pixels can differ by one or two levels across a chunk start (GPU rounding, cause
+    not traced).
 - `aiv check` does not lint STYLE.md headings; add it when the second style exists.
 - Audio QA (found on *A Halloween Gift*):
   - the hit check proves timing, not audibility: its onset finder accepts any doubling of

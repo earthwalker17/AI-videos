@@ -7,21 +7,26 @@ house still awake. Made entirely in code, picture and score.
 **Series:** [Festival & Celebration](../../series/festivals/SERIES.md) · **Number:** 3 · **Engine:** remotion
 ▶ **Watch:** the YouTube link, once published.
 
-## Status (2026-11-06): the 1080p review cut is ready for the user
-`status` is `review`; the only approval recorded in `video.json` is the treatment's (the
-lookdev checkpoint is not a schema gate: it is recorded below). `Main` renders the V2 picture
-(`src/film/FilmV2.tsx` after the 12-frame test-card leader); V1's picture code was removed (it
-is in git history before commit ba82a08). The user's reference images (`Desktop/Halloween.png`,
-`Desktop/Email.JPG`) are copied to the gitignored `.cache/reference/`, never committed and
-never used as plates.
+## Status (2026-11-06): locked; the final is rendered and proven; awaiting the user's final approval
+`status` is `locked`: the user approved the 1080p review cut on 2026-11-06 (recorded in
+`video.json` `approvals`). `Main` renders the V2 picture (`src/film/FilmV2.tsx`); for the final
+the test-card leader is removed (decision 24, `LEADER_FRAMES` 0), so the film is 1440 frames,
+60.0 s. The user's reference images (`Desktop/Halloween.png`, `Desktop/Email.JPG`) are copied to
+the gitignored `.cache/reference/`, never committed and never used as plates.
 
-**The review cut** (`aiv render/post/qa --profile review`, commit 39cf82f): 1452 frames at
-1920x1080, 24 fps, 60.5 s with the leader; `aiv qa` passed (BT.709, -14.0 LUFS, true peak
--2.3 dBTP, swatches within 2 levels, no unexpected black or freeze, every cue's hit on its
-frame; motion: no judder, nothing on twos, no pop, the one flash is the lightning's second
-pulse); `aiv still --check review`: 12 of 12 mid-chunk frames match on fresh pages; the score
-verified byte-identical across two fresh renders. Render time on the reference laptop: about
-45 min for the review cut (0.9-1.9 s a frame, 120-frame chunks), 12 min for a draft.
+**The final** (`aiv render/post/qa --profile final`): the delivery `out/halloween-gift/post/final/
+halloween-gift.mp4` (93.6 MB, H.264 High, BT.709) and the archive master (382 MB, PCM audio);
+`aiv qa` passed on both (1440 frames, -14.0 LUFS, true peak -2.3 dBTP, the intended silences
+silent, no judder or pop). **The proof against the approved review cut** (decision 24): the
+score is byte-identical to the review's from 0.5 s on; 1,426 of the 1,440 frames are
+bit-identical to the review's shifted by 12; the other 14 differ only where the two renders'
+chunks began at different frames, invisibly: four frames by at most 4 levels on at most 33
+pixels, three in the email overlay's per-frame grain and the tab's shadow (a page's first frame
+composites DOM canvases differently: docs/ROADMAP.md, known gaps), and seven by a level or two.
+
+**The review cut** (commit e3d4cba): 1452 frames with the leader; `aiv qa` passed (BT.709,
+-14.0 LUFS, true peak -2.3 dBTP, swatches within 2 levels); `aiv still --check review`: 12 of 12
+mid-chunk frames match on fresh pages after a determinism fix (39cf82f: the moon's shadow box).
 
 **Decided with the user (2026-11-04):** one continuous storybook world (no page turn, sliding
 flats or hard cuts); the email evokes the real suspension email with our own mark; one lookdev
@@ -65,10 +70,11 @@ few seconds (the couplet reads in full for six seconds before); the camera passe
 swung gate leaf for about a second on the lane; across a chunk start a few dark pixels can
 differ by one level (GPU rounding, invisible).
 
-**Next:** the user's review (picture and score, the Chinese of `publish/captions/zh-Hans.srt` and
-`publish/description.zh-Hans.md`, a thumbnail from `out/halloween-gift/checkpoint-review/`);
-then `locked`: leader removed (decision 24), the final render, the proof that it equals the
-review cut shifted by the leader, `aiv release`.
+**Next:** the user's final approval; `aiv release halloween-gift` from the clean tree (manifest
+`release/v1.json`); the thumbnail the user supplies (a ChatGPT-generated image: record it in
+`publish/` with its provenance and update `publish/ai-disclosure.md`); the user uploads to
+YouTube; then `youtube.id`, `release.version`, the final approval in `video.json`, `status:
+published`, the tag `video/halloween-gift/v1` and the GitHub release (pushed when the user asks).
 
 **Open for the user:** the hero view closely follows the reference painting's composition and
 palette (the painting's author and licence are unknown: CREDITS.md lists it as reference only);

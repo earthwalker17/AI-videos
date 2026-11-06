@@ -21,7 +21,7 @@
       "note": "The user watched the 1080p review cut (out/halloween-gift/post/review/halloween-gift.mp4, commit e3d4cba) and chose \"Approved\"; confirmed the zh-Hans captions and description in publish/ as \"Correct as written\"; on the reference painting the hero follows: \"Fine to publish\"; the thumbnail: the user will supply one."
     }
   ],
-  "next": "The final: leader removed (decision 24), aiv audio --verify, aiv render/post/qa --profile final, the proof against the review cut; the user's thumbnail into publish/; the final approval; aiv release (README.md, Status).",
+  "next": "The user's final approval; aiv release; the user's thumbnail into publish/ with its provenance; YouTube upload by the user; then published (README.md, Status).",
   "languages": [
     "en",
     "zh-Hans"
