@@ -7,13 +7,21 @@ house still awake. Made entirely in code, picture and score.
 **Series:** [Festival & Celebration](../../series/festivals/SERIES.md) · **Number:** 3 · **Engine:** remotion
 ▶ **Watch:** the YouTube link, once published.
 
-## Status (2026-11-06): V2 is the film; lookdev approved; fix round 2, then the review cut
-`status` is `production`; the only approval recorded in `video.json` is the treatment's (the
+## Status (2026-11-06): the 1080p review cut is ready for the user
+`status` is `review`; the only approval recorded in `video.json` is the treatment's (the
 lookdev checkpoint is not a schema gate: it is recorded below). `Main` renders the V2 picture
 (`src/film/FilmV2.tsx` after the 12-frame test-card leader); V1's picture code was removed (it
 is in git history before commit ba82a08). The user's reference images (`Desktop/Halloween.png`,
 `Desktop/Email.JPG`) are copied to the gitignored `.cache/reference/`, never committed and
 never used as plates.
+
+**The review cut** (`aiv render/post/qa --profile review`, commit 39cf82f): 1452 frames at
+1920x1080, 24 fps, 60.5 s with the leader; `aiv qa` passed (BT.709, -14.0 LUFS, true peak
+-2.3 dBTP, swatches within 2 levels, no unexpected black or freeze, every cue's hit on its
+frame; motion: no judder, nothing on twos, no pop, the one flash is the lightning's second
+pulse); `aiv still --check review`: 12 of 12 mid-chunk frames match on fresh pages; the score
+verified byte-identical across two fresh renders. Render time on the reference laptop: about
+45 min for the review cut (0.9-1.9 s a frame, 120-frame chunks), 12 min for a draft.
 
 **Decided with the user (2026-11-04):** one continuous storybook world (no page turn, sliding
 flats or hard cuts); the email evokes the real suspension email with our own mark; one lookdev
@@ -41,14 +49,26 @@ credits and `publish/` (captions per language, descriptions, the AI-use note; 6c
 thumbnail candidates (`lookdev/Thumbnail.tsx`). A full draft render passed `aiv qa` and the
 chunk-independence check (12 of 12 mid-chunk frames MATCH on fresh pages).
 
-**In progress:** fix round 2's implementers (look; world assets; characters, house and grass;
-book, desk and email card) on the confirmed findings of critique round 2.
+**Fix round 2 (done):** the look (no fog flood or pump in the crane out, a plum cottage, a storm
+sky and wider moon clearing, tailed sky ghosts, edge anti-aliasing, cleaner grain), the world
+(root mass, cauldron, a floating castle, pumpkin rind, stones, track), the characters (the peek
+reads, three ghosts round the moon, Clawd lit by the scene, the cottage's stone, lanterns and
+slates, the grass), the book (crack light and lit bats, foil, a printed endpaper, paper page
+edges) and the email card (pale page, spacing, the mark, the bat's snatch); the integrator's
+staging (above) and lane lanterns. A determinism fault was found and fixed on the way: the
+moon's shadow box stayed at each chunk's first frame (39cf82f; the rule is now in
+`engines/remotion/ENGINE.md`).
 
-**Next:** integrate fix round 2; a draft render with motion QA and `aiv still --check draft`;
-the 1080p review cut (`aiv render/post/qa --profile review`, `aiv audio --verify` first), looked
-at in full; the user's review (picture, score, and the Chinese of the captions and the
-descriptions in `publish/`); then `locked`: leader removed (decision 24), the final render, the
-proof that it equals the review cut shifted by the leader, the thumbnail chosen, `aiv release`.
+**Known and accepted:** the hanging ghosts' lit folds stay plum rather than grey-lilac; the
+castle's buildings are simpler than the painting's; at the candy Clawd's hat hides 不封 for a
+few seconds (the couplet reads in full for six seconds before); the camera passes over the
+swung gate leaf for about a second on the lane; across a chunk start a few dark pixels can
+differ by one level (GPU rounding, invisible).
+
+**Next:** the user's review (picture and score, the Chinese of `publish/captions/zh-Hans.srt` and
+`publish/description.zh-Hans.md`, a thumbnail from `out/halloween-gift/checkpoint-review/`);
+then `locked`: leader removed (decision 24), the final render, the proof that it equals the
+review cut shifted by the leader, `aiv release`.
 
 **Open for the user:** the hero view closely follows the reference painting's composition and
 palette (the painting's author and licence are unknown: CREDITS.md lists it as reference only);
@@ -71,10 +91,11 @@ whether YouTube's AI-music note applies to a score written as code (`publish/ai-
 - **Sound:** an original D-minor waltz and seeded synthesised foley in TypeScript (`audio/`),
   VSCO 2 CE samples (CC0) through an SFZ-subset sampler, mastered in the score; built by
   `aiv audio` (decision 21) against the shared cue sheet (`src/cues.ts`, decision 22).
-- **Numbers (reference laptop):** 1452 frames at 24 fps (60.5 s with the 12-frame leader).
-  Draft 960x540: 0.25–0.36 s per frame, about 6 min for the film, 560 MB mezzanine. 1080p
-  stills: 1.2–1.7 s per frame on the heaviest shots. Score: about 12 s to render in one
-  process, 65 s for `--verify`, 393 MB peak memory; -14.0 LUFS, true peak -2.4 dBTP, LRA 9.6.
+- **Numbers (reference laptop, V2):** 1452 frames at 24 fps (60.5 s with the 12-frame leader).
+  Draft 960x540: 0.6-1.3 s per frame, about 12 min for the film, 631 MB mezzanine. Review
+  1920x1080: 0.9-1.9 s per frame, about 45 min, 2.3 GB mezzanine, a 94 MB delivery. A lookdev
+  still: 15-45 s with a warm GPU program cache. Score: about 12 s to render, 65 s for
+  `--verify`; -14.0 LUFS, true peak -2.3 dBTP on the delivery.
 
 ## Reproduce it
 ```sh
