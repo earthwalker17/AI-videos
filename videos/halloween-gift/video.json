@@ -19,9 +19,14 @@
       "gate": "review",
       "date": "2026-11-06",
       "note": "The user watched the 1080p review cut (out/halloween-gift/post/review/halloween-gift.mp4, commit e3d4cba) and chose \"Approved\"; confirmed the zh-Hans captions and description in publish/ as \"Correct as written\"; on the reference painting the hero follows: \"Fine to publish\"; the thumbnail: the user will supply one."
+    },
+    {
+      "gate": "final",
+      "date": "2026-11-06",
+      "note": "The user approved the final (out/halloween-gift/post/final/halloween-gift.mp4, commit 90022e1: the approved review cut without its 0.5 s test card; score byte-identical, 1,426 of 1,440 frames bit-identical, 14 invisibly different) with \"Approved\", and chose \"Release locally only\" (no push, tag or GitHub release until asked)."
     }
   ],
-  "next": "The user's final approval; aiv release; the user's thumbnail into publish/ with its provenance; YouTube upload by the user; then published (README.md, Status).",
+  "next": "aiv release (local, v1); the user supplies the thumbnail and uploads to YouTube; then youtube.id, release.version and status published; push, tag and GitHub release only when the user asks (README.md, Status).",
   "languages": [
     "en",
     "zh-Hans"
