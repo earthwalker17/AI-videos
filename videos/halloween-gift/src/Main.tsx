@@ -9,13 +9,13 @@ import { FILM_FRAMES, LEADER_FRAMES } from './cues.ts';
 import { FilmV2 } from './film/FilmV2.tsx';
 
 export type MainProps = {
-  /** frames [start, end) that show the test card; the engine checks them against video.json qa.swatchFrames */
-  swatchFrames: [number, number];
+  /** frames [start, end) that show the test card (absent without a leader); the engine checks them against video.json qa.swatchFrames */
+  swatchFrames?: [number, number];
 };
 
 export function Main({ swatchFrames }: MainProps) {
   const frame = useCurrentFrame();
-  if (frame < swatchFrames[1]) return <TestCard label="A Halloween Gift · test card" />;
+  if (swatchFrames && frame < swatchFrames[1]) return <TestCard label="A Halloween Gift · test card" />;
   return (
     <Sequence from={LEADER_FRAMES} durationInFrames={FILM_FRAMES}>
       <FilmV2 />

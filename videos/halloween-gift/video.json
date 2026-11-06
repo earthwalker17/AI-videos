@@ -8,15 +8,20 @@
     "zh-Hans": "万圣节礼物"
   },
   "series": "festivals",
-  "status": "review",
+  "status": "locked",
   "approvals": [
     {
       "gate": "treatment",
       "date": "2026-11-03",
       "note": "The user selected \"A · Storybook (Recommended)\" from the three candidates, chose \"Bilingual captions\" and the programmer couplet 代码千行一次过 / 账号百年永不封 · 横批 一路绿灯, and approved the production plan."
+    },
+    {
+      "gate": "review",
+      "date": "2026-11-06",
+      "note": "The user watched the 1080p review cut (out/halloween-gift/post/review/halloween-gift.mp4, commit e3d4cba) and chose \"Approved\"; confirmed the zh-Hans captions and description in publish/ as \"Correct as written\"; on the reference painting the hero follows: \"Fine to publish\"; the thumbnail: the user will supply one."
     }
   ],
-  "next": "The user watches the 1080p review cut (out/halloween-gift/post/review/halloween-gift.mp4), listens to the score and checks the Chinese of publish/; then locked: leader removed, the final render and its proof, the thumbnail, aiv release (README.md, Status).",
+  "next": "The final: leader removed (decision 24), aiv audio --verify, aiv render/post/qa --profile final, the proof against the review cut; the user's thumbnail into publish/; the final approval; aiv release (README.md, Status).",
   "languages": [
     "en",
     "zh-Hans"
@@ -39,10 +44,6 @@
     ]
   },
   "qa": {
-    "swatchFrames": [
-      0,
-      12
-    ],
     "loudness": {
       "integrated": -14,
       "tolerance": 1,

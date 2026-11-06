@@ -17,8 +17,8 @@ export const BEAT = (FPS * 60) / BPM;
 export const BAR = BEAT * BEATS_PER_BAR;
 export const BARS = 40;
 export const FILM_FRAMES = BARS * BAR;
-/** the review cut's test card: one beat (0.5 s); 0 for the final (decision 24) */
-export const LEADER_FRAMES = 12;
+/** the review cut's test card: one beat (0.5 s); 0 for the final (decision 24): the review cut (approved 2026-11-06) had 12 */
+export const LEADER_FRAMES = 0;
 
 /** The film frame where bar `n` (1-based) beat `b` (1-based, fractions allowed) starts. */
 export const at = (n: number, b = 1): number => Math.round((n - 1) * BAR + (b - 1) * BEAT);
