@@ -21,6 +21,7 @@ import { FPS } from '../cues.ts';
 import { batBodyGeometry, batEyeGeometry, batFleckGeometry, batWingGeometry, flapPose, WING_POSES, wingInfluences, type V3 } from '../kit/bat.ts';
 import { Curve, type P3 } from '../kit/spline.ts';
 import { storybookMaterial } from '../look/materials.ts';
+import { ROOM } from './Desk2.tsx';
 import { FLOOR, HERO } from './layout.ts';
 
 const TAU = Math.PI * 2;
@@ -166,9 +167,56 @@ export interface BatSwarmProps {
   ambient?: number;
   /** the paint's brightness (albedo multiplier) */
   tone?: number;
+  /** the book's crack light on them (world/Desk2 ROOM.uRoomCrack; 0: none): a rim, and the membranes lit through */
+  crack?: number;
 }
 
 const UP = new Vector3(0, 1, 0);
+
+/** the crack's light on the bats (a little paler than the light it casts on the paper) */
+const CRACK_RIM = new Color('#7fe4f2');
+
+/**
+ * The book's crack light on a bat (after the storybook's own output): the light from the slit
+ * behind it (world/Desk2's line light along the fore-edge's mouth, ROOM.uRoomCrack) catching its
+ * silhouette's edges, strongest where the slit is behind it, and through the thin membranes (`thin`
+ * 1: a wing) a glow where it is between the slit and the eye, warmed by the skin it passes through.
+ */
+export function crackLit(m: MeshStandardMaterial, thin: number, k: number): MeshStandardMaterial {
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = function (shader, renderer) {
+    prev.call(this, shader, renderer);
+    shader.uniforms.uRoomCrack = ROOM.uRoomCrack;
+    shader.uniforms.uBatCrackCol = { value: CRACK_RIM };
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'uniform vec4 uRoomCrack;\nuniform vec3 uBatCrackCol;\nvoid main() {')
+      .replace(
+        '#include <opaque_fragment>',
+        `if (uRoomCrack.w > 0.0) {
+  vec3 cP = vSbWorld;
+  vec3 cq = vec3(clamp(cP.x, -uRoomCrack.x, uRoomCrack.x), uRoomCrack.y, uRoomCrack.z);
+  vec3 cdl = cq - cP;
+  float cd = length(cdl);
+  vec3 cL = cdl / max(cd, 1e-4);
+  vec3 cV = normalize(cameraPosition - cP);
+  vec3 cN = normalize(vSbNormalW) * (gl_FrontFacing ? 1.0 : -1.0);
+  float cEnds = smoothstep(uRoomCrack.x + 0.6, uRoomCrack.x - 1.6, abs(cP.x));
+  float cAtt = uRoomCrack.w * cEnds * 2.0 / (1.0 + 0.9 * cd * cd);
+  float cFres = pow(1.0 - abs(dot(cN, cV)), 3.0);
+  float cBack = smoothstep(-0.4, 0.5, dot(cL, -cV));
+  float cRim = cFres * (0.3 + 0.7 * cBack) * clamp(0.35 + 0.65 * dot(cN, cL), 0.0, 1.0);
+  float cTrans = ${thin.toFixed(2)} * pow(max(dot(cL, -cV), 0.0), 2.5) * (1.0 - 0.5 * cFres);
+  // the membrane darkened where the light is not through it (a dark wing with a lit rim, glowing only toward the slit)
+  outgoingLight *= 1.0 - 0.35 * ${thin.toFixed(2)} * clamp(cAtt, 0.0, 1.0);
+  outgoingLight += uBatCrackCol * cAtt * ${k.toFixed(2)} * (2.2 * cRim + 0.2 * cTrans * vec3(0.8, 0.9, 1.0));
+}
+#include <opaque_fragment>`,
+      );
+  };
+  const key = m.customProgramCacheKey();
+  m.customProgramCacheKey = () => `${key}:crack${thin.toFixed(2)}:${k.toFixed(2)}`;
+  return m;
+}
 
 /**
  * A storybook material made matte: the injection as it is (light, ambient, rim, fog), with the
@@ -191,7 +239,7 @@ reflectedLight.directSpecular *= ${k.toFixed(3)};`);
 }
 
 /** Any number of bats, posed from their states (instanced: body, wings, eyes). */
-export function BatSwarm({ states, size, eyes = true, fog = 1, color2 = '#1c1318', lod, ambient = 1, tone = 1 }: BatSwarmProps) {
+export function BatSwarm({ states, size, eyes = true, fog = 1, color2 = '#1c1318', lod, ambient = 1, tone = 1, crack = 0 }: BatSwarmProps) {
   const count = states.length;
   const flecks = lod !== undefined;
   const built = useMemo(() => {
@@ -200,8 +248,12 @@ export function BatSwarm({ states, size, eyes = true, fog = 1, color2 = '#1c1318
     const eyeGeo = batEyeGeometry();
     const fleckGeo = batFleckGeometry();
     const paint = new Color(tone, tone, tone);
-    const bodyMat = matte(storybookMaterial({ kind: 'cloth', color: paint, color2, vertexColors: true, roughness: 1, breakup: 0.25, scale: size * 0.03, bump: 0.5, rim: 1.0, fog, ambient, side: DoubleSide }), 0.3);
-    const wingMat = matte(storybookMaterial({ kind: 'plain', color: paint, color2, vertexColors: true, roughness: 1, breakup: 0.12, scale: size * 0.08, rim: 0.8, fog, ambient, side: DoubleSide }), 0.08);
+    let bodyMat = matte(storybookMaterial({ kind: 'cloth', color: paint, color2, vertexColors: true, roughness: 1, breakup: 0.25, scale: size * 0.03, bump: 0.5, rim: 1.0, fog, ambient, side: DoubleSide }), 0.3);
+    let wingMat = matte(storybookMaterial({ kind: 'plain', color: paint, color2, vertexColors: true, roughness: 1, breakup: 0.12, scale: size * 0.08, rim: 0.8, fog, ambient, side: DoubleSide }), 0.08);
+    if (crack > 0) {
+      bodyMat = crackLit(bodyMat, 0, crack);
+      wingMat = crackLit(wingMat, 1, crack);
+    }
     const eyeMat = storybookMaterial({ color: '#000000', emissive: '#d6f2ff', emissiveIntensity: 1.6, roughness: 0.3, rim: 0, ambient: 0, breakup: 0, fog: fog * 0.6 });
     // the flecks: flat, no rim (a facing card has no silhouette edge to catch it), matte
     const fleckMat = matte(storybookMaterial({ kind: 'plain', color: '#ffffff', color2, vertexColors: true, roughness: 1, breakup: 0, rim: 0, fog, side: DoubleSide }), 0);
@@ -219,7 +271,7 @@ export function BatSwarm({ states, size, eyes = true, fog = 1, color2 = '#1c1318
       fleck.setMorphAt(i, dummy);
     }
     return { body, wings, eye, fleck, dummy, bodyGeo, wingGeo, eyeGeo, fleckGeo, bodyMat, wingMat, eyeMat, fleckMat };
-  }, [count, size, fog, color2, ambient, tone]);
+  }, [count, size, fog, color2, ambient, tone, crack]);
   useLayoutEffect(
     () => () => {
       for (const m of [built.body, built.wings, built.eye, built.fleck]) m.dispose();
@@ -422,10 +474,12 @@ export interface BatBurstProps {
   /** BatSwarm's ambient share and paint brightness (on the desk: ambient 0.25, tone 0.6, so they read as silhouettes) */
   ambient?: number;
   tone?: number;
+  /** the book's crack light on them (BatSwarm `crack`; the burst is the book's: on by default) */
+  crack?: number;
 }
 
 /** Each burst bat's state at a frame. */
-export function burstStates(f: number, o: Required<Omit<BatBurstProps, 'f' | 'fog' | 'ambient' | 'tone'>>): BatState[] {
+export function burstStates(f: number, o: Required<Omit<BatBurstProps, 'f' | 'fog' | 'ambient' | 'tone' | 'crack'>>): BatState[] {
   const { start, origin, dir, count, seed, size, gap, speed, scatter, rise, stagger, life } = o;
   const d0 = new Vector3(...dir).normalize();
   const across = new Vector3().crossVectors(d0, UP);
@@ -474,9 +528,9 @@ export function burstStates(f: number, o: Required<Omit<BatBurstProps, 'f' | 'fo
 }
 
 /** Bats squeezing out of a gap and scattering (the film's opening). */
-export function BatBurst({ f, start, origin, dir, count = 10, seed = 7, size = 0.5, gap = 0.6, speed = 3.0, scatter = 0.55, rise = 1.0, stagger = 20, life = 2.8, eyes = true, fog = 0.25, ambient = 1, tone = 1 }: BatBurstProps) {
+export function BatBurst({ f, start, origin, dir, count = 10, seed = 7, size = 0.5, gap = 0.6, speed = 3.0, scatter = 0.55, rise = 1.0, stagger = 20, life = 2.8, eyes = true, fog = 0.25, ambient = 1, tone = 1, crack = 1 }: BatBurstProps) {
   const [ox, oy, oz] = origin;
   const [dx, dy, dz] = dir;
   const states = useMemo(() => burstStates(f, { start, origin: [ox, oy, oz], dir: [dx, dy, dz], count, seed, size, gap, speed, scatter, rise, stagger, life, eyes }), [f, start, ox, oy, oz, dx, dy, dz, count, seed, size, gap, speed, scatter, rise, stagger, life, eyes]);
-  return <BatSwarm states={states} size={size} eyes={eyes} fog={fog} color2="#0e0a0c" ambient={ambient} tone={tone} />;
+  return <BatSwarm states={states} size={size} eyes={eyes} fog={fog} color2="#0e0a0c" ambient={ambient} tone={tone} crack={crack} />;
 }

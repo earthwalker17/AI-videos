@@ -8,9 +8,11 @@
  * team), the links lead nowhere.
  *
  * It is a printed card in the world, not a screenshot: the page is the gift's deckled paper (face
- * A's stock: grain, fibres, a browned edge, the transformation card's slat joins showing in its
- * margin only), the white card on it carries a faint shadow and the same grain, and the light of
- * the door yard falls across both (lighter at the upper left, the lantern's side). The 封号 seal is
+ * A's stock, pale as the email's page: a little grain, fibres, the deckle and a faint browning
+ * just inside it), the white card on it carries a faint shadow and the same grain, and the beat's
+ * cold light falls across both (the ghost's, from above). The words come in two inks: the read
+ * path ("Hello,", the punch line, "Happy Halloween!", the Appeal tab) in the dark ink, the prop
+ * text round it a lighter grey, so the eye drops from one bold line to the next. The 封号 seal is
  * a stamp pressed into the card: ink multiplied into the paper, the characters cut white (白文),
  * a cut ring inside its ragged edge, speckled where the ink did not take.
  *
@@ -32,13 +34,14 @@ export const EMAIL = {
   margin: 0.042,
   /** the words' inset from the face's left and right edges (the margin and the card's padding); the Appeal tab's right edge */
   pad: 0.142,
-  page: '#f1ebdd',
-  card: '#fcfbf7',
-  border: '#e0d8c8',
+  page: '#f8f5ee',
+  card: '#fdfcf9',
+  border: '#ddd8cf',
   /** the ink is neutral grey: the DOM words are drawn through a grayscale filter (no LCD fringes), so the canvas uses the same greys */
   ink: '#262626',
-  body: '#363636',
-  link: '#363636',
+  /** the prop text round the read path (its rows 0, 1 and 3, the sign-off): lighter, so the bold lines lead */
+  body: '#727272',
+  link: '#727272',
   tabFill: '#2a2a2a',
   tabInk: '#f8f8f8',
   radius: 0.03,
@@ -47,8 +50,8 @@ export const EMAIL = {
   hello: { top: 0.262, size: 0.052 },
   /** the paragraph: rows `size × lead` apart from `top` (a row may set its own, larger, type) */
   para: { top: 0.335, size: 0.044, lead: 1.56 },
-  /** the sign-off: Regards on the row after the paragraph, the team `gap` rows further down */
-  regards: { size: 0.044, gap: 0.45 },
+  /** the sign-off: Regards a paragraph's gap (`after` rows) under the paragraph, the team `gap` rows under Regards */
+  regards: { size: 0.044, after: 0.42, gap: 0.3 },
   tab: { size: 0.05, padX: 0.032, padY: 0.014, radius: 0.016 },
   seal: { size: 0.2, right: 0.142, top: 0.095 },
 } as const;
@@ -69,9 +72,10 @@ export const PARAGRAPH: Line[] = [
   { runs: [{ t: 'Our spirits sensed suspicious signals haunting' }], at: 0 },
   { runs: [{ t: 'your account, against our ' }, { t: 'Trick-or-Treat Policy', u: true }, { t: '.' }], at: 0.95 },
   // a paragraph's air either side of the punch line
-  { runs: [{ t: 'Your Claude account has been buried.', b: true }], size: 0.054, at: 2.2 },
-  { runs: [{ t: 'To appeal, ' }, { t: 'knock three times', u: true }, { t: ' at midnight.' }], at: 3.4 },
-  { runs: [{ t: 'Happy Halloween!', b: true }], size: 0.052, at: 4.35 },
+  { runs: [{ t: 'Your Claude account has been buried.', b: true }], size: 0.054, at: 2.0 },
+  { runs: [{ t: 'To appeal, ' }, { t: 'knock three times', u: true }, { t: ' at midnight.' }], at: 3.19 },
+  // (its row ends a hair above the five rows the Appeal tab sits under: the tab clears its descenders)
+  { runs: [{ t: 'Happy Halloween!', b: true }], size: 0.052, at: 4.1 },
 ];
 export const SIGN_OFF = ['Regards', 'The Graveyard Shift'] as const;
 /**
@@ -85,21 +89,25 @@ export const READ_PATH = 'Hello, Your Claude account has been buried. Happy Hall
  * Where things sit on a face `h` px tall (CSS px for the DOM card, canvas px for face B): the
  * words' left edge, the paragraph's row pitch and bottom, the sign-off's rows, and the Appeal
  * tab's top and right edge (its right edge `right` px in from the face's right edge). OverlayV2's
- * bat takes the tab from here: its top is EMAIL.para.top + rows × size × lead + 0.02 (h), its
- * right edge EMAIL.pad (h) in from the face's right, its width about TAB_W (h).
+ * bat takes the tab from here (`tab`): its top is EMAIL.para.top + rows × size × lead + 0.02 (h),
+ * its right edge EMAIL.pad (h) in from the face's right, its width about TAB_W (h). The sign-off
+ * stands a paragraph's gap under the paragraph's last row (`rowsBottom`, where that row's box
+ * ends), the team the same gap under Regards, as the email spaces them.
  */
 export function emailLayout(h: number) {
   const L = EMAIL;
   const pitch = L.para.size * L.para.lead * h;
   const paraBottom = L.para.top * h + PARAGRAPH.length * pitch;
-  const signTop = paraBottom + 0.02 * h;
+  const rowsBottom = L.para.top * h + Math.max(...PARAGRAPH.map((l, i) => (l.at ?? i) + 1)) * pitch;
+  const signTop = rowsBottom + L.regards.after * pitch;
   return {
     left: L.pad * h,
     pitch,
     paraBottom,
+    rowsBottom,
     signTop,
     teamTop: signTop + (1 + L.regards.gap) * pitch,
-    tab: { top: signTop, right: L.pad * h },
+    tab: { top: paraBottom + 0.02 * h, right: L.pad * h },
   };
 }
 /** The Appeal tab's width (fractions of the face's height), as Inter and Noto Serif SC set it (measured in the Email lookdev). */
@@ -108,10 +116,14 @@ export const TAB_W = 0.37;
 // ---- the mark ---------------------------------------------------------------------------------
 
 const CORN = ['#fff4d6', '#f19a2a', '#f7c548'] as const;
+/** the rays' outline (their white tips read against the white card), and the face's scale about the centre (the rays lead) */
+const RAY_LINE = { color: '#c8641e', width: 1.5 } as const;
+const FACE_SCALE = 0.76;
 
-/** Our own Halloween mark as SVG markup data: eight candy-corn rays round a jack-o'-lantern. */
-export function markPaths(): { rays: { d: string; fill: string }[]; face: { d: string; fill: string }[] } {
+/** Our own Halloween mark as SVG markup data: eight candy-corn rays round a jack-o'-lantern (the face drawn at FACE_SCALE about 50 50, the rays' outlines stroked RAY_LINE). */
+export function markPaths(): { rays: { d: string; fill: string }[]; face: { d: string; fill: string }[]; outlines: string[] } {
   const rays: { d: string; fill: string }[] = [];
+  const outlines: string[] = [];
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + (i % 2 ? 0.12 : -0.05);
     const len = i % 2 ? 44 : 48;
@@ -121,13 +133,15 @@ export function markPaths(): { rays: { d: string; fill: string }[]; face: { d: s
       const [a1, a2, b2, b1] = [p(r0, -w0), p(r0, w0), p(r1, w1), p(r1, -w1)];
       return `M${a1[0].toFixed(1)} ${a1[1].toFixed(1)}L${a2[0].toFixed(1)} ${a2[1].toFixed(1)}L${b2[0].toFixed(1)} ${b2[1].toFixed(1)}L${b1[0].toFixed(1)} ${b1[1].toFixed(1)}Z`;
     };
-    const r0 = 22;
+    const r0 = 17;
     const r3 = len;
     const r1 = r0 + (r3 - r0) * 0.38;
     const r2 = r0 + (r3 - r0) * 0.72;
     rays.push({ d: band(r0, r1, 8.6, 6.6), fill: CORN[2] });
     rays.push({ d: band(r1, r2, 6.6, 3.9), fill: CORN[1] });
     rays.push({ d: band(r2, r3, 3.9, 0.6), fill: CORN[0] });
+    // the whole ray's outline (its base to its tip)
+    outlines.push(band(r0, r3, 8.6, 0.6));
   }
   const face = [
     { d: 'M50 30 C63 30 72 39 72 51 C72 63 63 71 50 71 C37 71 28 63 28 51 C28 39 37 30 50 30Z', fill: '#e8862e' },
@@ -135,19 +149,24 @@ export function markPaths(): { rays: { d: string; fill: string }[]; face: { d: s
     { d: 'M37 46 L44 42 L44 50Z M63 46 L56 42 L56 50Z', fill: '#2c1a10' },
     { d: 'M36 56 L41 59 L45 56 L50 60 L55 56 L59 59 L64 56 C61 64 56 67 50 67 C44 67 39 64 36 56Z', fill: '#2c1a10' },
   ];
-  return { rays, face };
+  return { rays, face, outlines };
 }
 
 export function Mark({ size }: { size: number }) {
-  const { rays, face } = markPaths();
+  const { rays, face, outlines } = markPaths();
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" style={{ display: 'block' }}>
       {rays.map((r, i) => (
         <path key={`r${i}`} d={r.d} fill={r.fill} />
       ))}
-      {face.map((r, i) => (
-        <path key={`f${i}`} d={r.d} fill={r.fill} />
+      {outlines.map((d, i) => (
+        <path key={`o${i}`} d={d} fill="none" stroke={RAY_LINE.color} strokeWidth={RAY_LINE.width} strokeLinejoin="round" />
       ))}
+      <g transform={`translate(50 50) scale(${FACE_SCALE}) translate(-50 -50)`}>
+        {face.map((r, i) => (
+          <path key={`f${i}`} d={r.d} fill={r.fill} />
+        ))}
+      </g>
     </svg>
   );
 }
@@ -189,12 +208,13 @@ function sealSpecks(): string {
   const out: string[] = [];
   const dot = (x: number, y: number, rr: number) => out.push(`M${(x - rr).toFixed(2)} ${y.toFixed(2)}a${rr.toFixed(2)} ${rr.toFixed(2)} 0 1 0 ${(2 * rr).toFixed(2)} 0a${rr.toFixed(2)} ${rr.toFixed(2)} 0 1 0 ${(-2 * rr).toFixed(2)} 0Z`);
   for (let i = 0; i < 90; i++) dot(3 + 94 * rand(5160, 'x', i), 3 + 94 * rand(5160, 'y', i), 0.35 + 1.1 * rand(5160, 'r', i) ** 2);
+  // the larger misses bite the outer edge (never on the cut ring at 7.5: there they read as beads strung on it)
   for (let i = 0; i < 9; i++) {
     const side = Math.floor(rand(5161, 's', i) * 4);
     const t = 8 + 84 * rand(5161, 't', i);
-    const d = 2 + 5 * rand(5161, 'd', i);
+    const d = 0.6 + 2.6 * rand(5161, 'd', i);
     const [x, y] = side === 0 ? [t, d] : side === 1 ? [100 - d, t] : side === 2 ? [t, 100 - d] : [d, t];
-    dot(x, y, 1.2 + 1.8 * rand(5161, 'r', i));
+    dot(x, y, 0.8 + 0.8 * rand(5161, 'r', i));
   }
   return out.join('');
 }
@@ -210,9 +230,6 @@ function sealPaths() {
 }
 
 // ---- the paper: page, card, mark (one canvas drawing for both renderings) --------------------------
-
-/** the slats of the 3D letter (world/Letter2 LETTER2.slats): their joins show in the paper's margin */
-const SLATS = 8;
 
 let grainCache: { grain: HTMLCanvasElement; mottle: HTMLCanvasElement } | null = null;
 /** The paper's grain (fine) and mottle (soft blotches) as two small canvases, scaled up onto any face size. */
@@ -282,10 +299,11 @@ function deckle(g: CanvasRenderingContext2D, W: number, H: number) {
 }
 
 /**
- * The face's paper at W × H px (no words): the deckled page with its grain, fibres and browned
- * edge, the slat joins in its margin, the white card with its shadow, border and grain, the mark,
- * and the door yard's light across it all. Resolution-free (every size and position in fractions
- * of H), so the DOM card's canvas and face B's 2048-px canvas show the same paper.
+ * The face's paper at W × H px (no words): the deckled page with its grain, fibres and faint
+ * browning, the white card with its shadow, border and grain, the mark, and the beat's cold light
+ * across it all. Resolution-free (every size and position in fractions of H), so the DOM card's
+ * canvas and face B's 2048-px canvas show the same paper. (No slat joins painted in the margin:
+ * the 3D letter's slats show their own; on the DOM card they read as ruler ticks.)
  */
 export function drawEmailPaper(g: CanvasRenderingContext2D, W: number, H: number): void {
   const L = EMAIL;
@@ -300,8 +318,9 @@ export function drawEmailPaper(g: CanvasRenderingContext2D, W: number, H: number
   g.fillRect(0, 0, W, H);
   g.imageSmoothingEnabled = true;
   g.globalCompositeOperation = 'multiply';
+  g.globalAlpha = 0.4;
   g.drawImage(mottle, 0, 0, W, H);
-  g.globalAlpha = 0.55;
+  g.globalAlpha = 0.4;
   g.drawImage(grain, 0, 0, W, H);
   g.globalAlpha = 1;
   // fibres: short curling hairs in the stock, a shade darker or lighter
@@ -312,7 +331,7 @@ export function drawEmailPaper(g: CanvasRenderingContext2D, W: number, H: number
     const y = rand(5190, 'y', i) * H;
     const a = rand(5190, 'a', i) * Math.PI * 2;
     const l = px(0.006 + 0.016 * rand(5190, 'l', i));
-    g.strokeStyle = rand(5190, 'c', i) < 0.55 ? 'rgba(120,92,52,0.10)' : 'rgba(255,253,244,0.16)';
+    g.strokeStyle = rand(5190, 'c', i) < 0.55 ? 'rgba(120,100,72,0.07)' : 'rgba(255,255,250,0.16)';
     g.beginPath();
     g.moveTo(x, y);
     g.quadraticCurveTo(x + Math.cos(a) * l * 0.5 + px(0.002), y + Math.sin(a) * l * 0.5 - px(0.0015), x + Math.cos(a) * l, y + Math.sin(a) * l);
@@ -322,8 +341,8 @@ export function drawEmailPaper(g: CanvasRenderingContext2D, W: number, H: number
   const e = px(0.03);
   const edge = (x0: number, y0: number, x1: number, y1: number) => {
     const lg = g.createLinearGradient(x0, y0, x1, y1);
-    lg.addColorStop(0, 'rgba(128,88,40,0.22)');
-    lg.addColorStop(1, 'rgba(128,88,40,0)');
+    lg.addColorStop(0, 'rgba(128,96,56,0.08)');
+    lg.addColorStop(1, 'rgba(128,96,56,0)');
     return lg;
   };
   g.fillStyle = edge(0, 0, 0, e);
@@ -334,20 +353,7 @@ export function drawEmailPaper(g: CanvasRenderingContext2D, W: number, H: number
   g.fillRect(0, 0, e, H);
   g.fillStyle = edge(W, 0, W - e, 0);
   g.fillRect(W - e, 0, e, H);
-  // the slats' joins: hairline creases across the margin only (the card is one printed piece over them)
   const m = px(L.margin);
-  for (let k = 1; k < SLATS; k++) {
-    const y = (k * H) / SLATS;
-    for (const [x0, x1] of [
-      [0, m + px(0.004)],
-      [W - m - px(0.004), W],
-    ]) {
-      g.fillStyle = 'rgba(92,66,36,0.34)';
-      g.fillRect(x0, y - px(0.0012), x1 - x0, px(0.0016));
-      g.fillStyle = 'rgba(255,250,236,0.28)';
-      g.fillRect(x0, y + px(0.0006), x1 - x0, px(0.0012));
-    }
-  }
   // the card: a soft shadow on the page, then the white card with a hairline border
   const cx = m;
   const cy = m;
@@ -355,7 +361,7 @@ export function drawEmailPaper(g: CanvasRenderingContext2D, W: number, H: number
   const ch = H - 2 * m;
   const r = px(L.radius);
   g.save();
-  g.shadowColor = 'rgba(70,48,24,0.32)';
+  g.shadowColor = 'rgba(60,56,52,0.22)';
   g.shadowBlur = px(0.014);
   g.shadowOffsetY = px(0.005);
   roundRect(g, cx, cy, cw, ch, r);
@@ -382,21 +388,33 @@ export function drawEmailPaper(g: CanvasRenderingContext2D, W: number, H: number
   g.stroke();
   // the mark
   const ms = px(L.mark.size);
-  const { rays, face } = markPaths();
+  const { rays, face, outlines } = markPaths();
   g.save();
   g.translate(px(L.pad), px(L.mark.top));
   g.scale(ms / 100, ms / 100);
-  for (const p of [...rays, ...face]) {
+  for (const p of rays) {
+    g.fillStyle = p.fill;
+    g.fill(new Path2D(p.d));
+  }
+  g.strokeStyle = RAY_LINE.color;
+  g.lineWidth = RAY_LINE.width;
+  g.lineJoin = 'round';
+  for (const d of outlines) g.stroke(new Path2D(d));
+  g.translate(50, 50);
+  g.scale(FACE_SCALE, FACE_SCALE);
+  g.translate(-50, -50);
+  for (const p of face) {
     g.fillStyle = p.fill;
     g.fill(new Path2D(p.d));
   }
   g.restore();
-  // the door yard's light across the face: from the upper left (the lantern), falling off to the lower right
+  // the beat's cold light across the face: from above (the ghost over the card), a cool wash
+  // falling off toward the lower corners (the light has gone cold: storyboard row 7)
   g.globalCompositeOperation = 'multiply';
-  const lg = g.createRadialGradient(W * 0.28, H * 0.22, H * 0.1, W * 0.45, H * 0.4, W * 0.85);
-  lg.addColorStop(0, '#ffffff');
-  lg.addColorStop(0.6, '#faf8f5');
-  lg.addColorStop(1, '#ebe6dd');
+  const lg = g.createRadialGradient(W * 0.45, -H * 0.1, H * 0.15, W * 0.45, H * 0.3, W * 0.85);
+  lg.addColorStop(0, '#fbfdfd');
+  lg.addColorStop(0.55, '#f3f7f7');
+  lg.addColorStop(1, '#e4e9ea');
   g.fillStyle = lg;
   g.fillRect(0, 0, W, H);
   g.restore();
@@ -481,7 +499,7 @@ export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number,
   g.fillStyle = L.ink;
   g.font = `400 ${ns}px ${fonts.serif}`;
   fillTextChecked(g, 'Clawd', lay.left + ms + px(0.018), baseline(g, px(L.mark.top) + (ms - ns) / 2, ns));
-  g.fillStyle = L.body;
+  g.fillStyle = L.ink;
   const hs = px(L.hello.size);
   g.font = `400 ${hs}px ${fonts.sans}`;
   fillTextChecked(g, 'Hello,', lay.left, baseline(g, px(L.hello.top), hs * 1.2));
@@ -530,7 +548,7 @@ export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number,
     const by = lay.tab.top + o.tab.dy;
     // the line box: the sans strut's and the CJK span's boxes together (Noto Serif SC reaches higher)
     const ra = lineReach(g, fs * 1.1);
-    g.font = `600 ${fs}px ${fonts.cjk}`;
+    g.font = `800 ${fs}px ${fonts.cjk}`;
     const rb = lineReach(g, fs * 1.1);
     const above = Math.max(ra.above, rb.above);
     const ty = Math.round(by + ph + above);
@@ -544,7 +562,7 @@ export function drawEmailCard(g: CanvasRenderingContext2D, W: number, H: number,
     g.fillStyle = L.tabInk;
     g.font = `500 ${fs}px ${fonts.sans}`;
     fillTextChecked(g, a, bx + pw, ty);
-    g.font = `600 ${fs}px ${fonts.cjk}`;
+    g.font = `800 ${fs}px ${fonts.cjk}`;
     fillTextChecked(g, '申诉', bx + pw + wa, ty);
   }
   if (o.seal) {
@@ -577,8 +595,8 @@ export interface EmailCardProps {
   width: number;
   height: number;
   fonts: EmailFonts;
-  /** the Appeal tab's offset (px) as the bat carries it off; null hides it */
-  tab?: { dx: number; dy: number } | null;
+  /** the Appeal tab's offset (px) as the bat carries it off, its swing (degrees) and how far it is lifted off the paper (0..1: its shadow); null hides it */
+  tab?: { dx: number; dy: number; rot?: number; lift?: number } | null;
   /** the 封号 seal: null before it lands; scale (1.5 → 1 as it thunks), shake (px) */
   seal?: { scale: number; shake: number } | null;
   style?: CSSProperties;
@@ -633,7 +651,7 @@ export function EmailCard({ width: w, height: h, fonts, tab = { dx: 0, dy: 0 }, 
       {/* the words: grayscale antialiasing only (a filtered layer gets no LCD subpixel text), as the canvas face draws them */}
       <div style={{ position: 'absolute', left: 0, top: 0, width: w, height: h, filter: 'grayscale(1)' }}>
         <div style={{ position: 'absolute', left: lay.left + ms + px(0.018), top: px(L.mark.top) + (ms - ns) / 2, fontFamily: fonts.serif, fontSize: ns, color: L.ink, lineHeight: 1, whiteSpace: 'pre' }}>Clawd</div>
-        <div style={{ position: 'absolute', left: lay.left, top: px(L.hello.top), fontSize: px(L.hello.size), lineHeight: 1.2, whiteSpace: 'pre' }}>Hello,</div>
+        <div style={{ position: 'absolute', left: lay.left, top: px(L.hello.top), fontSize: px(L.hello.size), color: L.ink, lineHeight: 1.2, whiteSpace: 'pre' }}>Hello,</div>
         {PARAGRAPH.map((line, i) => (
           <div key={i} style={{ position: 'absolute', left: lay.left, top: px(L.para.top) + (line.at ?? i) * lay.pitch, fontSize: px(line.size ?? L.para.size), lineHeight: `${lay.pitch}px`, whiteSpace: 'pre' }}>
             {line.runs.map((r, k) => (
@@ -646,8 +664,26 @@ export function EmailCard({ width: w, height: h, fonts, tab = { dx: 0, dy: 0 }, 
         <div style={{ position: 'absolute', left: lay.left, top: lay.signTop, fontSize: px(L.regards.size), lineHeight: `${lay.pitch}px`, whiteSpace: 'pre' }}>{SIGN_OFF[0]}</div>
         <div style={{ position: 'absolute', left: lay.left, top: lay.teamTop, fontSize: px(L.regards.size), lineHeight: `${lay.pitch}px`, whiteSpace: 'pre' }}>{SIGN_OFF[1]}</div>
         {tab && (
-          <div style={{ position: 'absolute', right: lay.tab.right - tab.dx, top: lay.tab.top + tab.dy, padding: `${px(T.padY)}px ${px(T.padX)}px`, borderRadius: px(T.radius), background: L.tabFill, color: L.tabInk, fontSize: px(T.size), fontWeight: 500, lineHeight: 1.1, whiteSpace: 'pre' }}>
-            Appeal · <span style={{ fontFamily: fonts.cjk, fontWeight: 600 }}>申诉</span>
+          <div
+            style={{
+              position: 'absolute',
+              right: lay.tab.right - tab.dx,
+              top: lay.tab.top + tab.dy,
+              padding: `${px(T.padY)}px ${px(T.padX)}px`,
+              borderRadius: px(T.radius),
+              background: L.tabFill,
+              color: L.tabInk,
+              fontSize: px(T.size),
+              fontWeight: 500,
+              lineHeight: 1.1,
+              whiteSpace: 'pre',
+              // carried off: it swings from the bat's claws at its top edge, its shadow on the paper below
+              transformOrigin: '50% 0%',
+              transform: tab.rot ? `rotate(${tab.rot.toFixed(2)}deg)` : undefined,
+              boxShadow: tab.lift ? `0 ${px(0.012 * tab.lift).toFixed(1)}px ${px(0.022 * tab.lift).toFixed(1)}px rgba(0,0,0,${(0.35 * tab.lift).toFixed(3)})` : undefined,
+            }}
+          >
+            Appeal · <span style={{ fontFamily: fonts.cjk, fontWeight: 800 }}>申诉</span>
           </div>
         )}
       </div>

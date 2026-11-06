@@ -169,6 +169,7 @@ uniform float uRoomMoonMul;
 uniform float uRoomEnvMul;
 uniform float uRoomGlitter;
 uniform float uRoomCrackMul;
+uniform float uRoomHemi;
 float roomBoxD(vec3 p, vec3 c, vec3 h) {
   vec3 q = abs(p - c) - h;
   return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
@@ -214,6 +215,29 @@ float roomSoftLobe(vec2 p) {
   vec2 q = vec2(p.x / 7.5, (p.y + 1.0) / 11.0);
   return exp(-0.5 * dot(q, q));
 }
+// the back window as a metal sees it: the moonlit glass (pale: the moon's sky, the lightning) where a
+// ray from P along R meets the window's opening in the back wall, blurred by the roughness over the
+// distance it travels; a broad blur spreads the same light thinner (the window's area over the lobe's)
+vec3 roomWinRefl(vec3 P, vec3 R, float rough) {
+  if (R.z > -0.05) return vec3(0.0);
+  float t = (${WALL.z.toFixed(3)} - P.z) / R.z;
+  vec2 q = P.xy + R.xy * t;
+  float blur = 0.25 + t * rough * rough * 1.1;
+  const float X0 = ${BACK_WIN.x0.toFixed(3)};
+  const float X1 = ${BACK_WIN.x1.toFixed(3)};
+  const float SILL = ${BACK_WIN.sill.toFixed(3)};
+  const float SPRING = ${BACK_WIN.spring.toFixed(3)};
+  float w = X1 - X0;
+  float cx = 0.5 * (X0 + X1);
+  float rect = max(abs(q.x - cx) - 0.5 * w, max(SILL - q.y, q.y - SPRING));
+  float arch = max(max(length(q - vec2(X0, SPRING)) - w, length(q - vec2(X1, SPRING)) - w), SPRING - q.y);
+  float a = smoothstep(blur, -blur, min(rect, arch));
+  // the mullion and the transom
+  float bars = (1.0 - 0.6 * (1.0 - smoothstep(0.17, 0.17 + blur, abs(q.x - cx)))) * (1.0 - 0.6 * (1.0 - smoothstep(0.13, 0.13 + blur, abs(q.y - 3.95))));
+  float k = 140.0 / (140.0 + 12.0 * blur * blur);
+  vec3 g = mix(vec3(dot(uRoomGlass, vec3(0.2126, 0.7152, 0.0722))), uRoomGlass, 0.15);
+  return g * 1.6 * a * bars * k;
+}
 // the room as a metal sees it, along a world direction R from P: the dark, warm, candle-lit room
 // (brighter toward the horizon, where the lit desk and walls are), the flames, the windows
 vec3 roomEnv(vec3 R, vec3 P, float rough) {
@@ -233,8 +257,7 @@ vec3 roomEnv(vec3 R, vec3 P, float rough) {
   }
   // the moonlit window the cookie comes through, and the back window's sky
   env += uRoomWin * 0.012 * pow(max(dot(R, uRoomWinL), 0.0), clamp(sharp * 0.5, 2.0, 400.0));
-  vec3 g = normalize(uRoomGlassC - P);
-  env += uRoomGlass * 0.12 * pow(max(dot(R, g), 0.0), clamp(sharp * 0.25, 2.0, 120.0));
+  env += roomWinRefl(P, R, rough);
   return env;
 }
 // glitter: the foil's crumpled facets, each a tiny mirror turned a little its own way (cells in world space)
@@ -302,9 +325,11 @@ const ROOM_MAIN = /* glsl */ `
   vec3 rNg = normalize(vSbNormalW) * faceDirection;
   vec3 rV = normalize(cameraPosition - rP);
   float book = 1.0 - uRoomSelf;
-  // three's own lights (the night rig's moon and fill) on this surface: the walls take little of them
+  // three's own lights (the night rig's moon and fill) on this surface: the walls take little of them,
+  // nor much of its sky (the hemisphere's cool fill hazed the room: no true blacks)
   reflectedLight.directDiffuse *= uRoomMoonMul;
   reflectedLight.directSpecular *= uRoomMoonMul;
+  irradiance *= uRoomHemi;
   // the window: its cookie and its soft lobe (the sky through it), one shadow march for both
   if (uRoomWinMul > 0.0) {
     float ndl = dot(rN, uRoomWinL);
@@ -429,11 +454,13 @@ export interface RoomPaint extends Paint {
   glitter?: number;
   /** the crack's glow on this surface (0: none) */
   crack?: number;
+  /** the night rig's sky (its hemisphere light) on this surface (1: all) */
+  hemi?: number;
 }
 
 /** A storybook material lit by the room: the window's projected moonlight and the candles. */
 export function roomMaterial(o: RoomPaint = {}): MeshStandardMaterial {
-  const { window = 1, candle = 1, ao = 0, self = false, ignore = -1, moon = 1, env = 0, glitter = 0, crack = 0, ...paint } = o;
+  const { window = 1, candle = 1, ao = 0, self = false, ignore = -1, moon = 1, env = 0, glitter = 0, crack = 0, hemi = 1, ...paint } = o;
   // the room is outside the story: its surfaces never take the storybook fog (the crane into the book has it on)
   const m = storybookMaterial({ fog: 0, ...paint });
   const base = m.customProgramCacheKey();
@@ -447,6 +474,7 @@ export function roomMaterial(o: RoomPaint = {}): MeshStandardMaterial {
     uRoomEnvMul: { value: env },
     uRoomGlitter: { value: glitter },
     uRoomCrackMul: { value: crack },
+    uRoomHemi: { value: hemi },
   };
   m.userData.roomKey = `room:${base}`;
   m.onBeforeCompile = injectRoom;
@@ -1280,7 +1308,8 @@ function leafGeometry(l: LeafSpot): BufferGeometry {
 
 /** the air the beam is drawn in (centre, half size): over the desk, under the window */
 const BEAM_BOX = { c: new Vector3(-2, 9, 1), h: new Vector3(23, 9, 17) };
-const BEAM_DENSITY = 0.003;
+/** (0.003 hazed the whole room: no true blacks in its corners) */
+const BEAM_DENSITY = 0.0019;
 
 const BEAM_VERT = /* glsl */ `
 varying vec3 vWorld;
@@ -1347,7 +1376,7 @@ void main() {
     if (beamBook(p, uRoomWinL) < 1e8) continue;
     float dn = aivFbm3(p * 0.38 + vec3(uSbTime * 0.06, -uSbTime * 0.035, uSbTime * 0.025));
     // motes in clear air: next to nothing between them (a floor of haze veiled the whole room)
-    float dust = 0.02 + 2.4 * dn * dn;
+    float dust = 0.008 + 2.6 * dn * dn;
     acc += m * dust * exp(-p.y * 0.07) * dt;
   }
   gl_FragColor = vec4(uRoomWin * acc * uBeam, 1.0);
@@ -1822,7 +1851,7 @@ export function Desk2({ f, props = true, beam = 1 }: Desk2Props) {
     const stone = stoneArt();
     const glassTex = glassArt();
     const feather = featherArt();
-    const wood = roomMaterial({ kind: 'plain', map: art.map, bumpMap: art.orm, bumpScale: 1.2, roughnessMap: art.orm, roughness: 1, vertexColors: true, breakup: 0.16, scale: 0.9, color2: '#2a1a10', rim: 0.12, ambient: 0.36, ao: 1 });
+    const wood = roomMaterial({ kind: 'plain', map: art.map, bumpMap: art.orm, bumpScale: 1.2, roughnessMap: art.orm, roughness: 1, vertexColors: true, breakup: 0.16, scale: 0.9, color2: '#2a1a10', rim: 0.12, ambient: 0.3, ao: 1, hemi: 0.6 });
     // old ivory wax, yellowed, glowing a little with the flame through it (no cool rim: it read blue)
     const wax = roomMaterial({ kind: 'plain', color: '#efd6a8', color2: '#c49a62', vertexColors: true, breakup: 0.12, scale: 0.08, roughness: 0.42, rim: 0.08, ignore: 0, env: 0.6, ambient: 0.55, moon: 0.5, emissive: '#ff9a4c', emissiveIntensity: 0.11 });
     const brass = roomMaterial({ kind: 'iron', color: '#d8b050', color2: '#5a4420', vertexColors: true, metalness: 1, roughness: 0.32, breakup: 0.3, scale: 0.06, bump: 0.2, rim: 0.25, ignore: 0, env: 1 });
@@ -1830,8 +1859,8 @@ export function Desk2({ f, props = true, beam = 1 }: Desk2Props) {
     const quill = roomMaterial({ kind: 'plain', map: feather, alphaTest: 0.45, color: '#ffffff', color2: '#cfc4ae', vertexColors: true, side: DoubleSide, roughness: 0.72, breakup: 0.05, scale: 0.05, rim: 0.1, ignore: 3, ambient: 0.6 });
     const leaf = roomMaterial({ kind: 'plain', color: '#ffffff', color2: '#3a2210', vertexColors: true, side: DoubleSide, roughness: 0.8, breakup: 0.22, scale: 0.08, rim: 0.2, ambient: 0.7 });
     // the room: stone that takes little of the night rig's moon (it is outside), the candle's warmth
-    const walls = roomMaterial({ kind: 'stone', map: stone.map, bumpMap: stone.bump, bumpScale: 2.5, color: '#ffffff', color2: '#2c2a2c', vertexColors: true, breakup: 0.18, scale: 1.2, bump: 0.3, roughness: 0.95, rim: 0.1, ambient: 0.24, moon: 0.08 });
-    const shelf = roomMaterial({ kind: 'cloth', color: '#ffffff', color2: '#201418', vertexColors: true, breakup: 0.14, scale: 0.25, roughness: 0.8, rim: 0.2, ambient: 0.2, moon: 0.12, env: 0.5 });
+    const walls = roomMaterial({ kind: 'stone', map: stone.map, bumpMap: stone.bump, bumpScale: 2.5, color: '#ffffff', color2: '#2c2a2c', vertexColors: true, breakup: 0.18, scale: 1.2, bump: 0.3, roughness: 0.95, rim: 0.1, ambient: 0.14, moon: 0.08, hemi: 0.45 });
+    const shelf = roomMaterial({ kind: 'cloth', color: '#ffffff', color2: '#201418', vertexColors: true, breakup: 0.14, scale: 0.25, roughness: 0.8, rim: 0.2, ambient: 0.12, moon: 0.12, env: 0.5, hemi: 0.45 });
     const pane = new MeshBasicMaterial({ map: glassTex, color: new Color(GLASS_GAIN, GLASS_GAIN, GLASS_GAIN), fog: false });
     const flame = new ShaderMaterial({ vertexShader: FLAME_VERT, fragmentShader: FLAME_FRAG, uniforms: { uLen: { value: 0.46 }, uWidth: { value: 0.2 }, uSway: { value: 0 }, uGain: { value: 6 } }, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false });
     const halo = new ShaderMaterial({ vertexShader: HALO_VERT, fragmentShader: HALO_FRAG, uniforms: { uSize: { value: 1.6 }, uGain: { value: 0.6 }, uColor: { value: new Color('#ff9a4a') } }, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false });

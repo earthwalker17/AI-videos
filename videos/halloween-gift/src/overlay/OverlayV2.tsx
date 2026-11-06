@@ -6,6 +6,7 @@
  * planform) making off with the Appeal button; and the end card with its notice.
  */
 import { progress } from '@aiv/core';
+import { useLayoutEffect, useRef } from 'react';
 import { AbsoluteFill, useVideoConfig } from 'remotion';
 import { at, cues, FPS, WORDS } from '../cues.ts';
 import { APPEAL_SNATCH } from '../film/beats.ts';
@@ -13,7 +14,7 @@ import { journeyAt } from '../film/journey.ts';
 import type { FilmFonts } from '../look/fonts.ts';
 import { letter2Corners } from '../world/Letter2.tsx';
 import { BatSvg } from './BatSvg.tsx';
-import { EMAIL, EmailCard, PARAGRAPH } from './EmailCard.tsx';
+import { EmailCard, emailLayout, TAB_W } from './EmailCard.tsx';
 import { screenBoxAt } from './project.ts';
 
 const span = (id: string) => {
@@ -42,8 +43,51 @@ function Caption({ f, id, words, fonts }: { f: number; id: string; words: { en: 
 /** in once the last slat has flipped (film/beats.ts letterAt: at(25, 2) + 18), out onto the sealed 3D face before the letter sinks back (at(29)) */
 const EMAIL_IN = at(25, 2) + 18;
 const EMAIL_OUT = at(29) - 2;
-/** the bat takes the Appeal button on bar 27 beat 3 (film/beats.ts APPEAL_SNATCH) and carries it off down to the lower left (never across the words) */
+/**
+ * the bat takes the Appeal button on bar 27 beat 3 (film/beats.ts APPEAL_SNATCH): it swoops in
+ * from the card's blank lower right, grips the tab's top edge (its claws over it, its wings over
+ * the blank card round the tab, never across the words) and carries it off up and away to the
+ * right, between the seal and Clawd's hat, the tab swinging from its claws with the wingbeat
+ */
 const GRAB = APPEAL_SNATCH;
+
+/** a hash of a cell and a frame to 0..1 (the card's grain; deterministic, cheap enough for every cell) */
+function grainHash(x: number, y: number, f: number): number {
+  let n = (x * 374761393 + y * 668265263 + f * 2147483647) | 0;
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  n ^= n >>> 16;
+  return (n >>> 0) / 4294967296;
+}
+
+/**
+ * The film's grain over the DOM card (the post's grain is under it, in the 3D frame): a fresh
+ * cell of noise every frame, 1.5 px cells as the post's (look/NightPost), soft-light, about as
+ * strong on the card's paper as the post's on the world round it, so card and world share one texture.
+ */
+function CardGrain({ f, left, top, w, h, opacity }: { f: number; left: number; top: number; w: number; h: number; opacity: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const cw = Math.max(1, Math.ceil(w / 1.5));
+  const ch = Math.max(1, Math.ceil(h / 1.5));
+  useLayoutEffect(() => {
+    const c = ref.current;
+    const g = c?.getContext('2d');
+    if (!c || !g) return;
+    const img = g.createImageData(cw, ch);
+    const d = img.data;
+    for (let y = 0; y < ch; y++) {
+      for (let x = 0; x < cw; x++) {
+        const v = Math.round(128 + 16 * (grainHash(x, y, f) - 0.5));
+        const k = (y * cw + x) * 4;
+        d[k] = v;
+        d[k + 1] = v;
+        d[k + 2] = v;
+        d[k + 3] = 255;
+      }
+    }
+    g.putImageData(img, 0, 0);
+  }, [f, cw, ch]);
+  return <canvas ref={ref} width={cw} height={ch} style={{ position: 'absolute', left, top, width: cw * 1.5, height: ch * 1.5, imageRendering: 'pixelated', mixBlendMode: 'soft-light', opacity, pointerEvents: 'none' }} />;
+}
 
 function Email({ f, fonts }: { f: number; fonts: FilmFonts }) {
   const { width: W, height: H } = useVideoConfig();
@@ -55,25 +99,39 @@ function Email({ f, fonts }: { f: number; fonts: FilmFonts }) {
   // the seal thunks down on bar 26: from 1.5× to 1 over four frames, then a small damped shake
   const st = f - at(26);
   const seal = st < 0 ? null : { scale: st < 4 ? 1.5 - 0.5 * progress(st, 0, 4, 'outCubic') : 1, shake: st >= 4 && st < 12 ? h * 0.006 * Math.sin((st - 4) * 2.4) * (1 - (st - 4) / 8) : 0 };
-  // the Appeal button's home (EmailCard: right-aligned under the paragraph) and its way off
+  // the Appeal button's home (EmailCard emailLayout: right-aligned under the paragraph): its top
+  // edge's middle, where the bat grips it
+  const lay = emailLayout(h);
+  const homeX = box.left + w - lay.tab.right - (h * TAB_W) / 2;
+  const homeY = box.top + lay.tab.top;
+  // its way off: out to the right past the words' right edge first, then climbing away (clear of
+  // the seal above, over Clawd's hat)
   const away = progress(f, GRAB, GRAB + 30, 'inCubic');
-  const dx = -away * (box.left + w * 0.7);
-  const dy = away * (H - box.top);
-  const paraBottom = h * (EMAIL.para.top + PARAGRAPH.length * EMAIL.para.size * EMAIL.para.lead);
-  const tabX = box.left + w - h * EMAIL.pad - h * 0.12 + dx;
-  const tabY = box.top + paraBottom + h * 0.02 + dy;
-  // the bat swoops in from the lower left over twelve frames and flies off holding the button
+  const run = W - homeX + h * 0.4;
+  const dx = away * run;
+  const dy = -(away ** 2.5) * run * 0.58;
+  // the bat swoops in from the lower right over twelve frames, grips, and flies off with it
   const swoop = 1 - progress(f, GRAB - 12, GRAB, 'outCubic');
-  const batSize = h * 0.34;
-  const bx = tabX - swoop * h * 0.9;
-  const by = tabY - h * 0.06 + swoop * h * 0.35;
+  const phase = (f / FPS) * 3.5;
+  const batSize = h * 0.32;
+  const reach = 0.2;
+  // its body over the tab's top edge toward its right end (its wings over the blank card right of
+  // the words, the near wing low), its claws closing just over the edge (BatSvg `reach`)
+  const gripX = homeX + h * 0.11 + dx;
+  const gripY = homeY + dy - reach * batSize + h * 0.014;
+  const bx = gripX + swoop * h * 0.75;
+  const by = gripY + swoop * h * 0.3;
+  // lifted, the tab swings with the wingbeat (a little each way about its top edge) and casts its shadow
+  const lift = progress(f, GRAB, GRAB + 4);
+  const rot = lift * 10 * Math.sin(2 * Math.PI * phase + 0.8);
   return (
     <>
       {/* toned to face B's paper on the 3D letter (drawn at 0.88 of white, under the bloom), so the crossfade lands on the same pixels */}
-      <EmailCard width={w} height={h} fonts={fonts} tab={{ dx, dy }} seal={seal} style={{ left: box.left, top: box.top, opacity: o, filter: 'brightness(0.88)' }} />
+      <EmailCard width={w} height={h} fonts={fonts} tab={{ dx, dy, rot, lift }} seal={seal} style={{ left: box.left, top: box.top, opacity: o, filter: 'brightness(0.88)' }} />
       {f >= GRAB - 12 && f < GRAB + 30 && (
-        <BatSvg phase={(f / FPS) * 3.5} size={batSize} style={{ position: 'absolute', left: bx - batSize * 0.57, top: by - batSize * 0.355, opacity: o }} />
+        <BatSvg phase={phase} size={batSize} reach={reach} roll={16} style={{ position: 'absolute', left: bx - batSize * 0.57, top: by - batSize * 0.355, opacity: o }} />
       )}
+      <CardGrain f={f} left={box.left} top={box.top} w={w} h={h} opacity={o} />
     </>
   );
 }
