@@ -8,6 +8,7 @@ import { FILM_FRAMES } from '../cues.ts';
 import { FilmV2 } from '../film/FilmV2.tsx';
 import { Journey } from './Journey.tsx';
 import { Probe, PROBE_FRAMES } from './Probe.tsx';
+import { Thumbnail } from './Thumbnail.tsx';
 
 const probe = { component: Probe, width: 1920, height: 1080, fps: FPS, durationInFrames: PROBE_FRAMES } as const;
 
@@ -25,6 +26,10 @@ export function LookdevRoot() {
       <Composition id="Journey" component={Journey} width={1920} height={1080} fps={FPS} durationInFrames={FILM_FRAMES} />
       {/* the V2 film's picture (film frames, no leader) before it replaces V1 in Main */}
       <Composition id="FilmV2" component={FilmV2} width={1920} height={1080} fps={FPS} durationInFrames={FILM_FRAMES} />
+      {/* the YouTube thumbnail candidates: a film frame without its words, under the title */}
+      <Composition id="Thumbnail" component={Thumbnail} width={1920} height={1080} fps={FPS} durationInFrames={1} defaultProps={{ at: 236 }} />
+      <Composition id="ThumbnailHero" component={Thumbnail} width={1920} height={1080} fps={FPS} durationInFrames={1} defaultProps={{ at: 200 }} />
+      <Composition id="ThumbnailEmail" component={Thumbnail} width={1920} height={1080} fps={FPS} durationInFrames={1} defaultProps={{ at: 940, x: 0.03, y: 0.04 }} />
     </>
   );
 }

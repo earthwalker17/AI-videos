@@ -147,7 +147,8 @@ function Picture({ f, pose }: { f: number; pose: CamPose }) {
   );
 }
 
-export function FilmV2() {
+/** `overlay` false leaves out the words over the picture (the thumbnail's frames: lookdev/Thumbnail.tsx). */
+export function FilmV2({ overlay = true }: { overlay?: boolean }) {
   const f = useCurrentFrame();
   // the stage mounts only once every face is in: R3F draws when the frame changes, not when
   // `ready` does, so a text canvas drawn before would be the one in the frame (look/fonts.ts)
@@ -163,7 +164,7 @@ export function FilmV2() {
           <NightPost f={f} focus={pose.focus} {...LOOK_POST} foot={footAt(f)} paintMix={paintAt(f)} />
         </Stage3D>
       )}
-      <OverlayV2 f={f} fonts={fonts} />
+      {overlay && <OverlayV2 f={f} fonts={fonts} />}
     </AbsoluteFill>
   );
 }
