@@ -29,7 +29,8 @@ import { MOON_RADIUS, moonOnPlane } from './SkyPortal.tsx';
 /** The finish's vignette strength (FinishEffect's default; what FINISH_TINT_GLSL's callers pass). */
 export const FINISH_VIGNETTE = 0.8;
 /** The floor the finished picture sits on (sRGB hex): near-black maroon low in the frame, slate high. */
-export const FINISH_LIFT = { low: '#1a0505', high: '#131822' } as const;
+// (high lowered from #131822 in round 2: the room and the night's darks had no true blacks)
+export const FINISH_LIFT = { low: '#1a0505', high: '#0d1018' } as const;
 
 /**
  * The finish's screen-space tint at a pixel, as a multiplier (uv 0..1 from the bottom left):

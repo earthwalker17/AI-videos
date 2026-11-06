@@ -157,7 +157,9 @@ function EndNotice({ f, fonts }: { f: number; fonts: FilmFonts }) {
         )}
       </div>
       <div style={{ position: 'relative', fontFamily: fonts.sans, fontSize: h * 0.048 }}>Fan parody. Not affiliated with Anthropic. Fictional email.</div>
-      <div style={{ position: 'relative', fontFamily: fonts.cjk, fontSize: h * 0.042 }}>粉丝恶搞，与 Anthropic 无关，邮件纯属虚构。</div>
+      <div style={{ position: 'relative', fontFamily: fonts.cjk, fontSize: h * 0.042 }}>
+        粉丝恶搞，与 <span style={{ fontFamily: fonts.sans }}>Anthropic</span> 无关，邮件纯属虚构。
+      </div>
     </AbsoluteFill>
   );
 }
