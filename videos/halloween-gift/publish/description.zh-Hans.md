@@ -1,5 +1,7 @@
 # 万圣节礼物
 
+<!-- Prepared for a zh-Hans description; the upload used the creator's own English text (description.en.md). -->
+
 万圣节之夜，Clawd 带着礼物，去敲最后一户还亮着灯的人家。一分钟的绘本短片：书桌上的一本书猛然
 翻开，月光下的墓园、歪斜的铁门和吊着的幽灵从书页里长了出来，而这份礼物原来是……一封邮件。
 

@@ -27,3 +27,10 @@ path = [
 ]
 SPDX-FileCopyrightText = "2026 earthwalker17"
 SPDX-License-Identifier = "CC-BY-4.0"
+
+# AI-generated media committed with a provenance sidecar (docs/LICENSING.md, rights class A):
+# no copyright claimed. Listed one by one; the sidecar next to each records the model and terms.
+[[annotations]]
+path = ["videos/halloween-gift/publish/thumbnail.jpg"]
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "LicenseRef-AI-Output"

@@ -11,7 +11,7 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 |---|---|---|---|---|
 | 1 | [Journey Through Middle-Earth](../videos/journey-through-middle-earth/README.md) | standalone | published (record only) | [YouTube](https://youtu.be/kRuPq4GjhGc) |
 | 2 | [THE AI STACK](../videos/the-ai-stack/README.md) | [3D Concept Visualizations](../series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
-| 3 | [A Halloween Gift](../videos/halloween-gift/README.md) | [Festival & Celebration](../series/festivals/SERIES.md) | locked | — |
+| 3 | [A Halloween Gift](../videos/halloween-gift/README.md) | [Festival & Celebration](../series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
 
 ## Series
 - [3D Concept Visualizations](../series/concept-viz/SERIES.md) (`concept-viz`, active, 1 video): Complex technical systems explained as physical, spatial machines you can see working.
@@ -61,7 +61,6 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [SFZ-subset sampler for pinned CC0 libraries (VSCO 2 CE): regions, velocity layers, seeded round robins, Hermite resampling, leading-silence skip, per-instrument shift/retune fixes](../videos/halloween-gift/audio/sampler.ts) (`halloween-gift`)
 - [Mastering chain in TypeScript: 28 Hz high-pass, glue compressor, BS.1770-4 meter, 4x-oversampled look-ahead true-peak limiter, iterated to a loudness target](../videos/halloween-gift/audio/master.ts) (`halloween-gift`)
 - [Seeded synthesised Halloween foley: thunder, wind, gravel steps, wood knocks, creaks, iron clang, owl, bats, whooshes, paper, wax crack, stamp, a notification ding](../videos/halloween-gift/audio/sfx.ts) (`halloween-gift`)
-- [A ribbed jack-o-lantern with a carved, glowing face and seeded flicker on twos](../videos/halloween-gift/src/world/Pumpkin.tsx) (`halloween-gift`)
 - [A storybook-night material family on MeshStandardMaterial: world-space paint breakup and brush streaks with fwidth-faded octaves, procedural bump (stone, bark, wood, iron), a capped moon rim light, painted ambient and aerial fog](../videos/halloween-gift/src/look/materials.ts) (`halloween-gift`)
 - [A painterly generalised Kuwahara post effect (written from the published method) for the pmndrs postprocessing stack, its own PostChain stage](../videos/halloween-gift/src/look/paint.ts) (`halloween-gift`)
 - [Centripetal Catmull-Rom splines with arc-length tables in 2D and 3D, for camera paths and walks that never overshoot](../videos/halloween-gift/src/kit/spline.ts) (`halloween-gift`)

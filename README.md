@@ -8,9 +8,10 @@ Manim or Blender. Every video lives in one folder on top of shared, tested infra
 deterministic rendering, resumable chunked renders, colour-correct encoding, loudness
 mastering, automated QA and reproducible releases.
 
-**Status: the foundation.** The shared tooling, both engines and their templates work end
-to end. No film has been made here yet: the two films below were made before this
-repository and are catalogued as records.
+**Status: the first film is out.** The shared tooling, both engines and their templates work
+end to end, and *A Halloween Gift* (#3) was made here from brief to release, picture and score
+in code. The two films before it were made before this repository and are catalogued as
+records.
 
 ## Videos
 
@@ -19,7 +20,7 @@ repository and are catalogued as records.
 |---|---|---|---|---|
 | 1 | [Journey Through Middle-Earth](videos/journey-through-middle-earth/README.md) | standalone | published (record only) | [YouTube](https://youtu.be/kRuPq4GjhGc) |
 | 2 | [THE AI STACK](videos/the-ai-stack/README.md) | [3D Concept Visualizations](series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
-| 3 | [A Halloween Gift](videos/halloween-gift/README.md) | [Festival & Celebration](series/festivals/SERIES.md) | locked | — |
+| 3 | [A Halloween Gift](videos/halloween-gift/README.md) | [Festival & Celebration](series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
 <!-- /aiv:generated -->
 
 Series: [3D Concept Visualizations](series/concept-viz/SERIES.md) ·
@@ -32,7 +33,7 @@ Series: [3D Concept Visualizations](series/concept-viz/SERIES.md) ·
 
 | … | Start here |
 |---|---|
-| see how a video was made | its folder under [`videos/`](videos/): README, brief, treatment, script, storyboard, sources and code, once a film is made here. Today the two records link to their own sources, and [`templates/`](templates/) holds the runnable examples |
+| see how a video was made | its folder under [`videos/`](videos/): README, brief, treatment, script, storyboard, sources and code; start with [A Halloween Gift](videos/halloween-gift/README.md). The two earlier records link to their own sources, and [`templates/`](templates/) holds the runnable examples |
 | learn a technique | [`knowledge/`](knowledge/README.md) (verified cards) and [`references/`](references/README.md) (pinned notes on outside tools) |
 | render a template on my machine | [Quick start](#quick-start) |
 | make my own videos with this toolchain | fork it ([Make your own](#make-your-own)), then read [ARCHITECTURE](docs/ARCHITECTURE.md) and [PRODUCTION](docs/PRODUCTION.md) |

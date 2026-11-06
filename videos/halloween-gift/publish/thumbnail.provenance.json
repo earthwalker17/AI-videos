@@ -1,0 +1,20 @@
+{
+  "file": "thumbnail.jpg",
+  "sha256": "f02dc2e88d4aac64ac95708537251edc695ea8fb2a118281c56b0e9e41abe3cc",
+  "what": "The YouTube thumbnail of A Halloween Gift (https://youtu.be/gL01vESC-fU), 1672x941",
+  "made": "2026-11-07 (UTC+8; the time of the creator's export)",
+  "by": "the creator, with ChatGPT's image generation (OpenAI)",
+  "model": "ChatGPT image generation; model and version not recorded",
+  "prompt": "not recorded",
+  "inputs": "not recorded (it restages the film's own world, characters and title)",
+  "terms": "OpenAI Terms of Use: the user owns the output (references/genai-landscape-2026-11.md)",
+  "cost": "within the creator's ChatGPT plan; not recorded",
+  "rightsClass": "A",
+  "licence": "LicenseRef-AI-Output (no copyright claimed; LICENSES/LicenseRef-AI-Output.txt)",
+  "thirdParty": "Shows Clawd, Anthropic's character, as fan parody like the film (CREDITS.md); no logos or wordmarks",
+  "derivedFrom": {
+    "file": "Thumbnail.png (the creator's export, 2,447,544 bytes)",
+    "sha256": "4a09dbe4b206b43aace60435b35c608e0c36c6ff6dd11d2e533fac4d28ea0662",
+    "change": "converted to JPEG, quality 92, for the repository's 2 MiB limit for committed binaries"
+  }
+}

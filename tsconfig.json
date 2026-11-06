@@ -9,5 +9,9 @@
     "videos/*/audio",
     "styles",
     "*.config.ts"
+  ],
+  "exclude": [
+    "videos/halloween-gift/src",
+    "videos/halloween-gift/audio"
   ]
 }

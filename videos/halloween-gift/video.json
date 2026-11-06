@@ -8,7 +8,7 @@
     "zh-Hans": "万圣节礼物"
   },
   "series": "festivals",
-  "status": "locked",
+  "status": "published",
   "approvals": [
     {
       "gate": "treatment",
@@ -26,7 +26,7 @@
       "note": "The user approved the final (out/halloween-gift/post/final/halloween-gift.mp4, commit 90022e1: the approved review cut without its 0.5 s test card; score byte-identical, 1,426 of 1,440 frames bit-identical, 14 invisibly different) with \"Approved\", and chose \"Release locally only\" (no push, tag or GitHub release until asked)."
     }
   ],
-  "next": "The user supplies the thumbnail (record it in publish/ with its provenance, update publish/ai-disclosure.md) and uploads release v1 (out/halloween-gift/release/v1/halloween-gift-v1.mp4) to YouTube; then youtube.id and status published; push, tag video/halloween-gift/v1 and the GitHub release only when the user asks (README.md, Status).",
+  "next": "Published 2026-11-06 (https://youtu.be/gL01vESC-fU), release v1; frozen: rebuilt only from the tag video/halloween-gift/v1 (docs/PRODUCTION.md, Rebuild a frozen video).",
   "languages": [
     "en",
     "zh-Hans"
@@ -67,10 +67,6 @@
     {
       "path": "audio/sfx.ts",
       "what": "Seeded synthesised Halloween foley: thunder, wind, gravel steps, wood knocks, creaks, iron clang, owl, bats, whooshes, paper, wax crack, stamp, a notification ding"
-    },
-    {
-      "path": "src/world/Pumpkin.tsx",
-      "what": "A ribbed jack-o-lantern with a carved, glowing face and seeded flicker on twos"
     },
     {
       "path": "src/look/materials.ts",
@@ -133,7 +129,10 @@
     "film": "none",
     "note": "Fan parody: its central character, Clawd, belongs to Anthropic, so the film carries no reuse licence. Not affiliated with or endorsed by Anthropic. Code MIT and text CC BY 4.0 as in the rest of the repository."
   },
-  "youtube": null,
+  "youtube": {
+    "id": "gL01vESC-fU",
+    "published": "2026-11-06"
+  },
   "release": {
     "version": 1
   },

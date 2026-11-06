@@ -37,7 +37,7 @@
       "slug": "halloween-gift",
       "title": "A Halloween Gift",
       "series": "festivals",
-      "status": "locked",
+      "status": "published",
       "engine": "remotion",
       "reproducibility": "full",
       "languages": [
@@ -45,7 +45,7 @@
         "zh-Hans"
       ],
       "path": "videos/halloween-gift",
-      "watch": null,
+      "watch": "https://youtu.be/gL01vESC-fU",
       "reusable": [
         {
           "path": "videos/halloween-gift/audio/sampler.ts",
@@ -58,10 +58,6 @@
         {
           "path": "videos/halloween-gift/audio/sfx.ts",
           "what": "Seeded synthesised Halloween foley: thunder, wind, gravel steps, wood knocks, creaks, iron clang, owl, bats, whooshes, paper, wax crack, stamp, a notification ding"
-        },
-        {
-          "path": "videos/halloween-gift/src/world/Pumpkin.tsx",
-          "what": "A ribbed jack-o-lantern with a carved, glowing face and seeded flicker on twos"
         },
         {
           "path": "videos/halloween-gift/src/look/materials.ts",
@@ -271,5 +267,8 @@
       "usedBy": []
     }
   ],
-  "frozen": []
+  "frozen": [
+    "videos/halloween-gift/src",
+    "videos/halloween-gift/audio"
+  ]
 }

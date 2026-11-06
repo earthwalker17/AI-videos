@@ -1,0 +1,10 @@
+AI-generated output: no copyright claimed.
+
+This file was generated with an AI model (its provenance sidecar, `<name>.provenance.json`
+next to it, records the model, the date and the provider's terms). Purely AI-generated
+material may not be protected by copyright, so this repository claims none in it and offers
+no licence for it beyond what the provider's terms and the law allow.
+
+Anything third-party that it depicts (characters, brands, trademarks) remains its owners';
+see the video's CREDITS.md for the basis on which it appears. Rights class and handling:
+docs/LICENSING.md, "AI-generated material".
