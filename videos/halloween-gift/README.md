@@ -7,88 +7,52 @@ house still awake. Made entirely in code, picture and score.
 **Series:** [Festival & Celebration](../../series/festivals/SERIES.md) · **Number:** 3 · **Engine:** remotion
 ▶ **Watch:** the YouTube link, once published.
 
-## Status (2026-11-05): V2 picture in lookdev, critique round 1 half fixed; the film still renders V1
-`status` is `production`; the only approval recorded is the treatment's. The V1 draft (picture
-and approved score) still renders from `src/index.ts`; the V2 picture is being built beside it
-and is judged on lookdev stills (`aiv still`) against the user's reference images
-(`Desktop/Halloween.png` and `Desktop/Email.JPG`, copied to the gitignored `.cache/reference/`,
-never committed and never used as plates).
+## Status (2026-11-06): V2 is the film; lookdev approved; fix round 2, then the review cut
+`status` is `production`; the only approval recorded in `video.json` is the treatment's (the
+lookdev checkpoint is not a schema gate: it is recorded below). `Main` renders the V2 picture
+(`src/film/FilmV2.tsx` after the 12-frame test-card leader); V1's picture code was removed (it
+is in git history before commit ba82a08). The user's reference images (`Desktop/Halloween.png`,
+`Desktop/Email.JPG`) are copied to the gitignored `.cache/reference/`, never committed and
+never used as plates.
 
 **Decided with the user (2026-11-04):** one continuous storybook world (no page turn, sliding
-flats or hard cuts: cue edits `page-turn` → `gust`, `slide` → `mist-part`, the two cuts → marks;
-the score rebuilt and verified); the email evokes the real suspension email with our own mark
-(no Anthropic logo or wordmark, no verbatim text); one lookdev checkpoint with 1080p stills
-beside the references before the full build. Story, pacing, gag, score and every Chinese string
-stay as approved.
+flats or hard cuts); the email evokes the real suspension email with our own mark; one lookdev
+checkpoint before the full build. Story, pacing, gag, score and every Chinese string stay as
+approved.
 
 **Decided with the user (2026-11-06), at the lookdev checkpoint** (16 film frames at 1080p and
 the hero beside the painting, `out/halloween-gift/checkpoint-v2/`): the V2 picture's direction
 approved for the full build; the new email wording kept ("Your Claude account has been
-buried.", signed "The Graveyard Shift"); after fix round 2 the next stop is the 1080p review cut.
-`Main` now renders V2 (`film/FilmV2.tsx`); V1's picture code was removed.
+buried.", signed "The Graveyard Shift"); after fix round 2 the next stop is the 1080p review
+cut, where the user watches the whole film and listens to the score.
 
-**Built (V2):** the world map `src/world/layout.ts` (one path, every landmark, the house frame:
-the door spread at `DOOR_SCALE` 0.5 so the cottage fits the reference's composition, with Clawd
-at the same scale all through), the storybook material, sky portal, night rig and post chain
-(painterly Kuwahara stage measured to calm boil, soft moon rays), the hop gait and camera
-paths, the V2 blocking (`film/blocking.ts`, on ones, tested against the score's footfalls), the
-camera journey (`film/journey.ts`, previewed by the `Journey` lookdev composition), the email
-card in DOM and canvas (pixel-matched). Asset families are built by bounded implementers on
-their own lookdev entries (`src/lookdev/*.entry.ts`), four batches of two: ground and trees,
-graveyard and buildings, props and creatures are in; characters and the book are building.
-`src/lookdev/World.tsx` is the whole world as built (`WorldScene`: the giant jack-o'-lantern
-and the pumpkin patch, cauldron, coffin, fireflies, the three hanging ghosts framing the moon,
-the flocks) through the journey's cameras (`WorldShots`: hero, truck, shoo, climb, gates, lane,
-door, door open). The story beats are pure, tested functions of the frame (`film/beats.ts`).
-The world grows out of the page on the score's six pops (one vertex transform in the storybook
-material, opted in by `look/Grows.tsx`). The hanging ghosts are camera obstacles (in the air,
-the peek ghost's let-down only while it peeks), and the journey was re-routed round them (the
-peek widens so ghost and Clawd share the frame; the gates hold is three-quarter from the right).
-The hero's landmarks sit at the reference's screen positions (projected numerically): value
-grid about 0.054 and palette distance 7–11 against the reference at 1080p (`aiv still --ref`);
-the 13–18 s span and the peek-to-gates span measure no alternation (0.00–0.03) and no jumps.
+**How the picture was judged:** adversarial critiques of 1080p stills against the references,
+six lenses (composition, light, models, story, email and rights, artefacts) with two skeptics
+per finding: round 1 confirmed 47 findings, round 2 confirmed 50 (all fixed or triaged in two
+fix rounds of bounded implementers plus the integrator's staging). Camera moves are planned by
+their measured screen flow before rendering (`knowledge/camera-moves-by-screen-flow.md`).
 
-**Assembled (2026-11-05):** all four asset batches are in, and the V2 film's picture plays end to
-end as the lookdev composition `FilmV2` (`src/film/FilmV2.tsx`, words in
-`src/overlay/OverlayV2.tsx`; `Main` still renders V1 until the checkpoint): the desk and its room,
-the bats squeezing out of the crack, the world growing out of the page on the six pops, the one
-camera journey, Clawd V2, the neighbour, the gift letter and the email, and a close with no cut
-(the camera cranes up out of the book onto the desk as the cover swings down and slams). The
-first frame of a call fell from 120-240 s to 15-45 s (bit-identical builder speed-ups, and the
-engine keeps compiled GPU programs across calls: `engines/remotion/ENGINE.md`).
+**Done since the checkpoint:** the integrated fix round 1 (a9e6f55); V2 into `Main` (ba82a08);
+footsteps placed where the camera sees Clawd (eea4a5a; `audio/timeline.ts` STEP_PLACES is
+measured through the camera, `src/film/sound.test.ts` holds it there); the end card holds to the
+last frame (7ff0742); staging round 2 (3c7670c: the peek, the crane out, the end card's framing,
+the lane, the candy, the witch inside the hero hold, the hero's fence and gateway); the V2
+credits and `publish/` (captions per language, descriptions, the AI-use note; 6c2ee21);
+thumbnail candidates (`lookdev/Thumbnail.tsx`). A full draft render passed `aiv qa` and the
+chunk-independence check (12 of 12 mid-chunk frames MATCH on fresh pages).
 
-**Critique round 1 (2026-11-05):** the checkpoint frames at 1080p went through six critique
-lenses against the references (47 confirmed findings, 5 blocking). Fixed so far: the blocking
-close (the cover now swings down from the score's riffle on bar 34 beat 2, seen from a wide view
-of the open book, the world folding flat under it like a pop-up and hidden once it is shut;
-the crane out swings up round Clawd and backs away past the ghost tree's far side); caption 1
-off the giant pumpkin's face; a scrim under the end card's words; the look (sky light behind the
-castle, plum and maroon shadows, near-blacks, the moon, capped rims, sky ghosts, deep focus in
-wide shots, the crag) and the world assets (stump, cross, engraving, gates and fence, rocks,
-path edge, door yard, pumpkin rind, cauldron). Hero against the reference: value grid 0.0446
-(was 0.0528), palette distance 13.5 (was 7.1: worse, two of its six clusters now go to the
-giant jack-o'-lantern's orange).
+**In progress:** fix round 2's implementers (look; world assets; characters, house and grass;
+book, desk and email card) on the confirmed findings of critique round 2.
 
-**Next:** the round's other two implementers did not run (usage limit): the hanging ghosts
-(higher, in the reference's order, tied and ragged, violet-grey, rim 0; the hero limb's rim
-about 0.3), the neighbour's sheet and bowl, Clawd's felt, the house's stone and its wall
-lantern; and the book (the cover title's foil wear masks out letters: "Hallowsen", strokes
-missing from 万圣节礼物), the room's light, the page edges' moire, and the email card (read
-path at 36 px or more, face B on paper, the LCD fringe on the button). The email's new wording
-is proposed for the checkpoint, not applied: "Hello," / "Our spirits sensed suspicious signals
-haunting your account, against our Trick-or-Treat Policy." / **"Your Claude account has been
-buried."** / "To appeal, knock three times at midnight." / **"Happy Halloween!"** / "Regards,
-The Graveyard Shift" (the critics found "Your Claude access is revoked." and the "Safeguards"
-sign-off too close to the real email); `WORDS.email` and `SCRIPT.md` follow it once it is in
-the card. Staging still open: the gateway shot shows the cottage only from about frame 504
-(it stands about 50° off the gate's line; lamp 0 blocks the view from the left); the peek
-ghost's hook is 0.29 from Clawd's shoo spot, so it cannot come down to his eye level; in the
-candy beat Clawd waits 0.87 from the bowl, so his pail never comes near it on screen; the
-truck frames him from behind against clutter; Clawd's face is hidden in four of ten stills;
-the hero's gateway is narrow and shut, its foreground pumpkin faces the lens, eight stones crowd
-the path's mouth. `world/Clawd2.tsx`'s colour correction still copies the old vignette and
-lift. Then critique round 2, and the checkpoint for the user; after it `FilmV2` into `Main`,
-drafts with motion QA, and the 1080p review cut. Walk 2's footstep pan should recede.
+**Next:** integrate fix round 2; a draft render with motion QA and `aiv still --check draft`;
+the 1080p review cut (`aiv render/post/qa --profile review`, `aiv audio --verify` first), looked
+at in full; the user's review (picture, score, and the Chinese of the captions and the
+descriptions in `publish/`); then `locked`: leader removed (decision 24), the final render, the
+proof that it equals the review cut shifted by the leader, the thumbnail chosen, `aiv release`.
+
+**Open for the user:** the hero view closely follows the reference painting's composition and
+palette (the painting's author and licence are unknown: CREDITS.md lists it as reference only);
+whether YouTube's AI-music note applies to a score written as code (`publish/ai-disclosure.md`).
 
 ## How it was made
 - **Picture (V2):** Remotion 4 with React Three Fiber (`src/`), one continuous 3D world
