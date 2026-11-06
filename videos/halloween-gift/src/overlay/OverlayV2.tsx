@@ -80,7 +80,9 @@ function Email({ f, fonts }: { f: number; fonts: FilmFonts }) {
 
 function EndNotice({ f, fonts }: { f: number; fonts: FilmFonts }) {
   const { height: h } = useVideoConfig();
-  const o = fade(f, span('end'), 8, 2);
+  // in over 8 frames, then held to the film's last frame (a fade-out of the last two frames left
+  // the final frame half-faded: a one-frame pop, the score's silent tail ends the film instead)
+  const o = progress(f, span('end')[0], span('end')[0] + 8);
   if (o <= 0) return null;
   const t = f - at(36);
   // a soft dusk scrim under the words (the caption plate's plum), so they hold at least 4.5:1
