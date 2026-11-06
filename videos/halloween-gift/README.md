@@ -21,6 +21,12 @@ the score rebuilt and verified); the email evokes the real suspension email with
 beside the references before the full build. Story, pacing, gag, score and every Chinese string
 stay as approved.
 
+**Decided with the user (2026-11-06), at the lookdev checkpoint** (16 film frames at 1080p and
+the hero beside the painting, `out/halloween-gift/checkpoint-v2/`): the V2 picture's direction
+approved for the full build; the new email wording kept ("Your Claude account has been
+buried.", signed "The Graveyard Shift"); after fix round 2 the next stop is the 1080p review cut.
+`Main` now renders V2 (`film/FilmV2.tsx`); V1's picture code was removed.
+
 **Built (V2):** the world map `src/world/layout.ts` (one path, every landmark, the house frame:
 the door spread at `DOOR_SCALE` 0.5 so the cottage fits the reference's composition, with Clawd
 at the same scale all through), the storybook material, sky portal, night rig and post chain
@@ -85,13 +91,19 @@ lift. Then critique round 2, and the checkpoint for the user; after it `FilmV2` 
 drafts with motion QA, and the 1080p review cut. Walk 2's footstep pan should recede.
 
 ## How it was made
-- **Picture:** Remotion 4 with React Three Fiber (`src/`). A storybook on a desk opens into
-  pop-up sets of seeded cut-paper cards drawn on canvas (`look/cutouts.ts`, `look/house.ts`),
-  a printed sky shader as the backdrop (`look/Sky.tsx`), jack-o'-lanterns, puppets posed from a
-  blocking table (`film/actors.ts`) on twos, a keyed camera (`film/timeline.ts`,
-  `film/camera.ts`), and a post chain of bloom, depth of field and a depth split-tone grade
-  with frame-driven grain (`look/Post.tsx`). Words are DOM over the 3D frame; the email's
-  face is projected onto the 3D letter (`overlay/project.ts`) so the hand-over does not jump.
+- **Picture (V2):** Remotion 4 with React Three Fiber (`src/`), one continuous 3D world
+  matched to a painted reference. A storybook on a desk (`world/Book2.tsx`, `world/Desk2.tsx`)
+  bursts open and the world grows out of its page on the score's pops (`look/Grows.tsx`): a
+  terrain with a carved path (`world/Terrain.tsx`, laid out in `world/layout.ts`), gnarled trees,
+  conifers, carved stones, iron gates, rocks, pumpkins, roofs and cobwebs built procedurally
+  (`kit/`), one storybook-night material family (`look/materials.ts`), a sky drawn as a portal
+  (`look/SkyPortal.tsx`) and a post chain with a painterly Kuwahara pass, moon rays, bloom, depth
+  of field and a grade (`look/NightPost.tsx`). The camera makes one journey with no cut
+  (`film/journey.ts`), the story beats and the actors' blocking are pure, tested functions of the
+  frame (`film/beats.ts`, `film/blocking.ts`, on ones). Words are DOM over the 3D frame
+  (`overlay/OverlayV2.tsx`); the email's face is projected onto the 3D letter
+  (`overlay/project.ts`) so the hand-over does not jump. V1's cut-paper picture is in git history
+  (before the V2 switch, commit a9e6f55).
 - **Sound:** an original D-minor waltz and seeded synthesised foley in TypeScript (`audio/`),
   VSCO 2 CE samples (CC0) through an SFZ-subset sampler, mastered in the score; built by
   `aiv audio` (decision 21) against the shared cue sheet (`src/cues.ts`, decision 22).

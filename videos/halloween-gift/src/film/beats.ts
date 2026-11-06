@@ -4,7 +4,7 @@
  * as the camera enters the story, the pumpkins' light and the seal's cold snap, the peeking
  * ghost, the gates, the door, the gift letter, the far window, and the post's foot band. All on
  * ones (no stepped motion), every change eased over frames (no one-frame flash). V1's approved
- * timings (film/timeline.ts, world/Sets.tsx, world/DoorSet.tsx) carried over where V1 had them.
+ * timings (film/timeline.ts, and V1's sets, removed at the V2 switch) carried over where V1 had them.
  */
 import { clamp, progress, smoothstep } from '@aiv/core';
 import { at } from '../cues.ts';

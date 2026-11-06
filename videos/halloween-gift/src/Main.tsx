@@ -6,7 +6,7 @@
 import { TestCard } from '@aiv/remotion-kit';
 import { Sequence, useCurrentFrame } from 'remotion';
 import { FILM_FRAMES, LEADER_FRAMES } from './cues.ts';
-import { Film } from './film/Film.tsx';
+import { FilmV2 } from './film/FilmV2.tsx';
 
 export type MainProps = {
   /** frames [start, end) that show the test card; the engine checks them against video.json qa.swatchFrames */
@@ -18,7 +18,7 @@ export function Main({ swatchFrames }: MainProps) {
   if (frame < swatchFrames[1]) return <TestCard label="A Halloween Gift · test card" />;
   return (
     <Sequence from={LEADER_FRAMES} durationInFrames={FILM_FRAMES}>
-      <Film />
+      <FilmV2 />
     </Sequence>
   );
 }

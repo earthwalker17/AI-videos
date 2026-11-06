@@ -3,7 +3,7 @@
  * 福 in a diamond, the spring couplets (上联 '代码千行一次过' on the left, 下联 '账号百年永不封' on
  * the right, one character per row, top to bottom) and the 横批 '一路绿灯' above the door, left to
  * right. Gold ink (#E8C66A) on red paper (#B5332B) with gold flecks, as V1's door set drew them
- * (world/DoorSet.tsx), now as weathered paper glued on: mottled dye, a printed gold border, water
+ * (V1's door set), now as weathered paper glued on: mottled dye, a printed gold border, water
  * stains, a torn corner (cut out of the alpha, with the paper's pale core along the tear), and a
  * wrinkle height map (glue ridges, creases) for a bump. Canvases are drawn once from a seed, once
  * the fonts are in (the stage mounts only when they are `ready`), on CPU canvases (the kit's

@@ -61,9 +61,21 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [SFZ-subset sampler for pinned CC0 libraries (VSCO 2 CE): regions, velocity layers, seeded round robins, Hermite resampling, leading-silence skip, per-instrument shift/retune fixes](../videos/halloween-gift/audio/sampler.ts) (`halloween-gift`)
 - [Mastering chain in TypeScript: 28 Hz high-pass, glue compressor, BS.1770-4 meter, 4x-oversampled look-ahead true-peak limiter, iterated to a loudness target](../videos/halloween-gift/audio/master.ts) (`halloween-gift`)
 - [Seeded synthesised Halloween foley: thunder, wind, gravel steps, wood knocks, creaks, iron clang, owl, bats, whooshes, paper, wax crack, stamp, a notification ding](../videos/halloween-gift/audio/sfx.ts) (`halloween-gift`)
-- [A printed night-sky backdrop shader: gradient, banded fbm clouds with silver linings, stars, an HDR moon with halo, paper fibre](../videos/halloween-gift/src/look/Sky.tsx) (`halloween-gift`)
-- [Seeded cut-paper silhouettes on canvas: twisted trees with curling twigs, spear fences, iron gates with scrolls, a castle on a floating rock, hills, tombstones, a gothic house, a witch](../videos/halloween-gift/src/look/cutouts.ts) (`halloween-gift`)
 - [A ribbed jack-o-lantern with a carved, glowing face and seeded flicker on twos](../videos/halloween-gift/src/world/Pumpkin.tsx) (`halloween-gift`)
+- [A storybook-night material family on MeshStandardMaterial: world-space paint breakup and brush streaks with fwidth-faded octaves, procedural bump (stone, bark, wood, iron), a capped moon rim light, painted ambient and aerial fog](../videos/halloween-gift/src/look/materials.ts) (`halloween-gift`)
+- [A painterly generalised Kuwahara post effect (written from the published method) for the pmndrs postprocessing stack, its own PostChain stage](../videos/halloween-gift/src/look/paint.ts) (`halloween-gift`)
+- [Centripetal Catmull-Rom splines with arc-length tables in 2D and 3D, for camera paths and walks that never overshoot](../videos/halloween-gift/src/kit/spline.ts) (`halloween-gift`)
+- [Stateless fractal value noise and ridged fields on the CPU for terrain, scatter and bark](../videos/halloween-gift/src/kit/field.ts) (`halloween-gift`)
+- [Gnarled dead trees as one geometry from hand-drawn or grown skeletons (adapted from three.js's TreeGenerator, MIT)](../videos/halloween-gift/src/kit/tree.ts) (`halloween-gift`)
+- [Ragged, drooping low-poly conifers as one geometry with foliage normals and an ambient-occlusion vertex colour](../videos/halloween-gift/src/kit/conifer.ts) (`halloween-gift`)
+- [Carved headstones, crosses and obelisks as signed distance fields meshed by surface nets: worn edges, chips, cracks, curvature per vertex](../videos/halloween-gift/src/kit/stone.ts) (`halloween-gift`)
+- [Seeded chiselled boulders, slabs and pebbles merged into one geometry with contact occlusion](../videos/halloween-gift/src/kit/rocks.ts) (`halloween-gift`)
+- [Wrought iron as one geometry per builder: bent bars with rotation-minimising frames, lathe-turned parts, C and S scrollwork](../videos/halloween-gift/src/kit/iron.ts) (`halloween-gift`)
+- [Storybook roofs: overlapping tiles in wavy courses, ridge caps, iron cresting and finials](../videos/halloween-gift/src/kit/roof.ts) (`halloween-gift`)
+- [Ribbed, lopsided, warty pumpkins as a parametric surface carved through with exact polygon cuts (jack-o-lantern faces)](../videos/halloween-gift/src/kit/pumpkin.ts) (`halloween-gift`)
+- [A bat from one outline spec, posed in 3D and drawn the same way in 2D: furry body, scalloped membrane wings](../videos/halloween-gift/src/kit/bat.ts) (`halloween-gift`)
+- [Torn orb cobwebs between anchor points, drawn as anti-aliased camera-facing thread ribbons](../videos/halloween-gift/src/kit/cobweb.ts) (`halloween-gift`)
+- [A hardcover book's parts as geometry: bevelled boards, a banded spine, a page block with leaf lines, a cover that hinges](../videos/halloween-gift/src/kit/book.ts) (`halloween-gift`)
 
 ## References
 - [Parodying a company's notice — trademark guidelines, fair use, YouTube policy (2026-11)](../references/brand-parody.md): What decides how closely a fan parody may imitate a real company's notice (here: the account-suspension email users receive from Anthropic), from the company's own trademark…

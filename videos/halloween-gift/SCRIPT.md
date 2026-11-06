@@ -18,7 +18,7 @@ The Chinese strings are checked by the user (a fluent reader) before the review 
 | Lane | 0:20–0:28 | none | Caption: *The last house was still awake.* |
 | Door | 0:24–0:30 | none | (the couplets and 福 are in Chinese only, see zh-Hans) |
 | Gift | 0:33–0:36 | none | The pop-up letter, face A: *A GIFT FOR YOU* |
-| Email | 0:37–0:42 | none | Face B: *ACCOUNT SUSPENDED* · *Suspicious signals detected.* · *Happy Halloween!* · a tab *Appeal · 申诉*; the seal *封号* |
+| Email | 0:37–0:42 | none | Face B, under our own mark and the name *Clawd*: *Hello,* · *Our spirits sensed suspicious signals haunting your account, against our Trick-or-Treat Policy.* · **Your Claude account has been buried.** · *To appeal, knock three times at midnight.* · **Happy Halloween!** · *Regards* · *The Graveyard Shift*; a button *Appeal · 申诉*; the seal *封号*. The read path (`WORDS.email`): *Hello, Your Claude account has been buried. Happy Halloween! Appeal* |
 | End | 0:51.5–1:00 | none | *A Halloween Gift* · *The End* · *Fan parody. Not affiliated with Anthropic. Fictional email.* |
 
 ## zh-Hans
@@ -33,8 +33,12 @@ The Chinese strings are checked by the user (a fluent reader) before the review 
 | End | 0:51.5–1:00 | 无 | 万圣节礼物 · 完 · 粉丝恶搞，与 Anthropic 无关，邮件纯属虚构。 |
 
 ## Notes on the words
-- The email copies no real notice: only the generic phrase "suspicious signals" echoes the
-  wording users report; there is no sender, address, logo, product name or link.
+- The email parodies the kind of account-suspension notice users report, in our own words
+  (chosen with the user at the lookdev checkpoint, 2026-11-06): its layout and the generic
+  phrase "suspicious signals" evoke it, but no sentence is reordered from a real email, the
+  mark is our own pumpkin starburst, the sender is a fictional "Graveyard Shift", and there is
+  no logo, wordmark, address or real link. "Claude" appears only as the product's name, in
+  plain text.
 - 封号 is the word Chinese users use for an account ban; on the letter it is a seal, the way
   a document is stamped. 完 on the end card means "the end" (and, read as 完了, "done for").
 - The couplet is a programmer's "flag" joke (立flag): wishing "the code passes on the first

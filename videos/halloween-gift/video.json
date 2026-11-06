@@ -63,16 +63,64 @@
       "what": "Seeded synthesised Halloween foley: thunder, wind, gravel steps, wood knocks, creaks, iron clang, owl, bats, whooshes, paper, wax crack, stamp, a notification ding"
     },
     {
-      "path": "src/look/Sky.tsx",
-      "what": "A printed night-sky backdrop shader: gradient, banded fbm clouds with silver linings, stars, an HDR moon with halo, paper fibre"
-    },
-    {
-      "path": "src/look/cutouts.ts",
-      "what": "Seeded cut-paper silhouettes on canvas: twisted trees with curling twigs, spear fences, iron gates with scrolls, a castle on a floating rock, hills, tombstones, a gothic house, a witch"
-    },
-    {
       "path": "src/world/Pumpkin.tsx",
       "what": "A ribbed jack-o-lantern with a carved, glowing face and seeded flicker on twos"
+    },
+    {
+      "path": "src/look/materials.ts",
+      "what": "A storybook-night material family on MeshStandardMaterial: world-space paint breakup and brush streaks with fwidth-faded octaves, procedural bump (stone, bark, wood, iron), a capped moon rim light, painted ambient and aerial fog"
+    },
+    {
+      "path": "src/look/paint.ts",
+      "what": "A painterly generalised Kuwahara post effect (written from the published method) for the pmndrs postprocessing stack, its own PostChain stage"
+    },
+    {
+      "path": "src/kit/spline.ts",
+      "what": "Centripetal Catmull-Rom splines with arc-length tables in 2D and 3D, for camera paths and walks that never overshoot"
+    },
+    {
+      "path": "src/kit/field.ts",
+      "what": "Stateless fractal value noise and ridged fields on the CPU for terrain, scatter and bark"
+    },
+    {
+      "path": "src/kit/tree.ts",
+      "what": "Gnarled dead trees as one geometry from hand-drawn or grown skeletons (adapted from three.js's TreeGenerator, MIT)"
+    },
+    {
+      "path": "src/kit/conifer.ts",
+      "what": "Ragged, drooping low-poly conifers as one geometry with foliage normals and an ambient-occlusion vertex colour"
+    },
+    {
+      "path": "src/kit/stone.ts",
+      "what": "Carved headstones, crosses and obelisks as signed distance fields meshed by surface nets: worn edges, chips, cracks, curvature per vertex"
+    },
+    {
+      "path": "src/kit/rocks.ts",
+      "what": "Seeded chiselled boulders, slabs and pebbles merged into one geometry with contact occlusion"
+    },
+    {
+      "path": "src/kit/iron.ts",
+      "what": "Wrought iron as one geometry per builder: bent bars with rotation-minimising frames, lathe-turned parts, C and S scrollwork"
+    },
+    {
+      "path": "src/kit/roof.ts",
+      "what": "Storybook roofs: overlapping tiles in wavy courses, ridge caps, iron cresting and finials"
+    },
+    {
+      "path": "src/kit/pumpkin.ts",
+      "what": "Ribbed, lopsided, warty pumpkins as a parametric surface carved through with exact polygon cuts (jack-o-lantern faces)"
+    },
+    {
+      "path": "src/kit/bat.ts",
+      "what": "A bat from one outline spec, posed in 3D and drawn the same way in 2D: furry body, scalloped membrane wings"
+    },
+    {
+      "path": "src/kit/cobweb.ts",
+      "what": "Torn orb cobwebs between anchor points, drawn as anti-aliased camera-facing thread ribbons"
+    },
+    {
+      "path": "src/kit/book.ts",
+      "what": "A hardcover book's parts as geometry: bevelled boards, a banded spine, a page block with leaf lines, a cover that hinges"
     }
   ],
   "license": {
