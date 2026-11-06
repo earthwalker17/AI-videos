@@ -6,8 +6,6 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ffmpeg } from '../media/bin.ts';
 import { tempRepo, type TempRepo } from '../testing.ts';
-import { sha256File } from '../util/hash.ts';
-import { repoRoot } from '../util/paths.ts';
 import type { DeliveryCue } from './audio.ts';
 import {
   analyseMotion,
@@ -349,25 +347,5 @@ describe('motion QA on synthetic videos', () => {
     const r3 = await runQa({ file, root: repo.root, expect: { width: 320, height: 180, fps: 24, audio: false }, contact: null, outDir: skipDir, motion: { skipped: '--no-motion' } });
     expect(r3.checks.filter((c) => c.id.startsWith('motion'))).toEqual([expect.objectContaining({ id: 'motion', info: true, detail: 'motion NOT analysed: --no-motion' })]);
     expect(existsSync(join(skipDir, 'motion.png'))).toBe(false);
-  });
-});
-
-// The first film's V1 draft (A Halloween Gift): the walk through the graveyard (about 13-18 s)
-// juddered: the actors on twos under a camera trucking on ones. Local media, so the test runs
-// only on a machine that has that exact file.
-const V1 = { file: 'out/halloween-gift/checkpoint/draft-with-score-960x540.mp4', sha256: '26ea331ee6970ca68bf7189f6c366c382893319ace38e021833f37213cc1e7a0' };
-const v1Path = join(repoRoot(), V1.file);
-const hasV1 = existsSync(v1Path) && (await sha256File(v1Path)) === V1.sha256;
-
-describe.skipIf(!hasV1)('the V1 draft of A Halloween Gift', () => {
-  it('flags the judder of the graveyard walk, also as the lossy file it is', { timeout: 180_000 }, async () => {
-    const s = await measureMotion(v1Path, { width: 960, height: 540, fps: 24 });
-    // the share of 13-18 s inside judder spans: 0.88 plain, 0.82 with the lossy rule (2026-11-04)
-    const covered = (lossy: boolean) => {
-      const walk = analyseMotion(s, [], { lossy }).cadence.filter((c) => c.kind === 'judder' && c.start < 18 * 24 && c.end > 13 * 24);
-      return walk.reduce((sum, c) => sum + Math.min(c.end, 18 * 24) - Math.max(c.start, 13 * 24), 0) / (5 * 24);
-    };
-    expect(covered(false)).toBeGreaterThan(0.8);
-    expect(covered(true)).toBeGreaterThan(0.75);
   });
 });

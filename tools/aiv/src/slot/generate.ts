@@ -54,7 +54,7 @@ const videosOf = (m: RepoModel): { dir: string; v: Slot }[] =>
 
 const watch = (v: Slot) => (v.youtube ? `https://youtu.be/${v.youtube.id}` : null);
 
-/** Code folders of frozen videos (src/ and the score's audio/): out of the typecheck and lint scope (decision 4). */
+/** Code folders of frozen videos (src/ and the score's audio/): out of the typecheck, lint and test scope (decision 4). */
 export const frozenSources = (m: RepoModel): string[] =>
   videosOf(m)
     .filter(({ v }) => isFrozen(v.status))
