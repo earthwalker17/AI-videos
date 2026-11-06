@@ -615,6 +615,8 @@ interface Info {
   n: V3;
   /** on a tooth (inside the lips' envelope, outside the hole): 0..1 */
   tooth: number;
+  /** inside the carved face's oval, where the ribs flatten out (0 off the face .. 1 its middle) */
+  face?: number;
 }
 
 interface Wart {
@@ -671,6 +673,15 @@ function bodyModel(s: PumpkinSpec) {
     }
   const pad = 0.3;
   const inBox = (u: number, v: number) => u > uMin - pad && u < uMax + pad && v > vMin - pad && v < vMax + pad;
+  // the face's oval: the carver's flattened field, where the ribs fade out (they crossed the eyes and the grin)
+  const fcU = (uMin + uMax) / 2;
+  const fcV = (vMin + vMax) / 2;
+  const fhU = Math.max(0.05, (uMax - uMin) / 2) * 1.25;
+  const fhV = Math.max(0.05, (vMax - vMin) / 2) * 1.45;
+  const faceAt = (u: number, v: number) => {
+    const q = ((u - fcU) / fhU) ** 2 + ((v - fcV) / fhV) ** 2;
+    return Math.exp(-q * q * 1.2);
+  };
   const holeP = holeF.map((p) => new PolyField(p));
   const eyeP = eyeF.map((p) => new PolyField(p));
   const mouthP = mouthF ? new PolyField(mouthF) : null;
@@ -762,7 +773,8 @@ function bodyModel(s: PumpkinSpec) {
     const rb = info ?? scratch;
     ribAt(th, dy, rb);
     rb.tooth = 0;
-    const depth = s.ribDepth * smoothstep(0.03, 0.4, sp);
+    rb.face = face.holes.length ? faceAt(wrapPi(th - s.faceYaw), el - s.faceTilt) : 0;
+    const depth = s.ribDepth * smoothstep(0.03, 0.4, sp) * (1 - 0.85 * rb.face);
     const bul = bulge[rb.k];
     const lop = 1 + s.lopsided * (0.6 * Math.sin(th + l1) + 0.4 * Math.sin(2 * th + l2)) * sp;
     const base = rE * top * bot * lop;
@@ -921,8 +933,9 @@ function stemGeometry(s: PumpkinSpec, base: V3): { geo: BufferGeometry; tip: V3 
     closeEnd: true,
     radius: (t, ang) => {
       const flare = 1 + 1.1 * Math.exp(-((t / 0.08) ** 2));
-      const taper = Math.pow(1 - 0.86 * t, 0.9);
-      const ridge = 1 + 0.24 * (Math.abs(Math.cos((ang * ridges) / 2 + st.twist * t)) - 0.5) * 2;
+      // (a thick, fluted, twisted stalk to a blunt dry end: a smooth taper read as a horn)
+      const taper = Math.pow(1 - 0.74 * t, 0.85);
+      const ridge = 1 + 0.36 * (Math.abs(Math.cos((ang * ridges) / 2 + st.twist * t)) - 0.5) * 2;
       const gnarl = 1 + 0.22 * (noise3(t * 7, Math.cos(ang) * 1.5, Math.sin(ang) * 1.5, s.seed + 3) - 0.5) + 0.1 * Math.sin(t * 19 + ang);
       return st.r * flare * taper * ridge * gnarl;
     },
@@ -930,7 +943,8 @@ function stemGeometry(s: PumpkinSpec, base: V3): { geo: BufferGeometry; tip: V3 
       const ridge = Math.abs(Math.cos((ang * ridges) / 2 + st.twist * t));
       // dry fibres streaking along the stalk, darker in the furrows, browner where it is driest
       const fib = 0.72 + 0.56 * noise3(ang * ridges * 1.3 + st.twist * t * 2, t * 5, 1.5, s.seed + 11);
-      const k = (0.5 + 0.6 * ridge) * fib * (0.8 + 0.25 * noise3(t * 9, ang, 1, s.seed + 9)) * (t < 0.08 ? 0.6 + 5 * t : 1);
+      // (dark furrows, pale dry ridges: the reference's stalk reads by its fluting)
+      const k = (0.3 + 1.05 * ridge * ridge) * fib * (0.8 + 0.25 * noise3(t * 9, ang, 1, s.seed + 9)) * (t < 0.08 ? 0.6 + 5 * t : 1);
       const dry = smoothstep(0.35, 1, t);
       return [stem[0] * k * (1 + 0.12 * dry), stem[1] * k * (1 + 0.08 * dry), stem[2] * k * (1 + 0.1 * ridge), 0.08 + 0.14 * ridge];
     },
@@ -1142,8 +1156,9 @@ export function buildPumpkin(s: PumpkinSpec): PumpkinBuild {
 
   /** the rind's paint at a body point (info filled by `point`) */
   const rindPaint = (p: number[], th: number, el: number, q: Info): [number, number, number, number, number] => {
-    // (the lobes hold the skin colour well into the grooves: one-for-one dark grooves read as a striped ball)
-    const lobeK = Math.pow(q.lobe, 0.38);
+    // (the lobes hold the skin colour well into the grooves: one-for-one dark grooves read as a striped ball;
+    // on the carved face the grooves fade with the ribs)
+    const lobeK = Math.pow(q.lobe, 0.38) + (1 - Math.pow(q.lobe, 0.38)) * 0.75 * (q.face ?? 0);
     let r = groove[0] + (skin[0] - groove[0]) * lobeK;
     let g = groove[1] + (skin[1] - groove[1]) * lobeK;
     let b = groove[2] + (skin[2] - groove[2]) * lobeK;
@@ -1166,7 +1181,7 @@ export function buildPumpkin(s: PumpkinSpec): PumpkinBuild {
     const st = noise3(Math.cos(th) * 13, Math.sin(th) * 13, el * 1.3, s.seed + 44) - 0.5;
     const fine = noise3(Math.cos(th) * 38, Math.sin(th) * 38, el * 2.6, s.seed + 45) - 0.5;
     const streak = 1 + 0.8 * st + 0.3 * fine;
-    const stroke = 1 - 0.26 * (1 - smoothstep(0.0, 0.12, q.lobe));
+    const stroke = 1 - 0.26 * (1 - smoothstep(0.0, 0.12, q.lobe)) * (1 - 0.8 * (q.face ?? 0));
     // the crowns caught pale (a dry, dusty tan dabbed along the ribs' backs)
     const crown = smoothstep(0.7, 1, q.lobe) * smoothstep(0.35, 0.75, noise3(Math.cos(th) * 9, Math.sin(th) * 9, el * 3.1, s.seed + 46));
     r += (skin[0] * 1.25 + 0.06 - r) * crown * 0.45;
@@ -1665,7 +1680,7 @@ export function pumpkinHalf(s: PumpkinSpec): { a: number; c: number } {
 // ---- seeded variety ---------------------------------------------------------------------------
 
 // a muted ochre-orange rind (the reference's), dark brown furrows, sun-browned (never olive-green) patches
-const SKIN = { skin: '#b4662e', groove: '#4a2210', patch: '#7a4e2c', stem: '#524a48', flesh: '#f0c27a' };
+const SKIN = { skin: '#b4662e', groove: '#3c1c10', patch: '#6c5636', stem: '#4a3a36', flesh: '#f0c27a' };
 
 /** The giant jack-o'-lantern: squat and heavy, deep ribs, warts, deep-carved and angry. */
 export function giantSpec(seed: number, width: number): PumpkinSpec {
@@ -1674,13 +1689,13 @@ export function giantSpec(seed: number, width: number): PumpkinSpec {
     width,
     squat: 0.57,
     ribs: 11,
-    ribDepth: 0.17,
-    ribSharp: 0.6,
+    ribDepth: 0.2,
+    ribSharp: 0.66,
     dimple: 0.27,
     lopsided: 0.12,
     lean: 0.07,
-    warts: 9,
-    wartSize: 0.016,
+    warts: 22,
+    wartSize: 0.02,
     wall: 0.07,
     carve: 'angry',
     faceYaw: 0,
@@ -1695,7 +1710,8 @@ export function giantSpec(seed: number, width: number): PumpkinSpec {
     vine: true,
     cols: 24,
     rows: 140,
-    colors: SKIN,
+    // a weathered, dusty ochre (a saturated orange read as a plastic toy)
+    colors: { ...SKIN, skin: '#a26a3a' },
   };
 }
 

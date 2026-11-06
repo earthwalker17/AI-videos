@@ -156,15 +156,16 @@ function graves(): Grave[] {
     x: LAND.ripStone.x,
     z: LAND.ripStone.z,
     yaw: LAND.ripStone.yaw ?? 0,
+    // (leaning back and over to its right, about 8°: an upright stone read as new)
     lean: -0.15,
-    tilt: -0.06,
+    tilt: -0.14,
     cell: 0.013,
     color: new Color('#c9d1d4').multiplyScalar(1.42),
     alpha: 0.7,
     motif: 'rip',
     lines: 0,
     mound: undefined,
-    chips: 11,
+    chips: 17,
   });
   // the big cross: a chunky stone cross leaning into the frame from the left edge, framing it as
   // the reference's does (2.3 tall: the hero view was composed around the greybox's size)
@@ -207,9 +208,26 @@ function graves(): Grave[] {
         width: 0.009,
         depth: 0.05,
       },
+      // through the crossing, from the arm's top across the panel
+      {
+        pts: [
+          [-0.24, 1.8],
+          [-0.12, 1.7],
+          [-0.03, 1.66],
+          [0.04, 1.55],
+          [0.15, 1.47],
+        ],
+        width: 0.01,
+        depth: 0.06,
+      },
     ],
   };
-  bigCross.grooves = [{ pts: crossPanel(bigCross), width: 0.013, depth: 0.04 }];
+  // the reference's carved frame: a raised border with a fine line along it, round a sunk panel
+  // (concentric grooves of one depth run together into the panel's flat floor)
+  bigCross.grooves = [
+    { pts: crossPanel(bigCross, 0.034), width: 0.006, depth: 0.014 },
+    ...[0.078, 0.1, 0.122, 0.144].map((i) => ({ pts: crossPanel(bigCross, i), width: 0.014, depth: 0.026 })),
+  ];
   out.push({
     id: STONES.length + 1,
     shape: bigCross,
@@ -322,10 +340,9 @@ function lying(g: Grave, ground: GroundPatch): Matrix4 {
 // ---- the carving atlas ----------------------------------------------------------------------------
 
 /** The big cross's sunk panel border (stone-local x, y): inset from its stem and arms, open at the foot. */
-function crossPanel(s: StoneShape): [number, number][] {
+function crossPanel(s: StoneShape, i = 0.06): [number, number][] {
   const a = s.arm!;
   const ay = a.at * s.h;
-  const i = 0.06;
   const sw = s.w / 2 - i;
   const ah = a.hgt / 2 - i;
   const sx = a.span / 2 - i;
@@ -889,12 +906,16 @@ function crossBreaks(s: StoneShape): Chip[] {
     return [x / l, y / l, z / l];
   };
   return [
-    { c: [hs, at + hh, ht * 0.3], n: n(1, 1.1, 0.35), depth: 0.055, radius: 0.15, scoop: false },
-    { c: [hs * 0.98, at - hh, ht], n: n(0.6, -0.7, 0.8), depth: 0.025, radius: 0.08, scoop: true },
-    { c: [-hw, s.h, ht * 0.6], n: n(-1, 1.2, 0.7), depth: 0.04, radius: 0.11, scoop: false },
-    { c: [-hs, at + hh * 0.2, ht], n: n(-1, 0.3, 0.9), depth: 0.03, radius: 0.09, scoop: false },
-    { c: [-hs * 0.55, at - hh, 0], n: n(0, -1, 0.3), depth: 0.022, radius: 0.07, scoop: true },
-    { c: [hw * 0.9, s.h * 0.4, ht], n: n(1, 0.1, 1), depth: 0.02, radius: 0.08, scoop: false },
+    { c: [hs, at + hh, ht * 0.3], n: n(1, 1.1, 0.35), depth: 0.095, radius: 0.17, scoop: false },
+    { c: [hs * 0.98, at - hh, ht], n: n(0.6, -0.7, 0.8), depth: 0.045, radius: 0.09, scoop: true },
+    { c: [-hw, s.h, ht * 0.6], n: n(-1, 1.2, 0.7), depth: 0.075, radius: 0.13, scoop: false },
+    { c: [-hs, at + hh * 0.2, ht], n: n(-1, 0.3, 0.9), depth: 0.055, radius: 0.1, scoop: false },
+    { c: [-hs * 0.55, at - hh, 0], n: n(0, -1, 0.3), depth: 0.04, radius: 0.08, scoop: true },
+    { c: [hw * 0.9, s.h * 0.4, ht], n: n(1, 0.1, 1), depth: 0.038, radius: 0.09, scoop: false },
+    // the stem's top corner and the arms' ends knocked again (the rim's highlight broken up)
+    { c: [hw, s.h, ht], n: n(1, 1, 1), depth: 0.045, radius: 0.09, scoop: false },
+    { c: [hs, at - hh * 0.3, -ht], n: n(1, -0.2, -0.8), depth: 0.04, radius: 0.08, scoop: false },
+    { c: [-hw * 0.95, s.h * 0.55, ht], n: n(-1, 0, 1), depth: 0.03, radius: 0.07, scoop: false },
   ];
 }
 

@@ -201,7 +201,7 @@ function steamTexture(): CanvasTexture {
 
 /** The pot's bottom above the ground (its legs), the brew's height in the pot, the brew's radius. */
 const LEG_H = 0.068;
-const BREW_Y = 0.252;
+const BREW_Y = 0.26;
 const BREW_R = 0.131;
 /** the pot's profile (radius, height above its bottom): belly, neck, the rolled rim, the inside */
 const POT: [number, number][] = [
@@ -315,10 +315,10 @@ function cauldronIron(seed: number): BufferGeometry {
   }
   const merged = mergeGeometries(parts, false);
   parts.forEach((g) => g.dispose());
-  const iron = lin('#25272c');
-  const rust = lin('#4a3026');
-  const worn = lin('#5d636c');
-  const crust = lin('#2c5c56');
+  const iron = lin('#323844');
+  const rust = lin('#4a3530');
+  const worn = lin('#5e6672');
+  const crust = lin('#24413f');
   return paint(merged, (x, y, z) => {
     const n = fbm3(x * 14, y * 14, z * 14, seed + 3, 3) * 0.5 + 0.5;
     const rs = smoothstep(0.55, 0.75, n);
@@ -331,16 +331,21 @@ function cauldronIron(seed: number): BufferGeometry {
     g += (worn.g - g) * rim;
     b += (worn.b - b) * rim;
     const a = Math.atan2(z, x);
-    const drip = smoothstep(LEG_H + 0.2, LEG_H + 0.262, y) * smoothstep(0.62, 0.85, noise3(a * 3.2, y * 4, 0.5, seed + 9) + 0.3 * smoothstep(LEG_H + 0.24, LEG_H + 0.265, y));
-    r += (crust.r - r) * drip * 0.8;
-    g += (crust.g - g) * drip * 0.8;
-    b += (crust.b - b) * drip * 0.8;
+    // (only dribbles below the lip: a crusted ring all round read as a mint plastic rim)
+    const drip = smoothstep(LEG_H + 0.19, LEG_H + 0.245, y) * smoothstep(LEG_H + 0.268, LEG_H + 0.255, y) * smoothstep(0.66, 0.86, noise3(a * 3.2, y * 4, 0.5, seed + 9)) * smoothstep(0.15, 0.165, Math.hypot(x, z));
+    r += (crust.r - r) * drip * 0.7;
+    g += (crust.g - g) * drip * 0.7;
+    b += (crust.b - b) * drip * 0.7;
     const soot = 0.55 + 0.45 * smoothstep(LEG_H - 0.01, LEG_H + 0.09, y);
     // the fire's warm uplight on the lower belly and the legs (reads even where grass hides the logs)
     const warm = smoothstep(LEG_H + 0.1, LEG_H - 0.01, y) * (0.75 + 0.25 * n);
-    // uv.x: 0.5 is no glow, below it the fire's warmth, above it the crust (a triangle between
-    // either and none never interpolates through the other's colours)
-    return [r * soot, g * soot, b * soot, 1, warm > drip ? 0.5 - 0.5 * warm : 0.5 + 0.5 * drip];
+    // the brew's own light on the iron: the inner lip and the rolled rim brightest, the shoulder
+    // below it fading down the belly (the pot is lit by its brew, as in the reference)
+    const lip = smoothstep(LEG_H + 0.236, LEG_H + 0.276, y) * (1 - 0.35 * smoothstep(0.165, 0.176, Math.hypot(x, z)));
+    const brew = Math.max(lip, (0.2 + 0.55 * smoothstep(LEG_H + 0.02, LEG_H + 0.235, y)) * (0.75 + 0.25 * n));
+    // uv.x: 0.5 is no glow, below it the fire's warmth, above it the brew's light (a triangle
+    // between either and none never interpolates through the other's colours)
+    return [r * soot, g * soot, b * soot, 1, warm > brew ? 0.5 - 0.5 * warm : 0.5 + 0.5 * brew];
   });
 }
 
@@ -438,9 +443,9 @@ function swirlTexture(): CanvasTexture {
   c.width = c.height = S;
   const g = c.getContext('2d')!;
   const img = g.createImageData(S, S);
-  const deep = new Color('#0c5a68');
-  const mid = new Color('#36c6dc');
-  const hot = new Color('#a6f2ff');
+  const deep = new Color('#1a58a8');
+  const mid = new Color('#48a8f0');
+  const hot = new Color('#c8f4ff');
   for (let y = 0; y < S; y++)
     for (let x = 0; x < S; x++) {
       const u = (x + 0.5) / S - 0.5;
@@ -465,13 +470,13 @@ function swirlTexture(): CanvasTexture {
 }
 
 /** The froth's dome height above the brew at distance d from the middle. */
-const domeAt = (d: number) => 0.012 + 0.045 * Math.max(0, 1 - (d / BREW_R) ** 2);
+const domeAt = (d: number) => 0.004 + 0.004 * Math.max(0, 1 - (d / BREW_R) ** 2);
 
 /**
  * The foam heaped over the brew: a dome of glowing bubbles (blue-violet to cyan) bulging above the
  * rim, a few slumped over it; each breathes slowly (sines of the frame, never popping).
  */
-const FROTH_N = 130;
+const FROTH_N = 70;
 interface FrothBall {
   a: number;
   d: number;
@@ -485,12 +490,12 @@ function frothBalls(seed: number): FrothBall[] {
   const out: FrothBall[] = [];
   for (let i = 0; i < FROTH_N; i++) {
     const r = (k: string) => rand(seed, k, i);
-    const over = i >= FROTH_N - 16;
-    const d = over ? BREW_R * (1.07 + 0.14 * r('fo')) : BREW_R * 0.95 * Math.sqrt((i + 0.5) / (FROTH_N - 16));
+    const over = i >= FROTH_N - 6;
+    // a thin ring of foam hugging the inside of the rim (flattened caps), a few over its lip
+    const d = over ? BREW_R * (1.06 + 0.06 * r('fo')) : BREW_R * (0.8 + 0.18 * Math.sqrt(r('fd')));
     const a = i * 2.39996 + r('fa2') * 0.7;
-    const rad = over ? 0.008 + 0.008 * r('frr') : (0.008 + 0.015 * r('frr') ** 1.5) * (1 - 0.3 * (d / BREW_R));
-    // the overflow sits on the rim's rolled top (0.027 above the brew), the rest heaps in a dome
-    const h = over ? 0.029 + 0.006 * r('fh') : domeAt(d) * (0.55 + 0.45 * r('fh'));
+    const rad = over ? 0.005 + 0.004 * r('frr') : 0.005 + 0.007 * r('frr') ** 1.5;
+    const h = over ? 0.024 + 0.004 * r('fh') : 0.002 + 0.004 * r('fh');
     out.push({ a, d, r: rad, h, ph: r('fp') * TAU, w: 0.5 + 0.9 * r('fw'), tint: r('ft') });
   }
   return out;
@@ -564,7 +569,8 @@ function frothHeights(froth: { geo: BufferGeometry; xz: Float32Array }, balls: F
     const d = Math.hypot(x, z) / BREW_R;
     // the low dome under the foam; past the brew's edge the surface runs on inside the rolled
     // lip's iron (hidden), never out under it, so only the overflow bubbles' caps show over the rim
-    let h = d < 1 ? 0.004 + 0.034 * Math.sqrt(Math.max(0, 1 - d * d)) : 0.012;
+    // (the middle sinks under the brew's surface: only the foam ring shows, the brew glows bare)
+    let h = d < 1 ? -0.012 + 0.014 * smoothstep(0.62, 0.86, d) : 0.004;
     let top = -1;
     let tint = 0.35;
     for (const c of B) {
@@ -572,7 +578,7 @@ function frothHeights(froth: { geo: BufferGeometry; xz: Float32Array }, balls: F
       const dz = z - c.z;
       const q = c.r * c.r - dx * dx - dz * dz;
       if (q <= -c.r * c.r * 0.3) continue;
-      const cap = c.y + (q > 0 ? Math.sqrt(q) * 0.85 : -Math.sqrt(-q) * 0.6);
+      const cap = c.y + (q > 0 ? Math.sqrt(q) * 0.55 : -Math.sqrt(-q) * 0.6);
       if (cap > top) {
         top = cap;
         tint = c.tint;
@@ -589,8 +595,8 @@ function frothHeights(froth: { geo: BufferGeometry; xz: Float32Array }, balls: F
 }
 
 /** Bubbles: each a seeded cycle (rise out of the froth, swell, pop, a fresh spot); foam at the rim. */
-const BUBBLES = 12;
-const FOAM = 14;
+const BUBBLES = 5;
+const FOAM = 16;
 function bubbleAt(i: number, t: number, seed: number): { x: number; y: number; z: number; s: number } {
   const period = 1.6 + 1.7 * rand(seed, 'bp', i);
   const ph = t / period + rand(seed, 'bph', i);
@@ -598,12 +604,13 @@ function bubbleAt(i: number, t: number, seed: number): { x: number; y: number; z
   const u = ph - cycle;
   const a = rand(seed, 'ba', i * 97 + cycle) * TAU;
   const d = BREW_R * 0.78 * Math.sqrt(rand(seed, 'bd', i * 97 + cycle));
-  const smax = 0.006 + 0.01 * rand(seed, 'bs', i * 97 + cycle);
-  // grow over the first 80 %, pop over the next 8 % (a few frames), then rest unseen
-  const grow = smoothstep(0, 0.8, u);
-  const pop = 1 - smoothstep(0.8, 0.88, u);
+  const smax = 0.007 + 0.006 * rand(seed, 'bs', i * 97 + cycle);
+  // swell out of the brew over the first 60 %, lift off and rise a little, pop (a few frames), then rest unseen
+  const grow = smoothstep(0, 0.6, u);
+  const rise = smoothstep(0.5, 0.9, u);
+  const pop = 1 - smoothstep(0.9, 0.95, u);
   const s = smax * Math.sqrt(grow) * pop;
-  return { x: Math.cos(a) * d, y: BREW_Y + LEG_H + domeAt(d) * 0.9 - s * 0.35 + s * 0.8 * grow, z: Math.sin(a) * d, s };
+  return { x: Math.cos(a) * d, y: BREW_Y + LEG_H + domeAt(d) - s * 0.5 + s * 0.9 * grow + 0.05 * rise, z: Math.sin(a) * d, s };
 }
 
 /** Wisps of steam rising (STEAM), then the froth cloud lying on the brew (FROTH), one draw. */
@@ -616,10 +623,10 @@ function steamAt(i: number, t: number, seed: number): { x: number; y: number; z:
     const a = (k / FROTH) * TAU + 0.3 * Math.sin(t * 0.21 + k);
     return {
       x: Math.cos(a) * BREW_R * 0.35,
-      y: BREW_Y + LEG_H + 0.035 + 0.01 * Math.sin(t * 0.8 + k * 2),
+      y: BREW_Y + LEG_H + 0.018 + 0.006 * Math.sin(t * 0.8 + k * 2),
       z: Math.sin(a) * BREW_R * 0.35,
-      size: 0.3 + 0.04 * Math.sin(t * 0.6 + k * 1.3),
-      alpha: 0.42 + 0.06 * Math.sin(t * 0.9 + k * 2.1),
+      size: 0.22 + 0.03 * Math.sin(t * 0.6 + k * 1.3),
+      alpha: 0.3 + 0.05 * Math.sin(t * 0.9 + k * 2.1),
       rot: t * 0.15 * (k % 2 ? 1 : -1) + k * 2.1,
       mix: 0.1,
     };
@@ -665,10 +672,11 @@ export function Cauldron({ f }: { f: number }) {
       [0.2, '#160803'],
       [0.46, '#000000'],
       [0.54, '#000000'],
-      [1, '#1f6a5e'],
+      [0.8, '#1a2a46'],
+      [1, '#4e6e9e'],
     ]);
     const bubbleGeo = new SphereGeometry(1, 10, 8);
-    const bubbleMat = storybookMaterial({ color: '#12424c', emissive: '#7aeef8', emissiveIntensity: 1.3, roughness: 0.2, rim: 0.3, ambient: 0, fog: 0.6, breakup: 0 });
+    const bubbleMat = storybookMaterial({ color: '#12284c', emissive: '#a8d4ff', emissiveIntensity: 1.6, roughness: 0.2, rim: 0.3, ambient: 0, fog: 0.6, breakup: 0 });
     const bubbles = new InstancedMesh(bubbleGeo, bubbleMat, BUBBLES + FOAM);
     bubbles.instanceMatrix.setUsage(DynamicDrawUsage);
     bubbles.frustumCulled = false;
@@ -677,10 +685,10 @@ export function Cauldron({ f }: { f: number }) {
     const balls = frothBalls(CAULDRON_SEED);
     const froth = frothGeometry();
     const frothRamp = ramp([
-      [0, '#3a3aa8'],
-      [0.45, '#4c80f0'],
-      [0.8, '#7cd6f6'],
-      [1, '#a8ecf8'],
+      [0, '#2a64b8'],
+      [0.45, '#4aa0f0'],
+      [0.8, '#94d4f8'],
+      [1, '#d0f2ff'],
     ]);
     // one soft halo over the pot: the brew's glow in the haze
     const haloTex = glowTexture();
@@ -705,7 +713,7 @@ export function Cauldron({ f }: { f: number }) {
       steam,
       steamTex,
       // matte cast iron: no glint (the rim reads by the moon's rim light, not a specular hit)
-      ironMat: storybookMaterial({ kind: 'iron', vertexColors: true, color: '#ffffff', color2: '#3a3434', breakup: 0.3, scale: 0.04, bump: 0.9, rim: 1.1, roughness: 0.92, metalness: 0, emissive: '#ffffff', emissiveMap: crust, emissiveIntensity: 0.6 }),
+      ironMat: storybookMaterial({ kind: 'iron', vertexColors: true, color: '#ffffff', color2: '#3a3a44', breakup: 0.35, scale: 0.03, bump: 1.4, rim: 1.2, roughness: 0.6, metalness: 0, emissive: '#ffffff', emissiveMap: crust, emissiveIntensity: 1.25 }),
       fireMat: storybookMaterial({ kind: 'bark', vertexColors: true, color: '#ffffff', color2: '#2a2422', breakup: 0.3, scale: 0.03, bump: 1.2, rim: 0.6, roughness: 0.95, emissive: '#ffffff', emissiveMap: ember, emissiveIntensity: 0.9 }),
       brewMat: storybookMaterial({ color: '#0c2a30', emissive: '#ffffff', emissiveMap: swirl, emissiveIntensity: 3.2, roughness: 0.55, rim: 0, ambient: 0, fog: 0.6, breakup: 0 }),
     };

@@ -23,7 +23,7 @@
  */
 import { rand, smoothstep } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DoubleSide, Euler, Matrix4, PerspectiveCamera, Quaternion, Shape, ShapeGeometry, Vector3 } from 'three';
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DoubleSide, Euler, Matrix4, PerspectiveCamera, Quaternion, Shape, ShapeGeometry, Vector3, type MeshStandardMaterial, type WebGLProgramParametersWithUniforms, type WebGLRenderer } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { orbWeb, threadRibbons, type Thread } from '../kit/cobweb.ts';
 import { mergeRocks, rockGeometry, type PlacedRock, type RockParams } from '../kit/rocks.ts';
@@ -65,8 +65,9 @@ export interface Boulder {
 
 /** Upright chiselled slabs, chunky blocks and small stones: rockGeometry presets. */
 // (bedded into ledges, cracked, sharp-edged: a smooth faceted blob read as soap)
-const SLAB: Partial<RockParams> = { detail: 22, facets: 9, cut: 0.42, noise: 0.035, freq: 1.4, boxy: 3, bevel: 0.014, grit: 0.016, gritFreq: 13, cracks: 3, chips: 7, topTilt: 0.5, ao: 0.65, crease: 28, strata: 3, strataDepth: 0.075, strataTilt: 0.2 };
-const CHUNK: Partial<RockParams> = { detail: 12, facets: 11, cut: 0.4, noise: 0.04, freq: 1.3, boxy: 2.8, bevel: 0.018, grit: 0.016, gritFreq: 12, cracks: 2, chips: 6, ao: 0.65, crease: 28, strata: 3, strataDepth: 0.06, strataTilt: 0.25 };
+// (sharper: deeper flat cuts, more facets, hard creases, a hairline bevel; a soft bevel read as river stones)
+const SLAB: Partial<RockParams> = { detail: 22, facets: 14, cut: 0.6, noise: 0.035, freq: 1.4, boxy: 3, bevel: 0.006, grit: 0.018, gritFreq: 13, cracks: 4, chips: 10, topTilt: 0.5, ao: 0.65, crease: 40, strata: 3, strataDepth: 0.09, strataTilt: 0.2 };
+const CHUNK: Partial<RockParams> = { detail: 12, facets: 14, cut: 0.55, noise: 0.04, freq: 1.3, boxy: 2.8, bevel: 0.008, grit: 0.018, gritFreq: 12, cracks: 3, chips: 8, ao: 0.65, crease: 40, strata: 3, strataDepth: 0.075, strataTilt: 0.25 };
 const SMALL: Partial<RockParams> = { detail: 7, facets: 9, cut: 0.38, noise: 0.05, boxy: 2.6, bevel: 0.04, chips: 2, ao: 0.55, crease: 30 };
 
 const P = LAND.bigPumpkin;
@@ -390,6 +391,10 @@ interface RootPlan {
   tip: number;
   /** control points (local) */
   path: V3[];
+  /** its cross-section's minor / major ratio (old roots are flattened, never round hoses) */
+  flat?: number;
+  /** angular kinks: its path a polyline, the corners rounded over this distance */
+  elbow?: number;
 }
 
 /**
@@ -415,24 +420,33 @@ function buttress(a: number, len: number, hump: number, k: number): V3[] {
 function rootPlans(): RootPlan[] {
   const A = CAM_A;
   const R = STUMP_R;
+  // (old roots: flattened sections, angular kinks, tapering to a quarter of their base)
   return [
     // climbing roots: from high on the stump down to the ground toward the viewer's left (the reference's sloping mass)
-    { at: 0.62, radius: 0.42, tip: 0.3, path: [[0, 0, 0], rp(A + 0.72, R * 0.95, 0.98 * SH, true), rp(A + 0.8, R + 0.28, 0.62 * SH, true), rp(A + 0.86, R + 0.62, 0.2), rp(A + 0.9, R + 0.95, 0.06), rp(A + 0.95, R + 1.3, -0.1)] },
-    { at: 0.5, radius: 0.38, tip: 0.3, path: [[0, 0, 0], rp(A + 0.1, R * 0.95, 0.78 * SH, true), rp(A + 0.14, R + 0.22, 0.48 * SH, true), rp(A + 0.2, R + 0.5, 0.12), rp(A + 0.24, R + 0.78, 0.05), rp(A + 0.3, R + 1.0, -0.1)] },
+    { at: 0.62, radius: 0.33, tip: 0.24, flat: 0.66, elbow: 0.1, path: [[0, 0, 0], rp(A + 0.72, R * 0.95, 0.98 * SH, true), rp(A + 0.8, R + 0.28, 0.62 * SH, true), rp(A + 0.86, R + 0.62, 0.2), rp(A + 0.9, R + 0.95, 0.06), rp(A + 0.95, R + 1.3, -0.1)] },
+    { at: 0.5, radius: 0.3, tip: 0.24, flat: 0.66, elbow: 0.1, path: [[0, 0, 0], rp(A + 0.1, R * 0.95, 0.78 * SH, true), rp(A + 0.14, R + 0.22, 0.48 * SH, true), rp(A + 0.2, R + 0.5, 0.12), rp(A + 0.24, R + 0.78, 0.05), rp(A + 0.3, R + 1.0, -0.1)] },
     // crawling roots toward the viewer and the track: humped, kinked at an elbow, diving under
-    { at: 0.06, radius: 0.36, tip: 0.25, path: [[0, 0, 0], rp(A + 0.42, R * 0.9, 0.3, true), rp(A + 0.44, R + 0.14, 0.14), rp(A + 0.5, R + 0.34, 0.17), rp(A + 0.47, R + 0.46, 0.05), rp(A + 0.53, R + 0.62, 0.11), rp(A + 0.58, R + 0.86, -0.09)] },
-    { at: 0.05, radius: 0.34, tip: 0.25, path: [[0, 0, 0], rp(A + 1.2, R * 0.9, 0.28, true), rp(A + 1.24, R + 0.16, 0.1), rp(A + 1.32, R + 0.38, 0.15), rp(A + 1.28, R + 0.55, 0.04), rp(A + 1.36, R + 0.78, 0.07), rp(A + 1.42, R + 1.02, -0.08)] },
-    { at: 0.05, radius: 0.32, tip: 0.25, path: [[0, 0, 0], rp(A - 0.4, R * 0.9, 0.26, true), rp(A - 0.42, R + 0.12, 0.09), rp(A - 0.36, R + 0.3, 0.13), rp(A - 0.44, R + 0.46, 0.03), rp(A - 0.4, R + 0.66, -0.08)] },
-    { at: 0.06, radius: 0.33, tip: 0.25, path: [[0, 0, 0], rp(A + 1.85, R * 0.9, 0.3, true), rp(A + 1.9, R + 0.14, 0.1), rp(A + 1.95, R + 0.4, 0.07), rp(A + 2.02, R + 0.7, -0.08)] },
+    { at: 0.06, radius: 0.3, tip: 0.22, flat: 0.6, elbow: 0.07, path: [[0, 0, 0], rp(A + 0.42, R * 0.9, 0.3, true), rp(A + 0.44, R + 0.14, 0.14), rp(A + 0.5, R + 0.34, 0.17), rp(A + 0.47, R + 0.46, 0.05), rp(A + 0.53, R + 0.62, 0.11), rp(A + 0.58, R + 0.86, -0.09)] },
+    { at: 0.05, radius: 0.29, tip: 0.22, flat: 0.6, elbow: 0.07, path: [[0, 0, 0], rp(A + 1.2, R * 0.9, 0.28, true), rp(A + 1.24, R + 0.16, 0.1), rp(A + 1.32, R + 0.38, 0.15), rp(A + 1.28, R + 0.55, 0.04), rp(A + 1.36, R + 0.78, 0.07), rp(A + 1.42, R + 1.02, -0.08)] },
+    { at: 0.05, radius: 0.28, tip: 0.22, flat: 0.6, elbow: 0.07, path: [[0, 0, 0], rp(A - 0.4, R * 0.9, 0.26, true), rp(A - 0.42, R + 0.12, 0.09), rp(A - 0.36, R + 0.3, 0.13), rp(A - 0.44, R + 0.46, 0.03), rp(A - 0.4, R + 0.66, -0.08)] },
+    { at: 0.06, radius: 0.28, tip: 0.22, flat: 0.6, elbow: 0.07, path: [[0, 0, 0], rp(A + 1.85, R * 0.9, 0.3, true), rp(A + 1.9, R + 0.14, 0.1), rp(A + 1.95, R + 0.4, 0.07), rp(A + 2.02, R + 0.7, -0.08)] },
     // thinner roots between them, twisting over and under each other
-    { at: 0.1, radius: 0.2, tip: 0.2, path: [[0, 0, 0], rp(A + 0.22, R * 0.9, 0.36, true), rp(A + 0.28, R + 0.1, 0.12), rp(A + 0.18, R + 0.3, 0.1), rp(A + 0.26, R + 0.5, 0.02), rp(A + 0.2, R + 0.72, 0.06), rp(A + 0.24, R + 0.95, -0.06)] },
-    { at: 0.08, radius: 0.18, tip: 0.2, path: [[0, 0, 0], rp(A + 0.85, R * 0.9, 0.32, true), rp(A + 0.8, R + 0.12, 0.13), rp(A + 0.9, R + 0.32, 0.06), rp(A + 0.84, R + 0.52, 0.1), rp(A + 0.92, R + 0.8, -0.06)] },
-    { at: 0.07, radius: 0.18, tip: 0.2, path: [[0, 0, 0], rp(A - 0.15, R * 0.9, 0.3, true), rp(A - 0.1, R + 0.12, 0.1), rp(A - 0.2, R + 0.3, 0.12), rp(A - 0.12, R + 0.5, 0.03), rp(A - 0.18, R + 0.7, -0.06)] },
-    // buttresses creeping back over the turf toward the RIP stone (the reference's roots along its foot, left of the mass)
-    { at: 0.08, radius: 0.4, tip: 0.18, path: buttress(-1.62, 2.1, 0.3, 0) },
-    { at: 0.07, radius: 0.34, tip: 0.18, path: buttress(-1.92, 1.75, 0.24, 1) },
-    { at: 0.06, radius: 0.3, tip: 0.2, path: buttress(-2.2, 1.15, 0.2, 2) },
-    { at: 0.07, radius: 0.3, tip: 0.2, path: buttress(-1.32, 1.6, 0.22, 3) },
+    { at: 0.1, radius: 0.18, tip: 0.25, flat: 0.7, elbow: 0.05, path: [[0, 0, 0], rp(A + 0.22, R * 0.9, 0.36, true), rp(A + 0.28, R + 0.1, 0.12), rp(A + 0.18, R + 0.3, 0.1), rp(A + 0.26, R + 0.5, 0.02), rp(A + 0.2, R + 0.72, 0.06), rp(A + 0.24, R + 0.95, -0.06)] },
+    { at: 0.08, radius: 0.16, tip: 0.25, flat: 0.7, elbow: 0.05, path: [[0, 0, 0], rp(A + 0.85, R * 0.9, 0.32, true), rp(A + 0.8, R + 0.12, 0.13), rp(A + 0.9, R + 0.32, 0.06), rp(A + 0.84, R + 0.52, 0.1), rp(A + 0.92, R + 0.8, -0.06)] },
+    { at: 0.07, radius: 0.16, tip: 0.25, flat: 0.7, elbow: 0.05, path: [[0, 0, 0], rp(A - 0.15, R * 0.9, 0.3, true), rp(A - 0.1, R + 0.12, 0.1), rp(A - 0.2, R + 0.3, 0.12), rp(A - 0.12, R + 0.5, 0.03), rp(A - 0.18, R + 0.7, -0.06)] },
+    // buttresses creeping back over the turf toward the RIP stone (the reference's roots along its foot, left of the mass): low and broad
+    { at: 0.08, radius: 0.32, tip: 0.2, flat: 0.55, elbow: 0.09, path: buttress(-1.62, 2.1, 0.24, 0) },
+    { at: 0.07, radius: 0.28, tip: 0.2, flat: 0.55, elbow: 0.09, path: buttress(-1.92, 1.75, 0.2, 1) },
+    { at: 0.06, radius: 0.25, tip: 0.22, flat: 0.55, elbow: 0.08, path: buttress(-2.2, 1.15, 0.17, 2) },
+    { at: 0.07, radius: 0.25, tip: 0.22, flat: 0.55, elbow: 0.08, path: buttress(-1.32, 1.6, 0.18, 3) },
+    // strangler tendrils: thin roots running down the stump's face from high up, over the climbing
+    // roots, into the ground (the reference's knotted lattice; they break the big masses)
+    { at: 0.8, radius: 0.2, tip: 0.3, flat: 0.7, elbow: 0.05, path: [[0, 0, 0], rp(A + 0.38, R * 1.05, 1.18 * SH, true), rp(A + 0.5, R * 1.2, 0.92 * SH, true), rp(A + 0.4, R * 1.26, 0.66 * SH, true), rp(A + 0.56, R * 1.3, 0.4 * SH, true), rp(A + 0.62, R + 0.28, 0.08), rp(A + 0.7, R + 0.55, 0.12), rp(A + 0.76, R + 0.8, -0.06)] },
+    { at: 0.68, radius: 0.18, tip: 0.3, flat: 0.7, elbow: 0.05, path: [[0, 0, 0], rp(A - 0.22, R * 1.05, 1.0 * SH, true), rp(A - 0.1, R * 1.2, 0.78 * SH, true), rp(A - 0.26, R * 1.26, 0.52 * SH, true), rp(A - 0.12, R * 1.3, 0.28 * SH, true), rp(A - 0.2, R + 0.3, 0.06), rp(A - 0.3, R + 0.58, -0.05)] },
+    { at: 0.9, radius: 0.17, tip: 0.3, flat: 0.7, elbow: 0.04, path: [[0, 0, 0], rp(A + 0.95, R * 1.02, 1.3 * SH, true), rp(A + 1.05, R * 1.18, 1.08 * SH, true), rp(A + 0.92, R * 1.24, 0.86 * SH, true), rp(A + 1.0, R * 1.28, 0.62 * SH, true), rp(A + 1.12, R + 0.24, 0.3 * SH, true), rp(A + 1.2, R + 0.5, 0.04), rp(A + 1.28, R + 0.8, -0.05)] },
+    // and thin roots crawling left over the turf behind (toward the RIP stone), over and between the buttresses
+    { at: 0.12, radius: 0.17, tip: 0.25, flat: 0.62, elbow: 0.06, path: [[0, 0, 0], rp(A + 2.02, R * 0.95, 0.28, true), rp(A + 2.1, R + 0.3, 0.1), rp(A + 2.2, R + 0.65, 0.13), rp(A + 2.14, R + 1.0, 0.04), rp(A + 2.26, R + 1.35, 0.09), rp(A + 2.3, R + 1.75, -0.05)] },
+    { at: 0.1, radius: 0.16, tip: 0.25, flat: 0.62, elbow: 0.06, path: [[0, 0, 0], rp(A + 2.42, R * 0.95, 0.24, true), rp(A + 2.36, R + 0.35, 0.12), rp(A + 2.5, R + 0.75, 0.05), rp(A + 2.44, R + 1.15, 0.1), rp(A + 2.52, R + 1.6, 0.03), rp(A + 2.48, R + 2.0, -0.05)] },
   ];
 }
 
@@ -455,79 +469,102 @@ function rootSkeleton(): TreeSkeleton {
     rootFlare: 0.75,
     flareFrac: 0.3,
     pathGnarl: 0.9,
-    // broad, gnarled wood: few shallow furrows wandering far (never a ribbed hose), big burls and lumps
-    bark: { furrows: 3.2, depth: 0.11, twist: 0.1, lumps: 0.25, burls: 0.35, wander: 1.25, minRadius: 0.04 },
-    roots: { count: 6, length: 0.85, radius: 0.45, forks: 1 },
+    // old, gnarled wood: deep fibrous furrows along the grain (they catch the key on their ridges),
+    // burls and lumps; the fibres between them are painted per fragment (rootBark)
+    bark: { furrows: 4.4, depth: 0.17, twist: 0.12, lumps: 0.2, burls: 0.3, wander: 0.8, minRadius: 0.03 },
+    roots: { count: 6, length: 0.85, radius: 0.4, forks: 1 },
     ground: localGround,
-    hero: rootPlans().map((r) => ({ at: r.at, dir: [1, 0, 0] as V3, length: 1, radius: r.radius, tip: r.tip, path: r.path, children: 0 })),
+    hero: rootPlans().map((r) => ({ at: r.at, dir: [1, 0, 0] as V3, length: 1, radius: r.radius, tip: r.tip, path: r.path, children: 0, flat: r.flat, flatTwist: 0.22, elbow: r.elbow })),
     windLevel: 99,
   });
-  // roots: the radius swells and thins along them (±30 %) with knuckles every 0.3-0.5 m
+  // roots: the radius swells and thins along them (±22 %) with knuckles every 0.3-0.5 m, and
+  // tapers hard over its last third (a tendril's point, never a rounded sausage end)
   skel.tubes.forEach((t: Tube, ti: number) => {
     if (t.level === 0) return;
     const period = 0.3 + 0.2 * rand(78, ti, 0);
     const ph = rand(78, ti, 1);
+    const len = t.rings[t.rings.length - 1].along;
     for (const ring of t.rings) {
-      const w = 1 + 0.3 * fbm(ring.along * 2.2, ti * 1.7, 79, 2, 1);
+      const w = 1 + 0.22 * fbm(ring.along * 2.6, ti * 1.7, 79, 2, 1);
       const f = (ring.along / period + ph) % 1;
-      const knuckle = 1 + 0.16 * Math.exp(-(((f - 0.5) / 0.1) ** 2));
-      ring.radius *= w * knuckle;
+      const knuckle = 1 + 0.14 * Math.exp(-(((f - 0.5) / 0.1) ** 2));
+      const tipT = smoothstep(0.62, 1, ring.along / Math.max(1e-3, len));
+      ring.radius *= w * knuckle * (1 - 0.55 * tipT);
     }
   });
   rootSkel = skel;
   return skel;
 }
 
+/** The pale, weathered heartwood of the stump's broken top (a vertex colour over the bark's plum: about (150, 128, 118) lit). */
+const CUT_WOOD: [number, number, number] = [2.3, 2.6, 2.1];
+
 /**
- * The stump's broken top: rounded, gnarled shoulders rolling over into a lumpy, weathered rim (a
- * couple of low, blunt stubs of the old wood, worn round, never a sawtooth crest), and a dark
- * hollow inside it.
+ * The stump's broken top: the old wood snapped off in splinters of uneven height and width (a few
+ * tall spikes at the back, short ones at the front, never a regular crown), a pale weathered cut
+ * ring inside them (the heartwood, with dark cracks across it), and a dark hollow inside that.
  */
 function stumpCap(skel: TreeSkeleton): BufferGeometry {
   const trunk = skel.tubes[0];
   const len = trunk.rings[trunk.rings.length - 1].along;
   const top = trunk.rings[trunk.rings.length - 1];
-  const NA = 72;
+  const NA = 144;
   const pos: number[] = [];
   const col: number[] = [];
   const idx: number[] = [];
   const R = top.radius;
+  // splinters: world angle (from the camera direction), half width (rad), height (m); a lumpy rim between them
+  const SPLINTERS: [number, number, number][] = [
+    [2.75, 0.14, 0.24],
+    [2.52, 0.07, 0.15],
+    [2.3, 0.1, 0.11],
+    [3.3, 0.18, 0.2],
+    [-2.6, 0.11, 0.14],
+    [1.75, 0.08, 0.1],
+    [-1.9, 0.16, 0.12],
+    [1.1, 0.07, 0.07],
+    [-1.25, 0.1, 0.08],
+    [0.45, 0.07, 0.05],
+  ];
   const jag = (a: number) => {
-    // a lumpy rim, and two or three blunt, rounded stubs (higher at the back)
-    let h = 0.06 * fbm(Math.cos(a) * 1.4, Math.sin(a) * 1.4, 230, 3, 1) + 0.025 * fbm(Math.cos(a) * 4, Math.sin(a) * 4, 231, 2, 1);
-    for (const [sa, sw, sh] of [
-      [CAM_A + 2.6, 0.6, 0.16],
-      [CAM_A - 1.5, 0.5, 0.1],
-      [CAM_A + 1.2, 0.35, 0.05],
-    ] as const) {
-      const d = Math.abs(Math.atan2(Math.sin(a - sa), Math.cos(a - sa)));
+    let h = 0.03 * fbm(Math.cos(a) * 1.4, Math.sin(a) * 1.4, 230, 3, 1) + 0.022 * fbm(Math.cos(a) * 6, Math.sin(a) * 6, 231, 2, 1);
+    for (const [sa, sw, sh] of SPLINTERS) {
+      const d = Math.abs(Math.atan2(Math.sin(a - (CAM_A + sa)), Math.cos(a - (CAM_A + sa))));
       const t = Math.max(0, 1 - d / sw);
-      h += sh * t * t * (3 - 2 * t);
+      // a sharp spike: concave flanks up to a point
+      h = Math.max(h, sh * t ** 1.7);
     }
     return Math.max(0, h);
   };
-  // rings: the bark at the top ring, the shoulder rolling over (rounded), the rim's crest, its
-  // inner lip, the hollow's wall and floor; (inset fraction of R, height over the top ring + jag share, AO)
-  const ROLL: [number, number, number, number][] = [
-    [0.0, 0.0, 0.0, 0.9],
-    [0.05, 0.05, 0.45, 0.92],
-    [0.17, 0.085, 0.8, 0.95],
-    [0.3, 0.095, 1.0, 0.92],
-    [0.43, 0.075, 0.95, 0.75],
-    [0.52, 0.035, 0.8, 0.5],
+  // the cut's pale ring and cracks: colour by inset (0 the bark .. 1 the hollow)
+  const PALE = (a: number, k: number): [number, number, number] => {
+    const crack = smoothstep(0.86, 0.97, Math.abs(Math.sin(a * 7 + 1.3 * fbm(Math.cos(a) * 3, Math.sin(a) * 3, 232, 2, 1))));
+    const m = k * (1 - 0.75 * crack) * (0.82 + 0.3 * fbm(Math.cos(a) * 9, Math.sin(a) * 9, 233, 2, 1));
+    return [1 + (CUT_WOOD[0] - 1) * m, 1 + (CUT_WOOD[1] - 1) * m, 1 + (CUT_WOOD[2] - 1) * m];
+  };
+  // rings: the bark at the top ring, the splinters' outer face and tips, their inner face, the cut
+  // ring (pale), its inner lip, the hollow's wall and floor; (inset, height over the top ring + jag share, AO, pale)
+  const ROLL: [number, number, number, number, number][] = [
+    [0.0, 0.0, 0.0, 0.9, 0],
+    [0.02, 0.015, 0.55, 0.92, 0],
+    [0.06, 0.02, 1.0, 1.0, 0.05],
+    [0.12, 0.01, 0.9, 0.95, 0.45],
+    [0.2, 0.0, 0.25, 1.0, 1],
+    [0.34, -0.01, 0.12, 0.95, 1],
+    [0.44, -0.025, 0.05, 0.7, 0.55],
   ];
-  const rings: ((a: number, d: Vector3) => [Vector3, number])[] = [
+  const rings: ((a: number, d: Vector3) => [Vector3, number, [number, number, number]])[] = [
     ...ROLL.map(
-      ([inset, up, js, ao]) =>
-        (a: number, d: Vector3): [Vector3, number] => {
-          // (in from the bark's own surface there, so the roll follows its lumps and burls)
+      ([inset, up, js, ao, pale]) =>
+        (a: number, d: Vector3): [Vector3, number, [number, number, number]] => {
+          // (in from the bark's own surface there, so the cut follows its lumps and burls)
           const base = surfacePoint(skel, trunk, len, d).lerp(top.pos, inset);
-          return [base.addScaledVector(top.tangent, up * R + jag(a) * js), ao];
+          return [base.addScaledVector(top.tangent, up * R + jag(a) * js), ao, PALE(a, pale)];
         },
     ),
-    (a, d) => [surfacePoint(skel, trunk, len, d).lerp(top.pos, 0.6).addScaledVector(top.tangent, jag(a) * 0.4 - 0.1), 0.25],
-    (_a, d) => [top.pos.clone().addScaledVector(d, R * 0.26).addScaledVector(top.tangent, -0.3), 0.08],
-    (_a, d) => [top.pos.clone().addScaledVector(d, 0.001).addScaledVector(top.tangent, -0.36), 0.05],
+    (a, d) => [surfacePoint(skel, trunk, len, d).lerp(top.pos, 0.55).addScaledVector(top.tangent, -0.08), 0.25, PALE(a, 0.15)],
+    (_a, d) => [top.pos.clone().addScaledVector(d, R * 0.26).addScaledVector(top.tangent, -0.3), 0.08, [1, 1, 1]],
+    (_a, d) => [top.pos.clone().addScaledVector(d, 0.001).addScaledVector(top.tangent, -0.36), 0.05, [1, 1, 1]],
   ];
   const b = new Vector3().crossVectors(top.tangent, top.normal);
   for (const ring of rings)
@@ -536,9 +573,9 @@ function stumpCap(skel: TreeSkeleton): BufferGeometry {
       const d = top.normal.clone().multiplyScalar(Math.cos(t)).addScaledVector(b, Math.sin(t));
       // the world angle of this direction (splinters are placed by world angle)
       const a = Math.atan2(d.z, d.x);
-      const [p, ao] = ring(a, d);
+      const [p, ao, pc] = ring(a, d);
       pos.push(p.x, p.y, p.z);
-      col.push(ao, ao, ao);
+      col.push(ao * pc[0], ao * pc[1], ao * pc[2]);
     }
   for (let k = 0; k < rings.length - 1; k++)
     for (let i = 0; i < NA; i++) {
@@ -551,6 +588,15 @@ function stumpCap(skel: TreeSkeleton): BufferGeometry {
   g.setAttribute('color', new BufferAttribute(new Float32Array(col), 3));
   g.setAttribute('uv', new BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));
   g.setAttribute('aWind', new BufferAttribute(new Float32Array(pos.length / 3), 1));
+  // the fibres' coordinates (rootBark): on the cut, rings of growth round its centre (w 1)
+  const rm = new Float32Array((pos.length / 3) * 4);
+  const P = new Vector3();
+  for (let i = 0; i < pos.length / 3; i++) {
+    P.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]).sub(top.pos);
+    const rho = P.addScaledVector(top.tangent, -P.dot(top.tangent)).length();
+    rm.set([P.x / FIBRE, P.z / FIBRE, rho / 0.018, 1], i * 4);
+  }
+  g.setAttribute('aRm', new BufferAttribute(rm, 4));
   g.setIndex(idx);
   g.computeVertexNormals();
   return g;
@@ -595,7 +641,7 @@ function cavity(g: BufferGeometry, skel: TreeSkeleton): void {
         let m = 0;
         for (let q = -3; q <= 3; q++) m += rr[(((j + q) % R) + R) % R];
         const c = (rr[j] - m / 7) / Math.max(1e-3, ring.radius);
-        const k = Math.max(0.4, Math.min(1.3, 1 + 4.5 * c));
+        const k = Math.max(0.32, Math.min(1.55, 1 + 6 * c));
         col.setXYZ(base + j, col.getX(base + j) * k, col.getY(base + j) * k, col.getZ(base + j) * k);
       }
     });
@@ -603,11 +649,42 @@ function cavity(g: BufferGeometry, skel: TreeSkeleton): void {
   }
 }
 
+/** Fibre spacing across the wood and their length along it (world units). */
+const FIBRE = 0.022;
+const FIBRE_LEN = 0.12;
+
+/**
+ * The bark fibres' coordinates (rootBark): a seamless 3D point per vertex, around the wood by
+ * (cos, sin) × radius / FIBRE and along it by distance / FIBRE_LEN (each tube its own offset); w 0
+ * on the bark. Reads treeGeometry's layout; zeros if the counts do not match.
+ */
+function fibreCoords(g: BufferGeometry, skel: TreeSkeleton): void {
+  const n = g.attributes.position.count;
+  const arr = new Float32Array(n * 4);
+  let total = 0;
+  for (const t of skel.tubes) total += t.rings.length * (t.radial + 1);
+  if (total === n) {
+    let vo = 0;
+    skel.tubes.forEach((t, ti) => {
+      const k = t.rings[Math.floor((t.rings.length - 1) * 0.33)].radius / FIBRE;
+      t.rings.forEach((ring, ri) => {
+        for (let j = 0; j <= t.radial; j++) {
+          const a = (j / t.radial) * Math.PI * 2;
+          arr.set([Math.cos(a) * k, Math.sin(a) * k, ring.along / FIBRE_LEN + ti * 17.3, 0], (vo + ri * (t.radial + 1) + j) * 4);
+        }
+      });
+      vo += t.rings.length * (t.radial + 1);
+    });
+  }
+  g.setAttribute('aRm', new BufferAttribute(arr, 4));
+}
+
 /** The stump and its roots, merged, in world space (one draw call). */
 function massGeometry(): BufferGeometry {
   const skel = rootSkeleton();
   const tree = treeGeometry(skel);
   cavity(tree, skel);
+  fibreCoords(tree, skel);
   const cap = matchAttributes(stumpCap(skel), tree);
   // the furrows' floors and the undersides near the ground darker still (the folds go nearly black)
   const geo = mergeGeometries([tree, cap], false);
@@ -798,12 +875,92 @@ function blink(f: number, k: number): number {
   return t < 3 ? 0.12 : t < 4 ? 0.5 : 1;
 }
 
+// ---- the bark's fibres and its painter's key (the root mass's own shader terms) -----------------
+
+/** The painter's key on the bark's ridges: from the upper left in front (the moon is behind), a cool lilac grey. */
+const RM_UNIFORMS = {
+  uRmKey: { value: new Vector3(-0.62, 0.62, 0.48).normalize() },
+  uRmKeyCol: { value: new Color('#aea0aa').multiplyScalar(0.58) },
+};
+const RM_VERT = /* glsl */ `
+attribute vec4 aRm;
+varying vec4 vRm;
+void main() {
+  vRm = aRm;`;
+const RM_FRAG_PARS = /* glsl */ `
+varying vec4 vRm;
+uniform vec3 uRmKey;
+uniform vec3 uRmKeyCol;
+void main() {
+  float rmRidge = 0.5;`;
+// after the ground's grain: fibres along the wood (dark cracks between light, raised strands; they
+// fade before they are a pixel wide), and on the cut its growth rings and dry cracks
+const RM_FRAG_FIBRE = /* glsl */ `
+{
+  vec3 q = vRm.xyz;
+  float fw = length(fwidth(q));
+  float det = 1.0 - smoothstep(0.45, 1.1, fw);
+  float det2 = 1.0 - smoothstep(0.25, 0.6, fw);
+  float f1 = aivNoise3(q);
+  float f2 = aivNoise3(q * vec3(2.3, 2.3, 1.6) + 5.3);
+  float fib = 0.5 + ((f1 - 0.5) * 0.7 + (f2 - 0.5) * 0.45 * det2) * det;
+  float cut = vRm.w;
+  if (cut > 0.5) {
+    // the cut: concentric growth rings (darker lines), a few dry radial cracks
+    float ring = abs(fract(q.z + 0.35 * (f1 - 0.5)) - 0.5) * 2.0;
+    float rl = smoothstep(0.25, 0.0, ring) * (1.0 - smoothstep(0.5, 1.2, fwidth(q.z)));
+    float ang = atan(q.y, q.x);
+    float cr = smoothstep(0.94, 0.995, abs(sin(ang * 5.0 + 2.0 * f1))) * smoothstep(1.5, 5.0, q.z);
+    diffuseColor.rgb *= (1.0 - 0.28 * rl) * (1.0 - 0.7 * cr);
+    rmRidge = 0.7 * (1.0 - cr);
+  } else {
+    // bark plates: broad patches, some raised and pale, split by the fibres' cracks
+    float plate = aivNoise3(q * vec3(0.32, 0.32, 0.55) + 11.0);
+    float crack = smoothstep(0.42, 0.22, fib) * det;
+    float strand = smoothstep(0.54, 0.76, fib) * det * (0.55 + 0.9 * smoothstep(0.4, 0.7, plate));
+    rmRidge = strand;
+    // the raised strands weathered silver-grey (the old wood under the plum), the cracks near black
+    float lum = dot(diffuseColor.rgb, vec3(0.3, 0.5, 0.2));
+    diffuseColor.rgb *= (1.0 - 0.75 * crack) * (0.8 + 0.4 * plate);
+    diffuseColor.rgb = mix(diffuseColor.rgb, lum * vec3(1.25, 1.2, 1.38), 0.75 * strand);
+    vec2 dh = vec2(dFdx(fib), dFdy(fib)) * 2.0;
+    normal = grPerturb(-vViewPosition, normal, dh, faceDirection);
+  }
+}
+#include <emissivemap_fragment>`;
+// after every light: the painter's key on what faces it, strongest on the raised strands
+const RM_FRAG_KEY = /* glsl */ `
+{
+  vec3 rmK = normalize((viewMatrix * vec4(uRmKey, 0.0)).xyz);
+  float k = clamp(dot(normal, rmK), 0.0, 1.0);
+  reflectedLight.indirectDiffuse += diffuseColor.rgb * uRmKeyCol * k * k * (0.2 + 2.0 * rmRidge);
+}
+#include <aomap_fragment>`;
+
+/** The root mass's injection: the ground's (storybook + ground terms, kept in userData), then the fibres and the key. */
+function rootInject(this: MeshStandardMaterial, shader: WebGLProgramParametersWithUniforms, renderer: WebGLRenderer): void {
+  (this.userData.rmBase as (this: MeshStandardMaterial, s: WebGLProgramParametersWithUniforms, r: WebGLRenderer) => void).call(this, shader, renderer);
+  Object.assign(shader.uniforms, RM_UNIFORMS);
+  shader.vertexShader = shader.vertexShader.replace('void main() {', RM_VERT);
+  shader.fragmentShader = shader.fragmentShader.replace('void main() {', RM_FRAG_PARS).replace('#include <emissivemap_fragment>', RM_FRAG_FIBRE).replace('#include <aomap_fragment>', RM_FRAG_KEY);
+}
+
+/** Give a ground-shaded material the bark's fibres (needs the aRm attribute) and the painter's key. */
+function rootBark<M extends MeshStandardMaterial>(m: M): M {
+  m.userData.rmBase = m.onBeforeCompile;
+  const key = m.customProgramCacheKey();
+  m.onBeforeCompile = rootInject;
+  m.customProgramCacheKey = () => `${key}:rm`;
+  return m;
+}
+
 function RootMass({ f }: { f: number }) {
   const { geo, mat, eyes, warm, dim, sockets, socketMat } = useMemo(() => {
     const geo = massGeometry();
     // plum bark, lichen on its tops; a warm wrap fill so the faces toward the viewer hold their value
-    // (a low rim: on bark ridges a strong one breaks into scattered white flecks)
-    const mat = groundShading(storybookMaterial({ kind: 'stone', vertexColors: true, color: '#6e565c', color2: '#71868e', breakup: 0.55, scale: 0.1, bump: 2.2, rim: 0.85, topCoat: 0.55, roughness: 0.9, ambient: 0.62 }), { wrap: ['#c8b8c0', 0.34], shade: PLUM_SHADE, grain: [0.02, 0.6] });
+    // (a low rim: on bark ridges a strong one breaks into scattered white flecks); its fibres and a
+    // painter's key on their ridges (rootBark)
+    const mat = rootBark(groundShading(storybookMaterial({ kind: 'stone', vertexColors: true, color: '#645652', color2: '#7a8088', breakup: 0.4, scale: 0.1, bump: 1.4, rim: 0.85, topCoat: 0.45, roughness: 0.9, ambient: 0.62 }), { wrap: ['#c8b8c0', 0.34], shade: PLUM_SHADE, grain: [0.02, 0.4] }));
     const spots = eyeSpots(geo);
     const eyes = spots.map((e) => ({ geo: eyePairGeometry(e.dir, e.s), p: e.p, glow: e.glow }));
     const sockets = socketGeometry(spots);
@@ -901,6 +1058,44 @@ function webThreads(): Thread[] {
     const hub = p1.clone().add(p2).add(q1).add(q2).add(g).multiplyScalar(0.2).add(V(0, 0.04, 0));
     out.push(...orbWeb({ seed: 6, hub, anchors: [p1, p2, g, q2, q1], radials: 11, rings: 6, torn: 0.42, broken: 0.15, tethers: [stumpAt(rootAngle(9) + 0.2, 0.45), grassTop(q2.x + 0.2, q2.z - 0.1)] }));
   }
+  // across the stump's face toward the camera, between the strangler tendrils (the reference's big web over the mass, by its eyes)
+  const st1 = hero[13];
+  const st2 = hero[14];
+  if (st1 && st2) {
+    const out1 = (t: Tube, f: number) => on(t, f, toCam(on(t, f, V(0, 1, 0))));
+    const a1 = out1(st1, 0.28);
+    const a2 = out1(st1, 0.56);
+    const b1 = out1(st2, 0.3);
+    const b2 = out1(st2, 0.62);
+    const s1 = stumpAt(CAM_A + 0.12, 0.52);
+    const hub = a1.clone().add(a2).add(b1).add(b2).add(s1).multiplyScalar(0.2);
+    hub.add(toCam(hub).multiplyScalar(0.07));
+    out.push(...orbWeb({ seed: 7, hub, anchors: [a1, a2, s1, b2, b1], radials: 13, rings: 8, torn: 0.34, broken: 0.12, tethers: [out1(climbB ?? st2, 0.3), stumpAt(CAM_A - 0.5, 0.95)] }));
+  }
+  // low on the right flank, from the second climbing root to the stump (the reference's lower right web)
+  if (climbB && st2) {
+    const p1 = on(climbB, 0.18, toCam(on(climbB, 0.18, V(0, 1, 0))));
+    const p2 = on(climbB, 0.45, V(0, 1, 0));
+    const q1 = stumpAt(CAM_A - 0.75, 0.75);
+    const q2 = stumpAt(CAM_A - 0.85, 0.35);
+    const hub = p1.clone().add(p2).add(q1).add(q2).multiplyScalar(0.25);
+    hub.add(toCam(hub).multiplyScalar(0.05));
+    out.push(...orbWeb({ seed: 8, hub, anchors: [p1, q1, q2, p2], radials: 10, rings: 6, torn: 0.4, broken: 0.15, tethers: [on(st2, 0.75, V(0, 1, 0))] }));
+  }
+  // the RIP stone's right shoulder down to the grass at its foot (the reference's web in its corner)
+  {
+    const R = LAND.ripStone;
+    const yaw = R.yaw ?? 0;
+    const right = V(Math.cos(yaw), 0, -Math.sin(yaw));
+    const front = V(Math.sin(yaw), 0, Math.cos(yaw));
+    const at = (u: number, h: number, w = 0.12) => V(R.x, gy(R.x, R.z) + h, R.z).addScaledVector(right, u).addScaledVector(front, w);
+    const sh = at(0.27, 0.74);
+    const side = at(0.31, 0.38, 0.06);
+    const g1 = grassTop(R.x + right.x * 0.62 + front.x * 0.22, R.z + right.z * 0.62 + front.z * 0.22);
+    const g2 = grassTop(R.x + right.x * 0.36 + front.x * 0.42, R.z + right.z * 0.36 + front.z * 0.42);
+    const hub = sh.clone().add(side).add(g1).add(g2).multiplyScalar(0.25).addScaledVector(front, 0.05);
+    out.push(...orbWeb({ seed: 11, hub, anchors: [sh, side, g2, g1], radials: 10, rings: 6, torn: 0.36, broken: 0.12, tethers: [at(0.1, 0.86)] }));
+  }
   // the big cross's foot: from its stem's right edge down to the boulders and the grass (the reference's lower-left web)
   {
     const b0 = BOULDERS[8];
@@ -935,7 +1130,7 @@ function Webs() {
   const { geo, mat } = useMemo(() => {
     const geo = threadRibbons(webThreads(), { eye: HERO_EYE, px: 1.6, glint: 0.6, sheen: 0.7, light: NIGHT.uSbMoonDir.value.clone(), seed: 9 });
     // faintly warm silk (the jack-o'-lantern's light in it), drawn additive
-    const mat = storybookMaterial({ color: '#000000', emissive: '#c89aa0', emissiveIntensity: 0.7, vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, side: DoubleSide, rim: 0, fog: 0, breakup: 0 });
+    const mat = storybookMaterial({ color: '#000000', emissive: '#c8a4ac', emissiveIntensity: 1.05, vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, side: DoubleSide, rim: 0, fog: 0, breakup: 0 });
     return { geo, mat };
   }, []);
   useLayoutEffect(() => () => (geo.dispose(), mat.dispose()), [geo, mat]);
@@ -944,42 +1139,57 @@ function Webs() {
 
 // ---- fallen leaves and twigs --------------------------------------------------------------------
 
-function leafGeometry(seed: number, len: number): { pos: number[]; nor: number[]; idx: number[] } {
-  const w = len * (0.35 + 0.2 * rand(seed, 0, 0));
-  const curl = len * (0.15 + 0.25 * rand(seed, 0, 1));
-  const pts: [number, number, number][] = [
-    [0, 0, 0],
-    [-w * 0.8, curl * 0.6, len * 0.3],
-    [0, 0, len * 0.3],
-    [w * 0.8, curl * 0.6, len * 0.3],
-    [-w * 0.6, curl * 0.5, len * 0.68],
-    [0, 0.002, len * 0.68],
-    [w * 0.6, curl * 0.5, len * 0.68],
-    [0, curl * 0.4, len],
-  ];
-  const idx = [0, 1, 2, 0, 2, 3, 1, 4, 2, 2, 4, 5, 2, 6, 3, 2, 5, 6, 4, 7, 5, 5, 7, 6];
-  return { pos: pts.flat(), nor: pts.flatMap(() => [0, 1, 0]), idx };
+/**
+ * A fallen leaf: an oval blade with a few lobes along its edge (16 points round a midrib), its
+ * sides curled up, the tip lifted, a short petiole at its base (normals come from the curl:
+ * computed over the merged leaves).
+ */
+function leafGeometry(seed: number, len: number): { pos: number[]; idx: number[] } {
+  const w = len * (0.28 + 0.14 * rand(seed, 0, 0));
+  const curl = len * (0.12 + 0.22 * rand(seed, 0, 1));
+  const lobes = 2 + Math.floor(rand(seed, 0, 2) * 3);
+  const T = [0, 0.12, 0.28, 0.45, 0.62, 0.78, 0.9, 1];
+  const pos: number[] = [];
+  const idx: number[] = [];
+  // the petiole: a thin strip back from the base
+  const pl = len * 0.22;
+  pos.push(-0.002, 0.001, -pl, 0.002, 0.001, -pl);
+  for (const t of T) {
+    const half = w * Math.sin(Math.PI * Math.min(1, t * 1.08)) ** 0.75 * (1 + 0.16 * Math.sin(t * Math.PI * lobes * 2 + seed));
+    const z = len * t;
+    const lift = curl * 0.35 * t * t;
+    pos.push(-half, curl * 0.6 + lift, z, 0, lift * 0.6, z, half, curl * 0.6 + lift, z);
+  }
+  // petiole to the base, then the blade in strips (left and right of the midrib)
+  idx.push(0, 1, 3, 0, 3, 2, 1, 4, 3);
+  for (let i = 0; i < T.length - 1; i++) {
+    const a = 2 + i * 3;
+    const b = a + 3;
+    idx.push(a, a + 1, b + 1, a, b + 1, b, a + 1, a + 2, b + 2, a + 1, b + 2, b + 1);
+  }
+  return { pos, idx };
 }
 
-const LEAF_COLS = ['#5e3b22', '#6b4a26', '#4e2a20', '#4a4528', '#5a3020'].map((c) => new Color(c));
+/** Dry ochre, rust and brown (sRGB): warm and lighter than the turf, so they read as leaves, not holes. */
+const LEAF_COLS = ['#8a5a2a', '#a06a30', '#7a4424', '#6e5a2c', '#94502a', '#5e3a22'].map((c) => new Color(c));
 
 function leavesGeometry(): BufferGeometry {
   const pos: number[] = [];
-  const nor: number[] = [];
   const col: number[] = [];
   const idx: number[] = [];
   const m = new Matrix4();
   const v = new Vector3();
   const q = new Quaternion();
   let placed = 0;
-  for (let k = 0; k < 9000 && placed < 520; k++) {
+  for (let k = 0; k < 12000 && placed < 640; k++) {
     const x = -2.8 + rand(70, k, 0) * 7.5;
     const z = -1.6 + rand(70, k, 1) * 6.2;
     const tr = trackAt(x, z);
     // along the track's ragged edges (both sides of the line), some blown onto the dirt
     const edgeBand = 1 - Math.min(1, Math.abs(tr.edge + 0.02) / 0.16);
     const onDirt = tr.m > 0.5 ? 0.12 : 0;
-    const drift = 0.5 + 0.5 * fbm(x, z, 71, 2, 1.6);
+    // (in drifts: clustered along the edges and against the stones, bare stretches between)
+    const drift = smoothstep(0.35, 0.8, 0.5 + 0.5 * fbm(x, z, 71, 2, 2.2)) * 1.6;
     const yardM = yardMask(x, z, 0.3) * 0.55;
     if (rand(70, k, 2) > (edgeBand * 0.8 + onDirt) * drift * (0.35 + 0.65 * smoothstep(0.4, 3.6, z)) + yardM * drift) continue;
     // (in the door yard only round its trodden middle, where the actors stand)
@@ -997,7 +1207,6 @@ function leavesGeometry(): BufferGeometry {
         for (let j = 0; j < 3; j++) {
           const a = (j / 3) * Math.PI * 2;
           pos.push(c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r, c[2]);
-          nor.push(Math.cos(a), Math.sin(a), 0);
         }
       for (let s = 0; s < 2; s++)
         for (let j = 0; j < 3; j++) {
@@ -1008,7 +1217,6 @@ function leavesGeometry(): BufferGeometry {
     } else {
       const lg = leafGeometry(70 + k, len);
       pos.push(...lg.pos);
-      nor.push(...lg.nor);
       idx.push(...lg.idx.map((i) => i + base));
     }
     const count = pos.length / 3 - base;
@@ -1016,25 +1224,22 @@ function leavesGeometry(): BufferGeometry {
     q.setFromEuler(new Euler((rand(70, k, 7) - 0.5) * 0.35, rand(70, k, 8) * 6.283, (rand(70, k, 9) - 0.5) * 0.35, 'YXZ'));
     m.compose(new Vector3(x, g + 0.002, z), q, new Vector3(1, 1, 1));
     const c = isTwig ? new Color('#3a2e28') : LEAF_COLS[Math.floor(rand(70, k, 10) * LEAF_COLS.length)].clone();
-    c.multiplyScalar(0.6 + 0.55 * rand(70, k, 11));
+    c.multiplyScalar(0.8 + 0.4 * rand(70, k, 11));
     for (let i = base; i < base + count; i++) {
       v.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]).applyMatrix4(m);
       pos[i * 3] = v.x;
       pos[i * 3 + 1] = v.y;
       pos[i * 3 + 2] = v.z;
-      v.set(nor[i * 3], nor[i * 3 + 1], nor[i * 3 + 2]).applyQuaternion(q);
-      nor[i * 3] = v.x;
-      nor[i * 3 + 1] = v.y;
-      nor[i * 3 + 2] = v.z;
       col.push(c.r, c.g, c.b);
     }
     placed++;
   }
   const g = new BufferGeometry();
   g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
-  g.setAttribute('normal', new BufferAttribute(new Float32Array(nor), 3));
   g.setAttribute('color', new BufferAttribute(new Float32Array(col), 3));
   g.setIndex(idx);
+  // (normals from the curl; each leaf's own vertices only, so they never smooth across leaves)
+  g.computeVertexNormals();
   g.computeBoundingSphere();
   return g;
 }

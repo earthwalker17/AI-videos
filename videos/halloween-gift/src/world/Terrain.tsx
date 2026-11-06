@@ -543,6 +543,18 @@ const GR_FRAG_GRAIN = /* glsl */ `
   h = mix(h, smoothstep(0.0, 0.05, grFl.x) * 1.6 + 0.4 * h, grFlag);
   h = mix(h, smoothstep(0.0, 0.06, grRk.x) * 2.2 + (grRk.y - 0.5) * dot(vSbWorld.xz, vec2(8.0, 5.0)) * 0.35 + 0.4 * h, grRock);
   #endif
+  #ifdef GR_EDGE
+  // the dirt's grit in the paint too: crumbs and pebbles lighter, pits darker (about ±15 %), off the
+  // flags and the rock shelves (a smooth gradient read as a decal under the leaves)
+  {
+    float off = (1.0 - grFlag) * (1.0 - grRock) * grEdgeM;
+    float fwP = length(fwidth(vSbWorld)) / (uGrGrain.x * 2.2);
+    float peb = smoothstep(0.7, 0.88, aivNoise3(vSbWorld / (uGrGrain.x * 2.2) + 2.7)) * (1.0 - smoothstep(0.25, 0.7, fwP));
+    float grit = (aivNoise3(q * 0.5 + 9.1) - 0.5) * (1.0 - smoothstep(0.2, 0.6, fw * 0.5));
+    diffuseColor.rgb *= 1.0 + off * (0.3 * grit + 0.32 * peb);
+    h += off * 1.4 * peb;
+  }
+  #endif
   vec2 dh = vec2(dFdx(h), dFdy(h)) * uGrGrain.y * det;
   normal = grPerturb(-vViewPosition, normal, dh, faceDirection);
 }
@@ -1237,7 +1249,7 @@ export function Terrain({ grow = 1 }: { grow?: number }) {
   const { geometry, turf, dirt, water, waterGeo } = useMemo(() => {
     const geometry = terrainGeometry();
     const turf = groundShading(storybookMaterial({ kind: 'earth', vertexColors: true, roughness: 0.97, breakup: 0.3, scale: 0.18, bump: 0.6, color2: '#33585f' }), { sheen: TURF_SHEEN, shade: [PLUM, 0.45], grain: [0.045, 0.7], comb: true });
-    const dirt = groundShading(storybookMaterial({ kind: 'earth', vertexColors: true, roughness: 0.9, breakup: 0.3, scale: 0.12, bump: 1.0, color2: '#3a3035', rim: 1.0 }), { grain: [0.03, 0.6], wet: true, shade: [PLUM, 0.75], edge: true, sheen: TURF_SHEEN });
+    const dirt = groundShading(storybookMaterial({ kind: 'earth', vertexColors: true, roughness: 0.9, breakup: 0.3, scale: 0.12, bump: 1.0, color2: '#3a3035', rim: 1.0 }), { grain: [0.026, 0.95], wet: true, shade: [PLUM, 0.75], edge: true, sheen: TURF_SHEEN });
     const waterGeo = puddleGeometry();
     const water = groundShading(storybookMaterial({ color: '#020405', roughness: 0.05, metalness: 0, emissive: '#02070a', breakup: 0, rim: 0.5 }), { water: 1 });
     return { geometry, turf, dirt, water, waterGeo };

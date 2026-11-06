@@ -81,9 +81,9 @@ const RAMP: [number, string][] = [
   [0.38, '#7e3410'],
   [0.7, '#e07a1c'],
   [0.715, '#a4400c'],
-  [0.84, '#e47e1c'],
-  [0.94, '#f8b03e'],
-  [1, '#ffe08c'],
+  [0.84, '#ec8a22'],
+  [0.94, '#ffc458'],
+  [1, '#fff4c0'],
 ];
 /** the small pumpkins glow yellower (cream-gold faces at a distance, as the reference's stack) */
 const SMALL_RAMP: [number, string][] = [
@@ -125,9 +125,14 @@ const SKY_RIM = /* glsl */ `
   {
     // the sky's teal edge on the side away from the moon (view space: from the screen's left)
     // (a narrow edge: a broad one turned the whole shadow side grey-blue plastic)
-    float skyEdge = pow(max(1.0 - facing, 0.0), 3.2);
+    float skyEdge = pow(max(1.0 - facing, 0.0), 2.4);
     float skyTo = smoothstep(-0.15, 0.75, dot(normal, uPkSkyDir));
     outgoingLight += uPkSky * skyEdge * skyTo * diffuseColor.a;
+    // the cool sheen of the night sky on the rind's top (the reference's teal-grey shoulders), on the
+    // crowns more than in the grooves (the alpha)
+    vec3 pkUp = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+    float top = smoothstep(0.25, 0.9, dot(normal, pkUp));
+    outgoingLight += uPkSky * 0.8 * top * (0.4 + 0.6 * skyEdge) * diffuseColor.a;
   }`;
 
 interface SkyData {
@@ -172,7 +177,7 @@ function disposePaint(p: PumpkinPaint) {
 }
 
 /** The emission at full light (HDR multiplier of the ramp). */
-const GLOW = 2.4;
+const GLOW = 2.9;
 const SMALL_GLOW = 3.6;
 
 // ---- decals: soft contact shadows (multiplied) and warm pools (added), no lights ------------------

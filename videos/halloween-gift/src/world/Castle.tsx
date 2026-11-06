@@ -93,15 +93,39 @@ function cliffR(th: number, y: number): number {
   r += shoulder(th) * Math.max(0, yr - y) * SHOULDER_RUN * smoothstep(0, 0.12, t);
   return r;
 }
-const CLIFF_BOT = -1.1;
+/** the underside's lowest point (pre-lift): see TIP */
+const CLIFF_BOT = 0.8;
 /** how far the shoulder runs out per unit of drop (0.95 was about 45°) */
 const SHOULDER_RUN = 0.5;
 /** the strata: ledges every 1 / STRATA in height, each a step out with a dark riser under its lip */
 const STRATA = 3.4;
 /** where (0 at a ledge's lip .. 1 at the next one down) a point sits in its stratum */
 function strataPhase(th: number, y: number): number {
-  const v = y * STRATA + fbm2(th * 3, 0.2, 907, 2) * 1.5;
+  // uneven beds (spacing ±40 %) dipping across the crag (a few degrees), never a stack of plates
+  const v = y * STRATA * (1 + 0.4 * fbm2(th * 0.9, y * 0.6, 909, 2)) + fbm2(th * 3, 0.2, 907, 2) * 1.5 + 0.55 * Math.sin(th + 0.7);
   return v - Math.floor(v);
+}
+
+/**
+ * The island floats (as the reference's): under its lowest cliffs, at UNDER (a ragged line, pre-lift),
+ * the rock is undercut, then its underside tapers to a ragged point at TIP inside the mist bank (in
+ * the hero view the crag stops at about y 480; nothing of it reaches the hill).
+ */
+const UNDER = 1.17;
+const TIP = CLIFF_BOT;
+function underAt(th: number): number {
+  return UNDER + 0.09 * fbm2(th * 2.4, 0.5, 951, 2) + 0.04 * Math.sin(th * 5 + 1.1);
+}
+/** The underside's radius factor at angle th and height y (1 above the undercut). */
+function underside(th: number, y: number): number {
+  const u = underAt(th);
+  if (y >= u) return 1;
+  const t = clamp01((u - y) / (u - TIP));
+  // pulled in hard just under the lip (the undercut's shadow line), then a ragged taper to the point
+  // (hanging spurs and broken teeth of rock: a smooth taper read as a saucer's underside)
+  const spur = Math.abs(Math.sin(th * 7 + 2.3 * fbm2(th * 2, 0.3, 953, 2)));
+  const rag = 1 + (0.35 * fbm2(th * 9, y * 6, 952, 2) + 0.4 * (spur - 0.5)) * smoothstep(0, 0.25, t);
+  return Math.max(0.03, (1 - 0.3 * smoothstep(0, 0.1, t)) * (1 - t) ** 0.7 * rag);
 }
 /**
  * The crag's radius at angle th and height y as its mesh has it: the smooth radius (a sloping
@@ -113,7 +137,7 @@ function cragR(th: number, y: number): number {
   const seam = 1 - Math.abs(fbm2(th * 9.5, y * 0.35, 904, 3));
   // each stratum leans out toward its lip (a ledge), so its top catches the light and its riser is in shadow
   const strata = 1 - strataPhase(th, y);
-  return cliffR(th, y) * (1 + (1 - 0.5 * shd) * (0.1 * (seam - 0.6) + 0.035 * fbm2(th * 22, y * 1.6, 905, 2) + 0.07 * (strata - 0.5) + 0.018 * Math.sin(y * 13 + th * 3)) + 0.012 * fbm2(th * 6, y * 2, 908, 2));
+  return cliffR(th, y) * underside(th, y) * (1 + (1 - 0.5 * shd) * (0.1 * (seam - 0.6) + 0.035 * fbm2(th * 22, y * 1.6, 905, 2) + 0.07 * (strata - 0.5) + 0.018 * Math.sin(y * 13 + th * 3)) + 0.012 * fbm2(th * 6, y * 2, 908, 2));
 }
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 /** the rim's height at angle th */
@@ -154,11 +178,13 @@ function cragTable(out: Builder): void {
   const BOT = CLIFF_BOT;
   const P: Vector3[][] = [];
   const shade: number[][] = [];
+  const rimA: number[][] = [];
   for (let i = 0; i <= NA; i++) {
     const th = (i / NA) * TAU;
     const R = rimR(th);
     const ring: Vector3[] = [];
     const sh: number[] = [];
+    const ra: number[] = [];
     const cx = Math.cos(th);
     const cz = Math.sin(th);
     for (const f of tops) {
@@ -168,6 +194,7 @@ function cragTable(out: Builder): void {
       const y = crTop0(x, z) - 0.05 * smoothstep(0.82, 1, f);
       ring.push(new Vector3(x, y, z));
       sh.push(1.05 + 0.15 * fbm2(x * 2.5, z * 2.5, 903, 2) - 0.12 * smoothstep(0.9, 1, f));
+      ra.push(0.9);
     }
     const yr = ring[ring.length - 1].y;
     const shd = shoulder(th);
@@ -179,12 +206,19 @@ function cragTable(out: Builder): void {
       const low = smoothstep(BOT, 1.4, y);
       // the shoulder's moonlit slope stays lighter (its top coat does the rest); the cliffs darken down;
       // under each ledge's lip a dark riser, and dark cracks down the seams
-      const riser = 1 - 0.55 * smoothstep(0.35, 0.02, strataPhase(th, y));
-      const crack = 1 - 0.4 * smoothstep(0.82, 0.97, seam);
-      sh.push(((0.62 + 0.25 * seam) * (0.45 + 0.55 * low) * (1 - shd) + shd * (0.78 + 0.3 * seam)) * riser * crack);
+      const riser = 1 - 0.62 * smoothstep(0.35, 0.02, strataPhase(th, y));
+      const crack = 1 - 0.45 * smoothstep(0.82, 0.97, seam);
+      // the underside in its own shadow (the undercut under the lowest cliffs), a pale lip above it
+      const ua = underAt(th);
+      const under = 1 - 0.55 * smoothstep(ua + 0.02, ua - 0.12, y);
+      const lip = 1 + 0.35 * Math.exp(-(((y - ua - 0.05) / 0.05) ** 2));
+      sh.push(((0.62 + 0.25 * seam) * (0.45 + 0.55 * low) * (1 - shd) + shd * (0.78 + 0.3 * seam)) * riser * crack * under * lip);
+      // no moon rim on the underside (its silhouette in the mist drew a thin bright outline)
+      ra.push(0.75 * smoothstep(ua - 0.12, ua + 0.02, y));
     }
     P.push(ring);
     shade.push(sh);
+    rimA.push(ra);
   }
   const rows = P[0].length;
   for (let i = 0; i < NA; i++)
@@ -195,7 +229,7 @@ function cragTable(out: Builder): void {
       const d = P[i][k + 1];
       const C = (ii: number, kk: number): RGBA => {
         const v = shade[ii][kk];
-        return [v, v, v * 1.02, kk < tops.length ? 0.9 : 0.75];
+        return [v, v, v * 1.02, rimA[ii][kk]];
       };
       // faces up on the top (rows run outward), out on the cliff (rows run down)
       out.quad(a, b, c, d, [C(i, k), C(i + 1, k), C(i + 1, k + 1), C(i, k + 1)]);
@@ -363,7 +397,8 @@ const KEY = new Vector3(-0.55, 0.5, 0.67).normalize();
 function paintKey(b: Builder): void {
   for (let v = 0; v < b.count; v++) {
     const d = b.nor[v * 3] * KEY.x + b.nor[v * 3 + 1] * KEY.y + b.nor[v * 3 + 2] * KEY.z;
-    const k = 0.38 + 1.05 * smoothstep(-0.3, 0.85, d);
+    // (each face its own value, a painter's patchwork: one even value per block read as a greybox)
+    const k = (0.38 + 1.05 * smoothstep(-0.3, 0.85, d)) * (0.8 + 0.4 * rand(5, 'pk', Math.floor(v / 4)));
     b.col[v * 4] *= k;
     b.col[v * 4 + 1] *= k;
     b.col[v * 4 + 2] *= k;
@@ -405,6 +440,32 @@ function buildCastle(): CastleGeos {
     });
     g.dispose();
   });
+  // retaining rock round the buildings' feet: the crag rising into their walls in ragged ledges
+  // and boulders (a straight base on a flat table read as a model on a plinth)
+  {
+    // (x, z, radius, height): a few broad outcrops of uneven height, overlapping the walls' feet
+    const feet: [number, number, number, number][] = [
+      [-1.08, 0.18, 0.16, 0.12],
+      [-0.78, 0.3, 0.13, 0.19],
+      [-0.47, 0.28, 0.17, 0.09],
+      [-0.12, 0.38, 0.15, 0.15],
+      [0.2, 0.4, 0.11, 0.07],
+      [0.7, 0.49, 0.16, 0.13],
+      [1.02, 0.42, 0.12, 0.2],
+      [1.24, 0.24, 0.15, 0.1],
+      [0.83, -0.14, 0.14, 0.16],
+      [-0.6, -0.18, 0.12, 0.14],
+    ];
+    feet.forEach(([x, z, sz, h], i) => {
+      const g = rockGeometry({ seed: 700 + i, detail: 5, facets: 10, cut: 0.38, noise: 0.06, crease: 30, bevel: 0.025, grit: 0.015, gritFreq: 9, strata: 2, strataDepth: 0.07, size: [1, 1, 1], base: -0.75 });
+      const m = new Matrix4().makeTranslation(x, crTop0(x, z) - 0.03, z).multiply(new Matrix4().makeRotationY(i * 1.37)).multiply(new Matrix4().makeScale(sz * (1.2 + 0.6 * rand(9, 'ft', i)), h, sz * (0.7 + 0.3 * rand(9, 'fz', i))));
+      rock.add(g, m, (p) => {
+        const v = 0.8 + 0.3 * smoothstep(crTop0(x, z) - 0.05, crTop0(x, z) + h, p.y);
+        return [v, v, v * 1.02, 0.75];
+      });
+      g.dispose();
+    });
+  }
   // the dead tree on the lip's tip
   {
     const tree = buildTree({ seed: 77, trunkLength: 0.42, trunkRadius: 0.028, levels: 3, lean: [-0.25, 0.05], roots: { count: 0, length: 0, radius: 0 }, minRadius: 0.004, tipRadius: 0.004, rim: 0.4 });
@@ -572,6 +633,38 @@ function buildCastle(): CastleGeos {
   win(0.38, 2.4, 0.225, 0.016, 0.028, 'warm');
   win(0.86, 3.4, -0.28 + 0.112, 0.015, 0.025, 'warm');
   win(-0.42, 2.3, hall.z1 + 0.165, 0.015, 0.026, 'warm');
+  // more openings: dark recesses between the timbers and on the towers, and a few more lit panes
+  // (the reference's castle is pricked with small windows), each following its tower's lean
+  {
+    const dark = (x: number, y: number, z: number, w = 0.02, h = 0.034) => timber.quad(new Vector3(x - w / 2, y, z), new Vector3(x + w / 2, y, z), new Vector3(x + w / 2, y + h, z), new Vector3(x - w / 2, y + h, z), [0.22, 0.22, 0.24, 0.1]);
+    const kLean = (y: number) => {
+      const t = (y - (TOP - 0.15)) / (3.9 - (TOP - 0.15));
+      return kl[0] * t * t;
+    };
+    // the hall's timber storey, between its posts, and its stone storey
+    dark(-0.85, 2.7, hall.z1 + 0.077);
+    dark(-0.41, 2.72, hall.z1 + 0.077);
+    dark(-0.78, 2.25, hall.z1 + 0.006);
+    dark(-0.68, 2.08, hall.z1 + 0.006);
+    // the middle block's timber storey and its stone below
+    dark(0.28, 2.72, 0.277);
+    dark(0.59, 2.7, 0.277);
+    dark(0.44, 2.15, 0.226);
+    // the keep, up its face
+    dark(keep.x + 0.05 + kLean(2.55), 2.55, keep.z + 0.198);
+    dark(keep.x - 0.07 + kLean(3.15), 3.15, keep.z + 0.19);
+    // the annex, the lower house, the gatehouse
+    dark(-1.12, 2.14, 0.166);
+    dark(1.12, crTop0(1.2, 0.1) + 0.08, 0.206);
+    dark(0.69, 2.32, 0.486);
+    // lit: the hall's timber storey, the middle block's, the keep, a spire's jetty, the lower house
+    win(-0.63, 2.71, hall.z1 + 0.078, 0.02, 0.034, 'warm');
+    win(0.44, 2.73, 0.278, 0.02, 0.034, 'warm');
+    win(keep.x + 0.06 + kLean(2.95), 2.95, keep.z + 0.198, 0.018, 0.03, 'warm');
+    win(1.02, 4.0, -0.28 + 0.15, 0.018, 0.03, 'warm');
+    win(1.26, crTop0(1.2, 0.1) + 0.1, 0.207, 0.02, 0.032, 'warm');
+    win(-0.96, 2.18, 0.167, 0.018, 0.03, 'warm');
+  }
   // bartizans: little turrets hung on corners, on corbelled cones
   const bartizan = (x: number, y: number, z: number, r: number, h: number, hook: [number, number]) => {
     tower(walls, x, z, r, r, y, y + h, 8, [0, 0]);
@@ -609,13 +702,12 @@ function buildCastle(): CastleGeos {
       6,
     ).map((p) => new Vector3(p.x, crTop0(p.x, p.z) + 0.014, p.z));
     // switchbacks down the shoulder's face, in (angle, height)
+    // (it ends on the lowest ledge above the undercut: under it the island floats in the mist)
     const legs: [number, number][] = [
       [thRim, rimY(thRim) - 0.06],
-      [1.72, 1.36],
-      [0.95, 1.1],
-      [1.8, 0.84],
-      [1.1, 0.62],
-      [1.9, 0.44],
+      [1.72, 1.5],
+      [1.02, 1.36],
+      [1.62, 1.27],
     ];
     const slope: Vector3[] = [];
     for (let i = 0; i < legs.length - 1; i++) {
@@ -629,17 +721,7 @@ function buildCastle(): CastleGeos {
       }
     }
     slope.push(onSlope(...legs[legs.length - 1]));
-    // round the foot on the ground to the far house's door
-    const foot: Vector3[] = [];
-    for (let k = 1; k <= 8; k++) {
-      const t = k / 8;
-      const th = 1.9 + (2.62 - 1.9) * t;
-      const p = onSlope(th, 0.42, 0.18 + 0.1 * Math.sin(t * Math.PI));
-      p.y = groundLocal(p.x, p.z) + 0.03;
-      foot.push(p);
-    }
-    foot.push(new Vector3(FAR.x + 0.1, FAR.y - 0.04, FAR.z + 0.22));
-    const pts = [...top, ...slope.slice(1), ...foot];
+    const pts = [...top, ...slope.slice(1)];
     const half = 0.085;
     let prevA: Vector3 | null = null;
     let prevB: Vector3 | null = null;
@@ -842,14 +924,20 @@ function cardGeometry(n: number): BufferGeometry {
  */
 const MIST: { at: [number, number, number]; w: number; h: number; a: number }[] = [
   // the front bank, thick at the bottom
-  { at: [0.5, 0.55, 1.9], w: 1.9, h: 0.75, a: 0.85 },
-  { at: [1.5, 0.6, 1.9], w: 1.9, h: 0.75, a: 0.85 },
-  { at: [2.4, 0.75, 1.5], w: 1.6, h: 0.7, a: 0.75 },
-  { at: [0.4, 0.95, 1.75], w: 1.7, h: 0.5, a: 0.65 },
-  { at: [1.4, 1.0, 1.7], w: 1.8, h: 0.5, a: 0.65 },
+  { at: [0.5, 0.55, 1.9], w: 1.9, h: 0.75, a: 1 },
+  { at: [1.5, 0.6, 1.9], w: 1.9, h: 0.75, a: 1 },
+  { at: [2.4, 0.75, 1.5], w: 1.6, h: 0.7, a: 0.85 },
+  { at: [0.4, 0.95, 1.75], w: 1.7, h: 0.5, a: 0.85 },
+  { at: [1.4, 1.0, 1.7], w: 1.8, h: 0.5, a: 0.85 },
+  // under the island's undercut, wrapping its hanging underside (the bright bank it floats on)
+  { at: [-0.6, 1.12, 1.2], w: 1.6, h: 0.42, a: 0.9 },
+  { at: [0.5, 1.18, 1.35], w: 1.8, h: 0.4, a: 1 },
+  { at: [1.5, 1.15, 1.2], w: 1.6, h: 0.4, a: 0.9 },
+  { at: [-0.1, 1.02, 1.3], w: 1.9, h: 0.36, a: 1 },
+  { at: [1.0, 1.0, 1.3], w: 1.9, h: 0.36, a: 1 },
   // its feathered top
-  { at: [0.6, 1.25, 1.6], w: 1.8, h: 0.36, a: 0.35 },
-  { at: [1.7, 1.3, 1.4], w: 1.4, h: 0.32, a: 0.3 },
+  { at: [0.6, 1.3, 1.6], w: 1.8, h: 0.36, a: 0.45 },
+  { at: [1.7, 1.33, 1.4], w: 1.4, h: 0.32, a: 0.4 },
   // between the far house and the crag's front, the house's foot, the cliffs' feet
   { at: [-0.35, 0.8, 1.35], w: 1.0, h: 0.55, a: 0.55 },
   { at: [-1.3, 0.28, 0.95], w: 1.3, h: 0.28, a: 0.5 },
@@ -858,13 +946,13 @@ const MIST: { at: [number, number, number]; w: number; h: number; a: number }[] 
   { at: [3.0, 0.9, 0.9], w: 1.5, h: 0.7, a: 0.6 },
 ];
 const PUFFS = 7;
-const MIST_CYAN = new Color('#40a6c2');
+const MIST_CYAN = new Color('#4cb6c4');
 /**
  * How much of the aerial fog the castle takes (1: as any surface at its distance): less, so its
  * silhouette, moonlit roofs and windows keep the reference's contrast against the haze and the
  * clouds behind (at 1 it dissolved into one teal value).
  */
-const CASTLE_FOG = 0.55;
+const CASTLE_FOG = 0.42;
 
 export interface CastleProps {
   f: number;
@@ -879,7 +967,7 @@ export function Castle({ f, offset = [0, 0, 0], fps = 24 }: CastleProps) {
   const geos = useMemo(buildCastle, []);
   const cards = useMemo(() => ({ mist: cardGeometry(MIST.length), smoke: cardGeometry(PUFFS) }), []);
   const tex = useMemo(() => {
-    const mist = new CanvasTexture(puffCanvas(3, true));
+    const mist = new CanvasTexture(puffCanvas(3, false));
     const smoke = new CanvasTexture(puffCanvas(9, false));
     mist.colorSpace = SRGBColorSpace;
     smoke.colorSpace = SRGBColorSpace;
@@ -888,15 +976,17 @@ export function Castle({ f, offset = [0, 0, 0], fps = 24 }: CastleProps) {
   const mats = useMemo(
     () => ({
       // the crag's moonlit shoulder glows through the haze as in the reference (more of the fog's light)
-      rock: storybookMaterial({ kind: 'stone', color: '#4f7884', color2: '#8fe6f0', breakup: 0.36, scale: 0.28, bump: 1.1, topCoat: 0.85, vertexColors: true, rim: 1.5, fog: 0.75 }),
-      walls: storybookMaterial({ kind: 'stone', color: '#5a7086', color2: '#3a4652', breakup: 0.32, scale: 0.1, bump: 0.6, vertexColors: true, rim: 2.0, fog: CASTLE_FOG }),
-      roofs: storybookMaterial({ kind: 'stone', color: '#5d6e80', color2: '#a6d2dc', breakup: 0.25, scale: 0.05, bump: 0.4, topCoat: 0.8, vertexColors: true, rim: 2.0, fog: CASTLE_FOG }),
+      // (more of the haze's ambient: the reference's island is lit cyan-green on its tops and shoulder)
+      rock: storybookMaterial({ kind: 'stone', color: '#5a8a98', color2: '#8cf0e2', breakup: 0.42, scale: 0.2, bump: 1.4, topCoat: 0.9, vertexColors: true, rim: 1.6, fog: 0.58, ambient: 2.2 }),
+      walls: storybookMaterial({ kind: 'stone', color: '#6890aa', color2: '#3a4a58', breakup: 0.45, scale: 0.07, bump: 1.0, vertexColors: true, rim: 2.0, fog: CASTLE_FOG, ambient: 2.9 }),
+      // shingled: wavy courses in the bump and the paint (the far roofs read as tiled, not as flat cards)
+      roofs: storybookMaterial({ kind: 'shingle', color: '#5d6e80', color2: '#a6d2dc', breakup: 0.35, scale: 0.11, bump: 1.6, topCoat: 0.7, vertexColors: true, rim: 2.0, fog: CASTLE_FOG, ambient: 2.2 }),
       timber: storybookMaterial({ kind: 'wood', color: '#2a2428', color2: '#1a1618', breakup: 0.2, scale: 0.08, vertexColors: true, rim: 1.0, fog: CASTLE_FOG }),
       iron: storybookMaterial({ kind: 'iron', color: '#1b1d22', metalness: 0.4, roughness: 0.5, breakup: 0.1, scale: 0.04, vertexColors: true, rim: 1.2, fog: CASTLE_FOG }),
       warm: storybookMaterial({ color: '#000000', emissive: '#ffb35c', emissiveIntensity: 1.45, fog: 0.35, rim: 0, ambient: 0, breakup: 0, side: DoubleSide }),
       cyan: storybookMaterial({ color: '#000000', emissive: '#7be8f6', emissiveIntensity: 1.45, fog: 0.35, rim: 0, ambient: 0, breakup: 0, side: DoubleSide }),
       // the road dimmer than the moonlit rock round it (a pale ribbon read as a decal)
-      road: storybookMaterial({ kind: 'stone', color: '#a3b8b8', color2: '#c2d6d2', breakup: 0.25, scale: 0.08, bump: 0.3, topCoat: 0.45, vertexColors: true, rim: 0.6, fog: 0.8 }),
+      road: storybookMaterial({ kind: 'stone', color: '#7a9ea4', color2: '#a6e4da', breakup: 0.3, scale: 0.08, bump: 0.5, topCoat: 0.5, vertexColors: true, rim: 0.6, fog: 0.62, ambient: 2.0 }),
       mist: new MeshBasicMaterial({ map: tex.mist, vertexColors: true, transparent: true, depthWrite: false, fog: false }),
       smoke: new MeshBasicMaterial({ map: tex.smoke, vertexColors: true, transparent: true, depthWrite: false, fog: false }),
     }),
@@ -954,7 +1044,8 @@ export function Castle({ f, offset = [0, 0, 0], fps = 24 }: CastleProps) {
       <mesh geometry={geos.iron} material={mats.iron} />
       <mesh geometry={geos.warm} material={mats.warm} />
       <mesh geometry={geos.cyan} material={mats.cyan} />
-      <mesh geometry={geos.road} material={mats.road} receiveShadow />
+      {/* (no shadow on the road either: the buildings' shadows tinted it plum on the moonlit rock) */}
+      <mesh geometry={geos.road} material={mats.road} />
       <mesh geometry={cards.mist} material={mats.mist} frustumCulled={false} renderOrder={2} />
       <mesh geometry={cards.smoke} material={mats.smoke} frustumCulled={false} renderOrder={3} />
     </group>
