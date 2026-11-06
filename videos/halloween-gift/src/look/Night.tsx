@@ -7,8 +7,8 @@
  * lights never mount or unmount (that recompiles every material mid-chunk); practicals that come
  * and go change their intensity instead. Sets the storybook materials' shared uniforms.
  */
-import { useLayoutEffect, useMemo } from 'react';
-import { Object3D } from 'three';
+import { useLayoutEffect, useMemo, useRef } from 'react';
+import { type DirectionalLight, Object3D } from 'three';
 import { FLOOR } from '../world/layout.ts';
 import { NIGHT, setNightTime } from './materials.ts';
 
@@ -32,6 +32,15 @@ export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 
   target.position.set(cx, FLOOR, cz);
   target.updateMatrixWorld();
   useLayoutEffect(() => setNightTime(f / fps), [f, fps]);
+  // The shadow box changes per shot, but three computes a directional light's shadow projection
+  // only when the shadow map is first created (WebGLShadowMap), and R3F's props never recompute
+  // it: every page kept the box of its first frame, so a chunk started on the desk kept the desk's
+  // box through the valley (different shadows mid-chunk, a pop at chunk starts; found by
+  // aiv still --check). Recompute it whenever the box changes, before the frame is drawn.
+  const moonLight = useRef<DirectionalLight>(null);
+  useLayoutEffect(() => {
+    moonLight.current?.shadow.camera.updateProjectionMatrix();
+  }, [shadow.hw, shadow.hd]);
   return (
     <>
       <primitive object={target} />
@@ -40,6 +49,7 @@ export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 
           lilac-grey shapes, as the reference's do, not black cut-outs */}
       <hemisphereLight args={['#60628a', '#4a2a3c', 0.7]} />
       <directionalLight
+        ref={moonLight}
         castShadow
         target={target}
         position={[cx + dir.x * D, FLOOR + dir.y * D, cz + dir.z * D]}

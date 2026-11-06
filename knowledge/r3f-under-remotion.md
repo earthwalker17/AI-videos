@@ -68,3 +68,9 @@ runnable example. The ESLint determinism block bans `useFrame` and clock helpers
   rendering twice, not by watching the preview.
 - Under ANGLE on D3D11, `pow(x, y)` with a negative `x` returns NaN; bloom spreads it until a
   whole frame turns black. Clamp the base (seen in *THE AI STACK*).
+- A directional light's shadow box set through `shadow-camera-left/right/top/bottom` props takes
+  effect only on the page's first frame: three updates the shadow camera's projection when the
+  shadow map is created, and R3F does not on prop changes. A box that changes per shot then
+  depends on where the chunk began (different shadows mid-chunk, a pop at chunk starts). Call
+  `shadow.camera.updateProjectionMatrix()` in a layout effect when it changes (seen in
+  *A Halloween Gift*, three r186, R3F 9.8.2; caught by `aiv still --check`).

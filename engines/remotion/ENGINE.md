@@ -224,6 +224,11 @@ A frame is a pure function of `useCurrentFrame()`. The ESLint determinism block 
   - The chain renders with delta 0: no effect may accumulate time.
 - **No lazy caches that depend on which frame came first.** Set `frustumCulled={false}` on
   animated `InstancedMesh`es: three caches their bounding sphere from the first frame drawn.
+  A light's shadow box is another: three computes the shadow camera's projection only when the
+  shadow map is created, and R3F never recomputes it when `shadow-camera-*` props change, so a
+  box keyed per shot stays at the chunk's first frame. Call
+  `light.shadow.camera.updateProjectionMatrix()` in a layout effect when the box changes
+  (*A Halloween Gift*: `aiv still --check` mismatched a frame 61 frames into a chunk).
 - **Fonts** are registered under a family name no system font has, and each frame is held
   until the font is loaded (the kit's `useInter()`).
 
