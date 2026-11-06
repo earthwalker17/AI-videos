@@ -25,7 +25,7 @@ import { fillTextChecked, textCanvas } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { AdditiveBlending, BufferGeometry, CanvasTexture, Color, DoubleSide, LinearSRGBColorSpace, Matrix4, MeshDepthMaterial, PlaneGeometry, ShaderMaterial, Shape, ShapeGeometry, SRGBColorSpace, Vector3 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { WORDS } from '../cues.ts';
+import { at, WORDS } from '../cues.ts';
 import { boardGeometry, cornerGeometry, pageBlockGeometry, ribbonGeometry, spineGeometry, tubeAlong, type V3 } from '../kit/book.ts';
 import { fbm2 } from '../kit/field.ts';
 import { Curve, type P3 } from '../kit/spline.ts';
@@ -55,6 +55,9 @@ const FIRST_PAGE_INSET = 0.04;
 export const PAGES = { x0: -HW + SQUARE, x1: HW - SQUARE, z0: -HD + 0.08, z1: HD - SQUARE, y0: BOARD_T, y1: FLOOR - 0.003 } as const;
 /** the closed book's top (the cover's outside) */
 export const BOOK_TOP = FLOOR + BOARD_T;
+
+/** the cover starts down on the score's close riffle (film/journey.ts COVER_CLOSE) */
+const CLOSE_FROM = at(34, 2);
 
 /** The fore-edge's concavity and the crack the cover lifts for the bats (bar 3). */
 const CONCAVE = 0.055;
@@ -128,7 +131,10 @@ function gridAxis(n: number, size: number, t: (i: number) => number): { i: Int32
 
 // ---- the cover's outside: cloth, foil, wear --------------------------------------------------------
 
-/** The foil artwork (white on black): rules, corner ornaments, the panel, the emblem, the titles. */
+/** the titles' ink in the foil mask (R and G full, B none: the cloth pass reads (R − B) as "a title") */
+const TITLE_INK = '#ffff00';
+
+/** The foil artwork (white on black; the titles yellow): rules, corner ornaments, the panel, the emblem, the titles. */
 function drawFoil(m: CanvasRenderingContext2D, W: number, H: number, fonts: FilmFonts) {
   const U = W / BOOK.w;
   const r = seq(81, 'foil');
@@ -277,7 +283,9 @@ function drawFoil(m: CanvasRenderingContext2D, W: number, H: number, fonts: Film
     const d = mr * (2.4 + r() * 1.3);
     star(mx + Math.cos(a) * d * 1.6, my + Math.sin(a) * d * 0.55 + mr * 0.6, (0.05 + r() * 0.06) * U);
   }
-  // the titles (WORDS.title exactly)
+  // the titles (WORDS.title exactly), in yellow: the mask's blue channel leaves them out, so the
+  // cloth pass knows them and never wears them (only the rules and ornaments are rubbed)
+  m.fillStyle = TITLE_INK;
   m.textAlign = 'center';
   m.textBaseline = 'alphabetic';
   let size = Math.round(H * 0.13);
@@ -289,6 +297,7 @@ function drawFoil(m: CanvasRenderingContext2D, W: number, H: number, fonts: Film
     m.font = `${size}px ${fonts.serif}`;
   }
   fillTextChecked(m, WORDS.title.en, W / 2, H * 0.535);
+  m.fillStyle = '#fff';
   // the rule between them: a line each side of a diamond, with curls
   const ry = H * 0.585;
   m.lineWidth = 0.02 * U;
@@ -310,10 +319,12 @@ function drawFoil(m: CanvasRenderingContext2D, W: number, H: number, fonts: Film
     m.arc(W / 2 + s * 2.75 * U, ry - 0.08 * U, 0.12 * U, Math.PI / 2, Math.PI / 2 + s * 1.6 * Math.PI, s < 0);
     m.stroke();
   }
+  m.fillStyle = TITLE_INK;
   m.font = `600 ${Math.round(H * 0.082)}px ${fonts.cjk}`;
   (m as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(H * 0.022)}px`;
   fillTextChecked(m, WORDS.title['zh-Hans'], W / 2 + H * 0.011, H * 0.75);
   (m as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '0px';
+  m.fillStyle = '#fff';
   // a small jack-o'-lantern under the panel
   const jx = W / 2;
   const jy = H * 0.885;
@@ -411,6 +422,8 @@ function clothPixels(mask: Uint8ClampedArray, blur: Uint8ClampedArray, W: number
     for (let x = 0; x < W; x++) {
       const k = (y * W + x) * 4;
       const mv = mask[k] / 255;
+      // the titles' share of the foil here (drawn yellow in the mask): never worn through
+      const tv = (mask[k] - mask[k + 2]) / 255;
       const bv = blur[k] / 255;
       // the cloth: plum, mottled, rubbed lighter to the edges and the corners, grime by the spine
       // (the edge distance is the nearer of the column's and the row's, so are its falloffs; hypot(a, 0) = a)
@@ -450,7 +463,7 @@ function clothPixels(mask: Uint8ClampedArray, blur: Uint8ClampedArray, W: number
         const fg = f1g[x];
         const wear = (wA[fi] * fg + wA[fi + 1] * ff) * g1 + (wA[fi + 520] * fg + wA[fi + 521] * ff) * f1;
         const fn = (fA[fi] * fg + fA[fi + 1] * ff) * g1 + (fA[fi + 520] * fg + fA[fi + 521] * ff) * f1;
-        const worn = smooth(0.34, 0.58, wear + 0.25 * fn + 0.4 * rub);
+        const worn = (1 - tv) * smooth(0.34, 0.58, wear + 0.25 * fn + 0.4 * rub);
         foil = mv * (1 - worn);
       }
       if (foil === 0) {
@@ -466,9 +479,10 @@ function clothPixels(mask: Uint8ClampedArray, blur: Uint8ClampedArray, W: number
       const sf = f3f[x];
       const sg = f3g[x];
       const sparkle = 0.9 + 0.1 * ((fA[si] * sg + fA[si + 1] * sf) * g3 + (fA[si + 520] * sg + fA[si + 521] * sf) * f3);
-      const fr = 224 * sparkle * (1 - 0.3 * wall);
-      const fgr = 184 * sparkle * (1 - 0.32 * wall);
-      const fb = 84 * sparkle * (1 - 0.4 * wall);
+      // bright gold leaf (its F0: the metal shows only what it reflects)
+      const fr = 240 * sparkle * (1 - 0.25 * wall);
+      const fgr = 200 * sparkle * (1 - 0.28 * wall);
+      const fb = 108 * sparkle * (1 - 0.34 * wall);
       D[k] = Math.max(0, Math.min(255, R * pressed * (1 - foil) + fr * foil));
       D[k + 1] = Math.max(0, Math.min(255, G * pressed * (1 - foil) + fgr * foil));
       D[k + 2] = Math.max(0, Math.min(255, B * pressed * (1 - foil) + fb * foil));
@@ -476,7 +490,8 @@ function clothPixels(mask: Uint8ClampedArray, blur: Uint8ClampedArray, W: number
       const tf = f2f[x];
       const tg = f2g[x];
       const fine2 = (fA[ti] * tg + fA[ti + 1] * tf) * g2 + (fA[ti + 520] * tg + fA[ti + 521] * tf) * f2;
-      O[k + 1] = Math.max(0, Math.min(255, (0.88 - 0.14 * rub) * (1 - foil) * 255 + (0.26 + 0.14 * fine2) * foil * 255));
+      // the leaf a satin metal, rougher on the deboss walls (no pixel-sized glints off its edges)
+      O[k + 1] = Math.max(0, Math.min(255, (0.88 - 0.14 * rub) * (1 - foil) * 255 + Math.min(0.75, 0.38 + 0.1 * fine2 + 0.35 * wall) * foil * 255));
       O[k + 2] = Math.max(0, Math.min(255, foil * 255));
     }
   }
@@ -516,10 +531,10 @@ function coverArt(fonts: FilmFonts): Art {
   mc.width = 1;
   const map = new CanvasTexture(c);
   map.colorSpace = SRGBColorSpace;
-  map.anisotropy = 8;
+  map.anisotropy = 16;
   const ormT = new CanvasTexture(oc);
   ormT.colorSpace = LinearSRGBColorSpace;
-  ormT.anisotropy = 8;
+  ormT.anisotropy = 16;
   return { map, orm: ormT };
 }
 
@@ -614,7 +629,7 @@ function endpaperArt(): CanvasTexture {
   g.putImageData(img, 0, 0);
   const t = new CanvasTexture(c);
   t.colorSpace = SRGBColorSpace;
-  t.anisotropy = 8;
+  t.anisotropy = 16;
   return t;
 }
 
@@ -648,7 +663,7 @@ function edgeArt(corners: [number, number]): { map: CanvasTexture; bump: CanvasT
     for (let k = 0; k < LEAVES; k++) {
       if (left <= 0) {
         left = 2 + Math.floor(r() * 4);
-        tone = 0.9 + 0.16 * r();
+        tone = 0.95 + 0.07 * r();
         parting.push(k > 0);
       } else parting.push(false);
       clumpTone.push(tone);
@@ -659,7 +674,8 @@ function edgeArt(corners: [number, number]): { map: CanvasTexture; bump: CanvasT
     const outer = Math.min(k, LEAVES - 1 - k) / LEAVES;
     // aged: browner toward the outer leaves; each leaf its own paper
     const age = 1 - smooth(0.0, 0.18, outer);
-    const base = (0.95 + 0.07 * r()) * clumpTone[k];
+    // (each leaf only a hair off its clump's paper: single leaves are under a pixel, their lines aliased into moire)
+    const base = (0.985 + 0.02 * r()) * clumpTone[k];
     const R = (214 - 26 * age) * base;
     const G = (198 - 34 * age) * base;
     const B = (160 - 42 * age) * base;
@@ -673,27 +689,39 @@ function edgeArt(corners: [number, number]): { map: CanvasTexture; bump: CanvasT
       ctx.closePath();
       ctx.fill();
     };
-    poly(g, H, 0.55);
-    // relief: each leaf rounded, highest at its middle
-    const grad = b.createLinearGradient(0, bounds[k] * BH, 0, bounds[k + 1] * BH);
-    grad.addColorStop(0, '#5a5a5a');
-    grad.addColorStop(0.5, '#ffffff');
-    grad.addColorStop(1, '#5a5a5a');
-    b.fillStyle = grad;
-    poly(b, BH, 0);
+    poly(g, H, 0);
+    // relief: each clump of leaves rounded, highest at its middle (drawn once per clump, below)
     if (proud) {
       // a leaf standing proud: brighter, with its shadow under it
       g.fillStyle = 'rgba(236,226,196,0.85)';
       poly(g, H, 0.3);
     }
   }
+  // each clump's relief: rounded, highest at its middle
+  {
+    const starts = [0, ...parting.flatMap((p, k) => (p ? [k] : [])), LEAVES];
+    for (let c = 0; c + 1 < starts.length; c++) {
+      const k0 = starts[c];
+      const k1 = starts[c + 1];
+      const grad = b.createLinearGradient(0, bounds[k0] * BH, 0, bounds[k1] * BH);
+      grad.addColorStop(0, '#b4b4b4');
+      grad.addColorStop(0.5, '#ffffff');
+      grad.addColorStop(1, '#b4b4b4');
+      b.fillStyle = grad;
+      b.beginPath();
+      for (let x = -STEP; x <= W + STEP; x += STEP) b.lineTo(x, (bounds[k0] + wave(k0, x)) * BH);
+      for (let x = W + STEP; x >= -STEP; x -= STEP) b.lineTo(x, (bounds[k1] + wave(k1, x)) * BH);
+      b.closePath();
+      b.fill();
+    }
+  }
   // the partings between clumps
   for (let k = 1; k < LEAVES; k++) {
     if (!parting[k]) continue;
-    g.strokeStyle = 'rgba(46,32,18,0.6)';
-    g.lineWidth = 1.7;
-    b.strokeStyle = 'rgba(0,0,0,0.7)';
-    b.lineWidth = 1.1;
+    g.strokeStyle = 'rgba(46,32,18,0.2)';
+    g.lineWidth = 2.4;
+    b.strokeStyle = 'rgba(0,0,0,0.3)';
+    b.lineWidth = 1.6;
     for (const [ctx, h] of [
       [g, H],
       [b, BH],
@@ -706,10 +734,10 @@ function edgeArt(corners: [number, number]): { map: CanvasTexture; bump: CanvasT
   // the gaps between signatures: a little darker
   for (let s = 1; s < SIGNATURES; s++) {
     const k = s * 8;
-    g.strokeStyle = 'rgba(30,20,12,0.7)';
-    g.lineWidth = 2.0;
-    b.strokeStyle = '#000';
-    b.lineWidth = 1.4;
+    g.strokeStyle = 'rgba(30,20,12,0.5)';
+    g.lineWidth = 3.0;
+    b.strokeStyle = 'rgba(0,0,0,0.7)';
+    b.lineWidth = 2.0;
     for (const [ctx, h] of [
       [g, H],
       [b, BH],
@@ -766,10 +794,10 @@ function edgeArt(corners: [number, number]): { map: CanvasTexture; bump: CanvasT
   }
   const map = new CanvasTexture(c);
   map.colorSpace = SRGBColorSpace;
-  map.anisotropy = 8;
+  map.anisotropy = 16;
   const bump = new CanvasTexture(bc);
   bump.colorSpace = LinearSRGBColorSpace;
-  bump.anisotropy = 8;
+  bump.anisotropy = 16;
   return { map, bump };
 }
 
@@ -1011,11 +1039,12 @@ export function Book2({ cover, f, immersion = 0 }: Book2Props) {
       ea,
       endTex,
       cloth: roomMaterial({ kind: 'cloth', color: '#46202e', color2: '#24121b', vertexColors: true, breakup: 0.22, scale: 0.18, roughness: 0.88, rim: 0.55, self: true }),
-      edges: roomMaterial({ kind: 'plain', map: ea.map, bumpMap: ea.bump, bumpScale: 1.6, vertexColors: true, roughness: 0.9, breakup: 0.06, scale: 0.12, color2: '#8a7656', rim: 0.35, self: true, crack: 1 }),
+      edges: roomMaterial({ kind: 'plain', map: ea.map, bumpMap: ea.bump, bumpScale: 0.9, vertexColors: true, roughness: 0.9, breakup: 0.06, scale: 0.12, color2: '#8a7656', rim: 0.35, self: true, crack: 1 }),
       // the first page: the Terrain's paper margin; in the crack it takes the glow from inside
       top: roomMaterial({ kind: 'plain', color: '#cfc2a2', color2: '#b9aa86', breakup: 0.1, scale: 0.35, roughness: 0.95, rim: 0, fog: 1, window: 0, candle: 0, crack: 1, self: true, ambient: 0.4, moon: 0.4 }),
       // worn brass: a warm metal (F0 #d4a640), the room in its reflections, no cool ambient
-      brass: roomMaterial({ kind: 'iron', color: '#d8b050', color2: '#6a5226', vertexColors: true, metalness: 1, roughness: 0.3, breakup: 0.35, scale: 0.05, bump: 0.22, rim: 0.2, self: true, env: 1, glitter: 0.25 }),
+      // worn brass, tarnished brown-green in its hollows, bright only where hands rub it
+      brass: roomMaterial({ kind: 'iron', color: '#d2a84a', color2: '#3c3420', vertexColors: true, metalness: 1, roughness: 0.4, breakup: 0.55, scale: 0.05, bump: 0.26, rim: 0.12, self: true, env: 1, glitter: 0.15 }),
       trim: roomMaterial({ kind: 'cloth', color: '#ffffff', vertexColors: true, side: DoubleSide, roughness: 0.68, breakup: 0.08, scale: 0.05, rim: 0.2, self: true }),
       endpaper: roomMaterial({ kind: 'plain', map: endTex, roughness: 0.85, breakup: 0.06, scale: 0.2, rim: 0, transparent: true, self: true, crack: 1 }),
       mouth: new ShaderMaterial({
@@ -1031,7 +1060,8 @@ export function Book2({ cover, f, immersion = 0 }: Book2Props) {
       coverDepth: fadingDepth(),
     };
   }, [geo]);
-  const coverMat = useMemo(() => roomMaterial({ kind: 'cloth', map: art.map, bumpMap: art.orm, bumpScale: 2.2, roughnessMap: art.orm, metalnessMap: art.orm, roughness: 1, metalness: 1, vertexColors: true, breakup: 0.1, scale: 0.15, color2: '#24131f', rim: 0.2, self: true, env: 1, glitter: 1, crack: 1 }), [art]);
+  // the foil reads by what it reflects (the candle-lit room, env 2.6: about 60 luma over the cloth), a few glints only
+  const coverMat = useMemo(() => roomMaterial({ kind: 'cloth', map: art.map, bumpMap: art.orm, bumpScale: 1.5, roughnessMap: art.orm, metalnessMap: art.orm, roughness: 1, metalness: 1, vertexColors: true, breakup: 0.1, scale: 0.15, color2: '#24131f', rim: 0.2, self: true, env: 2.6, glitter: 0.3, crack: 1 }), [art]);
   const sky = useSkyPortal();
   useLayoutEffect(
     () => () => {
@@ -1067,6 +1097,11 @@ export function Book2({ cover, f, immersion = 0 }: Book2Props) {
     // on it (not the flat haze under the horizon), rising to the dome's as the camera enters the story
     sky.uniforms.uHorizonEl.value = -0.6 + 0.62 * smooth(0, 0.6, imm);
     mats.endpaper.opacity = 1 - imm;
+    // the page block: darker as the camera enters the story (its lit edge was the frame's brightest
+    // broad shape there), its window light dimmed as the cover comes down (the lattice on it pulled
+    // the eye from the world folding away) and kept low on the closed book under the end card
+    mats.edges.color.setScalar(1 - 0.55 * smooth(0, 0.3, imm));
+    (mats.edges.userData.room as Record<string, { value: number }>).uRoomWinMul.value = (1 - 0.6 * smooth(CLOSE_FROM + 5, CLOSE_FROM + 24, f)) * (1 - 0.7 * smooth(0, 0.3, imm));
     // the crack's light (Desk2 roomMaterial: a line light along the mouth) and the strip that is its glow
     ROOM.uRoomCrack.value.set((PAGES.x1 - PAGES.x0) / 2 - 0.2, FLOOR + gap * 0.45, PAGES.z1 + 0.05, 0.7 * leak);
     const mu = mats.mouth.uniforms;
@@ -1075,7 +1110,7 @@ export function Book2({ cover, f, immersion = 0 }: Book2Props) {
     mu.uGap.value = gap;
     mu.uGain.value = 0.9 * leak;
     (mats.coverDepth.userData as { keep: { value: number } }).keep.value = keep;
-  }, [angle, imm, sky, mats, leak, gap, keep]);
+  }, [angle, imm, sky, mats, leak, gap, keep, f]);
   // the plate grows over the frame as the camera enters the story (and past the board's edges)
   const ps: [number, number, number] = [1 + imm * ((BOOK.w + 0.5) / PLATE.w - 1), 1, 1 + imm * ((BOOK.d + 0.5) / PLATE.d - 1)];
   return (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { distanceToPolyline } from '../kit/spline.ts';
-import { FENCE_LINE, FENCE_LINE_RIGHT, fromHouse, DOOR_FRONT, GATE_POSTS, LAMPS, LAND, PATH, pathDistance, pathHalfWidth, STONES, STOPS } from './layout.ts';
+import { FENCE_LINE, FENCE_LINE_RIGHT, fromHouse, DOOR_FRONT, GATE_HALF, GATE_POSTS, LAMPS, LAND, PATH, pathDistance, pathHalfWidth, STONES, STOPS } from './layout.ts';
 import { GHOST_HOOKS } from './Trees.tsx';
 
 const segmentsCross = (a: readonly number[], b: readonly number[], c: readonly number[], d: readonly number[]) => {
@@ -32,7 +32,7 @@ describe('the world map', () => {
       for (let i = 1; i < fence.length; i++) for (let j = 1; j < line.length; j++) expect(segmentsCross(fence[i - 1], fence[i], line[j - 1], line[j]), `fence ${i} × path ${j}`).toBe(false);
     // the gateway spans the path where the gates stand
     const g = PATH.pointAt(STOPS.gates + 0.32);
-    for (const p of GATE_POSTS) expect(Math.hypot(p[0] - g[0], p[1] - g[1])).toBeCloseTo(0.42, 6);
+    for (const p of GATE_POSTS) expect(Math.hypot(p[0] - g[0], p[1] - g[1])).toBeCloseTo(GATE_HALF, 6);
   });
 
   it('keeps the fence out of the door yard', () => {

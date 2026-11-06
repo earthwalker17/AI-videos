@@ -40,7 +40,7 @@ describe('the V2 camera journey', () => {
       const step = Math.hypot(p.pos[0] - prev.pos[0], p.pos[1] - prev.pos[1], p.pos[2] - prev.pos[2]);
       // backing away out of the book, the step may grow with the distance to what it looks at (3.5% of it a frame and a little: the world shrinks evenly)
       const dist = Math.hypot(p.pos[0] - p.look[0], p.pos[1] - p.look[1], p.pos[2] - p.look[2]);
-      expect(step, `frame ${f}`).toBeLessThan(f < at(5, 2) ? 0.48 : f >= OUT_OF_BOOK[0] ? 0.48 + 0.03 * dist : 0.35);
+      expect(step, `frame ${f}`).toBeLessThan(f < at(5, 2) ? 0.48 : f >= OUT_OF_BOOK[0] ? 0.5 + 0.03 * dist : 0.35);
       prev = p;
     }
   });

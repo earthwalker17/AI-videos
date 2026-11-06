@@ -159,12 +159,14 @@ export function ghostLowerAt(f: number): number {
  * (482), the sticking right leaf finishes its swing on the clang (bar 15) and rebounds a little.
  */
 export const GATES_CLEAR = at(14) + 14;
+/** the gates stand a little ajar before they creak open, the left leaf a few degrees off its post (the reference's gateway is open) */
+export const GATES_AJAR = 0.1;
 export function gatesOpenAt(f: number): number {
   const creak = at(14);
   const clang = at(15);
-  if (f <= creak) return 0;
+  if (f <= creak) return GATES_AJAR;
   // the creak: a swing to 0.88 that slows into a pause
-  if (f <= GATES_CLEAR) return 0.88 * smoothstep(creak, GATES_CLEAR, f);
+  if (f <= GATES_CLEAR) return GATES_AJAR + (0.88 - GATES_AJAR) * smoothstep(creak, GATES_CLEAR, f);
   // the last of the right leaf's swing, gathering speed into the fence: the clang
   if (f <= clang) {
     const t = (f - GATES_CLEAR) / (clang - GATES_CLEAR);
@@ -215,7 +217,7 @@ export function farColdAt(f: number): number {
  */
 export function footAt(f: number): number {
   const door = smoothstep(at(16, 3), at(17), f);
-  return immersionAt(f) * (1 - 0.7 * door);
+  return immersionAt(f) * (1 - 0.45 * door);
 }
 
 /**

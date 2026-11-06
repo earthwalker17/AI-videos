@@ -77,7 +77,7 @@ const CAMERA_SIDE: readonly [number, number] = [0.6, 0.8];
  * GHOST_HOOKS), its hook at (x, z), its cloth between y0 and y1 above FLOOR (the peek ghost let
  * down to Clawd's hat only while it peeks): journey.test checks these against the built ghosts.
  */
-const hanging = (name: string, x: number, z: number, y0: number, y1: number) => ({ name, x, z, r: 0.45, y0: y0 - groundHeight(x, z), h: y1 - groundHeight(x, z) });
+const hanging = (name: string, x: number, z: number, y0: number, y1: number, r = 0.45) => ({ name, x, z, r, y0: y0 - groundHeight(x, z), h: y1 - groundHeight(x, z) });
 
 /** the frames the peek ghost hangs let down (film/beats.ts ghostLowerAt above 0) */
 const PEEKING = [at(10, 3), at(11, 2) + 8] as const;
@@ -98,14 +98,17 @@ export const obstacleAt = (o: CameraObstacle, f: number | undefined): boolean =>
 
 /** Where no camera may stand: a plan circle from the ground (or from y0 above it) up to h. */
 export const CAMERA_OBSTACLES: readonly CameraObstacle[] = [
-  hanging('ghost 0', 3.54, 2.54, 1.85, 3.1),
-  hanging('ghost 1', 2.72, 2.22, 1.45, 3.05),
-  // the peek ghost gathered up under the limb at rest (world/Ghosts.tsx GATHER_MIN), let down only while it peeks
-  hanging('ghost 2 (the peek)', 1.5, 1.55, 2.3, 2.95),
-  { ...hanging('ghost 2 (let down)', 1.5, 1.55, 0.55, 2.95), when: PEEKING },
+  hanging('ghost 0', 3.48, 2.52, 1.62, 3.3),
+  hanging('ghost 1', 2.81, 2.18, 2.35, 3.6),
+  // the peek ghost gathered up under the limb at rest (world/Ghosts.tsx GATHER_MIN), let down only
+  // while it peeks: it leans out toward Clawd and comes down beside his hat
+  hanging('ghost 2 (the peek)', 1.5, 1.56, 2.5, 3.3),
+  { ...hanging('ghost 2 (let down)', 1.52, 1.36, 0.1, 3.3, 0.56), when: PEEKING },
+  // the high ghost above the moon, tied on above the frame's top edge
+  hanging('ghost 3', 3.16, 2.42, 2.75, 4.1),
   ...STONES.map((s, i) => ({ name: `stone ${i} (${s.kind})`, x: s.x, z: s.z, r: 0.28, h: s.h + 0.1 })),
   // world/Graveyard.tsx's cross is 2.3 tall and its leaning arm reaches 1.02 in plan
-  { name: 'big cross', x: LAND.bigCross.x, z: LAND.bigCross.z, r: 1.05, h: 2.4 },
+  { name: 'big cross', x: LAND.bigCross.x, z: LAND.bigCross.z, r: 1.05 * (LAND.bigCross.scale ?? 1), h: 2.4 * (LAND.bigCross.scale ?? 1) },
   { name: 'big pumpkin', x: LAND.bigPumpkin.x, z: LAND.bigPumpkin.z, r: 0.85, h: 1.5 },
   { name: 'ghost tree', x: LAND.ghostTree.x, z: LAND.ghostTree.z, r: 0.75, h: 9 },
   { name: 'old tree', x: LAND.oldTree.x, z: LAND.oldTree.z, r: 0.5, h: 9 },
@@ -201,7 +204,8 @@ function truckKey(f: number, side: number, up: number, fov: number, lookUp = 0.1
     nx = -nx;
     nz = -nz;
   }
-  const pos = clear(add(c, [nx * side - tx * 0.4, up, nz * side - tz * 0.4]), f);
+  // ahead of him and to his side: a three-quarter front on his face (his eyes) as he hops along
+  const pos = clear(add(c, [nx * side + tx * 1.0, up, nz * side + tz * 1.0]), f);
   const look = add(c, [tx * lead, lookUp, tz * lead]);
   return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
 }
@@ -223,10 +227,10 @@ function placeKey(f: number, x: number, z: number, up: number, fov = 38, lead = 
 /** The closed book on the desk, the opening's framing (the book is 16 wide at the origin). */
 const DESK_A: K = { pos: [12.6, 9.6, 16.8], look: [0, 1.3, 0], fov: 30, focus: 22 };
 const DESK_B: K = { pos: [9.4, 10.4, 17.6], look: [0, 1.5, 0.2], fov: 30, focus: 21 };
-/** Over the opening book, pushing in: the world grows out of the page below (not high above it: the crane down must stay gentle) */
-const OVER: K = { pos: [2.0, 8.6, 12.2], look: [0.6, FLOOR + 0.4, 0.4], fov: 36, focus: 13.5 };
+/** Over the opening book, pushing in: the world grows out of the page below (not high above it: the crane down must stay gentle); left of the ghost tree's line to the cottage, so its trunk does not hide it */
+const OVER: K = { pos: [1.45, 8.6, 12.6], look: [0.8, FLOOR + 0.4, 0.3], fov: 35, focus: 13.6 };
 /** a three-quarter close on the pop-up spot beside the giant pumpkin: its face right of caption 1 (top left), its stem in frame */
-const POP: K = { pos: [0.0, FLOOR + 0.92, 4.85], look: [-1.4, FLOOR + 0.56, 2.9], fov: 44, focus: 2.43 };
+const POP: K = { pos: [0.08, FLOOR + 0.94, 5.15], look: [-1.38, FLOOR + 0.56, 2.9], fov: 44, focus: 2.65 };
 
 const truckFrames = (from: number, to: number, step: number) => {
   const out: number[] = [];
@@ -250,6 +254,9 @@ function peekKey(f: number, dist: number, up: number, fov: number, u: number): C
   return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
 }
 
+/** The gates beat's framing (at(14)): from the graveyard's left, back and up, the gateway left of centre, the cottage right of it. */
+const GATE_CAM = { pos: [-0.45, 0, 3.0] as V3, up: 1.5, look: [1.95, FLOOR + 1.05, -1.0] as V3, fov: 42 };
+
 function worldKeys(): CamKey[] {
   const keys: CamKey[] = [
     { f: 0, ...DESK_A, hold: true },
@@ -258,34 +265,47 @@ function worldKeys(): CamKey[] {
     // the hero view, arrived before the first caption and held while the witch crosses the moon
     { f: at(5, 2), ...HERO, hold: true },
     { f: at(6, 3), pos: [HERO.pos[0] - 0.15, HERO.pos[1] - 0.1, HERO.pos[2] - 0.25], look: HERO.look, fov: HERO.fov, focus: HERO.focus },
-    { f: at(7) + 8, ...POP, hold: true },
+    { f: at(7) + 16, ...POP, hold: true },
     // held while he peeks into his pail, then off with him
-    { f: at(8, 1) + 4, pos: [POP.pos[0] + 0.05, POP.pos[1] + 0.02, POP.pos[2] - 0.08], look: POP.look, fov: POP.fov, focus: POP.focus, hold: true },
+    // (not a hold: the camera is already easing toward the truck's side as he sets off)
+    { f: at(8, 1), pos: [POP.pos[0] + 0.04, POP.pos[1] + 0.01, POP.pos[2] - 0.06], look: POP.look, fov: POP.fov, focus: POP.focus },
   ];
   // the truck: valley walk, graveyard; the peek (the camera draws back and widens as the ghost
   // comes down, so both share the frame for the shoo), on to the gates
-  for (const f of truckFrames(at(8, 2), at(10, 3), BEAT)) keys.push(truckKey(f, 1.6, 0.66, 34));
+  for (const f of truckFrames(at(8, 2) + 6, at(10, 3), BEAT)) keys.push(truckKey(f, 1.6, 0.66, 34));
   keys.push(peekKey(at(11), 1.95, 0.64, 42, 0.55));
   keys.push({ ...peekKey(at(11, 2), 2.45, 0.66, 52, 1), hold: true });
-  // up the slope: the camera swings round behind him and rises as it follows, so the mist parts on
-  // the gates ahead of him
-  for (const f of truckFrames(at(11, 3) + 18, at(13) + 16, BEAT)) {
-    const u = (f - at(11, 3)) / (at(13) + 16 - at(11, 3));
-    // behind him and to his right, from the peek's side of the path: low under the ghosts' hems
-    // as it passes beneath the limb (lamp 0 stands on the path's left), looking just ahead of him
-    // and low (up the steeper slope he would drop out of the frame)
+  // up the slope: from the peek's side the camera swings round behind him to his left and draws
+  // back and up as he climbs away from it, so the mist parts on the whole gateway ahead of him and
+  // the lit cottage comes into view beyond, right of the gates
+  const c0 = at(11, 3) + 18;
+  const c1 = at(14);
+  for (const f of truckFrames(c0, c1 - BEAT, BEAT)) {
+    const u = smoothstep(c0 - 12, c1, f);
     const c = smoothed(f);
-    keys.push(placeKey(f, c[0] + lerp(1.4, 1.3, u), c[2] + lerp(1.05, 1.6, u), lerp(1.0, 1.2, u), 34, 0.55, 0.12));
+    const near: V3 = [c[0] + 1.4, 0, c[2] + 1.05];
+    const x = lerp(near[0], GATE_CAM.pos[0], u);
+    const z = lerp(near[2], GATE_CAM.pos[2], u);
+    const up = lerp(1.0, GATE_CAM.up, u);
+    const pos = clear([x, FLOOR + groundHeight(x, z) + up, z], f);
+    const [lx, lz] = tangentNear(c);
+    const ahead: V3 = add(c, [lx * 0.55, 0.12, lz * 0.55]);
+    const look: V3 = [lerp(ahead[0], GATE_CAM.look[0], u * u), lerp(ahead[1], GATE_CAM.look[1], u * u), lerp(ahead[2], GATE_CAM.look[2], u * u)];
+    keys.push({ f, pos, look, fov: lerp(34, GATE_CAM.fov, u), focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) });
   }
-  // while he waits: Clawd small before the whole gateway as it creaks open, three-quarter from
-  // the right with a lamp either side of it, the lane and the lit cottage beyond (caption 2)
-  keys.push({ ...placeKey(at(14), 2.6, 1.6, 1.15, 44, 1.6, 1.05), hold: true });
+  // while he waits: Clawd small in the gateway as it creaks open, a lamp either side of it, the
+  // lit cottage beyond in the right third (caption 2: the last house was still awake)
+  {
+    const { x, z } = { x: GATE_CAM.pos[0], z: GATE_CAM.pos[2] };
+    const pos: V3 = [x, FLOOR + groundHeight(x, z) + GATE_CAM.up, z];
+    keys.push({ f: c1, pos, look: GATE_CAM.look, fov: GATE_CAM.fov, focus: Math.hypot(pos[0] - GATE_CAM.look[0], pos[1] - GATE_CAM.look[1], pos[2] - GATE_CAM.look[2]), hold: true });
+  }
   // on the clang it rises over the fence (never through the gateway: the swung leaves would
   // brush the lens) and moves steadily along the graveyard's side of the fence, above it, as he
   // walks the lane behind it; past the fence's end it comes down into the yard onto V1's door
   // two-shot without a whip
-  keys.push(placeKey(at(15), 1.75, 0.3, 1.6, 38, 1.6, 0.4));
-  keys.push(placeKey(at(15, 2), 2.05, 0.2, 1.55, 38, 1.6, 0.35));
+  keys.push(placeKey(at(15), 1.2, 1.2, 1.7, 40, 0.7, 0.4));
+  keys.push(placeKey(at(15, 2), 2.0, 0.3, 1.55, 38, 0.9, 0.35));
   // (looking just ahead of him, not at the door: he stays in frame as he nears it)
   keys.push(placeKey(at(16), 2.6, 0.12, 1.35, 38, 0.45, 0.2));
   keys.push(placeKey(at(16, 2), 3.25, 0.45, 0.95, 37, 0.35, 0.25));
@@ -302,8 +322,9 @@ const V1_DOOR: { f: number; pos: V3; look: V3; fov: number; focus: number; hold?
   { f: at(21), pos: [0.7, V1F + 0.7, 4.4], look: [-0.15, V1F + 1.35, -1.0], fov: 36, focus: 5.3, hold: true },
   { f: at(24, 3) - 6, pos: [0.35, V1F + 0.9, 4.1], look: [-0.1, V1F + 1.2, -0.4], fov: 34, focus: 4.3, hold: true },
   // the push onto the letter lands on ding-2 (softened: 18 frames, eased both ends)
-  { f: at(25) + BEAT, pos: [-0.05, V1F + 1.15, 3.41], look: [-0.05, V1F + 1.15, -0.15], fov: 30, focus: 3.56, hold: true },
-  { f: at(29), pos: [-0.03, V1F + 1.16, 3.37], look: [-0.05, V1F + 1.15, -0.15], fov: 30, focus: 3.52, hold: true },
+  // (aimed a little low: the card sits higher in the frame and Clawd's eyes clear the bottom edge)
+  { f: at(25) + BEAT, pos: [-0.05, V1F + 1.1, 3.41], look: [-0.05, V1F + 1.03, -0.15], fov: 30, focus: 3.56, hold: true },
+  { f: at(29), pos: [-0.03, V1F + 1.11, 3.37], look: [-0.05, V1F + 1.03, -0.15], fov: 30, focus: 3.52, hold: true },
   { f: at(30), pos: [0.7, V1F + 0.7, 4.6], look: [-0.15, V1F + 1.3, -1.0], fov: 36, focus: 5.0, hold: true },
   { f: at(31, 3), pos: [0.68, V1F + 0.7, 4.5], look: [-0.15, V1F + 1.3, -1.0], fov: 36, focus: 5.0, hold: true },
   { f: at(32), pos: [0.85, V1F + 0.5, 2.6], look: [0.8, V1F + 0.45, 0.4], fov: 30, focus: 2.2, hold: true },

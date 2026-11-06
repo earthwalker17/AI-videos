@@ -1,27 +1,28 @@
 /**
- * The three hanging ghosts on the ghost tree's hero limb (world/Trees.tsx GHOST_HOOKS, in that
- * order: from the trunk outward; the last is LAND.peek's, the one that lowers to peek at Clawd):
- * old sheets thrown over a ball and tied off under it, in a desaturated mauve-grey burlap (dark at
- * night, not white), a moonlit rim on their edges and long pale streaks down the fold ridges. Each
- * is a round head (a ball under the cloth, the sheet pinched a little under it where the rope's
- * knot gathers it at the top), two slanted cream-amber eyes that glow (emissive, a soft halo
- * spilling onto the cloth around them), folds that drape from the head and deepen toward a heavy,
- * nearly level hem: frayed, notched by shallow tears, a few longer slits, the sheet's corners
- * hanging lower, two to four holes worn through it near the hem and two or three thin threads
- * dripping below. A twisted three-ply rope runs from three tight turns round the limb (fitted to
- * the bark) down to a knot at the tie, its cut end frayed.
+ * The hanging ghosts on the ghost tree's hero limb (world/Trees.tsx GHOST_HOOKS, in that order:
+ * the long ghost right of the moon, the short one left of it, LAND.peek's, the one that lowers to
+ * peek at Clawd, and a fourth tied on above the hero frame's top, its hem framing the moon from
+ * above), as the reference's are: old sheets thrown over a ball and tied off on top, in a dark
+ * plum-mauve burlap (plum in the folds, lilac grey where the ridges catch the sky), no rim light.
+ * Each is a hood (the sheet gathered in a crumpled tuft at the knot, rounding over the ball, a
+ * slight neck under it), two slanted cream-amber eyes that glow (emissive, a soft halo spilling
+ * onto the cloth around them), many narrow folds that deepen toward the hem, and the hem torn
+ * into five to nine uneven strips (each its own length and shape, nicked again here and there),
+ * two to four holes worn through near it and a few threads dripping below. A twisted three-ply
+ * rope runs from three tight turns round the limb (fitted to the bark) down to the knot.
  *
  * Cloth as geometry: a lathe-like grid (columns round the axis, rows down from the tie; each
  * column's last rows reach its own hem), an outer shell and a dark inner shell (the inside of the
- * sheet, seen through the tears and the holes), RGBA vertex colours for the fold occlusion, the
- * streaks and the rim's share (none on the thin strips and threads: they would flash edge-on).
- * Each ghost sways as a slow pendulum about its hook (its own periods, an elliptical swing, a slow
- * twist of the rope), the cloth lagging the head with depth so the hems trail, the strips and
- * threads fluttering: all from the frame, on the CPU, into one merged mesh (three ghosts, ropes,
- * wraps) and one additive eye mesh (the eyes and their halos). `lower` lets a ghost down on its
- * rope; the peek ghost's 1 brings its eyes PEEK_EYES above the ground under its hook (the shoo:
- * its hem then ~0.35 above Clawd's hat), turning it toward the truck camera's side as it comes.
- * Two draw calls (plus the cloth's shadow).
+ * sheet, seen through the tears and the holes), RGBA vertex colours for the fold occlusion and the
+ * streaks. Each ghost sways as a slow pendulum about its hook (its own periods, an elliptical
+ * swing, a slow twist of the rope), the cloth lagging the head with depth so the hems trail, the
+ * strips and threads fluttering: all from the frame, on the CPU, into one merged mesh (the ghosts,
+ * ropes, wraps) and one additive eye mesh (the eyes and their halos). `lower` lets a ghost down on
+ * its rope; the peek ghost's 1 brings its eyes PEEK_EYES above the ground under its hook, and as
+ * it comes it turns three-quarter toward him (PEEK_YAW), leans in and bows its head to peer down
+ * at him (its hem swinging back clear of his hat), cocks its head, and its eyes go wide. At rest it is
+ * bunched up snug under the limb, a crumpled bundle with a ragged fringe, its eyes shut to a dim
+ * glow. Two draw calls (plus the cloth's shadow).
  */
 import { rand, smoothstep } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
@@ -67,23 +68,46 @@ interface GhostDesign {
   eye: EyeDesign;
   /** the sheet's corners' extra length (× length) */
   corners: number;
+  /** the body's flare: its radius a third and two thirds of the way down, as a share of the way from the head's to the hem's */
+  flare?: readonly [number, number];
+  /** the strips the hem is torn into */
+  strips: number;
 }
 
 /**
- * In hook order, three different silhouettes: a wide short one on a short rope, a long narrow
- * one lower on a longer rope, and the peek ghost between them in build; eyes of their own size,
- * spacing and scowl.
+ * In hook order, as the reference hangs them round its moon: the long ghost on a longer rope right
+ * of the moon (a narrow top, a wide heavy hem, clear of the disc), the short wide one snug under
+ * the limb left of it, the peek ghost, and the fourth from above the frame's top (its head out of
+ * the hero frame, its hem just above the disc); eyes of their own size, spacing and scowl.
  */
 const DESIGNS: GhostDesign[] = [
-  { rope: 0.05, length: 0.84, head: 0.15, hem: 0.31, drop: 0.4, period: 3.9, yaw: -0.2, seed: 11, eye: { len: 0.46, h: 0.13, sep: 0.42, slant: 0.5, y: -0.1 }, corners: 0.09 },
-  { rope: 0.24, length: 1.22, head: 0.118, hem: 0.215, drop: 0.4, period: 4.6, yaw: 0.16, seed: 12, eye: { len: 0.44, h: 0.15, sep: 0.34, slant: 0.34, y: -0.2 }, corners: 0.06 },
-  { rope: 0.05, length: 1.08, head: 0.138, hem: 0.27, drop: 'peek', period: 3.4, yaw: -0.05, seed: 13, eye: { len: 0.52, h: 0.12, sep: 0.39, slant: 0.44, y: -0.12 }, corners: 0.1 },
+  { rope: 0.22, length: 1.26, head: 0.13, hem: 0.31, flare: [0.1, 0.48], drop: 0.4, period: 4.6, yaw: 0.16, seed: 12, eye: { len: 0.46, h: 0.15, sep: 0.35, slant: 0.38, y: -0.18 }, corners: 0.06, strips: 8 },
+  { rope: 0.05, length: 0.86, head: 0.15, hem: 0.3, drop: 0.4, period: 3.9, yaw: -0.2, seed: 11, eye: { len: 0.46, h: 0.13, sep: 0.42, slant: 0.5, y: -0.1 }, corners: 0.09, strips: 6 },
+  { rope: 0.05, length: 1.08, head: 0.138, hem: 0.27, drop: 'peek', period: 3.4, yaw: -0.05, seed: 13, eye: { len: 0.52, h: 0.12, sep: 0.39, slant: 0.44, y: -0.12 }, corners: 0.1, strips: 7 },
+  { rope: 0.15, length: 0.92, head: 0.14, hem: 0.28, flare: [0.36, 0.72], drop: 0.3, period: 4.2, yaw: 0.1, seed: 14, eye: { len: 0.48, h: 0.13, sep: 0.38, slant: 0.42, y: -0.14 }, corners: 0.08, strips: 9 },
 ];
-/** the peek ghost's eyes above the ground at lower = 1 (the shoo: its hem ~0.35 above Clawd's hat) */
-export const PEEK_EYES = 1.8;
-/** the yaw the lowered ghost turns to: toward the truck camera's side of the path at the shoo (+x +z) */
-const PEEK_YAW = 0.72;
-/** `lower` beyond 1 lets a ghost on down, to this */
+/** the peek ghost's index (film/beats.ts ghostLowerAt drives its `lower`) */
+const PEEK = DESIGNS.findIndex((d) => d.drop === 'peek');
+/**
+ * the peek ghost's eyes above the ground under its hook at lower = 1 (before its bow): as low as
+ * it comes with its hem off the ground (its threads' ends ~0.15 above it at the shoo) and no cloth
+ * over Clawd's hat (its top ~0.41 above the ground) lower than ~0.6 on the way down (clothLowest);
+ * leaning in, its face hangs over him ~1.2 above the ground (V1's 1.8)
+ */
+export const PEEK_EYES = 1.25;
+/**
+ * the yaw the lowered ghost turns to: three-quarter toward Clawd (facing him is about −0.96, the
+ * truck camera's side 0.72), so it peers at him and his pail with its face still to the lens
+ */
+const PEEK_YAW = -0.3;
+/**
+ * the lowered ghost's bow (radians: its head pitched down to peer at him), the lean of its body
+ * after it (its hem swinging back, away from him, so its head can come lower over his hat) and the
+ * curious cock of its head
+ */
+const PEEK_BOW = 0.55;
+const PEEK_LEAN = 0.26;
+const PEEK_COCK = 0.2;
 const LOWER_MAX = 1.5;
 /**
  * The peek ghost at rest is gathered up under the limb: only its head and this much of the sheet
@@ -92,32 +116,36 @@ const LOWER_MAX = 1.5;
  * the eyes open, and it gathers back up as it is snatched away (so in the hero view it does not
  * hang in front of the castle's crag).
  */
-const GATHER_MIN = 0.3;
-const GATHER_TAIL = 0.12;
+const GATHER_MIN = 0.26;
+const GATHER_TAIL = 0.1;
 /** a depth on the sheet as hung when only `ell` of it is open (the rest bunched up under it) */
 const gatheredDepth = (d: number, ell: number) => (d <= ell ? d : ell + GATHER_TAIL * (1 - Math.exp(-(d - ell) / GATHER_TAIL)));
 /** how much narrower the bunched cloth hangs than the open sheet at that depth (it tapers to a sack's round bottom) */
-const gatheredWidth = (d: number, ell: number) => (d <= ell ? 1 : 0.28 + 0.72 * Math.exp(-(d - ell) / 0.09));
+const gatheredWidth = (d: number, ell: number) => (d <= ell ? 1 : 0.42 + 0.58 * Math.exp(-(d - ell) / 0.07));
+/** the bundled strips: how far below the bundle a strip still hangs (× its length below its tear) */
+const GATHER_FRINGE = 0.55;
 
 /** columns round a ghost; rows: the tuft, the head, the body, the strips */
 const COLS = 96;
 const TUFT: { d: number; r: number }[] = [
-  { d: -0.03, r: 0.004 },
-  { d: -0.024, r: 0.0095 },
-  { d: -0.015, r: 0.012 },
-  { d: -0.006, r: 0.01 },
-  { d: 0, r: 0.011 },
+  { d: -0.072, r: 0.006 },
+  { d: -0.064, r: 0.019 },
+  { d: -0.048, r: 0.027 },
+  { d: -0.03, r: 0.026 },
+  { d: -0.016, r: 0.018 },
+  { d: -0.006, r: 0.0125 },
+  { d: 0, r: 0.012 },
 ];
 const HEAD_ROWS = 10;
 const NECK_ROWS = 4;
 const BODY_ROWS = 24;
-const STRIP_ROWS = 10;
+const STRIP_ROWS = 14;
 /** the sheet's thickness (the inner shell's inset) */
 const THICK = 0.0065;
 /** the swing's lag down the cloth (s per world unit below the tie) and its depth bins */
 const LAG = 0.22;
-const BINS = 112;
-const MAX_DEPTH = 1.75;
+const BINS = 128;
+const MAX_DEPTH = 2.0;
 const BIN_DEPTH = MAX_DEPTH / BINS;
 
 /** linear RGB from an sRGB hex (vertex colours are linear) */
@@ -130,14 +158,14 @@ function lin(hex: string): [number, number, number] {
   return [f((n >> 16) & 255), f((n >> 8) & 255), f(n & 255)];
 }
 /**
- * The sheet's paint (linear, past 1 where the night needs it): a wine red that the night's slate
- * floor (look/NightPost.tsx's lift, which sets the darks' green and blue) turns to the reference's
- * plum at the ghosts' height in the frame; the fold valleys deep and less red (the reference's
- * fold shadows, ~(43, 18, 35)), the streaks a cool lilac grey (its lights: ~(57, 55, 75)).
+ * The sheet's paint (linear, past 1 where the night needs it): a plum mauve that the night's floor
+ * and haze turn to the reference's (its sheets sit at about sRGB (46, 20, 38) in the folds, (50,
+ * 31, 46) on the flats and (58, 53, 74) on the lit ridges): the fold valleys deeper and redder,
+ * the streaks a cool lilac grey.
  */
-const CLOTH: [number, number, number] = [1.06, 0.16, 0.22];
-const VALLEY: [number, number, number] = [0.52, 0.3, 0.34];
-const SHEEN: [number, number, number] = [3.6, 3.1, 3.3];
+const CLOTH: [number, number, number] = [1.42, 0.3, 0.34];
+const VALLEY: [number, number, number] = [0.5, 0.26, 0.24];
+const SHEEN: [number, number, number] = [2.3, 2.05, 2.7];
 const ROPE = lin('#5e4a40');
 
 const angDist = (a: number, b: number) => {
@@ -200,6 +228,11 @@ interface Strip {
   curlOut: number;
   curlSide: number;
   phase: number;
+  /** its end's shape: the exponent of its rounding (low: worn to a point, high: blunt) */
+  end: number;
+  /** a nick torn into its end: where across it (0..1; < 0 none) and how deep */
+  nick: number;
+  nickD: number;
 }
 interface Hole {
   c: number;
@@ -258,68 +291,76 @@ function design(d: GhostDesign): GhostShape {
   const sh = rh * 1.95;
   // a ball under the sheet: round over the top from the knot, its widest at the equator; the
   // sheet pinched ~10% under the ball, then falling in a near-straight A-line flare to the hem
+  // (the top a hood: the sheet drawn up into the knot, a little pointed, then round over the ball)
+  const [f1, f2] = d.flare ?? [0.46, 0.8];
   const prof: [number, number][] = [
-    [0, 0.011],
-    [0.05 * rh, 0.31 * rh],
-    [0.15 * rh, 0.53 * rh],
-    [0.35 * rh, 0.77 * rh],
-    [0.62 * rh, 0.93 * rh],
+    [0, 0.012],
+    [0.05 * rh, 0.24 * rh],
+    [0.15 * rh, 0.45 * rh],
+    [0.35 * rh, 0.71 * rh],
+    [0.62 * rh, 0.9 * rh],
     [1.0 * rh, 1.0 * rh],
-    [1.36 * rh, 0.955 * rh],
-    [1.62 * rh, 0.9 * rh],
-    [sh, 0.99 * rh],
-    [sh + 0.3 * (L - sh), rh + 0.46 * (hem - rh)],
-    [sh + 0.66 * (L - sh), rh + 0.8 * (hem - rh)],
+    [1.36 * rh, 0.94 * rh],
+    [1.62 * rh, 0.86 * rh],
+    [sh, 0.97 * rh],
+    [sh + 0.3 * (L - sh), rh + f1 * (hem - rh)],
+    [sh + 0.66 * (L - sh), rh + f2 * (hem - rh)],
     [L, hem],
   ];
   const slopes = monotoneSlopes(prof);
   const folds: Fold[] = [];
-  const K = 11 + Math.floor(r(1, 0) * 4);
+  // many narrow pleats (the reference's sheets hang in close vertical folds), a few broad ones
+  const K = 17 + Math.floor(r(1, 0) * 5);
   for (let k = 0; k < K; k++) {
-    const crease = r(10 + k, 0) < 0.35;
+    const crease = r(10 + k, 0) < 0.45;
     folds.push({
       th: ((k + 0.5 + (r(10 + k, 1) - 0.5) * 0.8) / K) * TAU,
-      w: crease ? 0.09 + 0.05 * r(10 + k, 2) : 0.15 + 0.2 * r(10 + k, 2),
-      a: crease ? -(0.06 + 0.07 * r(10 + k, 3)) : 0.07 + 0.09 * r(10 + k, 3),
+      w: crease ? 0.06 + 0.05 * r(10 + k, 2) : 0.1 + 0.16 * r(10 + k, 2),
+      a: crease ? -(0.05 + 0.07 * r(10 + k, 3)) : 0.06 + 0.09 * r(10 + k, 3),
       s: sh * 0.85 + (L - sh) * 0.5 * r(10 + k, 4) ** 2,
       drift: (r(10 + k, 5) - 0.5) * 0.5,
     });
   }
-  // the hem torn into strips of 3..10 columns
-  const bounds: number[] = [];
-  let c = Math.floor(r(2, 0) * 4);
-  let i = 0;
-  while (bounds.length === 0 || c < COLS + bounds[0]) {
-    bounds.push(c);
-    c += 3 + Math.floor(r(30 + i, 0) ** 1.3 * 8);
-    i++;
-    if (bounds.length > 60) break;
+  // the hem torn into `strips` uneven strips (the reference's ragged hems): their widths drawn at
+  // random, the tears between them run deep up the sheet (a few only nicks), each strip its own
+  // length (some hang well below the rest) and its own end (blunt, or worn to a point)
+  const n = d.strips;
+  const wts = Array.from({ length: n }, (_, k) => 0.4 + 1.3 * r(30 + k, 0) ** 1.2);
+  const tot = wts.reduce((a, v) => a + v, 0);
+  const first = Math.floor(r(2, 0) * (COLS / n));
+  const bounds: number[] = [first];
+  let cum = 0;
+  for (let k = 0; k < n; k++) {
+    cum += wts[k];
+    bounds.push(first + Math.round((cum / tot) * COLS));
   }
-  const first = bounds[0];
-  if (bounds[bounds.length - 1] !== first + COLS) bounds[bounds.length - 1] = first + COLS;
-  // most tears are shallow notches in a heavy, nearly level hem; a few run up into slits
+  bounds[n] = first + COLS;
   const tears = bounds.map((_, k) => {
-    const id = 60 + (k % (bounds.length - 1));
-    return L * (r(id, 1) < 0.15 ? 0.78 + 0.1 * r(id, 0) : 0.962 + 0.03 * r(id, 0));
+    const id = 60 + (k % n);
+    return L * (r(id, 1) < 0.22 ? 0.9 + 0.05 * r(id, 0) : 0.7 + 0.17 * r(id, 0));
   });
-  tears[tears.length - 1] = tears[0];
+  tears[n] = tears[0];
   const strips: Strip[] = [];
-  for (let k = 0; k < bounds.length - 1; k++) {
+  for (let k = 0; k < n; k++) {
+    const long = r(90 + k, 0) < 0.3;
     strips.push({
       c0: bounds[k],
       c1: bounds[k + 1],
-      tip: L * (0.985 + 0.035 * r(90 + k, 1)),
+      tip: L * (long ? 1.04 + 0.08 * r(90 + k, 1) : 0.95 + 0.07 * r(90 + k, 1)),
       curlOut: 0.002 + 0.01 * r(90 + k, 3),
       curlSide: (r(90 + k, 4) - 0.5) * 0.2,
       phase: r(90 + k, 5) * TAU,
+      end: 1.3 + 3.2 * r(90 + k, 6),
+      nick: r(90 + k, 7) < 0.6 ? 0.2 + 0.6 * r(90 + k, 8) : -1,
+      nickD: L * (0.04 + 0.07 * r(90 + k, 9)),
     });
   }
   const cornerPhase = r(3, 0) * TAU;
   const cornerAmp = [0, 1, 2, 3].map((k) => d.corners * (0.45 + 0.75 * r(4, k)));
   const cornerTh = [0, 1, 2, 3].map((k) => cornerPhase + (k * TAU) / 4 + (r(5, k) - 0.5) * 0.5);
-  // the hem's fray: a little ragged from column to column
+  // the hem's fray: ragged from column to column
   const raw = Array.from({ length: COLS }, (_, k) => r(400 + k, 0) - 0.5);
-  const fray = raw.map((v, k) => 0.5 * v + 0.25 * (raw[(k + COLS - 1) % COLS] + raw[(k + 1) % COLS]));
+  const fray = raw.map((v, k) => 0.6 * v + 0.2 * (raw[(k + COLS - 1) % COLS] + raw[(k + 1) % COLS]));
   const colStrip: Strip[] = [];
   const hemD = new Float32Array(COLS);
   const tearD = new Float32Array(COLS);
@@ -339,14 +380,15 @@ function design(d: GhostDesign): GhostShape {
     const t0 = tears[k];
     const t1 = tears[k + 1];
     const edge = t0 + (t1 - t0) * x;
-    // blunt ends: the strip's hem is level across most of it, rounding off into the tears
-    const blunt = 1 - Math.abs(2 * x - 1) ** 3;
+    // the strip's end: rounding off into the tears (blunt or pointed), a nick torn into some
+    let blunt = 1 - Math.abs(2 * x - 1) ** st.end;
+    if (st.nick >= 0) blunt -= (st.nickD / Math.max(0.05, st.tip - edge)) * Math.exp(-(((x - st.nick) / 0.07) ** 2));
     const th = (cc / COLS) * TAU;
     let corner = 0;
     for (let q = 0; q < 4; q++) corner += cornerAmp[q] * Math.exp(-((angDist(th, cornerTh[q]) / 0.3) ** 2));
     corner *= L;
     colStrip.push(st);
-    hemD[cc] = edge + (st.tip - edge) * blunt + corner + 0.022 * L * fray[cc];
+    hemD[cc] = edge + (st.tip - edge) * Math.max(0, blunt) + corner + 0.035 * L * fray[cc];
     tearD[cc] = Math.min(t0, t1) + corner;
   }
   const solid = Math.min(...tears) - 0.012;
@@ -363,15 +405,15 @@ function design(d: GhostDesign): GhostShape {
     holes.push({ c: hc, d: hd, wc: (edge ? 2.0 : 1.4) + 2.4 * r(9, k), wd: (edge ? 0.03 : 0.014) + 0.025 * r(10, k) });
   }
   // two or three long threads dripping below the hem
-  const nd = 2 + (r(11, 0) < 0.5 ? 1 : 0);
+  const nd = 3 + (r(11, 0) < 0.5 ? 1 : 0);
   const drips: Drip[] = [];
   for (let k = 0; k < nd; k++) {
-    drips.push({ c: Math.floor(r(12, k) * COLS), len: 0.07 + 0.17 * r(13, k), r: 0.0032 + 0.0018 * r(14, k), bend: (r(15, k) - 0.5) * 0.08, side: (r(16, k) - 0.5) * 0.05, phase: r(17, k) * TAU });
+    drips.push({ c: Math.floor(r(12, k) * COLS), len: 0.08 + 0.2 * r(13, k), r: 0.0032 + 0.0018 * r(14, k), bend: (r(15, k) - 0.5) * 0.08, side: (r(16, k) - 0.5) * 0.05, phase: r(17, k) * TAU });
   }
   // the streaks: round the whole sheet at jittered, uneven spacing (it is seen from every side),
   // a few skipped; each broken (its own start and end), its own width and strength
   const streaks: Streak[] = [];
-  const NS = 17;
+  const NS = 23;
   for (let k = 0; k < NS; k++) {
     if (r(130 + k, 0) < 0.2) continue;
     const d0 = sh + (L - sh) * 0.35 * r(130 + k, 1) ** 1.5;
@@ -404,8 +446,8 @@ function folds(g: GhostShape, th: number, d: number, wideOnly = false): number {
   }
   F *= 0.5 + 0.5 * grow ** 0.7;
   if (wideOnly) return F;
-  // fine wrinkles in the body
-  F += 0.01 * Math.sin(17 * th + 5.0 * d + g.cornerPhase) * smoothstep(rh * 1.6, 0.6 * L, d);
+  // fine wrinkles and close pleats in the body
+  F += (0.01 * Math.sin(17 * th + 5.0 * d + g.cornerPhase) + 0.007 * Math.sin(31 * th - 3.0 * d + 2.3 * g.cornerPhase)) * smoothstep(rh * 1.6, 0.6 * L, d);
   // the gathers converging on the knot, over the top of the ball only (the ball reads round)
   const top = 1 - Math.max(0, d) / (rh * 0.62);
   if (top > 0) F += 0.11 * top ** 1.6 * (0.6 * Math.sin(9 * th + g.cornerPhase) + 0.4 * Math.sin(5 * th + 1.3 * g.cornerPhase));
@@ -457,12 +499,14 @@ interface Builder {
   free: number[];
   phase: number[];
   rope: number[];
+  /** the depth where the vertex's strip of the hem begins (its tear; 99: none) */
+  tear: number[];
   /** pairs of vertices on the uv seam (the same point twice): their normals are welded */
   seams: [number, number][];
   /** an extra tilt added to each vertex's normal (the folds' shading steepened), or empty */
   tilt: number[];
 }
-const builder = (): Builder => ({ pos: [], col: [], uv: [], idx: [], depth: [], free: [], phase: [], rope: [], seams: [], tilt: [] });
+const builder = (): Builder => ({ pos: [], col: [], uv: [], idx: [], depth: [], free: [], phase: [], rope: [], tear: [], seams: [], tilt: [] });
 /**
  * The folds' shading, steepened: each outer vertex's normal tilts round the axis by this many times
  * the folds' own slope again, so the flanks of the folds that face the moon turn far enough to
@@ -471,8 +515,8 @@ const builder = (): Builder => ({ pos: [], col: [], uv: [], idx: [], depth: [], 
  */
 const FOLD_TILT = 1.1;
 /** the fabric map's repeats round a ghost and per unit down it */
-const UREP = 6;
-const VREP = 5;
+const UREP = 3;
+const VREP = 2.6;
 
 /** how deep inside a hole (< 1) a point of the sheet is, at column c and depth d */
 function holeDist(g: GhostShape, c: number, d: number): number {
@@ -513,7 +557,7 @@ function shell(g: GhostShape, b: Builder, inner: boolean): void {
       let free = 0;
       if (row.tuftR !== undefined) {
         // the gathered tuft above the knot: crumpled
-        const crumple = 1 + 0.28 * Math.sin(7 * th + g.cornerPhase + d * 90) * (row.tuftR > 0.01 ? 1 : 0.3);
+        const crumple = 1 + (0.3 * Math.sin(7 * th + g.cornerPhase + d * 90) + 0.14 * Math.sin(11 * th - d * 140)) * (row.tuftR > 0.01 ? 1 : 0.3);
         const r = (row.tuftR - (inner ? THICK * 0.4 : 0)) * crumple;
         p = [r * Math.cos(th), -d, r * Math.sin(th)];
       } else {
@@ -527,6 +571,7 @@ function shell(g: GhostShape, b: Builder, inner: boolean): void {
       b.free.push(free);
       b.phase.push(g.colStrip[c].phase);
       b.rope.push(0);
+      b.tear.push(g.tearD[c]);
       if (ci === COLS) b.seams.push([base + ri * C, base + ri * C + COLS]);
       if (row.tuftR === undefined && !inner) {
         const eps = 0.012;
@@ -536,9 +581,10 @@ function shell(g: GhostShape, b: Builder, inner: boolean): void {
       } else b.tilt.push(0, 0, 0);
       // colour: fold valleys dark, ridges lighter and streaked pale; the pinch under the ball shaded
       const dF = Fs[c] - Fm;
-      let ao = clamp(1 + 2.6 * Math.max(0, dF), 1, 1.45);
+      // (the pleats shaded deep: lit flat by the night, they read as a smooth velvet hood)
+      let ao = clamp(1 + 4.2 * Math.max(0, dF), 1, 1.75);
       // a valley's shade: a colour (its red holds), from 0 on the mean to 1 in the deepest
-      const vy = clamp(-8.0 * Math.min(0, dF), 0, 1);
+      const vy = clamp(-13.0 * Math.min(0, dF), 0, 1);
       ao *= 1 - 0.28 * Math.exp(-(((d - rh * 1.62) / (rh * 0.4)) ** 2));
       if (row.tuftR !== undefined) ao *= 0.75 + 0.2 * Math.sin(7 * th + g.cornerPhase);
       // the frayed rims of the holes, darker
@@ -559,7 +605,7 @@ function shell(g: GhostShape, b: Builder, inner: boolean): void {
       }
       const ridge = Math.min(1, 5 * Math.max(0, dF));
       const broken = clamp(0.6 + 0.7 * fbm2(th * 2.4 + seed, d * 3.2, seed + 3, 2, 1), 0.15, 1);
-      const sheen = Math.min(0.85, (flank * (0.12 + 2.0 * Math.max(0, dF)) + 0.25 * ridge) * broken * smoothstep(rh * 0.8, rh * 1.9, d) + 0.8 * streak * (0.7 + 0.3 * broken));
+      const sheen = Math.min(0.85, (flank * (0.2 + 2.4 * Math.max(0, dF)) + 0.35 * ridge) * broken * smoothstep(rh * 0.8, rh * 1.9, d) + 0.9 * streak * (0.7 + 0.3 * broken));
       // the rim's share: the body full, none on the free strips (edge-on they flashed thin slivers)
       let alpha = free > 0.5 ? 0 : 0.95 * (1 - 1.9 * free);
       if (inner) {
@@ -616,6 +662,7 @@ function threads(g: GhostShape, b: Builder): void {
         b.free.push(0.4 + 0.6 * t);
         b.phase.push(dr.phase);
         b.rope.push(0);
+        b.tear.push(g.tearD[dr.c]);
         const v = 0.8 + 0.1 * Math.cos(a);
         b.col.push(CLOTH[0] * v, CLOTH[1] * v, CLOTH[2] * v, 0);
       }
@@ -657,6 +704,7 @@ function rope(g: GhostShape, b: Builder, len: number): void {
       b.free.push(0);
       b.phase.push(0);
       b.rope.push(1);
+      b.tear.push(99);
       const v = 0.6 + 0.4 * ply;
       b.col.push(ROPE[0] * v, ROPE[1] * v, ROPE[2] * v, 0.3);
     }
@@ -687,6 +735,7 @@ function knot(g: GhostShape, b: Builder): void {
         b.free.push(0);
         b.phase.push(0);
         b.rope.push(0);
+        b.tear.push(99);
         const ply = 0.6 + 0.4 * (0.5 + 0.5 * Math.cos(3 * v + 5 * u));
         b.col.push(ROPE[0] * ply, ROPE[1] * ply, ROPE[2] * ply, 0.4);
       }
@@ -728,6 +777,7 @@ function knot(g: GhostShape, b: Builder): void {
         b.free.push(0);
         b.phase.push(0);
         b.rope.push(0);
+        b.tear.push(99);
         b.col.push(ROPE[0] * 0.85, ROPE[1] * 0.85, ROPE[2] * 0.85, 0.05);
       }
     });
@@ -859,13 +909,14 @@ function wraps(hooks: Hooks): { pos: number[]; col: number[]; idx: number[] } {
   const limb = findTube(skel, 'hero');
   const out = { pos: [] as number[], col: [] as number[], idx: [] as number[] };
   if (!limb) return out;
-  const RT = 0.0098;
+  const RT = 0.0085;
   hooks.forEach((h, gi) => {
     const ring = nearestRing(h);
     const t = ring.tangent.clone().normalize();
     const down = new Vector3(0, -1, 0).addScaledVector(t, t.y).normalize();
     const side = new Vector3().crossVectors(t, down).normalize();
-    const turns = [-0.017, 0.0015, 0.019];
+    // (two turns, a gap between them: three abutting read as a solid dark band on the limb)
+    const turns = [-0.013, 0.013];
     turns.forEach((off, ti) => {
       const s = ring.along + off;
       const U = 28;
@@ -921,6 +972,7 @@ interface Part {
   free: Float32Array;
   phase: Float32Array;
   rope: Uint8Array;
+  tear: Float32Array;
 }
 
 interface Built {
@@ -935,6 +987,8 @@ interface Built {
   eyeDepth: Float32Array;
   /** the depth of each eye vertex's eye centre (the shut eyes squash onto it) */
   eyeCentre: Float32Array;
+  /** 1 on the halos' vertices, 0 on the eyes' */
+  eyeHalo: Uint8Array;
   tris: number;
 }
 
@@ -964,6 +1018,7 @@ function part(all: Builder, ghostIdx: number[], restN: number[]): Part {
     free: Float32Array.from(all.free),
     phase: Float32Array.from(all.phase),
     rope: Uint8Array.from(all.rope),
+    tear: Float32Array.from(all.tear),
   };
 }
 
@@ -975,7 +1030,7 @@ function build(hooks: Hooks): Built {
   const lines = builder();
   const lineGhost: number[] = [];
   const lineN: number[] = [];
-  const eyeAll = { pos: [] as number[], uv: [] as number[], idx: [] as number[], depth: [] as number[], ghost: [] as number[], nrm: [] as number[], centre: [] as number[] };
+  const eyeAll = { pos: [] as number[], uv: [] as number[], idx: [] as number[], depth: [] as number[], ghost: [] as number[], nrm: [] as number[], centre: [] as number[], halo: [] as number[] };
   set.forEach(({ g, drop }, gi) => {
     for (const inner of [false, true]) {
       const b = builder();
@@ -1026,6 +1081,8 @@ function build(hooks: Hooks): Built {
     for (let i = 0; i < e.pos.length / 3; i++) {
       eyeAll.ghost.push(gi);
       eyeAll.centre.push(g.eyeD);
+      // (the halos sit in the glow atlas's right half)
+      eyeAll.halo.push(e.uv[i * 2] > 0.52 ? 1 : 0);
     }
     pushAll(eyeAll.nrm, normals(e.pos, e.idx));
   });
@@ -1043,6 +1100,7 @@ function build(hooks: Hooks): Built {
       lines.free.push(0);
       lines.phase.push(0);
       lines.rope.push(0);
+      lines.tear.push(99);
       lineN.push(wn[i * 3], wn[i * 3 + 1], wn[i * 3 + 2]);
     }
   }
@@ -1060,6 +1118,7 @@ function build(hooks: Hooks): Built {
     eyeRestN: Float32Array.from(eyeAll.nrm),
     eyeDepth: Float32Array.from(eyeAll.depth),
     eyeCentre: Float32Array.from(eyeAll.centre),
+    eyeHalo: Uint8Array.from(eyeAll.halo),
     tris: (all.idx.length + lines.idx.length + eyeAll.idx.length) / 3,
   };
 }
@@ -1079,6 +1138,7 @@ function append(all: Builder, b: Builder, gi: number, ghostIdx: number[], restN:
   pushAll(all.free, b.free);
   pushAll(all.phase, b.phase);
   pushAll(all.rope, b.rope);
+  pushAll(all.tear, b.tear);
   for (let i = 0; i < b.pos.length / 3; i++) {
     ghostIdx.push(gi);
     restN.push(n[i * 3], n[i * 3 + 1], n[i * 3 + 2]);
@@ -1096,8 +1156,11 @@ interface GhostPose {
   flutter: number;
   /** how much of the sheet hangs open (Infinity: all of it; the peek ghost's gathered rest: GATHER_MIN) */
   ell: number;
-  /** the eyes, 0 shut .. 1 open */
+  /** the eyes, 0 shut .. 1 open, and how wide they go (1: as built) */
   eyeOpen: number;
+  eyeWide: number;
+  /** how far the bundled sheet has paid out, 0 .. 1 (the strips' fringe lengthens with it) */
+  payout: number;
 }
 
 /** The yaw that faces a hook toward the hero eye (0 faces +z). */
@@ -1125,6 +1188,34 @@ function rotation(ax: number, az: number, yaw: number, out: Float32Array, o: num
   out[o + 8] = a[8];
 }
 
+/** out = a · b (3x3, row-major; out may not alias b) */
+function mul3(a: Float32Array, ao: number, b: readonly number[], out: Float32Array, oo: number): void {
+  const r0 = a[ao];
+  const r1 = a[ao + 1];
+  const r2 = a[ao + 2];
+  const r3 = a[ao + 3];
+  const r4 = a[ao + 4];
+  const r5 = a[ao + 5];
+  const r6 = a[ao + 6];
+  const r7 = a[ao + 7];
+  const r8 = a[ao + 8];
+  for (let c = 0; c < 3; c++) {
+    out[oo + c] = r0 * b[c] + r1 * b[3 + c] + r2 * b[6 + c];
+    out[oo + 3 + c] = r3 * b[c] + r4 * b[3 + c] + r5 * b[6 + c];
+    out[oo + 6 + c] = r6 * b[c] + r7 * b[3 + c] + r8 * b[6 + c];
+  }
+}
+
+/** The ghost-local bow and cock: Rz(cock) · Rx(bow) about the tie (bow > 0 pitches the face down). */
+function bowCock(bow: number, cock: number): number[] {
+  const cb = Math.cos(bow);
+  const sb = Math.sin(bow);
+  const cc = Math.cos(cock);
+  const sc = Math.sin(cock);
+  // Rx(bow): y' = y cos − z sin, z' = y sin + z cos; then Rz(cock): x' = x cos − y sin, y' = x sin + y cos
+  return [cc, -sc * cb, sc * sb, sc, cc * cb, -cc * sb, 0, sb, cb];
+}
+
 function posesAt(f: number, lower: readonly number[], hooks: Hooks, drops: readonly number[]): GhostPose[] {
   const t = f / FPS;
   return DESIGNS.map((d, gi) => {
@@ -1133,7 +1224,13 @@ function posesAt(f: number, lower: readonly number[], hooks: Hooks, drops: reado
     const ropeLen = d.rope + lo * drops[gi];
     const ph = rand(d.seed, 1, 7) * TAU;
     const yaw0 = heroYaw(hook) + d.yaw;
-    const yawL = gi === DESIGNS.length - 1 ? yaw0 + (PEEK_YAW - yaw0) * Math.min(1, lo) : yaw0;
+    const peek = gi === PEEK;
+    const yawL = peek ? yaw0 + (PEEK_YAW - yaw0) * smoothstep(0.2, 0.9, lo) : yaw0;
+    // the peek: low over him it bows its head to peer down at him and cocks it, curious (a slow
+    // tilt from one side to the other while it hangs there)
+    const near = peek ? smoothstep(0.3, 0.95, Math.min(1, lo)) : 0;
+    const rh = d.head;
+    const cock = near * PEEK_COCK * Math.sin(t * 2.1 + 0.6);
     const m = new Float32Array(BINS * 9);
     const o = new Float32Array(BINS * 3);
     const rm = new Float32Array(9);
@@ -1154,17 +1251,25 @@ function posesAt(f: number, lower: readonly number[], hooks: Hooks, drops: reado
       const tt = t - LAG * depth;
       const s = swing(tt, depth);
       rotation(s.ax, s.az, yawL + s.tw, m, bi * 9);
+      if (near > 0) {
+        // the head bows the most, the body leans after it a little (its hem trails back)
+        const head = 1 - smoothstep(rh * 1.2, rh * 3.4, depth);
+        const bc = bowCock(near * (PEEK_LEAN + (PEEK_BOW - PEEK_LEAN) * head), cock * (0.25 + 0.75 * head));
+        mul3(m, bi * 9, bc, m, bi * 9);
+      }
       // the tie hangs on the rope, swung at the lagged time (continuous with the rope at bin 0)
       rotation(s.ax, s.az, 0, r, 0);
       o[bi * 3 + 0] = hook[0] + r[1] * -ropeLen;
       o[bi * 3 + 1] = hook[1] + r[4] * -ropeLen;
       o[bi * 3 + 2] = hook[2] + r[7] * -ropeLen;
     }
-    // the peek ghost pays its sheet out of the bundle over the first part of its let-down, and opens its eyes
-    const peek = d.drop === 'peek';
-    const ell = peek ? GATHER_MIN + smoothstep(0.05, 0.65, lo) * MAX_DEPTH * 1.2 : Infinity;
+    // the peek ghost pays its sheet out of the bundle over the first part of its let-down, opens
+    // its eyes, and they go wide as it comes close over him
+    const payout = peek ? smoothstep(0.05, 0.65, lo) : 1;
+    const ell = peek ? GATHER_MIN + payout * MAX_DEPTH * 1.2 : Infinity;
     const eyeOpen = peek ? smoothstep(0.35, 0.75, lo) : 1;
-    return { m, o, rm, hook, ropeLen, flutter: t * TAU * 0.55, ell, eyeOpen };
+    const eyeWide = 1 + 0.4 * near;
+    return { m, o, rm, hook, ropeLen, flutter: t * TAU * 0.55, ell, eyeOpen, eyeWide, payout };
   });
 }
 
@@ -1191,7 +1296,8 @@ export function ghostMarks(f: number, lower: readonly number[] = [0, 0, 0], hook
   return set.map(({ g }, gi) => {
     const p = poses[gi];
     const e = surface(g, Math.PI / 2, g.eyeD);
-    const bd = gatheredDepth(g.bottom, p.ell);
+    // (bundled, the lowest point is a strip's end in the fringe: bounded by the deepest tear's rim plus the longest strip)
+    const bd = p.ell >= g.bottom ? g.bottom : gatheredDepth(Math.max(...g.tears), p.ell) + (g.bottom - g.solid) * (GATHER_FRINGE + (1 - GATHER_FRINGE) * p.payout);
     return { tie: placeAt(p, 0, 0, 0, 0), eyes: placeAt(p, e[0], e[1], e[2], g.eyeD), bottom: placeAt(p, 0, -bd, 0, bd), hem: g.d.hem };
   });
 }
@@ -1269,7 +1375,8 @@ function fabric(): { map: CanvasTexture; bump: CanvasTexture } {
       const burlap = 1 + 0.3 * Math.max(-1, Math.min(1, 1.8 * tn(u, v, 207, 8, 8, 3)));
       // the weave: a fine cross-hatch, broken (it reads as tooth up close, as grain at distance)
       const weave = 0.5 + 0.25 * Math.sin(u * TAU * 64 + 1.7 * tn(u, v, 209, 6, 6, 2)) + 0.25 * Math.sin(v * TAU * 64 + 1.7 * tn(u, v, 211, 6, 6, 2));
-      val[y * W + x] = (0.78 + 0.2 * streak + 0.08 * mottle) * burlap * (0.92 + 0.12 * weave);
+      // (the mottle and the burlap's blotches at half their old contrast: they read as stains, not cloth)
+      val[y * W + x] = (0.8 + 0.14 * streak + 0.04 * mottle) * (1 + 0.5 * (burlap - 1)) * (0.9 + 0.16 * weave);
       // (the weave's bump is gentle: its micro-normals caught the cyan rim all over the sheet)
       bumpV[y * W + x] = 0.5 + 0.12 * (weave - 0.5) + 0.25 * streak;
     }
@@ -1348,12 +1455,26 @@ function posePart(pt: Part, poses: GhostPose[]): void {
     let lx = x;
     let ly = y;
     let lz = z;
-    if (dep > g.ell) {
-      const d2 = gatheredDepth(dep, g.ell);
-      const s = gatheredWidth(dep, g.ell);
+    const tr = pt.tear[i];
+    if (dep > tr && tr < 98 && g.ell < 98) {
+      // a strip of the hem: it hangs from the bundle's rim below its tear, a ragged fringe
+      // (shortened while bundled, its full length once the sheet is paid out)
+      const d2 = gatheredDepth(tr, g.ell) + (dep - tr) * (GATHER_FRINGE + (1 - GATHER_FRINGE) * g.payout);
+      const s = gatheredWidth(tr, g.ell);
       lx *= s;
       lz *= s;
       ly += dep - d2;
+      dep = d2;
+    } else if (dep > g.ell) {
+      // the bunched sheet, crumpled where it piles up (bulges and creases round and down it)
+      const u = dep - g.ell;
+      const d2 = gatheredDepth(dep, g.ell);
+      const th = Math.atan2(lz, lx);
+      const cr = 1 + 0.24 * smoothstep(0, 0.07, u) * Math.sin(5 * th + u * 37 + pt.phase[i]) * Math.sin(3 * th - u * 23 + 1.3);
+      const s = gatheredWidth(dep, g.ell) * cr;
+      lx *= s;
+      lz *= s;
+      ly += dep - d2 + 0.012 * smoothstep(0, 0.07, u) * Math.sin(7 * th + u * 51);
       dep = d2;
     }
     const bi = Math.min(BINS - 1, Math.round(dep / BIN_DEPTH));
@@ -1396,6 +1517,28 @@ export interface GhostsProps {
   hooks?: Hooks;
 }
 
+/**
+ * The cloth's lowest point (world y) over a plan disc (x, z, radius) at a frame, as posed: how
+ * low a ghost comes over something under it (the peek over Clawd's hat). For checks and tests.
+ */
+export function clothLowest(f: number, lower: readonly number[], disc: readonly [number, number, number], hooks: Hooks = GHOST_HOOKS): number {
+  const b = build(hooks);
+  const poses = posesAt(
+    f,
+    lower,
+    hooks,
+    shapes(hooks).map((s) => s.drop),
+  );
+  posePart(b.cloth, poses);
+  const P = b.cloth.geo.getAttribute('position').array as Float32Array;
+  let lowest = Infinity;
+  for (let i = 0; i < P.length / 3; i++) if (Math.hypot(P[i * 3] - disc[0], P[i * 3 + 2] - disc[1]) < disc[2]) lowest = Math.min(lowest, P[i * 3 + 1]);
+  b.cloth.geo.dispose();
+  b.lines.geo.dispose();
+  b.eyes.dispose();
+  return lowest;
+}
+
 /** Triangles of the built set (lookdev budget report). */
 export function ghostStats(hooks: Hooks = GHOST_HOOKS): number {
   return build(hooks).tris;
@@ -1419,8 +1562,9 @@ export function Ghosts({ f, lower = [0, 0, 0], hooks = GHOST_HOOKS }: GhostsProp
         breakup: 0.3,
         scale: 0.05,
         bump: 0.3,
-        rim: 2.0,
-        fog: 0.5,
+        // no rim: the reference's hanging sheets are dark against the sky, unlit at their edges
+        rim: 0,
+        fog: 0.2,
         map: fabric().map,
         bumpMap: fabric().bump,
         bumpScale: 0.7,
@@ -1471,9 +1615,12 @@ export function Ghosts({ f, lower = [0, 0, 0], hooks = GHOST_HOOKS }: GhostsProp
       const m = g.m;
       const o = bi * 9;
       const x = built.eyeRest[i * 3];
-      // shut: squashed onto the eye's middle line (the peek ghost asleep in its bundle)
+      // shut: squashed onto the eye's middle line, a dim slit (the peek ghost asleep in its bundle),
+      // its halo still breathing on the cloth; wide: opened taller
       const yc = -built.eyeCentre[i];
-      const y = yc + (built.eyeRest[i * 3 + 1] - yc) * Math.max(0.04, g.eyeOpen);
+      const halo = built.eyeHalo[i] === 1;
+      const open = halo ? 0.55 + 0.45 * g.eyeOpen : Math.max(0.2, g.eyeOpen);
+      const y = yc + (built.eyeRest[i * 3 + 1] - yc) * open * g.eyeWide;
       const z = built.eyeRest[i * 3 + 2];
       E[i * 3] = g.o[bi * 3] + m[o] * x + m[o + 1] * y + m[o + 2] * z;
       E[i * 3 + 1] = g.o[bi * 3 + 1] + m[o + 3] * x + m[o + 4] * y + m[o + 5] * z;

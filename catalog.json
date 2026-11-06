@@ -128,6 +128,11 @@
       "path": "knowledge/bt709-from-rgb.md"
     },
     {
+      "id": "camera-moves-by-screen-flow",
+      "title": "Plan a camera move by how fast its picture moves, before rendering it",
+      "path": "knowledge/camera-moves-by-screen-flow.md"
+    },
+    {
       "id": "deterministic-frames",
       "title": "Make every frame a pure function of its index",
       "path": "knowledge/deterministic-frames.md"

@@ -49,6 +49,7 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 
 ## Knowledge
 - [Convert RGB frames to BT.709 once, explicitly, and check it from the final file](../knowledge/bt709-from-rgb.md): Rendered frames are sRGB-encoded RGB. Video delivery is YUV with a colour matrix and a range.
+- [Plan a camera move by how fast its picture moves, before rendering it](../knowledge/camera-moves-by-screen-flow.md): A camera path that looks fine as positions and angles can still strobe at 24 fps without motion blur, or wipe a near object across the lens: what the eye sees is how many pixels…
 - [Make every frame a pure function of its index](../knowledge/deterministic-frames.md): A video rendered in chunks, resumed after a crash, or re-rendered next month must produce the same pixels for the same frame.
 - [Capture WebGL and WebGPU on a Windows laptop GPU with headless Chrome](../knowledge/headless-gpu-windows.md): Headless Chrome can render on the real GPU of a modest Windows laptop, but only with the right build and flags, and its screenshots are the wrong way to get frames out.
 - [Master to -14 LUFS with a two-pass, linear loudnorm](../knowledge/loudness-two-pass.md): Platforms turn loud uploads down and leave quiet ones quiet, so a mix should arrive at the platform's reference loudness with headroom for true peaks.

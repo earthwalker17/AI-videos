@@ -408,6 +408,8 @@ const STACK_SCALE = 1.4;
 /** the carves, in SMALL_PUMPKINS order (the stack's three, the lane's one), and the porch's two */
 const SMALL_CARVES: Carve[] = ['angry', 'grin', 'round', 'small'];
 const PORCH_CARVES: Carve[] = ['round', 'angry'];
+/** how much further out from the door (house-local x) the porch pumpkins sit than DOOR_FRONT.porchPumpkins */
+const PORCH_OUT = 0.1;
 
 /** The yaw that turns a face (+z) toward a point, with a seeded wander. */
 const faceToward = (x: number, z: number, tx: number, tz: number, j: number) => Math.atan2(tx - x, tz - z) + j;
@@ -467,7 +469,9 @@ export function patchItems(porch = true): PatchItem[] {
   if (lift > -Infinity) top.y = Math.max(top.y, lift - 0.01);
   if (porch) {
     DOOR_FRONT.porchPumpkins.forEach((p, i) => {
-      const [x, , z] = fromHouse(p);
+      // a little further out from the door than DOOR_FRONT's places: in the door shots Clawd's arm
+      // stub merged with the right one and its stem rose into the couplet's last character
+      const [x, , z] = fromHouse([p[0] + Math.sign(p[0]) * PORCH_OUT, p[1], p[2]]);
       const seed = 60 + i;
       const w = i ? 0.2 : 0.24;
       out.push({ x, y: seat(x, z, w * 0.3), z, yaw: (LAND.house.yaw ?? 0) + (i ? -0.35 : 0.35) + (rand(seed, 'yaw') - 0.5) * 0.3, width: w, carve: PORCH_CARVES[i], seed, lit: true });

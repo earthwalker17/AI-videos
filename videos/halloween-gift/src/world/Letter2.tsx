@@ -1,7 +1,7 @@
 /**
  * The gift, V2: a pop-up transformation card that rises out of a slot in the door yard on a short
  * folded stalk (V1's LETTER_AT, carried onto the house by fromV1Door; it faces out of the house),
- * 0.8 wide x 0.625 high (EMAIL.aspect 1.28: face B is exactly the email card), made of eight
+ * 0.86 wide x 0.672 high (EMAIL.aspect 1.28: face B is exactly the email card), made of eight
  * horizontal slats like a Victorian transformation picture, held between two board rails on a
  * bottom bar. On `flip` the slats turn over top to bottom, one after another, quick, each with a
  * little overshoot (on ones), from face A to face B; before the flip they quiver in the silence
@@ -46,7 +46,15 @@ const TAU = Math.PI * 2;
 type V3 = [number, number, number];
 
 /** The card: width, height (face B's aspect is the email card's), the bottom edge's height above the ground, slats, board thickness. */
-export const LETTER2 = { w: 0.8, h: 0.8 / EMAIL.aspect, base: 0.15, slats: 8, thick: 0.004 } as const;
+/**
+ * (0.86 wide, its bottom 0.13 up: in the door spread its top edge falls between the left
+ * couplet's first two characters, 代 and 码, both on face A's hold and, lifted FLIP_LIFT, on the
+ * email's, where face B is about 765 px tall)
+ */
+export const LETTER2 = { w: 0.86, h: 0.86 / EMAIL.aspect, base: 0.13, slats: 8, thick: 0.004 } as const;
+/** how far the card lifts as its slats turn to the email (eased with the flip): face B stands this much higher than face A */
+export const FLIP_LIFT = 0.02;
+const flipLift = (flip: number) => FLIP_LIFT * smooth(0, 1, flip);
 const SH = LETTER2.h / LETTER2.slats;
 /** the slot's centre on the ground (V1's LETTER_AT, its floor), and the card's facing (the house's) */
 export const LETTER2_AT: V3 = (() => {
@@ -65,8 +73,10 @@ const SEAL_R = 0.036;
 
 /** The four corners of face B in the world, risen and flipped (top-left, top-right, bottom-left, bottom-right): for the overlay's crossfade. */
 export function letter2Corners(): V3[] {
+  // (face B is only ever overlaid once every slat has turned: the card stands FLIP_LIFT higher then)
   const m = new Matrix4().makeRotationY(LETTER2_YAW).setPosition(...LETTER2_AT);
-  const { w, h, base, thick } = LETTER2;
+  const { w, h, thick } = LETTER2;
+  const base = LETTER2.base + FLIP_LIFT;
   return [
     [-w / 2, base + h],
     [w / 2, base + h],
@@ -967,7 +977,8 @@ export function Letter2({ rise, flip, sealed, tabGone = false, crack, f, quiver,
     bMat.color.setScalar(FACE_B_GAIN);
     // glossy wax: a small hot highlight off the moon and the rim
     const sealMat = storybookMaterial({ kind: 'plain', color: '#ffffff', map: sealTex, breakup: 0, rim: 0.9, roughness: 0.25, emissive: '#ffffff', emissiveMap: sealTex, emissiveIntensity: A_GLOW * 0.9 });
-    const frameMat = storybookMaterial({ kind: 'wood', color: '#ffffff', breakup: 0.15, scale: 0.05, bump: 0.3, rim: 0.6, vertexColors: true, roughness: 0.9 });
+    // (a faint rim only: a bright one drew a hairline round the email card's edge)
+    const frameMat = storybookMaterial({ kind: 'wood', color: '#ffffff', breakup: 0.15, scale: 0.05, bump: 0.3, rim: 0.2, vertexColors: true, roughness: 0.9 });
     return { a, b, sealCanvas, sealTex, seal, chip, frame, slot, aMat, bMat, sealMat, frameMat, crackDrawn: -1 };
   }, []);
   useLayoutEffect(
@@ -1012,7 +1023,7 @@ export function Letter2({ rise, flip, sealed, tabGone = false, crack, f, quiver,
     <>
       <mesh geometry={built.slot} material={built.frameMat} receiveShadow />
       {r > 0.001 && (
-        <group position-y={lift} rotation-x={-0.1 * Math.max(0, r - 1)}>
+        <group position-y={lift + flipLift(clamp(flip, 0, 1))} rotation-x={-0.1 * Math.max(0, r - 1)}>
           <mesh geometry={built.frame} material={built.frameMat} castShadow receiveShadow />
           <mesh geometry={built.a} material={built.aMat} castShadow receiveShadow />
           <mesh geometry={built.b} material={built.bMat} />

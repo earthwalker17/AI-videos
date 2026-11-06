@@ -44,8 +44,8 @@ import type { UserPose } from '../film/actors.ts';
 import { fbm2 } from '../kit/field.ts';
 import { storybookMaterial } from '../look/materials.ts';
 import { lin, PartRig, softBox } from './Clawd2.tsx';
-import { glowMaterial, WALL_LANTERN } from './House.tsx';
-import { DOOR_FRONT, DOOR_SCALE, fromHouse, fromV1Door, LAND } from './layout.ts';
+import { glowMaterial, RED_LANTERNS, WALL_LANTERN } from './House.tsx';
+import { DOOR_SCALE, fromHouse, fromV1Door, LAND } from './layout.ts';
 
 const TAU = Math.PI * 2;
 type V3 = [number, number, number];
@@ -60,7 +60,11 @@ const TILT_MAX = 0.42;
 
 // a cool cream: under the night's plum ambient a warm cream turns pink; this one stays a pale sheet
 const CREAM = new Color('#dde7de');
-const GHOST = new Color('#8b9ea3');
+// ghosted: a pale ghost-teal (the grey went to the door's slate in the yard's shadow)
+const GHOST = new Color('#86b9b4');
+/** the ghosted sheet's own cold glow (emissive, x the cloth's occlusion, stronger toward its edges) */
+const GHOST_GLOW = '#3fb8b0';
+const GHOST_GLOW_K = 0.3;
 
 /** Where Clawd waits, in the neighbour's frame (V1's wait spot minus the doorway): the bowl tips toward it. */
 const TO_CLAWD = (() => {
@@ -79,8 +83,12 @@ function bodyOf(stand: number, tilt: number) {
   const s = smoothstep(0, 1, sag);
   // about seven heads tall, the shoulders twice the head's width: a person under a sheet, not a chibi ghost
   const head: Ell = { c: [0, 1.02 - 0.3 * s, 0.012 + 0.055 * s], r: [0.13, 0.128, 0.13] };
+  // the sheet's top is no dome: it sits flattened on the crown, tipped to one side, a bunch of the
+  // cloth caught up off-centre (where it was thrown over and tugged straight)
+  const crown: Ell = { c: [0.035, head.c[1] + 0.06, head.c[2] - 0.025], r: [0.085, 0.055, 0.08] };
   const ells: Ell[] = [
-    head,
+    { c: [head.c[0] - 0.01, head.c[1] - 0.012, head.c[2]], r: [0.13, 0.112, 0.13] },
+    crown,
     { c: [0, 0.875 - 0.27 * s, 0.01 + 0.035 * s], r: [0.066, 0.07, 0.064] },
     { c: [0, 0.78 - 0.25 * s, -0.005 + 0.025 * s], r: [0.27, 0.062, 0.12] },
     { c: [0, 0.58 - 0.2 * s, 0], r: [0.19, 0.24 - 0.06 * s, 0.12] },
@@ -92,7 +100,7 @@ function bodyOf(stand: number, tilt: number) {
   const bowl = new Vector3(0, bowlY + 0.02 * tilt, 0.27 + 0.01 * s).addScaledVector(TO_CLAWD, 0.06 * tilt);
   const q = new Quaternion().setFromAxisAngle(new Vector3(TO_CLAWD.z, 0, -TO_CLAWD.x), TILT_MAX * tilt);
   const inBowl = (x: number, y: number, z: number) => new Vector3(x, y, z).applyQuaternion(q).add(bowl);
-  const shoulderY = ells[2].c[1];
+  const shoulderY = ells[3].c[1];
   for (const side of [-1, 1]) {
     // the hands, palms up, cupped under the bowl's foot (they tip with it): the cloth over them is the shelf it stands on
     const hand = inBowl(side * 0.04, -0.021, -0.004);
@@ -220,7 +228,7 @@ interface Drape {
 /** The draped sheet for a pose at film time t (seconds): positions and colours of the COLS × (ROWS + 1) grid. */
 function drape(pose: UserPose, t: number, out: Drape): void {
   const { ells, head, bowl, q } = bodyOf(pose.stand, pose.tilt);
-  const shoulderY = ells[2].c[1];
+  const shoulderY = ells[3].c[1];
   const tip = new Vector3(0, 1, 0).applyQuaternion(q);
   /** where the bowl's weight sits (its occlusion's centre) */
   const bowlMid = bowl.clone().addScaledVector(tip, 0.035);
@@ -247,7 +255,18 @@ function drape(pose: UserPose, t: number, out: Drape): void {
   const ghosted = clamp(pose.ghosted, 0, 1);
   const sag = clamp((1 - pose.stand) / 0.32, 0, 1);
   const cloth = CREAM.clone().lerp(GHOST, ghosted);
-  const amp = 0.05 * (1 + 0.3 * ghosted + 0.25 * sag);
+  // (deep folds: at V1's 0.05 the sheet read as a moulded rubber bell)
+  const amp = 0.115 * (1 + 0.25 * ghosted + 0.2 * sag);
+  // a bedsheet's four corners: they hang lower and pool further out on the floor (never even)
+  const CORNERS = [0.5, 2.1, 3.55, 5.2];
+  const cornerAt = (th: number) => {
+    let m = 0;
+    for (const a of CORNERS) {
+      const d = Math.atan2(Math.sin(th - a), Math.cos(th - a));
+      m = Math.max(m, Math.exp(-((d / 0.22) ** 2)));
+    }
+    return m;
+  };
   const prof: [number, number][] = [];
   const res: [number, number][] = Array.from({ length: ROWS + 1 }, () => [0, 0]);
   for (let j = 0; j < COLS; j++) {
@@ -278,7 +297,8 @@ function drape(pose: UserPose, t: number, out: Drape): void {
     }
     // the pool: the hem's slack lying on the floor (more in the troughs, none over the slippers' toes)
     const trough = clamp(0.5 - 0.5 * foldAt(th, 1), 0, 1);
-    const pool = (0.014 + 0.036 * trough + 0.1 * sag) * (1 - 0.95 * slip);
+    const corner = cornerAt(th);
+    const pool = (0.014 + 0.036 * trough + 0.06 * corner + 0.1 * sag) * (1 - 0.95 * slip);
     prof.push([R + pool * 0.55, 0.004], [R + pool, 0.002]);
     // resample by arc length into the rows, then soften the hull's corners
     const lens = [0];
@@ -303,15 +323,21 @@ function drape(pose: UserPose, t: number, out: Drape): void {
       const fold = foldAt(th, v);
       // fine vertical creases between the big folds (a sheet out of the linen cupboard), stronger toward the hem
       const fine = Math.sin(21 * th + 1.7 * Math.sin(3 * th + 2 * v) + 0.8 * v) * 0.6 + Math.sin(29 * th - 2.1 + 1.3 * v) * 0.4;
-      const fineK = smoothstep(0.22, 0.75, v);
-      const A = amp * smoothstep(0.16, 0.7, v) + 0.008 * smoothstep(0.85, 1, v);
+      const fineK = smoothstep(0.18, 0.75, v);
+      const A = amp * smoothstep(0.12, 0.65, v) + 0.008 * smoothstep(0.85, 1, v);
       const floor = smoothstep(0.03, 0.0, y0);
       // the lower cloth sways a little (on ones), the hem lags a hop
       const sway = 0.006 * v * v * Math.sin(TAU * 0.33 * t + th * 1.3 + 0.6) * (1 - floor);
+      // the sheet hangs a little off true: drawn over to one side below the shoulders, its middle
+      // never one plumb line (the mirror-symmetric bell read as moulded)
+      const drift = 0.03 * smoothstep(0.15, 0.95, v) * (1 - 0.6 * floor) + 0.012 * Math.sin(v * 5.2 + 0.7) * smoothstep(0.1, 0.4, v);
       // the folds, and the sheet flaring out as it nears the floor (a bell, not a pillar); the hem's
       // scallop: its crests reach out a little further and lift off the floor
       const hemWave = smoothstep(0.9, 1.0, v);
-      let r = Math.max(0, r0 + A * fold * (1 - 0.5 * floor) + 0.0045 * fine * fineK + 0.045 * smoothstep(0.26, 0.0, y0) ** 2 * (1 - 0.9 * slip) + 0.016 * hemWave * fold);
+      let r = Math.max(0, r0 + A * fold * (1 - 0.5 * floor) + 0.009 * fine * fineK + 0.045 * smoothstep(0.26, 0.0, y0) ** 2 * (1 - 0.9 * slip) + 0.03 * hemWave * fold + 0.03 * corner * smoothstep(0.7, 1, v));
+      // creases over the crown, gathered toward the bunch on top (the sheet pulled over the head)
+      const crownK = smoothstep(0.0, 0.05, v) * (1 - smoothstep(0.1, 0.2, v));
+      r -= crownK * (0.007 * Math.abs(Math.sin(3.5 * th + 0.8)) + 0.004 * Math.abs(Math.sin(6 * th + 2.2)));
       // the slack between the head and the shoulders hangs in a little: the head reads as a head
       const n0 = shoulderY + 0.03;
       const n1 = head.c[1] - 0.075;
@@ -333,12 +359,12 @@ function drape(pose: UserPose, t: number, out: Drape): void {
       }
       const lift = pose.hop * (1 - 0.45 * v * v);
       // the hem: crests lift off the floor, and over the slippers it rests on their tops
-      const hemLift = floor * (0.022 * Math.max(0, fold) + 0.034 * slip);
+      const hemLift = floor * (0.022 * Math.max(0, fold) + 0.034 * slip + 0.03 * Math.max(0, Math.sin(2.3 * th + 1.1)) * (1 - corner));
       const y = Math.max(0.0015, y0 + hemLift) + lift;
       const o = (j * (ROWS + 1) + i) * 3;
-      out.pos[o] = sx * r + sway;
+      out.pos[o] = sx * r + sway + drift;
       out.pos[o + 1] = y;
-      out.pos[o + 2] = cz * r + sway * 0.4;
+      out.pos[o + 2] = cz * r + sway * 0.4 - 0.4 * drift;
       // colour × occlusion: fold valleys, the shelf and the cloth behind the bowl, the shadow under
       // the forearms, the floor contact
       const valley = clamp(-fold, 0, 1) * smoothstep(0.16, 0.6, v);
@@ -467,7 +493,10 @@ function buildSlippers(): BufferGeometry {
   return g;
 }
 
-/** The bowl (glazed ceramic: a teal outside, a cream rim and inside, an unglazed foot); its foot's centre at the origin. */
+/**
+ * The bowl (glazed ceramic: a glossy pumpkin-orange outside with a deep plum band under the lip and
+ * a run of drips from it, a cream rim and inside, an unglazed foot); its foot's centre at the origin.
+ */
 function buildBowl(): BufferGeometry {
   const prof: [number, number][] = [
     [0.0, 0.007],
@@ -492,9 +521,11 @@ function buildBowl(): BufferGeometry {
     prof.map(([x, y]) => new Vector2(x, y)),
     72,
   );
-  // a lighter, greener glaze: the deep teal read dark grey in the house's shadow
-  const teal = lin('#2f8a8c');
-  const cream = lin('#ece0c4');
+  // a bright glaze: the deep teal (and then the lighter one) read as a grey hemisphere in the
+  // house's shadow; a festive orange holds its colour there and catches the lanterns
+  const glaze = lin('#e0782e');
+  const band = lin('#5a2a5e');
+  const cream = lin('#f1e6cc');
   const clay = lin('#8c6a50');
   const n = prof.length;
   const P = lathe.attributes.position as BufferAttribute;
@@ -502,9 +533,15 @@ function buildBowl(): BufferGeometry {
   const col = new Float32Array(P.count * 4);
   for (let i = 0; i < P.count; i++) {
     const k = Math.round(UV.getY(i) * (n - 1));
-    const c = k <= 4 ? clay : k <= 8 ? teal : cream;
     const y = P.getY(i);
-    const ao = k <= 8 ? 0.75 + 0.25 * smoothstep(0.0, 0.07, y) : k >= 12 ? 0.7 + 0.3 * smoothstep(0.02, 0.08, y) : 1;
+    const a = Math.atan2(P.getZ(i), P.getX(i));
+    // the band under the lip, its lower edge running down in drips here and there
+    const drip = 0.012 * Math.max(0, Math.sin(a * 7 + 1.3)) ** 6 + 0.006 * Math.max(0, Math.sin(a * 13 + 0.4)) ** 8;
+    const inBand = k > 4 && k <= 8 && y > 0.066 - drip;
+    const c = k <= 4 ? clay : k <= 8 ? (inBand ? band : glaze) : cream;
+    // the glaze's tone pools darker low down and lighter where it ran thin over the belly
+    const pool = k > 4 && k <= 8 ? 0.85 + 0.2 * smoothstep(0.02, 0.06, y) + 0.06 * Math.sin(a * 3 + y * 40) : 1;
+    const ao = k <= 8 ? (0.75 + 0.25 * smoothstep(0.0, 0.07, y)) * pool : k >= 12 ? 0.7 + 0.3 * smoothstep(0.02, 0.08, y) : 1;
     col.set([c[0] * ao, c[1] * ao, c[2] * ao, k <= 8 ? 1 : 0.6], i * 4);
   }
   lathe.setAttribute('color', new BufferAttribute(col, 4));
@@ -522,7 +559,7 @@ interface Sweet {
 }
 /** the sweet that leaves the bowl for Clawd's pail (an orange bonbon on top of the heap) */
 const DROP_K = 16;
-const SWEETS = 19;
+const SWEETS = 24;
 
 /** The sweets (twist-wrapped bonbons in foil colours and candy corns), each centred on its own origin, and their rest places heaped above the rim. */
 function buildSweets(): { parts: BufferGeometry[]; rest: Sweet[] } {
@@ -539,10 +576,11 @@ function buildSweets(): { parts: BufferGeometry[]; rest: Sweet[] } {
   for (let k = 0; k < SWEETS; k++) {
     const R = (i: number) => rand(808, k, i);
     const ang = R(0) * TAU;
-    // three layers: a bed on the bowl's floor, a layer at the rim, a crown above it (they read from eye level)
-    const layer = k < 9 ? 0 : k < 15 ? 1 : 2;
-    const rr = Math.sqrt(R(1)) * [0.1, 0.075, 0.045][layer];
-    const y = [0.038, 0.072, 0.104][layer] + 0.012 * (1 - (rr / 0.1) ** 2) * R(2);
+    // four layers: a bed on the bowl's floor, a layer at the rim, a heap above it and its crown,
+    // 0.03 to 0.05 over the lip (from the door camera, below the bowl, only a heap shows)
+    const layer = k < 8 ? 0 : k < 14 ? 1 : k < 21 ? 2 : 3;
+    const rr = Math.sqrt(R(1)) * [0.1, 0.085, 0.07, 0.04][layer];
+    const y = [0.04, 0.075, 0.112, 0.136][layer] + 0.012 * (1 - (rr / 0.1) ** 2) * R(2);
     const q = new Quaternion().setFromAxisAngle(new Vector3(R(4) - 0.5, 1, R(5) - 0.5).normalize(), R(6) * TAU);
     const corn = k % 6 === 5;
     rest.push({ p: new Vector3(Math.cos(ang) * rr, y, Math.sin(ang) * rr), q, corn });
@@ -631,7 +669,7 @@ const YAW = LAND.house.yaw ?? 0;
  */
 const PRACTICALS = [
   { p: new Vector3(...fromHouse([WALL_LANTERN.x, WALL_LANTERN.y, WALL_LANTERN.z])), c: [0.3, 0.88, 1.0] as const, power: 0.18, r0: 0.12, reach: 1.4 },
-  ...DOOR_FRONT.lanterns.map((l) => ({ p: new Vector3(...fromHouse(l)), c: [1.0, 0.42, 0.16] as const, power: 0.026, r0: 0.1, reach: 0.65 })),
+  ...RED_LANTERNS.map((l) => ({ p: new Vector3(...fromHouse([l.x, l.y, l.z])), c: [1.0, 0.42, 0.16] as const, power: 0.026, r0: 0.1, reach: 0.65 })),
 ];
 
 /** The practicals' light on the sheet per vertex (world/House.tsx lightAt), from the posed drape. */
@@ -731,11 +769,28 @@ function softRim(m: MeshStandardMaterial): MeshStandardMaterial {
   m.onBeforeCompile = function (this: MeshStandardMaterial, shader: WebGLProgramParametersWithUniforms, renderer: WebGLRenderer) {
     base.call(this, shader, renderer);
     if (!shader.fragmentShader.includes(SB_RIM_LINE)) throw new Error('Neighbour: the storybook rim line moved (look/materials.ts)');
+    // the ghosted glow follows the folds (the vertex colour's occlusion) and gathers toward the
+    // sheet's edges (a soft Fresnel): it lifts the sheet off the door without flattening it
+    if (!shader.fragmentShader.includes('#include <emissivemap_fragment>')) throw new Error('Neighbour: no emissivemap_fragment');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nvec3 nbGeoN = normal;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#ifdef USE_COLOR_ALPHA\ntotalEmissiveRadiance *= clamp(dot(vColor.rgb, vec3(0.45)) * 1.4, 0.15, 1.0) * (0.55 + 0.9 * pow(1.0 - max(dot(nbGeoN, normalize(vViewPosition)), 0.0), 2.0));\n#endif')
       .replace(SB_RIM_LINE, '{ float gE = pow(max(1.0 - max(dot(nbGeoN, V), 0.0), 0.0), 4.0); float gT = smoothstep(-0.25, 0.65, dot(nbGeoN, Lv)); outgoingLight += uSbRimColor * gE * gT * behind * uSbRim * uSbRimMul * diffuseColor.a; }');
   };
   m.customProgramCacheKey = () => `${key()}:nbrim`;
+  return m;
+}
+
+/** The emissive in the vertex colours (a self-lit term that keeps the surface's own colours). */
+function selfLit(m: MeshStandardMaterial): MeshStandardMaterial {
+  const base = m.onBeforeCompile;
+  const key = m.customProgramCacheKey.bind(m);
+  m.onBeforeCompile = function (this: MeshStandardMaterial, shader: WebGLProgramParametersWithUniforms, renderer: WebGLRenderer) {
+    base.call(this, shader, renderer);
+    if (!shader.fragmentShader.includes('#include <emissivemap_fragment>')) throw new Error('Neighbour: no emissivemap_fragment');
+    shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n#if defined( USE_COLOR_ALPHA ) || defined( USE_COLOR )\ntotalEmissiveRadiance *= vColor.rgb;\n#endif');
+  };
+  m.customProgramCacheKey = () => `${key()}:selflit`;
   return m;
 }
 
@@ -764,11 +819,16 @@ export function Neighbour({ pose, f, pail }: NeighbourProps) {
     const sw = buildSweets();
     const sweets = new PartRig(sw.parts);
     sw.parts.forEach((g) => g.dispose());
-    const sheetMat = softRim(glowMaterial({ kind: 'cloth', color: '#ffffff', color2: '#d9dccd', breakup: 0.1, scale: 0.05, bump: 0.35, rim: 1.0, vertexColors: true, roughness: 0.95, side: DoubleSide }));
+    // (a fine weave and pilling in the bump, a little mottle: cotton, not rubber)
+    const sheetMat = softRim(glowMaterial({ kind: 'cloth', color: '#ffffff', color2: '#d9dccd', breakup: 0.18, scale: 0.022, bump: 0.75, rim: 1.0, vertexColors: true, roughness: 0.95, side: DoubleSide, emissive: GHOST_GLOW, emissiveIntensity: 0 }));
     const eyeMat = eyes.material as ShaderMaterial;
     const slipperMat = storybookMaterial({ kind: 'cloth', color: '#ffffff', breakup: 0.15, scale: 0.012, bump: 0.8, rim: 0.9, vertexColors: true, roughness: 1 });
-    const bowlMat = storybookMaterial({ kind: 'plain', color: '#ffffff', breakup: 0.06, scale: 0.03, rim: 0.9, vertexColors: true, roughness: 0.3, side: DoubleSide });
-    const sweetMat = storybookMaterial({ kind: 'plain', color: '#ffffff', breakup: 0.04, scale: 0.02, rim: 0.7, vertexColors: true, roughness: 0.35, metalness: 0.1 });
+    // glossy: the glaze's highlights catch the lanterns and the moon
+    // glossy: the glaze's highlights catch the lanterns and the moon; the bowl and its sweets keep a
+    // little of their colour in the doorway's dark (a self-lit term in their own colours: without it
+    // they read as one dark grey hemisphere from the door camera, below the bowl)
+    const bowlMat = selfLit(storybookMaterial({ kind: 'plain', color: '#ffffff', breakup: 0.05, scale: 0.03, rim: 0.9, vertexColors: true, roughness: 0.16, metalness: 0.05, side: DoubleSide, emissive: '#ffffff', emissiveIntensity: 0.3 }));
+    const sweetMat = selfLit(storybookMaterial({ kind: 'plain', color: '#ffffff', breakup: 0.04, scale: 0.02, rim: 0.7, vertexColors: true, roughness: 0.3, metalness: 0.1, emissive: '#ffffff', emissiveIntensity: 0.42 }));
     const mats = Array.from({ length: SWEETS }, () => new Matrix4());
     return { sheet, d, tmpN: new Float32Array(n * 3), eyes, slippers, bowl, sweets, rest: sw.rest, mats, sheetMat, eyeMat, slipperMat, bowlMat, sweetMat };
   }, []);
@@ -820,6 +880,7 @@ export function Neighbour({ pose, f, pail }: NeighbourProps) {
     eyeAim.forEach((e, i) => built.eyes.setMatrixAt(i, eyeOnSheet(g, e.th, e.y + pose.hop, e.roll, 0.04 * (1 - 0.22 * body.sag))));
     built.eyes.instanceMatrix.needsUpdate = true;
     built.eyeMat.uniforms.uGhost.value = clamp(pose.ghosted, 0, 1);
+    built.sheetMat.emissiveIntensity = GHOST_GLOW_K * clamp(pose.ghosted, 0, 1);
     sweetMatrices(built.rest, body.q, built.mats);
     if (pail) {
       if (f >= DROP.to) built.mats[DROP_K].makeScale(1e-6, 1e-6, 1e-6);

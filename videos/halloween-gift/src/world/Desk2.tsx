@@ -46,7 +46,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { cue, FPS } from '../cues.ts';
+import { at, cue, FPS } from '../cues.ts';
 import { gridGeometry, tubeAlong, type V3 } from '../kit/book.ts';
 import { fbm2 } from '../kit/field.ts';
 import { NOISE3_GLSL } from '../look/glsl.ts';
@@ -92,13 +92,17 @@ export const ROOM = {
   uRoomWinL: { value: WIN_L.clone() },
   uRoomWinU: { value: WIN_U.clone() },
   uRoomWinV: { value: WIN_V.clone() },
-  /** where the window's centre falls on the desk */
-  uRoomWinO: { value: new Vector3(3.3, 0, -1.25) },
+  /**
+   * where the window's centre falls on the desk: the beam lands on the cover's front right, the
+   * fore-edge and the desk before the book, its mullion and transom clear of the title panel (the
+   * title reads by the candle and its foil's reflection, not cut by the cookie's cross)
+   */
+  uRoomWinO: { value: new Vector3(6.58, 0, 3.8) },
   /** window units per world unit at the window (the cookie's size) */
   uRoomWinScale: { value: 0.94 },
   uRoomWin: { value: WIN_COLOR.clone().multiplyScalar(WIN_BASE) },
   /** the window's soft lobe: the night sky through it lighting the room broadly (a fraction of the cookie's light) */
-  uRoomSoft: { value: 0.42 },
+  uRoomSoft: { value: 0.3 },
   /** the flames: position (xyz) and strength (w) */
   uRoomCandle: { value: [new Vector4(), new Vector4()] },
   uRoomCandleColor: { value: new Color('#ff9540') },
@@ -119,6 +123,9 @@ export const ROOM = {
   uRoomCapA: { value: [new Vector4(0, -50, 0, 0), new Vector4(0, -50, 0, 0), new Vector4(0, -50, 0, 0), new Vector4(0, -50, 0, 0)] },
   uRoomCapB: { value: [new Vector4(0, -50, 0, 0), new Vector4(0, -50, 0, 0), new Vector4(0, -50, 0, 0), new Vector4(0, -50, 0, 0)] },
 };
+
+/** the cover starts down on the score's close riffle (film/journey.ts COVER_CLOSE) */
+const CLOSE_FROM = at(34, 2);
 
 /** The lightning through the window: two soft pulses around the 'lightning' cue (0..~1). */
 export function lightningAt(f: number): number {
@@ -1061,23 +1068,24 @@ function featherArt(): CanvasTexture {
   let u = 0;
   while (u < W) {
     const cw = 6 + r() * 16;
-    const split = r() < 0.16;
-    const reach = (split ? 0.55 + r() * 0.3 : 0.9 + r() * 0.1) * H;
+    // an old quill: the vane split open in many places (a few wide gaps), barred grey-brown, its tip dark
+    const split = r() < 0.32;
+    const reach = (split ? 0.4 + r() * 0.35 : 0.88 + r() * 0.12) * H;
     const t = u / W;
     const tip = smooth(0.7, 1.0, t);
     const bar = 0.5 + 0.5 * Math.sin(t * 34 + 0.7);
-    const L = 86 - 26 * tip - 6 * bar * (1 - tip) + (r() - 0.5) * 5;
+    const L = 74 - 30 * tip - 14 * bar * (1 - tip) + (r() - 0.5) * 7;
     for (let k = 0; k < cw; k += 2) {
       const x0 = u + k;
       const len = reach * (0.92 + 0.08 * r());
-      g.strokeStyle = `hsla(${36 + r() * 6},${22 - 10 * tip}%,${L + (r() - 0.5) * 8}%,1)`;
+      g.strokeStyle = `hsla(${30 + r() * 8},${20 - 8 * tip}%,${L + (r() - 0.5) * 8}%,1)`;
       g.lineWidth = 2.2;
       g.beginPath();
       g.moveTo(x0, 0);
       g.quadraticCurveTo(x0 + len * 0.18, len * 0.55, x0 + len * 0.5, len);
       g.stroke();
     }
-    u += cw + (split ? 4 + r() * 6 : 0.5);
+    u += cw + (split ? 5 + r() * 12 : 0.5);
   }
   // the afterfeather: soft down near the base
   for (let k = 0; k < 260; k++) {
@@ -1211,8 +1219,9 @@ function leafGeometry(l: LeafSpot): BufferGeometry {
   const nV = 12;
   const lobes = 4 + Math.floor(r(0) * 2);
   const ph = r(5) * 0.8;
-  const fold = 0.12 + 0.16 * r(6);
-  const curl = 0.1 + 0.14 * r(1);
+  // dry leaves curl hard: folded along the midrib, the edges rolled up, the tip lifting
+  const fold = 0.2 + 0.2 * r(6);
+  const curl = 0.22 + 0.2 * r(1);
   const arch = (r(2) - 0.4) * 0.12;
   const twist = (r(3) - 0.5) * 0.35;
   const width = (t: number, s: number) => {
@@ -1224,7 +1233,7 @@ function leafGeometry(l: LeafSpot): BufferGeometry {
     const s = (j / nV) * 2 - 1;
     const x = s * width(t, s);
     const y = t * l.len;
-    const z = fold * Math.abs(x) + curl * l.len * Math.abs(s) ** 3 * (0.3 + 0.7 * Math.sin(Math.PI * t)) + arch * l.len * 4 * t * (1 - t) + twist * x * (t - 0.4);
+    const z = fold * Math.abs(x) + curl * l.len * Math.abs(s) ** 3 * (0.3 + 0.7 * Math.sin(Math.PI * t)) + arch * l.len * 4 * t * (1 - t) + twist * x * (t - 0.4) + 0.18 * l.len * t ** 4;
     return [x, z, y];
   };
   const pts: V3[] = [];
@@ -1271,7 +1280,7 @@ function leafGeometry(l: LeafSpot): BufferGeometry {
 
 /** the air the beam is drawn in (centre, half size): over the desk, under the window */
 const BEAM_BOX = { c: new Vector3(-2, 9, 1), h: new Vector3(23, 9, 17) };
-const BEAM_DENSITY = 0.0042;
+const BEAM_DENSITY = 0.003;
 
 const BEAM_VERT = /* glsl */ `
 varying vec3 vWorld;
@@ -1337,7 +1346,8 @@ void main() {
     if (m < 0.003) continue;
     if (beamBook(p, uRoomWinL) < 1e8) continue;
     float dn = aivFbm3(p * 0.38 + vec3(uSbTime * 0.06, -uSbTime * 0.035, uSbTime * 0.025));
-    float dust = 0.15 + 1.9 * dn * dn;
+    // motes in clear air: next to nothing between them (a floor of haze veiled the whole room)
+    float dust = 0.02 + 2.4 * dn * dn;
     acc += m * dust * exp(-p.y * 0.07) * dt;
   }
   gl_FragColor = vec4(uRoomWin * acc * uBeam, 1.0);
@@ -1812,15 +1822,16 @@ export function Desk2({ f, props = true, beam = 1 }: Desk2Props) {
     const stone = stoneArt();
     const glassTex = glassArt();
     const feather = featherArt();
-    const wood = roomMaterial({ kind: 'plain', map: art.map, bumpMap: art.orm, bumpScale: 1.2, roughnessMap: art.orm, roughness: 1, vertexColors: true, breakup: 0.16, scale: 0.9, color2: '#2a1a10', rim: 0.12, ambient: 0.5, ao: 1 });
-    const wax = roomMaterial({ kind: 'plain', color: '#eadfc4', color2: '#cbb894', vertexColors: true, breakup: 0.08, scale: 0.08, roughness: 0.42, rim: 0.35, ignore: 0, env: 0.6 });
+    const wood = roomMaterial({ kind: 'plain', map: art.map, bumpMap: art.orm, bumpScale: 1.2, roughnessMap: art.orm, roughness: 1, vertexColors: true, breakup: 0.16, scale: 0.9, color2: '#2a1a10', rim: 0.12, ambient: 0.36, ao: 1 });
+    // old ivory wax, yellowed, glowing a little with the flame through it (no cool rim: it read blue)
+    const wax = roomMaterial({ kind: 'plain', color: '#efd6a8', color2: '#c49a62', vertexColors: true, breakup: 0.12, scale: 0.08, roughness: 0.42, rim: 0.08, ignore: 0, env: 0.6, ambient: 0.55, moon: 0.5, emissive: '#ff9a4c', emissiveIntensity: 0.11 });
     const brass = roomMaterial({ kind: 'iron', color: '#d8b050', color2: '#5a4420', vertexColors: true, metalness: 1, roughness: 0.32, breakup: 0.3, scale: 0.06, bump: 0.2, rim: 0.25, ignore: 0, env: 1 });
     const glass = roomMaterial({ kind: 'plain', color: '#14221f', color2: '#0a1210', vertexColors: true, roughness: 0.1, breakup: 0.05, rim: 0.6, ignore: 2, env: 1 });
     const quill = roomMaterial({ kind: 'plain', map: feather, alphaTest: 0.45, color: '#ffffff', color2: '#cfc4ae', vertexColors: true, side: DoubleSide, roughness: 0.72, breakup: 0.05, scale: 0.05, rim: 0.1, ignore: 3, ambient: 0.6 });
     const leaf = roomMaterial({ kind: 'plain', color: '#ffffff', color2: '#3a2210', vertexColors: true, side: DoubleSide, roughness: 0.8, breakup: 0.22, scale: 0.08, rim: 0.2, ambient: 0.7 });
     // the room: stone that takes little of the night rig's moon (it is outside), the candle's warmth
-    const walls = roomMaterial({ kind: 'stone', map: stone.map, bumpMap: stone.bump, bumpScale: 2.5, color: '#ffffff', color2: '#2c2a2c', vertexColors: true, breakup: 0.18, scale: 1.2, bump: 0.3, roughness: 0.95, rim: 0.15, ambient: 0.45, moon: 0.12 });
-    const shelf = roomMaterial({ kind: 'cloth', color: '#ffffff', color2: '#201418', vertexColors: true, breakup: 0.14, scale: 0.25, roughness: 0.8, rim: 0.35, ambient: 0.35, moon: 0.18, env: 0.5 });
+    const walls = roomMaterial({ kind: 'stone', map: stone.map, bumpMap: stone.bump, bumpScale: 2.5, color: '#ffffff', color2: '#2c2a2c', vertexColors: true, breakup: 0.18, scale: 1.2, bump: 0.3, roughness: 0.95, rim: 0.1, ambient: 0.24, moon: 0.08 });
+    const shelf = roomMaterial({ kind: 'cloth', color: '#ffffff', color2: '#201418', vertexColors: true, breakup: 0.14, scale: 0.25, roughness: 0.8, rim: 0.2, ambient: 0.2, moon: 0.12, env: 0.5 });
     const pane = new MeshBasicMaterial({ map: glassTex, color: new Color(GLASS_GAIN, GLASS_GAIN, GLASS_GAIN), fog: false });
     const flame = new ShaderMaterial({ vertexShader: FLAME_VERT, fragmentShader: FLAME_FRAG, uniforms: { uLen: { value: 0.46 }, uWidth: { value: 0.2 }, uSway: { value: 0 }, uGain: { value: 6 } }, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false });
     const halo = new ShaderMaterial({ vertexShader: HALO_VERT, fragmentShader: HALO_FRAG, uniforms: { uSize: { value: 1.6 }, uGain: { value: 0.6 }, uColor: { value: new Color('#ff9a4a') } }, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false });
@@ -1871,8 +1882,9 @@ export function Desk2({ f, props = true, beam = 1 }: Desk2Props) {
     const c0 = ROOM.uRoomCandle.value[0];
     const c1 = ROOM.uRoomCandle.value[1];
     if (props) {
-      // the flame's light leans with the flame (the glints on the brass and the foil move with it)
-      c0.set(WICK[0] + sway * 0.2, WICK[1] + 0.2, WICK[2] + sway * 0.06, 13.0 * flick);
+      // the flame's light leans with the flame (the glints on the brass and the foil move with it);
+      // set a little above the flame, as a painter would, so it pools on the cover and the desk round it
+      c0.set(WICK[0] + sway * 0.2, WICK[1] + 0.55, WICK[2] + sway * 0.06, 22.0 * flick);
       // the jack-o'-lantern's candle shines out through its face (a light inside it would be shut in by its capsule)
       const out = DESK_PUMPKIN.scale * 0.56;
       c1.set(DESK_PUMPKIN.x + Math.sin(DESK_PUMPKIN.yaw) * out, DESK_PUMPKIN.scale * 0.34, DESK_PUMPKIN.z + Math.cos(DESK_PUMPKIN.yaw) * out, 7.0 * pumpkinGlow);
@@ -1908,7 +1920,11 @@ export function Desk2({ f, props = true, beam = 1 }: Desk2Props) {
     fl.uGain.value = 6 * flick;
     built.mats.halo.uniforms.uGain.value = 0.6 * flick;
     built.mats.beam.uniforms.uBeam.value = BEAM_DENSITY * beamAmt;
-  }, [built, bolt, flick, sway, props, pumpkinGlow, t, beamAmt]);
+    // the moonlight's lattice on the desk: it fades as the camera goes into the story (the desk round
+    // the book was the brightest broad shape of the crane in), dims as the cover comes down (film/
+    // journey.ts COVER_CLOSE) and stays low under the end card: the world, then the words, lead
+    (built.mats.wood.userData.room as Record<string, { value: number }>).uRoomWinMul.value = (1 - 0.5 * smooth(CLOSE_FROM + 5, CLOSE_FROM + 24, f)) * (0.3 + 0.7 * smooth(0.6, 1, beam));
+  }, [built, bolt, flick, sway, props, pumpkinGlow, t, beamAmt, f, beam]);
   return (
     <group>
       <mesh geometry={built.geo.planks} material={built.mats.wood} receiveShadow />

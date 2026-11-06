@@ -493,8 +493,8 @@ function buildEyes(): BufferGeometry[] {
   return [0, 1].map((i) => softBox({ size: EYE.size, r: 0.32 * U, bulge: [0, 0, 0.05 * U], inner: [1, 2, 1], bevel: 3, seed: 61 + i, color: () => [1, 1, 1, 0.35] }));
 }
 
-// a lifted plum: the darker #5e3166 sank into the house's wall in the door shots (luma 30 on 25)
-const HAT = '#7a4185';
+// a mid violet: the darker #5e3166, then #7a4185, sank into the house's wall in the door shots (luma 4 apart)
+const HAT = '#9a58ab';
 const BAND = '#E9862E';
 const BUCKLE = '#DCE6B7';
 
@@ -905,22 +905,42 @@ export function feltTexture(): CanvasTexture {
       const b = (y / n) * TAU;
       h[y * n + x] = 0.5 + 0.1 * fbm2(Math.cos(a) * 1.3 + Math.sin(b) * 0.4, Math.sin(a) * 1.3 + Math.cos(b) * 1.3, 901, 3);
     }
-  for (let i = 0; i < 4200; i++) {
+  // (dense and contrasty: at V1's 4200 faint fibres his felt read as smooth clay at the door camera)
+  for (let i = 0; i < 11000; i++) {
     let x = rand(902, 'x', i) * n;
     let y = rand(902, 'y', i) * n;
     const ang = rand(902, 'a', i) * TAU;
-    const len = 5 + rand(902, 'l', i) * 16;
-    const v = (rand(902, 'v', i) < 0.55 ? 1 : -0.8) * (0.035 + 0.05 * rand(902, 'k', i));
+    const len = 3 + rand(902, 'l', i) * 12;
+    const v = (rand(902, 'v', i) < 0.55 ? 1 : -0.85) * (0.09 + 0.13 * rand(902, 'k', i));
     const bend = (rand(902, 'b', i) - 0.5) * 0.15;
     let th = ang;
+    // (each fibre two texels wide: one-texel fibres averaged away below a pixel at the door camera)
+    const px = Math.round(-Math.sin(ang));
+    const py = Math.round(Math.cos(ang));
     for (let s = 0; s < len; s++) {
       const xi = ((Math.floor(x) % n) + n) % n;
       const yi = ((Math.floor(y) % n) + n) % n;
-      h[yi * n + xi] += v * Math.sin((Math.PI * (s + 0.5)) / len);
+      const k = v * Math.sin((Math.PI * (s + 0.5)) / len);
+      h[yi * n + xi] += k;
+      h[(((yi + py) % n) + n) % n * n + ((((xi + px) % n) + n) % n)] += 0.6 * k;
       th += bend;
       x += Math.cos(th);
       y += Math.sin(th);
     }
+  }
+  // pills: little balls of matted fibre, lighter, each with a soft dark foot
+  for (let i = 0; i < 700; i++) {
+    const cx = rand(903, 'x', i) * n;
+    const cy = rand(903, 'y', i) * n;
+    const R = 1.2 + 2.2 * rand(903, 'r', i);
+    const r0 = Math.ceil(R * 2);
+    for (let dy = -r0; dy <= r0; dy++)
+      for (let dx = -r0; dx <= r0; dx++) {
+        const d = Math.hypot(dx, dy) / R;
+        const xi = (((Math.floor(cx) + dx) % n) + n) % n;
+        const yi = (((Math.floor(cy) + dy) % n) + n) % n;
+        h[yi * n + xi] += d < 1 ? 0.16 * (1 - d * d) : -0.05 * Math.max(0, 1 - (d - 1));
+      }
   }
   const { c, g } = canvas(n, n);
   const img = g.createImageData(n, n);
@@ -956,6 +976,8 @@ export interface FeltPatch {
   rimCap?: number;
   /** undo the post's foot-band and vignette tint on these pixels (see ScreenComp) */
   comp?: ScreenComp;
+  /** the felt's fuzz: a soft sheen of loose fibres toward the silhouette (× the shaded colour) */
+  fuzz?: number;
 }
 
 /**
@@ -989,13 +1011,14 @@ const COMP_GLSL = /* glsl */ `
   // look/NightPost.tsx FINISH's vignette tint and foot band at this pixel, undone but for their darkening
   vec2 sq = gl_FragCoord.xy / uCompView;
   vec2 dv = (sq - 0.5) * vec2(1.0, 0.82);
-  float kv = (1.0 - smoothstep(0.86, 0.22, length(dv))) * 0.5 * mix(1.0, 0.55, smoothstep(0.5, 1.0, sq.y));
-  vec3 dk = mix(vec3(0.55, 1.0, 1.0), vec3(1.0), smoothstep(0.15, 0.75, sq.y));
+  // (as look/NightPost.tsx FINISH_TINT_GLSL, at FINISH_VIGNETTE 0.8: keep the two in step)
+  float kv = smoothstep(0.22, 0.72, length(dv)) * 0.8 * mix(1.0, 0.32, smoothstep(0.45, 1.0, sq.y));
+  vec3 dk = mix(vec3(0.6, 1.0, 1.0), vec3(1.0), smoothstep(0.15, 0.75, sq.y));
   float foot = smoothstep(0.27, 0.02, sq.y) * uCompFoot;
-  vec3 mm = (1.0 - kv * dk) * (1.0 - foot * vec3(0.4, 0.8, 0.82));
+  vec3 mm = (1.0 - min(kv * dk, vec3(0.95))) * (1.0 - foot * vec3(0.4, 0.8, 0.82));
   outgoingLight *= mm.r / max(mm, vec3(0.05));
-  // and the painted floor's tint (its plum low in the frame, slate high), its brightness kept
-  vec3 lift = mix(vec3(0.0194, 0.0027, 0.0037), vec3(0.0080, 0.0116, 0.0194), smoothstep(0.05, 0.85, sq.y));
+  // and the painted floor's tint (FINISH_LIFT, linear: its maroon low in the frame, slate high), its brightness kept
+  vec3 lift = mix(vec3(0.0103, 0.0015, 0.0015), vec3(0.0065, 0.0091, 0.0159), smoothstep(0.05, 0.85, sq.y));
   outgoingLight = max(outgoingLight - (lift - dot(lift, vec3(0.2126, 0.7152, 0.0722))), vec3(0.0));
 }
 #include <opaque_fragment>`;
@@ -1022,6 +1045,11 @@ export function compPatch(m: MeshStandardMaterial, c: ScreenComp): MeshStandardM
   return m;
 }
 
+const FUZZ_GLSL = /* glsl */ `{
+  float fz = 1.0 - abs(dot(sbGeoN, normalize(vViewPosition)));
+  outgoingLight *= 1.0 + uFeltFuzz * fz * fz * (0.55 + 0.9 * sbFelt);
+}
+`;
 const RIM_TINTED = /* glsl */ `{
     float gF = max(dot(sbGeoN, V), 0.0);
     float gE = pow(max(1.0 - gF, 0.0), 3.5);
@@ -1042,7 +1070,7 @@ const RIM_TINTED = /* glsl */ `{
 export function feltPatch(m: MeshStandardMaterial, o: FeltPatch, rest = true): MeshStandardMaterial {
   const base = m.onBeforeCompile;
   const key = m.customProgramCacheKey.bind(m);
-  const uniforms = { uFelt: { value: feltTexture() }, uFeltK: { value: new Vector3(o.tile, o.tone, o.bump) }, uFeltRim: { value: new Vector2(o.rimTint ?? 0, o.rimCap ?? 1) } };
+  const uniforms = { uFelt: { value: feltTexture() }, uFeltK: { value: new Vector3(o.tile, o.tone, o.bump) }, uFeltRim: { value: new Vector2(o.rimTint ?? 0, o.rimCap ?? 1) }, uFeltFuzz: { value: o.fuzz ?? 0 } };
   const P = rest ? 'aRest' : 'position';
   const N = rest ? 'aRestN' : 'normal';
   const tinted = o.rimTint !== undefined;
@@ -1051,7 +1079,7 @@ export function feltPatch(m: MeshStandardMaterial, o: FeltPatch, rest = true): M
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = `${rest ? 'attribute vec3 aRest;\nattribute vec3 aRestN;\n' : ''}varying vec3 vFeltP;\nvarying vec3 vFeltN;\n` + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\nvFeltP = ${P};\nvFeltN = ${N};`);
     let fs =
-      `uniform sampler2D uFelt;\nuniform vec3 uFeltK;\nuniform vec2 uFeltRim;\nvarying vec3 vFeltP;\nvarying vec3 vFeltN;\nfloat feltTri() {\n  vec3 w = pow(abs(normalize(vFeltN)), vec3(4.0));\n  w /= (w.x + w.y + w.z);\n  vec3 p = vFeltP / uFeltK.x;\n  return texture2D(uFelt, p.yz).r * w.x + texture2D(uFelt, p.zx + 0.37).r * w.y + texture2D(uFelt, p.xy + 0.71).r * w.z;\n}\n` +
+      `uniform sampler2D uFelt;\nuniform vec3 uFeltK;\nuniform vec2 uFeltRim;\nuniform float uFeltFuzz;\nvarying vec3 vFeltP;\nvarying vec3 vFeltN;\nfloat feltTri() {\n  vec3 w = pow(abs(normalize(vFeltN)), vec3(4.0));\n  w /= (w.x + w.y + w.z);\n  vec3 p = vFeltP / uFeltK.x;\n  return texture2D(uFelt, p.yz).r * w.x + texture2D(uFelt, p.zx + 0.37).r * w.y + texture2D(uFelt, p.xy + 0.71).r * w.z;\n}\n` +
       shader.fragmentShader
         .replace('#include <color_fragment>', '#include <color_fragment>\nfloat sbFelt = feltTri();\ndiffuseColor.rgb *= 1.0 + (sbFelt - 0.5) * 2.0 * uFeltK.y;')
         .replace(
@@ -1063,10 +1091,16 @@ export function feltPatch(m: MeshStandardMaterial, o: FeltPatch, rest = true): M
       if (!fs.includes(SB_RIM_LINE)) throw new Error('feltPatch: the storybook rim line moved (look/materials.ts)');
       fs = fs.replace(SB_RIM_LINE, RIM_TINTED);
     }
+    if (o.fuzz) {
+      // loose fibres catching light toward the silhouette, brighter on the felt's lighter fibres
+      const at = fs.lastIndexOf('#include <opaque_fragment>');
+      if (at < 0) throw new Error('feltPatch: no opaque_fragment');
+      fs = fs.slice(0, at) + FUZZ_GLSL + fs.slice(at);
+    }
     shader.fragmentShader = fs;
     if (o.comp) compShader(shader, o.comp);
   };
-  m.customProgramCacheKey = () => `${key()}:felt:${rest ? 1 : 0}:${o.occlude ? 1 : 0}:${tinted ? 1 : 0}:${o.comp ? 1 : 0}`;
+  m.customProgramCacheKey = () => `${key()}:felt:${rest ? 1 : 0}:${o.occlude ? 1 : 0}:${tinted ? 1 : 0}:${o.comp ? 1 : 0}:${o.fuzz ? 1 : 0}`;
   return m;
 }
 
@@ -1206,9 +1240,12 @@ export function Clawd2({ pose, hop = null, f, smooth, ground = true, blink = tru
     const comp = screenComp();
     // he travels: no world-space breakup or bump (they would swim through him); his felt is his own,
     // its rim in his own colour (a felt sheen at the silhouette, never a pale cyan side)
-    const feltMat = feltPatch(storybookMaterial({ kind: 'cloth', color: FELT, breakup: 0, rim: 1.5, vertexColors: true, roughness: 0.95, emissive: FELT, emissiveIntensity: glow }), { tile: 0.15, tone: 0.42, bump: 1.6, occlude: true, rimTint: 1, rimCap: 0.85, comp });
+    const feltMat = feltPatch(storybookMaterial({ kind: 'cloth', color: FELT, breakup: 0, rim: 1.5, vertexColors: true, roughness: 0.95, emissive: FELT, emissiveIntensity: glow }), { tile: 0.34, tone: 0.6, bump: 2.6, occlude: true, rimTint: 1, rimCap: 0.85, comp, fuzz: 0.9 });
     const eyeMat = storybookMaterial({ kind: 'cloth', color: '#0e0b0d', breakup: 0, rim: 0.5, vertexColors: true, roughness: 0.6, ambient: 0.5 });
-    const hatMat = feltPatch(storybookMaterial({ kind: 'cloth', color: '#ffffff', breakup: 0, rim: 2.0, vertexColors: true, roughness: 0.95, side: DoubleSide }), { tile: 0.12, tone: 0.22, bump: 1.4, comp }, false);
+    // the hat is felt too: fibres, a fuzz sheen, its rim in its own violet (the cool rim and the thin
+    // felt read as plastic), lifted off the house's wall by its lit brim
+    // (and a little of the body's self-lit term, so it reads in the house's shadow, 20 luma off the wall)
+    const hatMat = feltPatch(storybookMaterial({ kind: 'cloth', color: '#ffffff', breakup: 0, rim: 1.6, vertexColors: true, roughness: 1, side: DoubleSide, emissive: '#ffffff', emissiveIntensity: 0.24 }), { tile: 0.28, tone: 0.5, bump: 2.4, occlude: true, rimTint: 0.85, rimCap: 0.7, comp, fuzz: 1.0 }, false);
     const wandMat = compPatch(storybookMaterial({ kind: 'bark', color: '#ffffff', breakup: 0, rim: 1.1, vertexColors: true, roughness: 1 }), comp);
     const emberMat = new MeshBasicMaterial({ color: new Color(4, 1.5, 0.35), toneMapped: false });
     // the gift glows a little in its own colours (the ribbon reads orange even from behind, in the house's shadow): the occluded self-lit term again

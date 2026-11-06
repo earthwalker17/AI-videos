@@ -25,6 +25,11 @@ const V1 = (x: number, z: number) => fromV1Door([x, 1.2, z]);
 /** (V1's -0.95, 8 cm on toward the door: at V2's half scale the ember now reaches the door plane) */
 export const KNOCK_SPOT: V3 = V1(0.2, -1.03);
 export const WAIT_SPOT: V3 = V1(1.25, -0.15);
+/**
+ * Where he steps in for the candy (bar 29.3 → 30): from the wait spot most of the way to the
+ * neighbour (0.58 from it, on the same line), so his pail hangs under the bowl's lip as it tips.
+ */
+export const CANDY_SPOT: V3 = V1(0.74, -0.46);
 /** V1's exit target: Clawd trots off toward the far window, screen right */
 const EXIT_SPOT: V3 = V1(2.9, 0.7);
 
@@ -73,17 +78,19 @@ export const WALK_FRAMES: readonly (readonly [number, number])[] = [
   [at(33, 2), at(34, 3)],
 ];
 const [W_VALLEY, W_GRAVE1, W_GRAVE2, W_LANE, W_EXIT] = WALK_FRAMES;
-/** The five walks as hop gaits: the first four along ROUTE; the exit's s runs from WAIT_SPOT to EXIT_SPOT. */
+/** The five walks as hop gaits: the first four along ROUTE; the exit's s runs from CANDY_SPOT to EXIT_SPOT. */
 export const WALK_TABLE: Walk[] = [
   { from: W_VALLEY[0], to: W_VALLEY[1], s0: ROUTE_STOPS.pop, s1: ROUTE_STOPS.valleyEnd },
   { from: W_GRAVE1[0], to: W_GRAVE1[1], s0: ROUTE_STOPS.valleyEnd, s1: ROUTE_STOPS.shoo },
   { from: W_GRAVE2[0], to: W_GRAVE2[1], s0: ROUTE_STOPS.shoo, s1: ROUTE_STOPS.gates },
   { from: W_LANE[0], to: W_LANE[1], s0: ROUTE_STOPS.gates, s1: ROUTE_STOPS.knock },
-  { from: W_EXIT[0], to: W_EXIT[1], s0: 0, s1: Math.hypot(EXIT_SPOT[0] - WAIT_SPOT[0], EXIT_SPOT[2] - WAIT_SPOT[2]) },
+  { from: W_EXIT[0], to: W_EXIT[1], s0: 0, s1: Math.hypot(EXIT_SPOT[0] - CANDY_SPOT[0], EXIT_SPOT[2] - CANDY_SPOT[2]) },
 ];
 
 /** The back-off from the door to the wait spot (bar 19.2 → 20): two small hops, no footfalls in the score. */
 const BACK: Walk = { from: at(19, 2), to: at(20) - 2, s0: 0, s1: Math.hypot(WAIT_SPOT[0] - KNOCK_SPOT[0], WAIT_SPOT[2] - KNOCK_SPOT[2]) };
+/** The step in to the bowl (bar 29.3 → 30): two small hops, no footfalls in the score (like the back-off). */
+const STEP: Walk = { from: at(29, 3), to: at(30) - 2, s0: 0, s1: Math.hypot(CANDY_SPOT[0] - WAIT_SPOT[0], CANDY_SPOT[2] - WAIT_SPOT[2]) };
 
 const ground = (x: number, z: number): V3 => [x, FLOOR + groundHeight(x, z), z];
 
@@ -206,9 +213,15 @@ export function clawdAt(f: number): ClawdState {
       pos = [p[0], FLOOR + groundHeight(p[0], p[2]) + h.lift, p[2]];
       hop = h;
     }
+    if (f >= STEP.from - 4 && f < wX.from) {
+      const h = hopAt(STEP, f);
+      const p = lerpV(WAIT_SPOT, CANDY_SPOT, STEP.s1 > 0 ? h.s / STEP.s1 : 1);
+      pos = [p[0], FLOOR + groundHeight(p[0], p[2]) + h.lift, p[2]];
+      hop = h;
+    }
     if (f >= wX.from) {
       const h = hopAt(wX, f);
-      const p = lerpV(WAIT_SPOT, EXIT_SPOT, wX.s1 > 0 ? h.s / wX.s1 : 1);
+      const p = lerpV(CANDY_SPOT, EXIT_SPOT, wX.s1 > 0 ? h.s / wX.s1 : 1);
       pos = [p[0], FLOOR + groundHeight(p[0], p[2]) + h.lift, p[2]];
       hop = h;
     } else if (f < BACK.from - 4) {
@@ -216,13 +229,16 @@ export function clawdAt(f: number): ClawdState {
     }
     // V1's headings (V1 world), turned by the house's yaw
     const toUser = Math.PI + 0.75 + YAW;
-    const exitDir = Math.atan2(EXIT_SPOT[0] - WAIT_SPOT[0], EXIT_SPOT[2] - WAIT_SPOT[2]);
+    /** a stage cheat: toward the neighbour, turned about 55° out toward the door spread's camera (a profile to both, his eye to us) */
+    const CHEAT = 0.95;
+    const exitDir = Math.atan2(EXIT_SPOT[0] - CANDY_SPOT[0], EXIT_SPOT[2] - CANDY_SPOT[2]);
     const heading = headingAt(f, [
       [0, toDoor],
       [at(18, 3), 0.3 + YAW], // the glance at the lens in the silence
-      [at(19, 2) - 2, toUser],
+      // (to the neighbour, cheated three-quarter toward the camera so his face reads: CHEAT)
+      [at(19, 2) - 2, toUser + CHEAT],
       [at(25, 3), -0.35 + YAW], // deadpan to us, arms up, as the seal lands
-      [at(29), toUser - 0.3],
+      [at(29), toUser + CHEAT * 0.8],
       [at(31, 3), 0.25 + YAW], // to camera for the wink and the hat tip
       [wX.from - TURN, exitDir],
     ]);

@@ -34,7 +34,7 @@ import { AdditiveBlending, BufferAttribute, BufferGeometry, CanvasTexture, Color
 import { applyPoints, barPoints, bulbProfile, IronBuilder, scrollPoints, spearProfile, swellRadii, urnProfile, type Profile, type Shade, type V3 } from '../kit/iron.ts';
 import { noise3 } from '../kit/stone.ts';
 import { storybookMaterial } from '../look/materials.ts';
-import { FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, GATE_POSTS, HERO, LAMPS, PATH, STOPS } from './layout.ts';
+import { FENCE_LINE, FENCE_LINE_RIGHT, FLOOR, GATE_HALF, GATE_POSTS, HERO, LAMPS, PATH, STOPS } from './layout.ts';
 import { surfaceHeight } from './Terrain.tsx';
 
 const ss = smoothstep;
@@ -347,10 +347,10 @@ function leafAngle(i: number, open: number): number {
   return SWING[i] * Math.min(1, Math.max(0, p));
 }
 /** the stiles lean apart (each leaf rolled out about its foot): the tops splay into a V */
-const ROLL = [0.2, 0.165];
+const ROLL = [0.26, 0.23];
 /** the stile (the hinge bar) and the leaf's reach from its axis to where the leaves meet */
 const STILE_R = 0.019;
-const LEAF_W = 0.42 - 0.016;
+const LEAF_W = GATE_HALF - 0.016;
 
 interface PostFrame {
   base: V3;

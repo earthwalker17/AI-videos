@@ -86,27 +86,33 @@ function ghostLine(k: number, y: number, side = 0): V3 {
 const toGhostLocal = (w: V3): V3 => [w[0] - GHOST_BASE[0], w[1] - GHOST_BASE[1], w[2] - GHOST_BASE[2]];
 
 /**
- * Where the three ropes tie on, along the ghosts' line (k from LAND.ghosts toward the trunk):
- * unevenly spaced (0.9, 1.46), each on a short level knob of the stepping limb; the first two
- * either side of the moon (in the hero view their hooks are at x ≈ 1713 and 1471, the moon at
- * 1628, as the reference's ghosts frame it, its disc left clear for the witch), the last LAND.peek's.
+ * Where the ropes tie on, along the ghosts' line (k from LAND.ghosts toward the trunk), in hook
+ * order: the long ghost right of the moon (hero x ≈ 1713), the short one left of it (≈ 1471),
+ * LAND.peek's, and a fourth tied on above the hero frame's top (≈ 1600), whose hem frames the
+ * moon from above as the reference's third ghost does. The first two hooks and the peek's keep
+ * their plan places (film/journey.ts's obstacles stand on them).
  */
-const HOOK_K = [1.9, 1.0, -0.46] as const;
+const HOOK_K = [1.9, 1.0, -0.46, 1.47] as const;
 
 /**
  * The hero limb's elbows on the ghosts' line: [k, y above FLOOR, side]. The first is replaced by
- * the trunk's axis. Straight runs between them: up from the trunk, level over the moon, then down
- * in three runs of different slopes (the hooks sit on the second and third), and up to a point.
+ * the trunk's axis. Straight runs between them, as the reference's limb frames the moon: up from
+ * the trunk in a steep run (the long ghost's hook on it), over the moon above the hero frame's top
+ * (the fourth ghost tied on there, out of sight), steeply down to the short ghost's hook, then on
+ * down to the left in runs of different slopes (the peek's hook on the second) and up to a point.
  */
 const HERO_LIMB: V3[] = [
   [2.22, 3.1, 0],
-  [1.74, 3.22, 0],
-  [1.0, 3.3, 0.06],
-  [0.56, 3.4, 0],
-  [-0.06, 3.16, -0.05],
-  [-0.62, 3.0, 0.03],
-  [-0.88, 3.18, 0],
-  [-0.97, 3.38, -0.02],
+  [1.98, 3.42, 0],
+  [1.78, 3.62, 0.02],
+  [1.6, 4.25, 0.04],
+  [1.2, 4.35, 0.06],
+  [1.04, 3.7, 0],
+  [0.5, 3.56, 0],
+  [-0.12, 3.4, -0.05],
+  [-0.66, 3.28, 0.03],
+  [-0.9, 3.44, 0],
+  [-0.99, 3.62, -0.02],
 ];
 
 /** The limb axis's height above FLOOR on the ghosts' line at k (the polyline, without the corner rounding). */
@@ -200,7 +206,7 @@ function ghostParams(): Partial<TreeParams> & { seed: number } {
         flat: 0.66,
         flatTwist: 0.12,
         path: HERO_LIMB.map(([k, y, s]) => L(k, y, s)),
-        radii: [1, 0.84, 0.7, 0.6, 0.5, 0.42, 0.26, 0.07],
+        radii: [1, 0.76, 0.62, 0.54, 0.47, 0.43, 0.39, 0.34, 0.28, 0.18, 0.06],
         knobs: HOOK_K.map((k) => ({ at: L(k, heroLimbY(k)), r: 0.32, w: 0.07 })),
         // short gnarled spurs and broken stubs along it, rather than long branches (the frame's top is near)
         stubs: { count: 6, length: 0.1, radius: 0.42 },
@@ -688,8 +694,8 @@ export function Trees({ f, oldTree }: TreesProps) {
     const geos = buildTrees({ x: ox, z: oz });
     const tex = barkTextures();
     // dark plum-brown wood (the reference's trunks), cooler on the moon side through the rim
-    const bark = storybookMaterial({
-      kind: 'bark',
+    const barkOpts = {
+      kind: 'bark' as const,
       color: '#837074',
       color2: '#5c5862',
       vertexColors: true,
@@ -707,18 +713,24 @@ export function Trees({ f, oldTree }: TreesProps) {
       // trunks fall toward the sky's value): a heavier share of the storybook fog
       fog: 1.3,
       // each near tree rises out of the page whole, its limbs with its trunk
-      growX: 'origin',
-    });
+      growX: 'origin' as const,
+    };
+    const bark = storybookMaterial(barkOpts);
+    // the ghost tree: its hero limb frames the moon in dark silhouette, as the reference's does (the
+    // full rim drew a pale line along the limb's underside against the moonlit sky)
+    // (and less haze: at the hero's distance the near trees' heavy share of fog turned it a flat pale teal)
+    const barkGhost = storybookMaterial({ ...barkOpts, rim: 0.3, fog: 0.55 });
     // the background trees: the same wood, further into the haze, no sway
     const barkFar = storybookMaterial({ kind: 'bark', color: '#837074', color2: '#5c5862', vertexColors: true, roughness: 0.95, breakup: 0.35, scale: 0.2, bump: 0.5, rim: 1.5, map: tex.map, bumpMap: tex.bump, bumpScale: 1.6, fog: 1.6 });
     // the pines: very dark plum, a faint rim only
     const needles = storybookMaterial({ kind: 'plain', color: '#2a1f2c', color2: '#150f18', vertexColors: true, roughness: 1, breakup: 0.3, scale: 0.35, rim: 0.1, fog: 0.9 });
-    return { geos, bark, barkFar, needles, oldAt: oldBase({ x: ox, z: oz }) };
+    return { geos, bark, barkGhost, barkFar, needles, oldAt: oldBase({ x: ox, z: oz }) };
   }, [ox, oz]);
   useLayoutEffect(
     () => () => {
       Object.values(built.geos).forEach((g) => g.dispose());
       built.bark.dispose();
+      built.barkGhost.dispose();
       built.barkFar.dispose();
       built.needles.dispose();
     },
@@ -726,12 +738,11 @@ export function Trees({ f, oldTree }: TreesProps) {
   );
   // a slow gust on the twigs' sway amplitude, from the frame
   useLayoutEffect(() => {
-    const sb = built.bark.userData.sb as { uSbWind: { value: number } };
-    sb.uSbWind.value = 0.012 * (0.7 + 0.3 * Math.sin((f / FPS) * 0.45));
+    for (const m of [built.bark, built.barkGhost]) (m.userData.sb as { uSbWind: { value: number } }).uSbWind.value = 0.012 * (0.7 + 0.3 * Math.sin((f / FPS) * 0.45));
   }, [built, f]);
   return (
     <>
-      <mesh geometry={built.geos.ghost} material={built.bark} position={GHOST_BASE} castShadow receiveShadow />
+      <mesh geometry={built.geos.ghost} material={built.barkGhost} position={GHOST_BASE} castShadow receiveShadow />
       <mesh geometry={built.geos.old} material={built.bark} position={built.oldAt} castShadow receiveShadow />
       <mesh geometry={built.geos.back} material={built.barkFar} castShadow />
       <mesh geometry={built.geos.conifers} material={built.needles} castShadow />

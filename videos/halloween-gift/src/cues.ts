@@ -38,7 +38,8 @@ export const WORDS = {
   caption2: { en: 'The last house was still awake.', 'zh-Hans': '最后一户人家，还没睡。' },
   couplet: { 'zh-Hans': '代码千行一次过 账号百年永不封 一路绿灯 福' },
   gift: { en: 'A GIFT FOR YOU' },
-  email: { en: 'ACCOUNT SUSPENDED Suspicious signals detected. Happy Halloween! Appeal', 'zh-Hans': '封号 申诉' },
+  /** the email's read path (overlay/EmailCard.tsx READ_PATH, kept equal by its test) */
+  email: { en: 'Hello, Your Claude account has been buried. Happy Halloween! Appeal', 'zh-Hans': '封号 申诉' },
   end: { en: 'A Halloween Gift The End Fan parody. Not affiliated with Anthropic. Fictional email.', 'zh-Hans': '万圣节礼物 完 粉丝恶搞，与 Anthropic 无关，邮件纯属虚构。' },
 } as const;
 

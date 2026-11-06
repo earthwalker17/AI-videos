@@ -99,9 +99,9 @@ const door = at(STOPS.knock, 0, 0);
 
 export const LAND = {
   /** the giant jack-o'-lantern, front left of the hero view, its grin to the path */
-  bigPumpkin: { x: -1.42, z: 2.62, yaw: 0.5, scale: 1 } as Spot,
+  bigPumpkin: { x: -1.42, z: 2.62, yaw: 0.85, scale: 1 } as Spot,
   /** the big leaning cross stone at the far left edge */
-  bigCross: { x: -2.35, z: 3.75, yaw: 0.35, scale: 1 } as Spot,
+  bigCross: { x: -2.35, z: 3.95, yaw: 0.35, scale: 1.25 } as Spot,
   /** roots and rocks with cobwebs, front right */
   roots: { x: 2.55, z: 4.35, yaw: -0.4 } as Spot,
   /** the ghost tree, front right: its hero limb arches left over the path at the shoo stop */
@@ -124,7 +124,7 @@ export const LAND = {
   /** the reference's second jack-o'-lantern, in front of the cauldron and left of it in the hero view, clear of the path */
   midPumpkin: { x: 1.4, z: 2.4, scale: 0.4 } as Spot,
   /** the coffin and its shovel, behind the path's front run, in front of the cross and the graves, lying across the hero view */
-  coffin: { x: 0.0, z: 2.02, yaw: 0.3 } as Spot,
+  coffin: { x: 0.0, z: 1.76, yaw: 0.3 } as Spot,
   /** the last house, right of centre: its door at the path's end, turned a little toward the lane */
   house: { x: door.x + 0.2, z: door.z - 0.6, yaw: -0.3 } as Spot,
   /** the castle on its crag, behind the hill between the gates and the house (multiplane) */
@@ -135,8 +135,8 @@ export const LAND = {
   farWindow: { x: 6.1, z: -3.6, yaw: -0.5 } as Spot,
 } as const;
 
-/** The gateway's posts, either side of the gate across the path: [left, right] walking through. */
-const GATE_HALF = 0.42;
+/** The gateway's posts, either side of the gate across the path: [left, right] walking through (half the gap between them: the reference's gateway is wide, its leaves tall). */
+export const GATE_HALF = 0.56;
 export const GATE_POSTS: readonly [P2, P2] = (() => {
   const t = PATH.tangentAt(STOPS.gates + GATE_AHEAD);
   // the path's left, walking along it
@@ -162,12 +162,11 @@ export const FENCE_LINE_RIGHT: P2[] = [GATE_POSTS[1], [2.0, -0.6], [2.65, -0.72]
 
 /** Tombstones inside the fence: kind, place, height, lean. The big RIP stone is LAND.ripStone. */
 export const STONES: { kind: 'round' | 'cross' | 'obelisk' | 'gothic' | 'slab' | 'broken'; x: number; z: number; h: number; yaw: number; lean: number }[] = [
-  // the front, along the path's first run
+  // the front, along the path's first run (kept clear of the path's mouth in the hero view: the
+  // reference's graves stand in a row up on the crest, not crowded in front)
   { kind: 'round', x: -3.05, z: 1.6, h: 0.5, yaw: 0.2, lean: -0.12 },
-  { kind: 'cross', x: 0.4, z: 1.65, h: 0.66, yaw: -0.1, lean: 0.1 },
   { kind: 'slab', x: 3.45, z: 2.6, h: 0.38, yaw: 0.4, lean: 0.18 },
-  { kind: 'gothic', x: -1.0, z: 1.55, h: 0.6, yaw: 0.05, lean: -0.06 },
-  { kind: 'round', x: -0.75, z: 1.05, h: 0.46, yaw: -0.3, lean: 0.14 },
+  { kind: 'gothic', x: -1.0, z: 1.55, h: 0.78, yaw: 0.05, lean: -0.06 },
   { kind: 'obelisk', x: -2.2, z: 1.7, h: 0.92, yaw: 0.3, lean: -0.05 },
   { kind: 'round', x: -3.6, z: 2.3, h: 0.58, yaw: -0.2, lean: 0.08 },
   { kind: 'cross', x: -1.6, z: 2.3, h: 0.56, yaw: 0.25, lean: -0.15 },
@@ -176,10 +175,9 @@ export const STONES: { kind: 'round' | 'cross' | 'obelisk' | 'gothic' | 'slab' |
   { kind: 'slab', x: -0.75, z: 3.95, h: 0.34, yaw: -0.3, lean: -0.12 },
   // the slope, either side of the path up to the gates, in front of the fence
   { kind: 'broken', x: 2.05, z: 0.9, h: 0.34, yaw: 0.6, lean: -0.2 },
-  { kind: 'round', x: 0.2, z: 0.55, h: 0.48, yaw: 0.15, lean: 0.1 },
+  { kind: 'round', x: 0.2, z: 0.55, h: 0.36, yaw: 0.15, lean: 0.1 },
   { kind: 'gothic', x: -0.7, z: 0.15, h: 0.55, yaw: -0.1, lean: -0.08 },
   { kind: 'cross', x: 0.42, z: -0.42, h: 0.6, yaw: 0.2, lean: 0.12 },
-  { kind: 'round', x: -1.65, z: 0.65, h: 0.45, yaw: 0.3, lean: -0.14 },
   { kind: 'slab', x: 1.95, z: 0.05, h: 0.36, yaw: -0.25, lean: 0.16 },
   { kind: 'round', x: 2.35, z: -0.3, h: 0.42, yaw: -0.4, lean: -0.1 },
   { kind: 'broken', x: -0.25, z: -0.55, h: 0.3, yaw: 0.5, lean: 0.18 },

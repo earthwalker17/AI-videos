@@ -1,6 +1,8 @@
 /**
- * Lookdev of the email card (face B of the gift) at the size the snap-in will show it, over a
- * dark stand-in for the door spread, with the seal landed and the Appeal tab in place.
+ * Lookdev of the email card (face B of the gift) at the size the door spread's hold shows it
+ * (about 765 px tall), over a dark stand-in for the door spread, with the seal landed and the
+ * Appeal tab in place: Email the DOM card, EmailCanvas the same face drawn on a canvas (face B of
+ * the 3D letter) where the DOM card stands, to diff the two.
  */
 import { textContext } from '@aiv/remotion-kit';
 import { useLayoutEffect, useRef } from 'react';
@@ -9,17 +11,17 @@ import { FPS } from '../cues.ts';
 import { useFilmFonts } from '../look/fonts.ts';
 import { drawEmailCard, EMAIL, EmailCard } from '../overlay/EmailCard.tsx';
 
-const H = 700;
+const H = 766;
 const W = Math.round(H * EMAIL.aspect);
 const BG = 'radial-gradient(ellipse at 50% 40%, #1d3a4a 0%, #0b141c 70%)';
-const AT = { left: Math.round((1920 - W) / 2), top: Math.round((1080 - H) / 2 + 30) };
+const AT = { left: Math.round((1920 - W) / 2), top: Math.round((1080 - H) / 2) };
 
 function EmailLook() {
   const { fonts } = useFilmFonts();
   return (
     <AbsoluteFill style={{ background: BG }}>
       <div style={{ position: 'absolute', ...AT }}>
-        <EmailCard width={W} height={H} fonts={fonts} seal={{ scale: 1, shake: 0 }} style={{ boxShadow: 'none' }} />
+        <EmailCard width={W} height={H} fonts={fonts} seal={{ scale: 1, shake: 0 }} />
       </div>
     </AbsoluteFill>
   );

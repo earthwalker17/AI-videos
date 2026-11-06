@@ -295,6 +295,8 @@ export interface ShingleSpec {
   /** per-tile value variation (±), and tints picked per tile (RGB multipliers) */
   value?: number;
   tints?: readonly (readonly [number, number, number])[];
+  /** per-corner value jitter on each tile's exposed face (±): no tile one flat tone (its own hashed stream: the layout is unchanged) */
+  grain?: number;
   /** how dark a tile gets where the next course covers it (0..1), and its lit lower edge (+) */
   ao?: number;
   edgeLight?: number;
@@ -328,6 +330,7 @@ export function shingles(pl: RoofPlane, s: ShingleSpec, out: Builder): number {
     slipped = 0.025,
     value = 0.16,
     tints = [[1, 1, 1]],
+    grain = 0,
     ao = 0.55,
     edgeLight = 0.18,
     alphaTop = 1,
@@ -388,6 +391,9 @@ export function shingles(pl: RoofPlane, s: ShingleSpec, out: Builder): number {
       const C = (m: number, alpha: number): RGBA => [tint[0] * v * m, tint[1] * v * m, tint[2] * v * m, alpha];
       const lit = C(1 + edgeLight, alphaTop);
       const mid = C(1 - ao, alphaTop);
+      // the face's corners each a little lighter or darker (weathering, lichen, a sheen of damp)
+      const gr = (i: number) => 1 + (rand(seed, 'grain', laid * 8 + i) - 0.5) * 2 * grain;
+      const Cg = (c: RGBA, i: number): RGBA => (grain > 0 ? [c[0] * gr(i), c[1] * gr(i), c[2] * gr(i), c[3]] : c);
       const top = C((1 - ao) * 0.75, alphaTop * 0.6);
       const edge = C(0.72, alphaEdge);
       const edgeDark = C(0.5, alphaEdge);
@@ -405,11 +411,18 @@ export function shingles(pl: RoofPlane, s: ShingleSpec, out: Builder): number {
       const p = (q: readonly [number, number], dh = 0) => T(q[0], q[1], dh);
       const pBM = p(BM);
       // the exposed face: a fan from the bottom middle
-      out.tri(pBM, p(BR2), p(BR), [lit, lit, lit]);
-      out.tri(pBM, p(BR), p(MR), [lit, lit, mid]);
-      out.tri(pBM, p(MR), p(ML), [lit, mid, mid]);
-      out.tri(pBM, p(ML), p(BL), [lit, mid, lit]);
-      out.tri(pBM, p(BL), p(BL2), [lit, lit, lit]);
+      const cBM = Cg(lit, 0);
+      const cBR2 = Cg(lit, 1);
+      const cBR = Cg(lit, 2);
+      const cMR = Cg(mid, 3);
+      const cML = Cg(mid, 4);
+      const cBL = Cg(lit, 5);
+      const cBL2 = Cg(lit, 6);
+      out.tri(pBM, p(BR2), p(BR), [cBM, cBR2, cBR]);
+      out.tri(pBM, p(BR), p(MR), [cBM, cBR, cMR]);
+      out.tri(pBM, p(MR), p(ML), [cBM, cMR, cML]);
+      out.tri(pBM, p(ML), p(BL), [cBM, cML, cBL]);
+      out.tri(pBM, p(BL), p(BL2), [cBM, cBL, cBL2]);
       // the hidden upper part (seen only through gaps and missing tiles)
       out.quad(p(ML), p(MR), p(TR), p(TL), [mid, mid, top, top]);
       // the edges: thickness strips along the bottom and both sides

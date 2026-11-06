@@ -96,7 +96,7 @@ describe('the V2 beats', () => {
     expect(letterAt(APPEAL_SNATCH).tabGone).toBe(true);
     expect(farColdAt(at(33, 3) + 5)).toBe(1);
     expect(footAt(at(10))).toBe(1);
-    expect(footAt(at(20))).toBeCloseTo(0.3, 9);
+    expect(footAt(at(20))).toBeCloseTo(0.55, 9);
   });
 
   it('flares once in the cold snap, then goes out', () => {
