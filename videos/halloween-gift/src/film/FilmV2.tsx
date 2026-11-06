@@ -56,7 +56,7 @@ import {
 } from './beats.ts';
 import { clawdAt, userAt } from './blocking.ts';
 import type { CamPose } from './campath.ts';
-import { COVER_CLOSE, journeyAt } from './journey.ts';
+import { COVER_CLOSE, journeyAt, OUT_OF_BOOK } from './journey.ts';
 
 export const NIGHT_BG = '#0a1118';
 
@@ -110,8 +110,11 @@ const FOLD_TALLEST = 6.2;
 function Picture({ f, pose }: { f: number; pose: CamPose }) {
   const imm = immersionAt(f);
   const grown = grownAt(f);
-  // as the cover starts down: the pieces the fold cannot squash (the mist cards, the halos, the room behind the door) fade
-  const closing = smoothstep(COVER_CLOSE[0], COVER_CLOSE[0] + 8, f);
+  // the pieces the fold cannot squash (the mist cards, the halos) fade out over the crane, from
+  // 12 frames after it starts to the cover starting down (an 8-frame fade as the cover started
+  // down popped a flat veil off a third of the frame); the opaque ones (the room behind the door,
+  // the fireflies) go when the fade is done, far from the lens
+  const closing = smoothstep(OUT_OF_BOOK[0] + 12, COVER_CLOSE[0], f);
   const world = worldOnAt(f);
   const clawd = clawdAt(f);
   const letter = letterAt(f);

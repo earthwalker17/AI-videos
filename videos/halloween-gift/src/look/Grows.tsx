@@ -8,7 +8,8 @@
  * a shadow (the shadow pass does not see the grow). Outside a Grows nothing grows: the book,
  * the desk and the actors keep their shape. The opt-in is set on the materials each frame, so a
  * piece built later is caught too. `hide` (0..1) takes those other pieces away again as the cover
- * closes (FoldClock folds only the storybook materials), without touching the shadows.
+ * closes (FoldClock folds only the storybook materials), without touching the shadows: the
+ * transparent ones fade with it, the opaque ones go once it is (almost) complete.
  */
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import type { Group, Material, Mesh, ShaderMaterial } from 'three';
@@ -45,7 +46,7 @@ export function Grows({ page = false, fade = 1, hide = 0, children }: { page?: b
       for (const m of Array.isArray(mat) ? mat : [mat]) {
         const on = m.userData.sb?.uSbGrowOn;
         if (on) on.value = page ? 2 : 1;
-        else if (!m.transparent || (m as ShaderMaterial).isShaderMaterial) m.visible = fade >= 0.999 && hide <= 0.001;
+        else if (!m.transparent || (m as ShaderMaterial).isShaderMaterial) m.visible = fade >= 0.999 && hide < 0.999;
         else {
           m.userData.baseOpacity ??= m.opacity;
           m.opacity = m.userData.baseOpacity * fade * (1 - hide);

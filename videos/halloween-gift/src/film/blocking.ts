@@ -238,7 +238,8 @@ export function clawdAt(f: number): ClawdState {
       // (to the neighbour, cheated three-quarter toward the camera so his face reads: CHEAT)
       [at(19, 2) - 2, toUser + CHEAT],
       [at(25, 3), -0.35 + YAW], // deadpan to us, arms up, as the seal lands
-      [at(29), toUser + CHEAT * 0.8],
+      // (the candy: cheated well round toward the camera, his face and his pail held up to the bowl in a three-quarter view)
+      [at(29), toUser + CHEAT * 1.45],
       [at(31, 3), 0.25 + YAW], // to camera for the wink and the hat tip
       [wX.from - TURN, exitDir],
     ]);

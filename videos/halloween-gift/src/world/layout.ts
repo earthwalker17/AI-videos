@@ -122,7 +122,7 @@ export const LAND = {
   cauldron: { x: 1.98, z: 1.72, yaw: -0.3 } as Spot,
   ripStone: { x: 2.72, z: 1.22, yaw: -0.45 } as Spot,
   /** the reference's second jack-o'-lantern, in front of the cauldron and left of it in the hero view, clear of the path */
-  midPumpkin: { x: 1.4, z: 2.4, scale: 0.4 } as Spot,
+  midPumpkin: { x: 1.05, z: 2.6, scale: 0.4 } as Spot,
   /** the coffin and its shovel, behind the path's front run, in front of the cross and the graves, lying across the hero view */
   coffin: { x: 0.0, z: 1.76, yaw: 0.3 } as Spot,
   /** the last house, right of centre: its door at the path's end, turned a little toward the lane */
@@ -149,10 +149,11 @@ export const GATE_POSTS: readonly [P2, P2] = (() => {
 })();
 
 /**
- * The fence across the slope behind the graves (x, z), from off the left of the hero view to the
- * gateway's left post, bowing toward the viewer at the far left as in the reference.
+ * The fence across the slope behind the graves (x, z), from the old dead tree (where it ends in
+ * the hero view, as the reference's does) to the gateway's left post. (It used to run on off the
+ * hero's left edge, behind the giant pumpkin's stem: clutter where the painting is quiet.)
  */
-export const FENCE_LINE: P2[] = [[-7.3, 0.95], [-6.0, 0.25], [-4.4, -0.35], [-2.6, -0.78], [-0.9, -0.98], GATE_POSTS[0]];
+export const FENCE_LINE: P2[] = [[-1.95, -0.86], [-0.9, -0.98], GATE_POSTS[0]];
 /**
  * Right of the gates the fence runs a short way in front of the lane and stops well short of the
  * last house: the ground in front of the door is the door yard where the door spread's cameras

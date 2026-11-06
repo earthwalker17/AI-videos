@@ -101,7 +101,9 @@ export function foldAt(f: number): number {
  */
 export function immersionAt(f: number): number {
   const [o0, o1] = OUT_OF_BOOK;
-  return smoothstep(at(4) + 14, at(5), f) * (1 - smoothstep(o0 + 0.3 * (o1 - o0), o1 - 2, f));
+  // (out over 58 frames from just after the crane starts: a shorter fade, from 1178, pumped the
+  // picture's brightness up 20 levels and down again as the camera rose into the open sky)
+  return smoothstep(at(4) + 14, at(5), f) * (1 - smoothstep(o0 + 6, o1 - 2, f));
 }
 
 /**
@@ -118,12 +120,15 @@ function coldSnap(f: number, from: number): number {
 }
 
 /**
- * The witch on her broom crosses the moon while the hero view holds (bar 5 beat 2 .. bar 8):
+ * The witch on her broom crosses the moon while the hero view holds (frames 174 .. 216):
  * look/SkyPortal.tsx SkyDome's witch, her progress 0 .. 1 at a steady pace; -1 when she is not flying.
  */
 export function witchAt(f: number): number {
-  const a = at(5, 2);
-  const b = at(8);
+  // (with the score's theremin from bar 6, and inside the hero hold, film/journey.ts: she crosses
+  // the whole disc while the camera is still or only starting to ease away; a crossing to bar 8
+  // left her behind the near ghost until the camera had moved on)
+  const a = at(5, 2) + 18;
+  const b = at(6, 3) + 12;
   return f < a || f > b ? -1 : (f - a) / (b - a);
 }
 
@@ -145,12 +150,13 @@ export function pailLitAt(f: number): number {
 }
 
 /**
- * The ghost that peeks at Clawd (Ghosts' `lower`, the one at LAND.peek): lowers as he reaches the
- * ghost tree, and jerks back up on the ember flick (V1's curves, on ones).
+ * The ghost that peeks at Clawd (Ghosts' `lower`, the one at LAND.peek): lowers over half a bar as
+ * he reaches the ghost tree (at(10, 3) .. at(11)), hangs there peering at him for half a bar, and
+ * jerks back up on the ember flick (at(11, 2), the score's 'ghost-shoo').
  */
 export function ghostLowerAt(f: number): number {
   const shoo = progress(f, at(11, 2), at(11, 2) + 8, 'outCubic');
-  return progress(f, at(10, 3), at(11, 2), 'inOutSine') * (1 - shoo);
+  return progress(f, at(10, 3), at(11), 'inOutSine') * (1 - shoo);
 }
 
 /**
@@ -160,7 +166,7 @@ export function ghostLowerAt(f: number): number {
  */
 export const GATES_CLEAR = at(14) + 14;
 /** the gates stand a little ajar before they creak open, the left leaf a few degrees off its post (the reference's gateway is open) */
-export const GATES_AJAR = 0.1;
+export const GATES_AJAR = 0.25;
 export function gatesOpenAt(f: number): number {
   const creak = at(14);
   const clang = at(15);

@@ -240,15 +240,17 @@ const truckFrames = (from: number, to: number, step: number) => {
 };
 
 /**
- * The peek (bars 10–11): as the ghost comes down on its rope (its eyes 1.8 above the ground at
- * its hook, world/Ghosts.tsx PEEK_EYES), the camera draws back toward the front right of the shoo
- * stop and widens, so the ghost's eyes and Clawd's feet share the frame (near 0.15 H and 0.88 H),
- * looking up between them; `u` 0..1 from the truck's framing to the peek's.
+ * The peek (bars 10–11): the camera settles on the shoo stop from its front right as the ghost
+ * comes down on its rope (world/Ghosts.tsx PEEK_EYES), swung round (azimuth about 66°) so the
+ * cauldron falls right of the ghost instead of between it and the lens, and holds close enough
+ * that Clawd stays a quarter of the frame tall: Clawd left, the ghost peering down at him in the
+ * middle, the cauldron right; `u` 0..1 from Clawd's own framing to the peek's (looking between
+ * Clawd and the ghost's face).
  */
-const PEEK_LOOK: V3 = [lerp(LAND.peek.x, 1.24, 0.5), FLOOR + 0.92, lerp(LAND.peek.z, 1.67, 0.5)];
-function peekKey(f: number, dist: number, up: number, fov: number, u: number): CamKey {
+const PEEK_LOOK: V3 = [lerp(LAND.peek.x, 1.24, 0.5), FLOOR + 0.5, lerp(LAND.peek.z, 1.67, 0.5)];
+function peekKey(f: number, dist: number, up: number, fov: number, u: number, azDeg = 66): CamKey {
   const c = smoothed(f);
-  const a = (41 * Math.PI) / 180;
+  const a = (azDeg * Math.PI) / 180;
   const pos = clear([c[0] + Math.cos(a) * dist, c[1] + up, c[2] + Math.sin(a) * dist], f);
   const look: V3 = [lerp(c[0], PEEK_LOOK[0], u), lerp(c[1] + 0.18, PEEK_LOOK[1], u), lerp(c[2], PEEK_LOOK[2], u)];
   return { f, pos, look, fov, focus: Math.hypot(pos[0] - look[0], pos[1] - look[1], pos[2] - look[2]) };
@@ -272,9 +274,11 @@ function worldKeys(): CamKey[] {
   ];
   // the truck: valley walk, graveyard; the peek (the camera draws back and widens as the ghost
   // comes down, so both share the frame for the shoo), on to the gates
-  for (const f of truckFrames(at(8, 2) + 6, at(10, 3), BEAT)) keys.push(truckKey(f, 1.6, 0.66, 34));
-  keys.push(peekKey(at(11), 1.95, 0.64, 42, 0.55));
-  keys.push({ ...peekKey(at(11, 2), 2.45, 0.66, 52, 1), hold: true });
+  // (the peek framing reached as the ghost starts down, then held through the lowering and the
+  // stare until the ember flick: film/beats.ts ghostLowerAt)
+  for (const f of truckFrames(at(8, 2) + 6, at(10, 1), BEAT)) keys.push(truckKey(f, 1.6, 0.42, 34, 0.3));
+  keys.push({ ...peekKey(at(10, 3), 2.35, 0.48, 40, 0.45, 52) });
+  keys.push({ ...peekKey(at(11, 2), 2.3, 0.45, 40, 1, 66), hold: true });
   // up the slope: from the peek's side the camera swings round behind him to his left and draws
   // back and up as he climbs away from it, so the mist parts on the whole gateway ahead of him and
   // the lit cottage comes into view beyond, right of the gates
@@ -305,9 +309,11 @@ function worldKeys(): CamKey[] {
   // walks the lane behind it; past the fence's end it comes down into the yard onto V1's door
   // two-shot without a whip
   keys.push(placeKey(at(15), 1.2, 1.2, 1.7, 40, 0.7, 0.4));
-  keys.push(placeKey(at(15, 2), 2.0, 0.3, 1.55, 38, 0.9, 0.35));
+  // (back from his path, aimed just ahead of him: he walks across the frame's middle, not under
+  // the lens and out at its bottom-left corner, and the swung right leaf stays well off the lens)
+  keys.push(placeKey(at(15, 2), 1.9, 0.75, 1.5, 38, 0.3, 0.3));
   // (looking just ahead of him, not at the door: he stays in frame as he nears it)
-  keys.push(placeKey(at(16), 2.6, 0.12, 1.35, 38, 0.45, 0.2));
+  keys.push(placeKey(at(16), 2.6, 0.55, 1.3, 38, 0.25, 0.2));
   keys.push(placeKey(at(16, 2), 3.25, 0.45, 0.95, 37, 0.35, 0.25));
   return keys;
 }
@@ -361,10 +367,10 @@ export const COVER_CLOSE: readonly [number, number] = [at(34, 2), at(35)];
  * in on the closed book for the end card.
  */
 const SLAM_WIDE: K = { pos: [14.4, 11.6, 16.4], look: [0.4, 3.4, -0.3], fov: 38, focus: 23.3 };
-/** where the camera has crept in to by the slam */
-const SLAM: K = { pos: [13.9, 11.3, 15.9], look: [0.4, 3.25, -0.25], fov: 38, focus: 22.5 };
-/** the end card: the closed book nearer, its cover behind the end card's words */
-const END: K = { pos: [8.4, 12.2, 18.6], look: [0.2, 2.6, -0.2], fov: 34, focus: 21.2 };
+/** where the camera has crept in to by the slam (tilted down with the falling cover, so the shut book's title sits clear above the end card's words) */
+const SLAM: K = { pos: [13.9, 11.3, 15.9], look: [0.4, 1.55, -0.25], fov: 38, focus: 22.5 };
+/** the end card: the closed book nearer, its title in the frame's middle, above the end card's words */
+const END: K = { pos: [8.4, 12.2, 18.6], look: [0.2, 0.95, -0.2], fov: 34, focus: 21.2 };
 
 /**
  * The pull-out's shape (outKeys): from the door's last hold it orbits up round Clawd to his right
@@ -373,7 +379,7 @@ const END: K = { pos: [8.4, 12.2, 18.6], look: [0.2, 2.6, -0.2], fov: 34, focus:
  * steady factor each frame (the world shrinks evenly instead of sliding across the frame), its aim
  * moving from Clawd onto the book late, when everything is far away.
  */
-const ORBIT = { az: (50 * Math.PI) / 180, el: (24 * Math.PI) / 180, d: 2.1 };
+const ORBIT = { az: (25 * Math.PI) / 180, el: (26 * Math.PI) / 180, d: 2.6 };
 const RISE = (24 * Math.PI) / 180;
 function outKeys(): CamKey[] {
   const f0 = at(33);
@@ -391,9 +397,9 @@ function outKeys(): CamKey[] {
     const c = smoothed(f, 6);
     const aim: V3 = [c[0], c[1] + 0.22, c[2]];
     // 0..1: the orbit (the first third), then the back-away
-    const o = smoothstep(0, 0.5, t);
+    const o = smoothstep(0, 0.6, t);
     const b = smoothstep(0.2, 1, t);
-    const w = smoothstep(0.45, 1, t);
+    const w = smoothstep(0.68, 1, t);
     // from the door's aim onto Clawd, then onto the book
     const a = smoothstep(0, 0.3, t);
     const on: V3 = [lerp(start.look[0], aim[0], a), lerp(start.look[1], aim[1], a), lerp(start.look[2], aim[2], a)];
