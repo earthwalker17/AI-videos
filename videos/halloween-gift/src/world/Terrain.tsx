@@ -988,7 +988,9 @@ function axis(min: number, max: number, a: number, b: number, fine: number, coar
 const PAPER = new Color('#cfc2a2');
 const TURF_DARK = new Color('#16252e');
 const TURF = new Color('#2a4a56');
-const TURF_LIT = new Color('#6aa2ad');
+// (greener and darker than the moonlit cyan-white it was: under the dark blades the hill read as
+// frost or snow, where the painting's lit grass is a deep green-teal)
+const TURF_LIT = new Color('#4f8c84');
 const TURF_NEAR = new Color('#262833');
 const EARTH = new Color('#2a2326');
 const DIRT = new Color('#382c31');
@@ -1242,13 +1244,13 @@ export function puddleGeometry(): BufferGeometry {
 /** The plum the ground's shadows turn (groundShading shade: the hue only, the ambient keeps its brightness). */
 export const PLUM = '#8a5e62';
 
-/** The forward-scatter sheen of the turf (and the grass, so blades and turf glow together). */
+/** The forward-scatter sheen of the grass (the turf under it takes 0.6 of it: darker ground between the lit blades, as in the painting). */
 export const TURF_SHEEN = 6;
 
 export function Terrain({ grow = 1 }: { grow?: number }) {
   const { geometry, turf, dirt, water, waterGeo } = useMemo(() => {
     const geometry = terrainGeometry();
-    const turf = groundShading(storybookMaterial({ kind: 'earth', vertexColors: true, roughness: 0.97, breakup: 0.3, scale: 0.18, bump: 0.6, color2: '#33585f' }), { sheen: TURF_SHEEN, shade: [PLUM, 0.45], grain: [0.045, 0.7], comb: true });
+    const turf = groundShading(storybookMaterial({ kind: 'earth', vertexColors: true, roughness: 0.97, breakup: 0.3, scale: 0.18, bump: 0.6, color2: '#33585f' }), { sheen: TURF_SHEEN * 0.6, shade: [PLUM, 0.45], grain: [0.045, 0.7], comb: true });
     const dirt = groundShading(storybookMaterial({ kind: 'earth', vertexColors: true, roughness: 0.9, breakup: 0.3, scale: 0.12, bump: 1.0, color2: '#3a3035', rim: 1.0 }), { grain: [0.026, 0.95], wet: true, shade: [PLUM, 0.75], edge: true, sheen: TURF_SHEEN });
     const waterGeo = puddleGeometry();
     const water = groundShading(storybookMaterial({ color: '#020405', roughness: 0.05, metalness: 0, emissive: '#02070a', breakup: 0, rim: 0.5 }), { water: 1 });

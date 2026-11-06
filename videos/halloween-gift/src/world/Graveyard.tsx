@@ -1062,7 +1062,8 @@ function stoneMaterials(albedo: CanvasTexture, height: CanvasTexture): { body: M
   const common = { kind: 'stone' as const, color2: '#a2c4d2', vertexColors: true, breakup: 0.4, scale: 0.085, bump: 1.3, topCoat: 0.6, rim: 0.5, ambient: STONE_AMBIENT, roughness: 0.88 };
   const body = storybookMaterial({ ...common, color: '#ffffff' });
   // the big cross: a grey-green lichen dusting on its tops (a pale cap read as snow), a coarser bump
-  const cross = storybookMaterial({ ...common, color: '#ffffff', color2: '#77806e', topCoat: 0.2, breakup: 0.5, scale: 0.11, bump: 1.8 });
+  // (a lilac top coat: the big cross's face caught the moon as near-black against the painting's lilac-grey)
+  const cross = storybookMaterial({ ...common, color: '#ffffff', color2: '#8a7f96', topCoat: 0.3, breakup: 0.5, scale: 0.11, bump: 1.8 });
   const face = storybookMaterial({ ...common, color: new Color(1, 1, 1).multiplyScalar(255 / PLATE), map: albedo, bumpMap: height, bumpScale: 4 });
   const earth = storybookMaterial({ kind: 'earth', color: '#ffffff', color2: '#2a2124', vertexColors: true, breakup: 0.3, scale: 0.05, bump: 0.9, rim: 0.5, roughness: 0.95 });
   return { body, cross, face, earth };

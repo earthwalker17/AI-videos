@@ -410,8 +410,8 @@ export interface PatchItem {
 export const MID_PUMPKIN: Spot & { lit: boolean; carve: Carve } = { ...LAND.midPumpkin, lit: true, carve: 'angry' };
 /** the gate stack is drawn this much bigger than layout's sizes (its faces read at the hero distance) */
 const STACK_SCALE = 1.4;
-/** the carves, in SMALL_PUMPKINS order (the stack's three, the lane's one), and the porch's two */
-const SMALL_CARVES: Carve[] = ['angry', 'grin', 'round', 'small'];
+/** the carves, in SMALL_PUMPKINS order (the stack's three, the lane's four), and the porch's two */
+const SMALL_CARVES: Carve[] = ['angry', 'grin', 'round', 'small', 'grin', 'round', 'angry'];
 const PORCH_CARVES: Carve[] = ['round', 'angry'];
 /** how much further out from the door (house-local x) the porch pumpkins sit than DOOR_FRONT.porchPumpkins */
 const PORCH_OUT = 0.1;

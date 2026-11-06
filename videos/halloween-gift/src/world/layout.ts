@@ -301,6 +301,11 @@ export const SMALL_PUMPKINS: (Spot & { lit: boolean })[] = [
   { ...at(G - 0.2, 0.98), scale: 0.21, lit: true },
   { ...at(G - 0.24, 0.86), scale: 0.17, lit: false },
   { ...at(G + 1.9, 0.45), scale: 0.2, lit: true },
+  // three more lit along the lane, either side of it, so the open gates lead on to the lit house
+  // (none in the door spread's frames: placed by projecting them through the film's cameras)
+  { x: 1.55, z: -1.55, scale: 0.18, lit: true },
+  { x: 1.95, z: -0.86, scale: 0.16, lit: true },
+  { x: 2.5, z: -1.62, scale: 0.19, lit: true },
 ];
 
 /** How much a point is path (1 on it, 0 off): dirt and cobbles, no grass. */
