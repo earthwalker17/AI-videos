@@ -60,8 +60,10 @@ laptop GPU through ANGLE/D3D11), 2026-11-04, same assets throughout:
   moved to the reference's screen positions (projected numerically, not by eye) took the hero to
   value-grid 0.044 and palette distance 9.4.
 
-Not verified: how far the same settings carry to other shots of the film (the door close-ups,
-the desk); they are checked when those stills are rendered.
+The other shots (the desk, the door close-ups, the email) were judged by eye: 16 checkpoint
+frames at 1080p, two adversarial critique rounds and the user's approval of the film
+(2026-11-06). They were not measured against a reference (the painting shows only the hero
+view), and the maroon foot band varies along the journey (`FilmV2` `footAt`).
 
 ## In this repo
 - `videos/halloween-gift/src/look/`: `materials.ts` (the storybook material: ambient, rim, fog,

@@ -48,8 +48,15 @@ vignette and dithering.
   about 30-50 %.
 - Cost per 1080p frame, including PNG capture, decode and lossless encode: 0.28-0.37 s.
 
-Not verified: WebGPU (`ThreeWebGPUCanvas`), depth of field, custom shaders beyond the
-built-in effects, renders on other GPUs or with `--gl=swangle` locally.
+*A Halloween Gift* (three r186, R3F 9.8.2, postprocessing 6.39.5): depth of field, god rays,
+a custom Kuwahara effect in its own PostChain stage and `onBeforeCompile` materials rendered
+chunk-independent once the shadow box was fixed: 12 of 12 mid-chunk frames matched on fresh
+pages, and the final equalled the review cut on 1,426 of 1,440 frames (the other 14 at chunk
+starts: DOM canvases over the 3D frame, and a few dark pixels by one or two levels;
+`docs/ROADMAP.md`, known gaps).
+
+Not verified: WebGPU (`ThreeWebGPUCanvas`), renders on other GPUs or with `--gl=swangle`
+locally.
 
 ## In this repo
 `@aiv/remotion-kit` (`packages/remotion-kit`): `Stage3D`, `PostChain` (synchronous composer,

@@ -48,6 +48,7 @@ desktop.ini
 videos/*/media/*
 !videos/*/media/manifest.json
 # generated material: only the provenance sidecars are committed; a redistributable
-# (class A/B) file under 2 MiB that a video uses is copied into assets/ with its sidecar
+# (class A/B) file under 2 MiB is copied into assets/ (the code loads it) or publish/ (an
+# upload asset such as a thumbnail) with its sidecar
 videos/*/gen/*
 !videos/*/gen/*.provenance.json

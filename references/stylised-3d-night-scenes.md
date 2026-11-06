@@ -91,8 +91,8 @@ files: each technique below is judged against those constraints.
 **Motion**
 - Judder: a camera moving on ones over a character stepping on twos makes the character
   stutter against the background. Keep root motion and camera on ones (or everything on ones)
-  [S: Spider-Verse practice; verified here on V1 of *A Halloween Gift*, see
-  `knowledge/motion-cadence.md` once written].
+  [S: Spider-Verse practice; verified here on V1 of *A Halloween Gift*:
+  `knowledge/motion-cadence.md`].
 - Stride matching: drive a gait from distance travelled, keep the planted foot fixed; easing
   belongs on the root's travel [S].
 - Camera follow: aim at a smoothed target (critically damped, or a centred average), ignore the
@@ -105,7 +105,8 @@ files: each technique below is judged against those constraints.
 - `GodRaysEffect` from a moon disc mesh.
 - A tree generator adapted from three's MIT `TreeGenerator.js` (geometry only, with UVs and
   Rackham curls added), credited in `NOTICE.md`.
-- Instanced geometric grass in tiles; fragment bumps on extruded stones.
+- Instanced geometric grass in tiles; carved stones as signed distance fields meshed by
+  surface nets (`kit/stone.ts`), with the material's procedural bump.
 - Principles only from the films above.
 
 ## What we deliberately did NOT adopt, and why

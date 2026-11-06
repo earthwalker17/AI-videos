@@ -75,9 +75,13 @@ Measured there:
   lossless encode included): 0.16–0.19 s per frame at 960x540, 0.28–0.37 s per frame at
   1920x1080. A changed bundle costs about 5 s with a warm webpack cache and about 50 s cold; an
   unchanged one is reused.
-- Remotion with React Three Fiber in the previous film, *THE AI STACK* (a heavier scene,
-  JPEG frames, `renderMedia`): about 0.8–1.2 s per 1080p frame at concurrency 1; concurrency 2
-  was not faster.
+- Remotion with React Three Fiber in *THE AI STACK* (made before this repository; a heavier
+  scene than the template, JPEG frames, `renderMedia`): about 0.8–1.2 s per 1080p frame at
+  concurrency 1; concurrency 2 was not faster.
+- *A Halloween Gift* (Remotion + R3F, one continuous 3D world with a painterly post chain):
+  0.6–1.3 s per frame at 960x540 (about 12 min for the film, a 631 MB mezzanine), 0.9–1.9 s per
+  1080p frame (about 45 min, a 2.3 GB mezzanine); a call's first frame 119–225 s with a cold GPU
+  program cache, 6.7 s warm ([ENGINE.md](../engines/remotion/ENGINE.md#the-gpu-program-cache)).
 - Disk: the two pinned browsers take about 440 MB (`.cache/browsers`) and 283 MB
   (`node_modules/.remotion`). Remotion's webpack cache in `node_modules/.cache` grows past
   1 GB and is safe to delete.

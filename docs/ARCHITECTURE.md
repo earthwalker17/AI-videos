@@ -33,7 +33,7 @@ Root files: `README.md`, `CLAUDE.md` (rules for agents), `CONTRIBUTING.md`, `LIC
 | Code only one video needs | `videos/<slug>/src/` (picture) or `videos/<slug>/audio/` (score and sound effects). |
 | The timing a video's picture and sound share | `videos/<slug>/src/cues.ts`: one `CueSheet` (`@aiv/core`), imported by both (decision 22). |
 | A sample library a score plays | Pinned per video in `audio/library.json` (files, sha256, upstream commit); the files live in `.cache/libraries/` and are never committed (decision 23). |
-| Code a second video needs | Promote it, never copy it: frame maths and contracts → `@aiv/core`; React, Remotion or R3F components → `@aiv/remotion-kit`; plain three.js or page helpers → a new `packages/web-kit` (created with the first promotion); Node-side media work → `@aiv/pipeline`; a look → `styles/<id>/`. |
+| Code a second video needs | Promote it, never copy it: frame maths and contracts → `@aiv/core`; React, Remotion or R3F components → `@aiv/remotion-kit`; plain three.js or page helpers → a new `packages/web-kit` (created with the first promotion); Node-side media work → `@aiv/pipeline`; a look → `styles/<id>/`. From a published (frozen) video, the promoted copy lives in the package and the frozen video keeps its own, unchanged: it is rebuilt from its tag. |
 | A new renderer (Manim, Blender, …) | `engines/<id>/`; see [Adding an engine](#adding-an-engine). |
 | A verified technique | `knowledge/<topic>.md`, method first, with the evidence. |
 | Notes on an outside project or rule | `references/<topic>.md` and an entry in `references/sources.json`. |
@@ -56,8 +56,8 @@ Root files: `README.md`, `CLAUDE.md` (rules for agents), `CONTRIBUTING.md`, `LIC
 | `audio/` | The score: code that builds the video's audio tracks with `aiv audio` (entry `audio/index.ts`), and `library.json`, the sample files it reads. | yes | the audio hash only |
 | `assets/` | Small original or licensed files the code loads (≤ 2 MiB each). | yes | yes |
 | `media/` | Large inputs; only `media/manifest.json` (path, sha256, bytes, source, licence, where the file is kept) is committed. | manifest only | yes |
-| `gen/` | Generated material; only the `*.provenance.json` sidecars are committed. A redistributable file the code loads is copied into `assets/`. | sidecars only | no |
-| `publish/` | Upload texts per language: description, chapters, captions (`<lang>.srt`), AI disclosure, thumbnail. | yes | no |
+| `gen/` | Generated material; only the `*.provenance.json` sidecars are committed. A redistributable file the code loads is copied into `assets/`; a generated upload asset (a thumbnail) is kept in `publish/`, each with its `<name>.provenance.json` beside it. | sidecars only | no |
+| `publish/` | Upload texts per language: description, chapters, captions (`<lang>.srt`), AI disclosure, thumbnail (if generated, with its provenance sidecar). | yes | no |
 | `release/v<N>.json` | Release manifests written by `aiv release`. | yes | no |
 
 Every subfolder except `src/` is optional and appears when first needed.

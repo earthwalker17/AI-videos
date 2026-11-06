@@ -13,16 +13,22 @@ Decisions section of `docs/ARCHITECTURE.md`.
 - [x] Whole-repo review; acceptance test (a fresh agent made a web and a Remotion video
       from the docs alone)
 
-## Next: the first film
-Built when the first film needs them, not before:
-- [x] **Audio from code** (decisions 21-25, with *A Halloween Gift*): the audio stage
-  (`aiv audio`), the cue sheet, pinned sample libraries, per-track sha256 in `post.json` and
-  the release manifest, stale-picture and stale-audio refusals, audio QA.
+## Done: the first film (*A Halloween Gift*, published 2026-11-06)
+- [x] **Audio from code** (decisions 21-25): the audio stage (`aiv audio`), the cue sheet,
+  pinned sample libraries, per-track sha256 in `post.json` and the release manifest,
+  stale-picture and stale-audio refusals, audio QA.
+- [x] Motion QA on the mezzanine (decision 27), lookdev stills with a reference compare
+  (decision 28), the Remotion GPU program cache (`engines/remotion/ENGINE.md`).
+
+## Next: built when a film needs it
+Built when a film needs them, not before:
 - **Large inputs** (`videos/<slug>/media/`, decision 17): the `media/manifest.json` schema,
   an `aiv check` that verifies listed files and hashes, and engine access to media files
   (Remotion's `staticFile` serves `assets/` only). Still deferred: the first film needed none.
-- **Generated material** (`gen/`): the provenance sidecar schema and a check of rights
-  classes against `video.json` `license.film`.
+- **Generated material** (`gen/`, `assets/` and `publish/` sidecars): a provenance sidecar
+  schema derived from the first real one (`videos/halloween-gift/publish/thumbnail.provenance.json`,
+  as `render.json` was derived from the first render), and a check of rights classes against
+  `video.json` `license.film`.
 - **Colour on the final**: a test-card leader that QA measures and post trims from the
   delivery, so the final itself is colour-verified (today the review cut is the evidence).
 - **Web kit**: promote the web template's test card and font loader to a shared package

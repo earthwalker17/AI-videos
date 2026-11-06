@@ -99,7 +99,9 @@ With the final approved and every input committed (release refuses a dirty tree)
    archive master to `out/<slug>/release/v<N>/` and writes the manifest
    `videos/<slug>/release/v<N>.json` (file hashes, versions, toolchain, loudness, QA).
 2. Upload the delivery to YouTube. In `video.json` set `release.version`, `youtube.id`
-   and `youtube.published`, record the final approval, and set `status: published`.
+   and `youtube.published`, record the final approval, and set `status: published`. In the
+   video's `README.md`, replace the Watch placeholder with the link (and the thumbnail from
+   `publish/`, linked to the video), and turn the Status section into the published state.
    `pnpm aiv check --fix`, then commit: `release(<slug>): v<N>`.
 3. Tag that commit and publish the files (each ≤ 2 GiB), never marking a video release
    as the repository's latest release:

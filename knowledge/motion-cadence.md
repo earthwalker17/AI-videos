@@ -43,7 +43,8 @@ twos, camera on ones), 2026-11-04:
 - Frame-difference energy over the graveyard walk (13-18 s) alternated every other frame
   (≈ 9.7 / 12.7 / 9.4 / 10.4 …), and the walk's feet slid 3.4 units in 54 frames on 0.1-unit
   legs.
-- The motion check above, run on the FFV1 mezzanine, flagged judder at 11.2-19.4 s (the walk)
+- The motion check above, run on the FFV1 mezzanine, flagged judder at 11.2-19.4 s (the walk:
+  0.88 of 13-18 s inside judder spans, 0.82 with the lossy rule on the H.264 draft)
   and in six other camera moves, every one a camera move with actors on twos, and none on the
   Remotion template (camera and bars on ones), even at looser thresholds.
 - On 110 lossy encodes of a grainy pan on ones, a single-window rule made 45 false judder
@@ -58,8 +59,12 @@ twos, camera on ones), 2026-11-04:
   camera and actor, and the actor dropping out of frame up a slope (now tests in
   `film/journey.test.ts`).
 
-Not verified yet: the V2 draft itself (the real Clawd and the whole film) through `aiv qa`'s
-check on the mezzanine; that result is added here when it is measured.
+The finished film (V2, the real Clawd, everything on ones), `aiv qa` on the lossless
+mezzanines, 2026-11-06: at 1080p (review, 1452 frames; final, 1440) no judder or span on twos
+and no pop anywhere. The only flags were the scripted lightning flash, one flash on no cue
+0.46 s in (its second pulse), and fine-detail change (the grain) on the held email card and the
+end card. The 960x540 draft flagged one 0.54 s span of twos in one tile near 40 s (a bat's
+wingbeat) that the full-size runs did not.
 
 ## In this repo
 - `aiv qa` runs the check (`packages/pipeline/src/qa/motion.ts`; ARCHITECTURE decision 27):

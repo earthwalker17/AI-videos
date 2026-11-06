@@ -13,7 +13,9 @@ style, `styles/<id>/`:
 ## When to add one
 By the rule of two: a style is created when a **second** video reuses a look, not before.
 The first video keeps its look in its own `src/`. When the second one arrives, move the
-shared part here, and list the style id in both videos' `video.json` `styles`. `aiv check`
+shared part here and list the style id in the `styles` of every video that imports it. If the
+first video is already published, copy the part from its tag instead: its own `src/` and
+`video.json` stay as tagged. `aiv check`
 fails on a `styles` entry without a `styles/<id>/STYLE.md`.
 
 ## Rules

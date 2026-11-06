@@ -107,9 +107,10 @@ even when a custom pass was built with it.
 The order of the whole chain is therefore render pass → `passes` → `stages` → `effects` →
 tone mapping → `afterToneMapping` → sRGB encode → dither.
 
-Not yet verified by a render: `stages` and `passes` are checked by `PostChain.test.ts`, which
-builds chains against a stand-in renderer and checks the passes, their order, their effects,
-dithering and `renderToScreen`, not pixels.
+Verified by a render: `stages` and `afterToneMapping` (*A Halloween Gift*'s Kuwahara pass and
+its anti-aliasing stage, deterministic mid-chunk under `aiv still --check`). Not yet verified by
+a render: `passes`. `PostChain.test.ts` checks both against a stand-in renderer (the passes,
+their order, their effects, dithering and `renderToScreen`), not pixels.
 
 **`afterToneMapping`.** Effects that must act on display values (film grain, a paper
 texture, a final colour wash) run after the `ToneMappingEffect`, in the last pass. They see

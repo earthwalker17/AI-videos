@@ -17,7 +17,7 @@ inside Markdown (below).
 | Third-party assets (fonts, samples, textures, models) | wherever they are used | their own licence, recorded next to the file and in `REUSE.toml` |
 | Large or non-redistributable inputs | `videos/*/media/` (gitignored; `media/manifest.json` is committed) | their own licence, recorded in the manifest |
 | Sample libraries a score plays | `.cache/libraries/` (never committed); pinned per video in `videos/*/audio/library.json` | their own licence, recorded in that manifest (CC0 or CC BY only) |
-| Generated AI output | `videos/*/gen/` (gitignored; provenance sidecars are committed) | see [AI-generated material](#ai-generated-material) |
+| Generated AI output | `videos/*/gen/` (gitignored; sidecars committed); class A/B files in `assets/` or `publish/` beside their sidecar | see [AI-generated material](#ai-generated-material) |
 | Finished videos | YouTube / GitHub Releases, not in git | per video, stated in its `video.json` (`license`) |
 
 **Attribution** for CC BY material: "*Title*" by earthwalker17, CC BY 4.0, with a
@@ -56,7 +56,7 @@ version, prompt, date, terms, cost) and a **rights class**:
 
 | Class | Meaning | In git? | Licence we apply |
 |---|---|---|---|
-| A | Redistributable without conditions (e.g. outputs of permissively licensed models, paid API outputs whose terms grant the user the rights) | small files only, copied into `assets/` with their sidecar | no copyright claimed; marked `LicenseRef-AI-Output` |
+| A | Redistributable without conditions (e.g. outputs of permissively licensed models, paid API outputs whose terms grant the user the rights) | small files only, with their sidecar: copied into `assets/` when the code loads them, kept in `publish/` when they are an upload asset (a thumbnail); each listed in `REUSE.toml` as `LicenseRef-AI-Output` | no copyright claimed; marked `LicenseRef-AI-Output` |
 | B | Redistributable with conditions (attribution, AI disclosure) | as A | as A, plus the stated conditions |
 | C | Usable in the finished video only (e.g. provider music or voices whose terms forbid redistribution, stock media) | never; the sidecar records its hash | none: not redistributed |
 | D | Not allowed in published work for this channel (non-commercial weights, free tiers without commercial rights, terms we could not verify) | never | none |

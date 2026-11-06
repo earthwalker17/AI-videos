@@ -43,8 +43,9 @@ units from the lens (the critique called it a strobe and a wipe). Re-shaped by t
 of the open book), it measured about 40 px median for most of its length and ~55 px while
 swinging round him, the tree never nearer than ~4 units in frame; the push into the pop-up shot
 and its exit went from 133 and 147 px to 87 and 65 px by spreading them over more frames.
-Verified on rendered stills and a 21-frame span of the close; not yet verified on the motion QA
-of a full draft (`aiv qa` motion check), which is the gate.
+Verified on rendered stills and a 21-frame span of the close, then by the motion check of the
+whole film: on the 1080p review and final mezzanines (2026-11-06) it flagged no judder, twos or
+pop, the crane out included.
 
 ## In this repo
 The estimate was a short script against the film's layout (`world/layout.ts` groundHeight, the
