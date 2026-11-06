@@ -20,9 +20,10 @@ halloween-gift.mp4` (93.6 MB, H.264 High, BT.709) and the archive master (382 MB
 silent, no judder or pop). **The proof against the approved review cut** (decision 24): the
 score is byte-identical to the review's from 0.5 s on; 1,426 of the 1,440 frames are
 bit-identical to the review's shifted by 12; the other 14 differ only where the two renders'
-chunks began at different frames, invisibly: four frames by at most 4 levels on at most 33
-pixels, three in the email overlay's per-frame grain and the tab's shadow (a page's first frame
-composites DOM canvases differently: docs/ROADMAP.md, known gaps), and seven by a level or two.
+chunks began at different frames, invisibly: ten frames of the climb (438-456) by at most 6
+levels on at most 46 pixels, three in the email overlay (the card's per-frame grain on 948-949,
+the tab's shadow on 960: a page's first frame composites DOM canvases differently, see
+docs/ROADMAP.md's known gaps) and one (961) by 2 levels.
 
 **The review cut** (commit e3d4cba): 1452 frames with the leader; `aiv qa` passed (BT.709,
 -14.0 LUFS, true peak -2.3 dBTP, swatches within 2 levels); `aiv still --check review`: 12 of 12
