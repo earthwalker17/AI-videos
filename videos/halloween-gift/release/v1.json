@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "slug": "halloween-gift",
+  "version": 1,
+  "createdAt": "2026-11-06T12:48:23.062Z",
+  "files": [
+    {
+      "name": "halloween-gift-v1.mp4",
+      "role": "delivery",
+      "bytes": 98189537,
+      "sha256": "310993dba397065a19160d192849126c07bad8a09a58a7d79f6b62e860e84c8e",
+      "container": "mov,mp4,m4a,3gp,3g2,mj2",
+      "vcodec": "h264",
+      "acodec": "aac",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "frames": 1440,
+      "durationS": 60,
+      "color": {
+        "space": "bt709",
+        "primaries": "bt709",
+        "transfer": "bt709",
+        "range": "tv"
+      }
+    },
+    {
+      "name": "halloween-gift-v1-archive.mkv",
+      "role": "archive",
+      "bytes": 400497837,
+      "sha256": "60d4466fd3e2308d59862be586fb3cca1f9b5e03146179b90aefc3f29ad06efd",
+      "container": "matroska,webm",
+      "vcodec": "h264",
+      "acodec": "pcm_s24le",
+      "width": 1920,
+      "height": 1080,
+      "fps": 24,
+      "frames": 1440,
+      "durationS": 60,
+      "color": {
+        "space": "bt709",
+        "primaries": "bt709",
+        "transfer": "bt709",
+        "range": "tv"
+      }
+    }
+  ],
+  "picture": {
+    "engine": {
+      "name": "remotion",
+      "version": "4.0.539",
+      "adapterVersion": "1"
+    },
+    "profile": "final",
+    "commit": "8f730aa1ddf0127a4d111a83525c96d7717c9f9c",
+    "dirty": false,
+    "inputHash": "71a222be871ea6fb2fc3c7a41a5f1d3d6f4df47b9afb4c905df9158c373e7d4b",
+    "frames": 1440,
+    "durationFrames": 1440,
+    "fps": 24,
+    "toolchain": {
+      "node": "v24.19.0",
+      "pnpm": "11.1.3",
+      "ffmpeg": "8.0.1-full_build-www.gyan.dev",
+      "ffmpegBuildconfHash": "74073287e9d549c9",
+      "browser": "chrome-headless-shell 157.0.8080.0",
+      "os": "win32",
+      "arch": "x64",
+      "gpu": "ANGLE (Intel, Intel(R) UHD Graphics, D3D11)"
+    }
+  },
+  "post": {
+    "dirty": false,
+    "deliveryPreset": "youtube",
+    "encoder": "libx264",
+    "archivePreset": "archive"
+  },
+  "tree": {
+    "commit": "7e2e411efbe1668088568e0d77a0e8002861bae8",
+    "dirty": false
+  },
+  "audio": {
+    "lufs": -14,
+    "truePeak": -2.3,
+    "sources": [
+      {
+        "source": "audio:mix",
+        "bytes": 23040058,
+        "sha256": "1a265412e175e3245a15dadfe14b86b57e854f1600e119e6e46789f2c3ba026e",
+        "inputHash": "af30a1985c8404f8d61bf1322ad4e8e47778e0a79ba71f3468dd29cb374a2e5a"
+      }
+    ]
+  },
+  "qa": {
+    "passed": true,
+    "failed": []
+  },
+  "storage": {
+    "tier": "T1",
+    "limitBytes": 2147483648
+  }
+}

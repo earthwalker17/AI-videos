@@ -7,7 +7,7 @@ house still awake. Made entirely in code, picture and score.
 **Series:** [Festival & Celebration](../../series/festivals/SERIES.md) · **Number:** 3 · **Engine:** remotion
 ▶ **Watch:** the YouTube link, once published.
 
-## Status (2026-11-06): locked; the final is rendered and proven; awaiting the user's final approval
+## Status (2026-11-06): final approved, release v1 made locally; ready to publish
 `status` is `locked`: the user approved the 1080p review cut on 2026-11-06 (recorded in
 `video.json` `approvals`). `Main` renders the V2 picture (`src/film/FilmV2.tsx`); for the final
 the test-card leader is removed (decision 24, `LEADER_FRAMES` 0), so the film is 1440 frames,
@@ -71,11 +71,16 @@ few seconds (the couplet reads in full for six seconds before); the camera passe
 swung gate leaf for about a second on the lane; across a chunk start a few dark pixels can
 differ by one level (GPU rounding, invisible).
 
-**Next:** the user's final approval; `aiv release halloween-gift` from the clean tree (manifest
-`release/v1.json`); the thumbnail the user supplies (a ChatGPT-generated image: record it in
-`publish/` with its provenance and update `publish/ai-disclosure.md`); the user uploads to
-YouTube; then `youtube.id`, `release.version`, the final approval in `video.json`, `status:
-published`, the tag `video/halloween-gift/v1` and the GitHub release (pushed when the user asks).
+**Released (local, v1):** the user approved the final on 2026-11-06 and chose a local release:
+`aiv release` copied the delivery and the archive master to `out/halloween-gift/release/v1/`
+(`halloween-gift-v1.mp4`, sha256 310993dba397…; `halloween-gift-v1-archive.mkv`, sha256
+60d4466fd3e2…) and wrote the manifest `release/v1.json`; `aiv release verify` passed.
+
+**Next (the user's steps first):** the thumbnail the user supplies (a ChatGPT-generated image:
+record it in `publish/` with its provenance and update `publish/ai-disclosure.md`); the upload
+of `halloween-gift-v1.mp4` to YouTube with `publish/` (descriptions, captions per language);
+then `youtube.id` and `status: published` in `video.json`; the tag `video/halloween-gift/v1`,
+the push and the GitHub release only when the user asks.
 
 **Open for the user:** the hero view closely follows the reference painting's composition and
 palette (the painting's author and licence are unknown: CREDITS.md lists it as reference only);

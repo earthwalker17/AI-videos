@@ -26,7 +26,7 @@
       "note": "The user approved the final (out/halloween-gift/post/final/halloween-gift.mp4, commit 90022e1: the approved review cut without its 0.5 s test card; score byte-identical, 1,426 of 1,440 frames bit-identical, 14 invisibly different) with \"Approved\", and chose \"Release locally only\" (no push, tag or GitHub release until asked)."
     }
   ],
-  "next": "aiv release (local, v1); the user supplies the thumbnail and uploads to YouTube; then youtube.id, release.version and status published; push, tag and GitHub release only when the user asks (README.md, Status).",
+  "next": "The user supplies the thumbnail (record it in publish/ with its provenance, update publish/ai-disclosure.md) and uploads release v1 (out/halloween-gift/release/v1/halloween-gift-v1.mp4) to YouTube; then youtube.id and status published; push, tag video/halloween-gift/v1 and the GitHub release only when the user asks (README.md, Status).",
   "languages": [
     "en",
     "zh-Hans"
@@ -134,6 +134,8 @@
     "note": "Fan parody: its central character, Clawd, belongs to Anthropic, so the film carries no reuse licence. Not affiliated with or endorsed by Anthropic. Code MIT and text CC BY 4.0 as in the rest of the repository."
   },
   "youtube": null,
-  "release": null,
+  "release": {
+    "version": 1
+  },
   "source": null
 }
