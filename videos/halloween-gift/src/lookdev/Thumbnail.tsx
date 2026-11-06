@@ -8,7 +8,8 @@ import { AbsoluteFill, Sequence, useVideoConfig } from 'remotion';
 import { FilmV2 } from '../film/FilmV2.tsx';
 import { useFilmFonts } from '../look/fonts.ts';
 
-export interface ThumbnailProps {
+// (a type, not an interface: Remotion's Composition wants props assignable to Record<string, unknown>)
+export type ThumbnailProps = {
   /** the film frame shown */
   at: number;
   /** where the title block sits: its left edge and top, as fractions of the frame */
@@ -16,7 +17,7 @@ export interface ThumbnailProps {
   y?: number;
   /** the title's alignment within its block */
   align?: 'left' | 'center' | 'right';
-}
+};
 
 export function Thumbnail({ at, x = 0.05, y = 0.06, align = 'left' }: ThumbnailProps) {
   const { height: h, width: w } = useVideoConfig();
