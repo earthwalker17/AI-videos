@@ -186,12 +186,12 @@ interface Tuft {
   c: Color;
 }
 
-const TEAL = new Color('#5a8b96');
-const TEAL_DARK = new Color('#335762');
+const TEAL = new Color('#579c92');
+const TEAL_DARK = new Color('#2c5459');
 const OLIVE = new Color('#62766b');
 const STRAW = new Color('#8b8670');
-/** the hill's grass, catching the moon and the fog's glow */
-const HILL = new Color('#78a9b3');
+/** the hill's grass, catching the moon and the fog's glow (a green cyan: a blue one read as frost under the moon) */
+const HILL = new Color('#74b9aa');
 const STRAW_DARK = new Color('#6a6656');
 
 /** Beyond this distance from the hero camera the far hill has no blades (the turf carries it). */

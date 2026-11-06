@@ -28,27 +28,36 @@ export const NIGHT = {
   uSbTime: { value: 0 },
   /** unit vector toward the moon, world space (azimuth 0.52, elevation 0.143: the reference's moon, upper right) */
   uSbMoonDir: { value: new Vector3(0.4923, 0.1425, -0.8587).normalize() },
-  uSbRimColor: { value: new Color('#a6dcef') },
+  uSbRimColor: { value: new Color('#a4e0e8') },
   uSbRim: { value: 1.0 },
   // the reference's colour logic: plum and maroon darks near, slate in the mid-ground, under
   // saturated cyan light (the far fog, the in-scatter toward the moon)
   uSbFogNear: { value: new Color('#0e0a14') },
-  uSbFogMid: { value: new Color('#484650') },
-  uSbFogFar: { value: new Color('#2f98b8') },
+  uSbFogMid: { value: new Color('#4a4452') },
+  uSbFogFar: { value: new Color('#2f9eb0') },
   uSbMoonGlow: { value: new Color('#8ccbd8') },
-  /** distances (world units) where the ramp turns mid, then far */
-  uSbFogDist: { value: new Vector3(2.0, 7.0, 16.0) },
+  /**
+   * distances (world units) where the ramp turns mid, then far (the far cyan only past the
+   * mid-ground: the conifers and the gnarled tree stay plum slate silhouettes against the sky)
+   */
+  uSbFogDist: { value: new Vector3(2.0, 7.0, 26.0) },
+  /** the moon's in-scatter only from this distance on (the castle, the far hills), full at the second: the cottage under the moon stays plum */
+  uSbScatterDist: { value: new Vector2(11.0, 14.5) },
   /** density, height falloff, ground height of the fog */
   uSbFog: { value: new Vector3(0.06, 1.6, 1.5) },
   /** aerial perspective: from this distance, 1 / its length, its most */
   uSbAir: { value: new Vector3(4.0, 0.075, 0.5) },
   /** the storybook ambient's colour near the lens (maroon) and in the mid-ground (plum slate), and where it turns */
-  uSbAmbNear: { value: new Color('#2a1620') },
-  uSbAmbFar: { value: new Color('#463c52') },
+  uSbAmbNear: { value: new Color('#3a2632') },
+  uSbAmbFar: { value: new Color('#54465e') },
   uSbAmbDist: { value: new Vector3(3.5, 9.0, 1.0) },
-  /** beyond the mid-ground (the castle, the far hills) the ambient turns to the haze's cyan light, and where it does */
-  uSbAmbHaze: { value: new Color('#2f728e') },
-  uSbAmbHazeDist: { value: new Vector2(10.5, 15.0) },
+  /**
+   * beyond the mid-ground (the castle, the far hills) the ambient turns a violet slate, and where
+   * it does: the far world's cyan is the light's (the in-scatter, the far fog), its shadows stay
+   * plum (a cyan ambient here turned every silhouette teal against a violet sky)
+   */
+  uSbAmbHaze: { value: new Color('#4a4a66') },
+  uSbAmbHazeDist: { value: new Vector2(13.0, 19.0) },
   /** how much of the fog there is, 0..1 (0: the desk shots, faded in as the camera enters the story) */
   uSbFogOn: { value: 1 },
   /**
@@ -230,6 +239,7 @@ uniform vec3 uSbFogMid;
 uniform vec3 uSbFogFar;
 uniform vec3 uSbMoonGlow;
 uniform vec3 uSbFogDist;
+uniform vec2 uSbScatterDist;
 uniform vec3 uSbFog;
 uniform float uSbFogOn;
 uniform vec3 uSbAir;
@@ -350,10 +360,18 @@ const FRAG_OUT = /* glsl */ `
 {
   vec3 sbRay = vSbWorld - cameraPosition;
   float sbDist = length(sbRay);
-  // the storybook ambient: a wrapped fill, maroon near the lens, plum slate in the mid-ground, cyan far off
+  // seen from above (the crane into the book and out of it) the grown world is a model on a page:
+  // its depth ramps count from the page under the lens, not from the lens high over it (or every
+  // point of the miniature reads as far: a flood of the far cyan, an exposure pump as the camera
+  // climbs), and only the page's world takes the story's air (the desk round the book has none)
+  float camH = max(cameraPosition.y - uSbGrowPage.z, 0.0);
+  float sbHi = smoothstep(2.5, 6.0, camH);
+  float sbOnPage = (1.0 - smoothstep(8.2, 9.0, abs(vSbWorld.x))) * (1.0 - smoothstep(5.7, 6.5, abs(vSbWorld.z)));
+  float sbDepth = max(sbDist - sbHi * sbOnPage * max(camH - 2.0, 0.0), 0.0);
+  // the storybook ambient: a wrapped fill, maroon near the lens, plum slate in the mid-ground, a violet slate far off
   {
-    vec3 amb = mix(uSbAmbNear, uSbAmbFar, smoothstep(uSbAmbDist.x, uSbAmbDist.y, sbDist));
-    amb = mix(amb, uSbAmbHaze, smoothstep(uSbAmbHazeDist.x, uSbAmbHazeDist.y, sbDist));
+    vec3 amb = mix(uSbAmbNear, uSbAmbFar, smoothstep(uSbAmbDist.x, uSbAmbDist.y, sbDepth));
+    amb = mix(amb, uSbAmbHaze, smoothstep(uSbAmbHazeDist.x, uSbAmbHazeDist.y, sbDepth));
     vec3 nW = normalize(vSbNormalW);
     float wrapA = clamp(0.62 + 0.22 * nW.y + 0.22 * dot(nW, uSbMoonDir), 0.2, 1.1);
     outgoingLight += diffuseColor.rgb * amb * wrapA * uSbAmbDist.z * uSbAmbMul;
@@ -372,23 +390,31 @@ const FRAG_OUT = /* glsl */ `
   // its peak capped (a glow, never a white line); (assets patch the line below by its text: keep it)
   edge = min(edge, 0.45 / max(toward * behind * uSbRim * uSbRimMul, 1e-3));
   outgoingLight += uSbRimColor * edge * toward * behind * uSbRim * uSbRimMul * diffuseColor.a;
+#if SB_KIND == 6
+  // grass right at the lens (the door shots' foreground) goes to the reference's dark maroon
+  // frame: its blades read as silhouettes, not pale moonlit strokes across the foot of the picture
+  outgoingLight *= mix(vec3(0.32, 0.18, 0.22), vec3(1.0), smoothstep(0.6, 3.0, sbDist));
+#endif
   // height fog with a depth ramp and moon in-scatter
-  if (uSbFogOn > 0.0 && uSbFogMul > 0.0) {
-    vec3 ray = sbRay;
-    float dist = sbDist;
+  if (uSbFogOn > 0.0 && uSbFogMul > 0.0 && sbOnPage > 0.0) {
+    float dist = sbDepth;
     float hF = max(vSbWorld.y - uSbFog.z, 0.0);
     float hC = max(cameraPosition.y - uSbFog.z, 0.0);
     float drift = aivFbm3(vec3(vSbWorld.xz * 0.35 + vec2(uSbTime * 0.03, uSbTime * 0.012), uSbTime * 0.02));
     float dens = uSbFog.x * 0.5 * (exp(-hF * uSbFog.y) + exp(-hC * uSbFog.y)) * (0.65 + 0.7 * drift);
-    // the aerial term by distance, thinned as the camera rises over the page (seen from above, the
-    // grown world is a model under a little air, not a valley under a sky of it)
-    float camH = max(cameraPosition.y - uSbGrowPage.z, 0.0);
-    float air = (1.0 - exp(-max(dist - uSbAir.x, 0.0) * uSbAir.y)) * uSbAir.z * mix(1.0, 0.3, smoothstep(2.5, 6.0, camH));
-    float amt = (1.0 - (1.0 - (1.0 - exp(-dens * dist))) * (1.0 - air)) * uSbFogMul * uSbFogOn;
+    // the aerial term by distance; from above, the model under a little air (thinned as the camera
+    // rises over the page), not a valley under a sky of it
+    float air = (1.0 - exp(-max(dist - uSbAir.x, 0.0) * uSbAir.y)) * uSbAir.z;
+    float amt = (1.0 - exp(-dens * dist) * (1.0 - air)) * uSbFogMul * uSbFogOn * sbOnPage * mix(1.0, 0.45, sbHi);
+    // toward the moon (the luminous window behind the castle) the far cyan comes sooner: the castle
+    // stands in it while the conifers at the same distance to the left stay plum slate
+    float toMoon = max(dot(normalize(sbRay), uSbMoonDir), 0.0);
+    float farW = smoothstep(uSbScatterDist.x, uSbScatterDist.y, dist);
     vec3 col = mix(uSbFogNear, uSbFogMid, smoothstep(uSbFogDist.x * 0.4, uSbFogDist.y, dist));
-    col = mix(col, uSbFogFar, smoothstep(uSbFogDist.y, uSbFogDist.z, dist));
-    // the moon's in-scatter: the saturated cyan light over everything seen toward the moon
-    float sc = pow(max(dot(normalize(ray), uSbMoonDir), 0.0), 8.0);
+    col = mix(col, uSbFogFar, max(smoothstep(uSbFogDist.y, uSbFogDist.z, dist), farW * toMoon * toMoon * toMoon));
+    // the moon's in-scatter: the saturated cyan light over the far world seen toward the moon (the
+    // castle, the far hills); only a little on the mid-ground under it (the cottage keeps its plum)
+    float sc = pow(toMoon, 8.0) * mix(0.25, 1.0, farW);
     col += uSbMoonGlow * sc * 1.2;
     outgoingLight = mix(outgoingLight, col, clamp(amt, 0.0, 1.0));
   }

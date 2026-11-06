@@ -35,14 +35,16 @@ export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 
   return (
     <>
       <primitive object={target} />
-      {/* the sky's fill a violet slate (a teal one turned every up-facing thing near the lens blue-grey) */}
-      <hemisphereLight args={['#56587a', '#2c1628', 0.4]} />
+      {/* the sky's fill a violet slate (a teal one turned every up-facing thing near the lens blue-grey),
+          the ground's a plum bounce: the walls, stones and trunks that face the lens read as plum and
+          lilac-grey shapes, as the reference's do, not black cut-outs */}
+      <hemisphereLight args={['#60628a', '#4a2a3c', 0.7]} />
       <directionalLight
         castShadow
         target={target}
         position={[cx + dir.x * D, FLOOR + dir.y * D, cz + dir.z * D]}
         intensity={2.6 * moon}
-        color="#b4e2f0"
+        color="#b2e6ea"
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-shadow.hw}
         shadow-camera-right={shadow.hw}
@@ -56,7 +58,7 @@ export function Night({ f, fps, moon = 1, shadow = { x: 0, z: 0, hw: 8.5, hd: 6 
       />
       {/* a faint fill from the viewer's side (the storybook ambient in the materials keeps faces
           off black; this only models them a little) */}
-      <directionalLight position={[-2, FLOOR + 4, 12]} intensity={0.2} color="#9a9aac" />
+      <directionalLight position={[-2, FLOOR + 4, 12]} intensity={0.3} color="#9a9aac" />
     </>
   );
 }
