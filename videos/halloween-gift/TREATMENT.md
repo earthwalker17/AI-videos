@@ -112,3 +112,12 @@ Ideas grafted from B and C, and fixes the judges required:
   scene changes are capped at two page turns, one slide and one close; the gift appears by
   about 0:32 and the ding lands at 0:36.
 - Clawd glances at the lens once during the first silence (B).
+
+## After the treatment
+The film was made as Candidate A, but its picture changed in production. The first picture
+(V1) was built as written above: paper sets on twos, page turns and a slide. On 2026-11-04 the
+user chose one continuous 3D storybook world instead (V2: the world grows out of the page, one
+camera journey with no page turn, sliding flat or cut, everything on ones). At the lookdev
+checkpoint on 2026-11-06 the user kept the email's new wording ("Your Claude account has been
+buried.", signed "The Graveyard Shift") in place of *ACCOUNT SUSPENDED*. Story, pacing, gag,
+score and the Chinese strings stayed as approved. STORYBOARD.md describes the published film.

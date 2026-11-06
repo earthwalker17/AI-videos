@@ -12,8 +12,9 @@ In one minute, a moonlit storybook Halloween in which Claude's mascot delivers t
 most dreaded "gift", and the viewer laughs at the ban-email meme without anyone being mocked.
 
 ## Shape
-- About 60 s: 40 bars of 3/4 at 120 bpm, 1440 frames at 24 fps (stop-motion feel: actors on
-  twos, camera on ones). The review cut adds a 12-frame test-card leader.
+- About 60 s: 40 bars of 3/4 at 120 bpm, 1440 frames at 24 fps (planned with a stop-motion
+  feel, actors on twos; the published V2 picture moves everything on ones). The review cut
+  carried a 12-frame test-card leader; the final has none.
 - 16:9, 1920×1080. A 9:16 Short is a possible later deliverable, not part of this cut.
 - Bilingual on screen: storybook captions, title and end card carry English and Simplified
   Chinese together; the email headline is English with a Chinese seal. No voice-over.

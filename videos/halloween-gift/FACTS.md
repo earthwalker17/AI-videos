@@ -19,11 +19,18 @@ the V1 checkpoint, and found correct: 万圣节礼物 (title); 万圣节之夜�
 最后一户人家，还没睡。; the upright 福; the 横批 一路绿灯 read left to right with the 上联
 代码千行一次过 on the left and the 下联 账号百年永不封 on the right, gold on red; the seal 封号;
 the tab 申诉; the end seal 完; the notice 粉丝恶搞，与 Anthropic 无关，邮件纯属虚构。
-Any new or changed Chinese string needs the same check again.
+Any new or changed Chinese string needs the same check again. The published V2 picture shows
+the same on-screen strings. The zh-Hans subtitles (`publish/captions/zh-Hans.srt`, including
+送给你的礼物, 你的 Claude 账号已被埋葬 and 万圣节快乐！) and the zh-Hans description were
+checked by the user at the review gate on 2026-11-06 and confirmed "Correct as written"
+(`video.json` approvals).
 
 ## Simplifications
-- The email is not modelled on any real message: it is a storybook prop. Only the generic
-  phrase "suspicious signals" echoes how users describe real notices.
+- The email parodies the layout of the account-suspension email users report (from a
+  screenshot the user supplied, kept locally and never committed): a pale page, a white card,
+  a mark and a name, "Hello,", a paragraph, "Regards" and a team sign-off. Every word, the mark
+  (a pumpkin starburst) and the sign-off ("The Graveyard Shift") are our own; only the generic
+  phrase "suspicious signals" echoes the real notices.
 - The couplet is a joke couplet in the programmer genre (a "flag" that tempts fate), not a
   classical composition; its tones follow the rule for the last characters only.
 
@@ -37,4 +44,4 @@ Any new or changed Chinese string needs the same check again.
   September 2025, and its supported-regions policy lists where Claude may be used) is
   recorded here for the reader, not stated in the film, and the film is not tied to any date.
 - No endorsement: the film is a fan parody, not affiliated with or endorsed by Anthropic.
-- No logos, wordmarks, real email wording, addresses or links appear.
+- No logos, wordmarks, real email sentences, addresses or links appear.
