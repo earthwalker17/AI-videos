@@ -70,8 +70,8 @@ export function timeline(ctx: ScoreContext): Timeline {
 }
 
 /**
- * Clawd's footfalls, from the walks blocked in src/film/actors.ts (repeated here: a score may
- * not import picture code): a walk from frame a to b lands a foot every beat after a, and once
+ * Clawd's footfalls, from the walks blocked in src/film/blocking.ts WALK_FRAMES (repeated here: a
+ * score may not import picture code; src/film/blocking.test.ts checks they match): a walk from frame a to b lands a foot every beat after a, and once
  * more on arrival. Change them together.
  */
 export const WALKS: readonly (readonly [number, number])[] = [
@@ -81,6 +81,35 @@ export const WALKS: readonly (readonly [number, number])[] = [
   [at(14) + 8, at(16, 3)],
   [at(33, 2), at(34, 3)],
 ];
+
+/**
+ * Where each walk sits in the picture, so its footfalls sit there in the sound: per walk, keys
+ * [u, pan, distance gain in dB] along the walk (u 0..1), linear between keys. Measured through
+ * the V2 camera (src/film/journey.ts and blocking.ts): the pan is 0.8 x Clawd's screen x (-1 at
+ * the left edge, 1 at the right), the gain -20 log10(distance / 2) below 0 dB for distances
+ * past 2 units (nearer is never louder). The camera trucks with him, so he stays a little left
+ * of centre; walk 2 recedes up the slope, the lane walk comes toward the door's camera, and the
+ * exit fades as the camera cranes out of the book. src/film/sound.test.ts checks these against
+ * the camera: change them together.
+ */
+export const STEP_PLACES: readonly (readonly (readonly [number, number, number])[])[] = [
+  [[0, -0.24, 0], [1, -0.19, 0]],
+  [[0, -0.22, 0], [0.67, -0.19, 0], [1, -0.02, 0]],
+  [[0, -0.26, 0], [0.41, -0.1, 0], [0.62, -0.06, -0.5], [0.83, -0.08, -2.8], [1, -0.14, -4.6]],
+  [[0, -0.27, -6.5], [0.14, -0.26, -5.5], [0.27, -0.22, -3.3], [0.41, -0.38, -0.7], [0.55, -0.38, -0.3], [0.68, -0.22, 0], [0.82, -0.19, 0], [0.95, 0.04, 0], [1, 0.04, 0]],
+  [[0, -0.05, -2], [0.25, 0, -4.1], [0.5, 0.14, -11.8], [0.75, 0.22, -18.4], [1, 0.22, -20.5]],
+];
+
+/** A footfall's place: its pan and its distance gain (dB), from STEP_PLACES. */
+export function stepPlace(walk: number, u: number): { pan: number; gainDb: number } {
+  const keys = STEP_PLACES[walk];
+  let k = 0;
+  while (k < keys.length - 2 && u > keys[k + 1][0]) k++;
+  const [u0, p0, g0] = keys[k];
+  const [u1, p1, g1] = keys[k + 1];
+  const t = Math.min(1, Math.max(0, (u - u0) / (u1 - u0)));
+  return { pan: p0 + (p1 - p0) * t, gainDb: g0 + (g1 - g0) * t };
+}
 
 /** Every footfall: its frame, which walk it belongs to, and how far along that walk (0..1). */
 export function footfalls(): { frame: number; walk: number; u: number }[] {

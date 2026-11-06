@@ -6,7 +6,7 @@ import { at } from '../src/cues.ts';
 import { Biquad, SR, dbToGain, peakOf, scale, seedOf } from './dsp.ts';
 import type { Stereo } from './sampler.ts';
 import type { Mixer, Place } from './mixer.ts';
-import { footfalls } from './timeline.ts';
+import { footfalls, stepPlace } from './timeline.ts';
 import type { Timeline } from './timeline.ts';
 import {
   batChirps,
@@ -113,13 +113,12 @@ export function foley(T: Timeline, mx: Mixer): void {
   put(T.cue('clawd-pop'), popSnap(S('clawd-pop'), 1), { ...fx, part: 'paper', peak: -11, hall: 0.1 });
   put(T.cue('clawd-pop') + T.s(0.01), boing(S('boing'), 240), { ...fx, part: 'boing', peak: -20, hall: 0.15 });
 
-  // --- Clawd's footsteps on the gravel paths
-  // where each walk goes across the stereo field: the valley exit screen-right, the graveyard
-  // left to right (two walks around the shoo), the lane receding up the path, the exit right
-  const walkPan = (walk: number, u: number) => [0.1 + 0.4 * u, -0.6 + 0.55 * u, 0.05 + 0.55 * u, 0, 0.2 + 0.6 * u][walk];
+  // --- Clawd's footsteps on the gravel paths, placed where he is in the picture (timeline.ts
+  // STEP_PLACES, measured through the V2 camera: a little left of centre as the camera trucks
+  // with him, receding up the slope, nearing the door, fading as the camera cranes out)
   footfalls().forEach(({ frame, walk, u }, k) => {
-    const far = walk === 3 ? -3 * u : 0;
-    put(F(frame), gravelStep(S('step', k), 0.9), { ...fx, part: 'steps', peak: -24 + far, pan: walkPan(walk, u), room: 0.12 });
+    const { pan, gainDb } = stepPlace(walk, u);
+    put(F(frame), gravelStep(S('step', k), 0.9), { ...fx, part: 'steps', peak: -24 + gainDb, pan, room: 0.12 });
   });
 
   // --- graveyard: a cold gust as Clawd hops in (a whoosh attack the onset check can see, then a
