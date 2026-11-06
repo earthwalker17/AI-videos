@@ -223,7 +223,7 @@ export function farColdAt(f: number): number {
  */
 export function footAt(f: number): number {
   const door = smoothstep(at(16, 3), at(17), f);
-  return immersionAt(f) * (1 - 0.45 * door);
+  return immersionAt(f) * (1 - 0.15 * door);
 }
 
 /**

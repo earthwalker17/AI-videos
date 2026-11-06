@@ -257,7 +257,7 @@ function peekKey(f: number, dist: number, up: number, fov: number, u: number, az
 }
 
 /** The gates beat's framing (at(14)): from the graveyard's left, back and up, the gateway left of centre, the cottage right of it. */
-const GATE_CAM = { pos: [-0.45, 0, 3.0] as V3, up: 1.5, look: [1.95, FLOOR + 1.05, -1.0] as V3, fov: 42 };
+const GATE_CAM = { pos: [-0.45, 0, 3.0] as V3, up: 1.5, look: [1.95, FLOOR + 1.42, -1.0] as V3, fov: 42 };
 
 function worldKeys(): CamKey[] {
   const keys: CamKey[] = [
