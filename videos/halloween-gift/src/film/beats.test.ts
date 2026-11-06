@@ -84,7 +84,7 @@ describe('the V2 beats', () => {
     expect(pailLitAt(at(31, 2) - 1)).toBe(0);
     expect(pailLitAt(at(31, 2) + 6)).toBe(1);
     expect(ghostLowerAt(at(11, 2))).toBeCloseTo(1, 9);
-    expect(ghostLowerAt(at(11, 2) + 8)).toBe(0);
+    expect(ghostLowerAt(at(11, 2) + 12)).toBe(0);
     expect(doorOpenAt(at(20) + 16)).toBe(1);
     expect(doorOpenAt(at(33) + 10)).toBe(0);
     expect(letterAt(at(25, 2) + 18).flip).toBe(1);

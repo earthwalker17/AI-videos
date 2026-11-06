@@ -46,7 +46,7 @@ import { BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeom
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { FPS } from '../cues.ts';
 import type { ClawdPose } from '../film/actors.ts';
-import { footAt } from '../film/beats.ts';
+import { footAt, pailLitAt } from '../film/beats.ts';
 import type { HopState } from '../film/gait.ts';
 import { fbm2 } from '../kit/field.ts';
 import { Curve } from '../kit/spline.ts';
@@ -877,8 +877,18 @@ export interface Clawd2Props {
   camPos?: readonly number[];
 }
 
-/** the self-lit term's default strength (his colour, emissive) */
-export const CLAWD_GLOW = 0.8;
+/**
+ * the self-lit term's default strength (his colour, emissive): a little, so he never sinks into the
+ * dark ground, but the scene lights him (the giant's candle a warm key beside him, the moon a rim);
+ * at 0.8 he read self-lit and flat, three times the ground's value with both sides alike
+ */
+export const CLAWD_GLOW = 0.26;
+/**
+ * the cold snap (film/beats.ts: the seal puts every candle out) takes his self-lit term down to this
+ * share and his rim from his own warm hue toward the night's cool one, until the pail relights
+ */
+const COLD_GLOW = 0.55;
+const COLD_RIM = 0.15;
 /**
  * the felt's albedo: the model sheet's #D77757 a breath toward yellow (16.5° against 15°) and a
  * little less saturated (0.58 against 0.6: the self-lit term and the rim in his own hue add chroma). With the
@@ -888,6 +898,13 @@ export const CLAWD_GLOW = 0.8;
  * (the characters lookdev's measurements).
  */
 const FELT = '#D47A58';
+/** the moon rim's share of his own hue (felt sheen) against the night's cool rim; the hat's, and its own glow */
+const FELT_RIM = 0.5;
+const HAT_RIM = 0.45;
+const HAT_GLOW = 0.1;
+interface FeltUniforms {
+  uFeltRim: { value: Vector2 };
+}
 
 let feltTex: CanvasTexture | null = null;
 /**
@@ -1071,6 +1088,7 @@ export function feltPatch(m: MeshStandardMaterial, o: FeltPatch, rest = true): M
   const base = m.onBeforeCompile;
   const key = m.customProgramCacheKey.bind(m);
   const uniforms = { uFelt: { value: feltTexture() }, uFeltK: { value: new Vector3(o.tile, o.tone, o.bump) }, uFeltRim: { value: new Vector2(o.rimTint ?? 0, o.rimCap ?? 1) }, uFeltFuzz: { value: o.fuzz ?? 0 } };
+  m.userData.felt = uniforms;
   const P = rest ? 'aRest' : 'position';
   const N = rest ? 'aRestN' : 'normal';
   const tinted = o.rimTint !== undefined;
@@ -1081,10 +1099,12 @@ export function feltPatch(m: MeshStandardMaterial, o: FeltPatch, rest = true): M
     let fs =
       `uniform sampler2D uFelt;\nuniform vec3 uFeltK;\nuniform vec2 uFeltRim;\nuniform float uFeltFuzz;\nvarying vec3 vFeltP;\nvarying vec3 vFeltN;\nfloat feltTri() {\n  vec3 w = pow(abs(normalize(vFeltN)), vec3(4.0));\n  w /= (w.x + w.y + w.z);\n  vec3 p = vFeltP / uFeltK.x;\n  return texture2D(uFelt, p.yz).r * w.x + texture2D(uFelt, p.zx + 0.37).r * w.y + texture2D(uFelt, p.xy + 0.71).r * w.z;\n}\n` +
       shader.fragmentShader
-        .replace('#include <color_fragment>', '#include <color_fragment>\nfloat sbFelt = feltTri();\ndiffuseColor.rgb *= 1.0 + (sbFelt - 0.5) * 2.0 * uFeltK.y;')
+        // (the felt's tone and bump fade once a felt texel is under ~1.5 px: from mid distance its
+        // mottle read as cork, and its one-texel fibres would sparkle in motion)
+        .replace('#include <color_fragment>', '#include <color_fragment>\nfloat sbFelt = feltTri();\nfloat sbFeltFar = 1.0 - 0.7 * smoothstep(0.55, 2.2, length(fwidth(vFeltP)) / uFeltK.x * 256.0);\nsbFelt = 0.5 + (sbFelt - 0.5) * sbFeltFar;\ndiffuseColor.rgb *= 1.0 + (sbFelt - 0.5) * 2.0 * uFeltK.y;')
         .replace(
           '#include <normal_fragment_maps>',
-          '#include <normal_fragment_maps>\nvec3 sbGeoN = normal;\n{ float graze = smoothstep(0.08, 0.45, abs(dot(normal, normalize(vViewPosition)))); normal = sbPerturb(-vViewPosition, normal, vec2(dFdx(sbFelt), dFdy(sbFelt)) * uFeltK.z * graze, faceDirection); }',
+          '#include <normal_fragment_maps>\nvec3 sbGeoN = normal;\n{ float graze = smoothstep(0.08, 0.45, abs(dot(normal, normalize(vViewPosition)))); normal = sbPerturb(-vViewPosition, normal, vec2(dFdx(sbFelt), dFdy(sbFelt)) * uFeltK.z * graze * sbFeltFar, faceDirection); }',
         )
         .replace('#include <emissivemap_fragment>', o.occlude ? '#include <emissivemap_fragment>\n#if defined( USE_COLOR_ALPHA ) || defined( USE_COLOR )\n  totalEmissiveRadiance *= vColor.rgb * (1.0 + (sbFelt - 0.5) * 2.0 * uFeltK.y);\n#endif' : '#include <emissivemap_fragment>');
     if (tinted) {
@@ -1240,12 +1260,12 @@ export function Clawd2({ pose, hop = null, f, smooth, ground = true, blink = tru
     const comp = screenComp();
     // he travels: no world-space breakup or bump (they would swim through him); his felt is his own,
     // its rim in his own colour (a felt sheen at the silhouette, never a pale cyan side)
-    const feltMat = feltPatch(storybookMaterial({ kind: 'cloth', color: FELT, breakup: 0, rim: 1.5, vertexColors: true, roughness: 0.95, emissive: FELT, emissiveIntensity: glow }), { tile: 0.34, tone: 0.6, bump: 2.6, occlude: true, rimTint: 1, rimCap: 0.85, comp, fuzz: 0.9 });
+    const feltMat = feltPatch(storybookMaterial({ kind: 'cloth', color: FELT, breakup: 0, rim: 1.5, vertexColors: true, roughness: 0.95, emissive: FELT, emissiveIntensity: glow }), { tile: 0.34, tone: 0.6, bump: 2.6, occlude: true, rimTint: FELT_RIM, rimCap: 0.85, comp, fuzz: 0.9 });
     const eyeMat = storybookMaterial({ kind: 'cloth', color: '#0e0b0d', breakup: 0, rim: 0.5, vertexColors: true, roughness: 0.6, ambient: 0.5 });
     // the hat is felt too: fibres, a fuzz sheen, its rim in its own violet (the cool rim and the thin
     // felt read as plastic), lifted off the house's wall by its lit brim
     // (and a little of the body's self-lit term, so it reads in the house's shadow, 20 luma off the wall)
-    const hatMat = feltPatch(storybookMaterial({ kind: 'cloth', color: '#ffffff', breakup: 0, rim: 1.6, vertexColors: true, roughness: 1, side: DoubleSide, emissive: '#ffffff', emissiveIntensity: 0.24 }), { tile: 0.28, tone: 0.5, bump: 2.4, occlude: true, rimTint: 0.85, rimCap: 0.7, comp, fuzz: 1.0 }, false);
+    const hatMat = feltPatch(storybookMaterial({ kind: 'cloth', color: '#ffffff', breakup: 0, rim: 1.6, vertexColors: true, roughness: 1, side: DoubleSide, emissive: '#ffffff', emissiveIntensity: HAT_GLOW }), { tile: 0.28, tone: 0.5, bump: 2.4, occlude: true, rimTint: HAT_RIM, rimCap: 0.7, comp, fuzz: 1.0 }, false);
     const wandMat = compPatch(storybookMaterial({ kind: 'bark', color: '#ffffff', breakup: 0, rim: 1.1, vertexColors: true, roughness: 1 }), comp);
     const emberMat = new MeshBasicMaterial({ color: new Color(4, 1.5, 0.35), toneMapped: false });
     // the gift glows a little in its own colours (the ribbon reads orange even from behind, in the house's shadow): the occluded self-lit term again
@@ -1323,7 +1343,13 @@ export function Clawd2({ pose, hop = null, f, smooth, ground = true, blink = tru
     built.felt.pose(mats);
     built.eyes.pose(eyeMats);
     built.emberMat.color.setRGB(4, 1.5, 0.35).multiplyScalar(emberGlow(f, pose.wand));
-    built.feltMat.emissiveIntensity = glow;
+    // the cold snap: less of his own glow, a cooler rim, until the pail relights
+    const warm = pailLitAt(f);
+    const cold = COLD_GLOW + (1 - COLD_GLOW) * warm;
+    built.feltMat.emissiveIntensity = glow * cold;
+    built.hatMat.emissiveIntensity = HAT_GLOW * cold;
+    (built.feltMat.userData.felt as FeltUniforms).uFeltRim.value.x = COLD_RIM + (FELT_RIM - COLD_RIM) * warm;
+    (built.hatMat.userData.felt as FeltUniforms).uFeltRim.value.x = COLD_RIM + (HAT_RIM - COLD_RIM) * warm;
     built.comp.uFoot.value = foot ?? footAt(f);
     built.contact.pose(discs, pose.heading);
   });

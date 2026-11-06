@@ -11,8 +11,11 @@
  * light while roots stay dark (vertex colour darkens them too). Blades face the viewer's side
  * (every shot looks roughly toward −z), so they are single-sided.
  *
- * Density falls with distance from the hero camera (tufts grow wider instead), so the far hill
- * keeps its cover without sub-pixel blades that shimmer. Tufts sway with a frame-driven wind in
+ * Density falls with distance from the nearest of the cameras that see the grass close (the hero
+ * view and the door spread's: tufts grow wider instead), so the far hill keeps its cover without
+ * sub-pixel blades that shimmer, and the hill beside the door, close in the door shots, is full.
+ * Blades are thin and wind-combed (each kind's blades bend over to one side, 20 to 45 degrees, the
+ * tuft's yaw jittering it), a few broken over. Tufts sway with a frame-driven wind in
  * the storybook material, one phase per tuft. Split into tiles so off-screen tiles cull.
  * `grow` raises the grass with the terrain.
  */
@@ -25,6 +28,8 @@ import { BOULDERS, rootGrass, ROOTS_FOOTPRINT } from './Dressing.tsx';
 import { graveFootprints } from './Graveyard.tsx';
 import { COFFIN_FOOTPRINT } from './Props2.tsx';
 import { patchItems } from './Pumpkins.tsx';
+import { at } from '../cues.ts';
+import { journeyAt } from '../film/journey.ts';
 import { FLOOR, houseFrame, LAND, PAGE, pageMask } from './layout.ts';
 import { bareMask, fbm, fenceDistance, flagMask, ground, groundShading, surfaceHeight, trackAt, turfColor, TURF_SHEEN, turfSweep, yardCentre, yardMask } from './Terrain.tsx';
 
@@ -39,6 +44,9 @@ const PROP_CLEAR: { x: number; z: number; r: number }[] = [
 
 /** The hero camera (layout of the reference's view): grass density is planned around it. */
 const HERO_EYE = new Vector3(0.3, 3.45, 7.6);
+/** the door spread's cameras (film/journey.ts, bars 17 to 31): the grass beside the door is seen close there */
+const DOOR_EYES = [at(17), at(20), at(23), at(26), at(29), at(31)].map((f) => journeyAt(f).pos);
+const doorDistance = (x: number, z: number) => Math.min(...DOOR_EYES.map((p) => Math.hypot(x - p[0], z - p[2])));
 /** horizontal direction toward the moon (NIGHT.uSbMoonDir without its height) */
 const MOONWARD = new Vector3(0.494, 0, -0.863).normalize();
 /** the moon lifted toward the sky: what lights the turf's slopes */
@@ -73,13 +81,14 @@ interface KindSpec {
 }
 
 const SPEC: Record<Kind, KindSpec> = {
-  short: { blades: 7, seg: 2, h: [0.035, 0.08], w: [0.008, 0.011], spread: 0.03, lean: [0.05, 0.35], bend: [0.2, 0.6], shade: [0.75, 1.1], root: 0.35, ramp: [0.3, 0.9], sway: 0.6 },
-  mid: { blades: 8, seg: 2, h: [0.07, 0.15], w: [0.009, 0.013], spread: 0.04, lean: [0.05, 0.4], bend: [0.3, 0.8], shade: [0.7, 1.15], root: 0.3, ramp: [0.3, 0.9], sway: 0.6, comb: [-0.2, 0.5] },
-  mid2: { blades: 8, seg: 2, h: [0.07, 0.15], w: [0.009, 0.013], spread: 0.045, lean: [0.05, 0.4], bend: [0.3, 0.8], shade: [0.7, 1.15], root: 0.3, ramp: [0.3, 0.9], sway: 0.6, comb: [-0.6, 0.1] },
+  // (thin, many to a tuft, combed over to one side: wide straight wedges read as crystal shards)
+  short: { blades: 11, seg: 2, h: [0.035, 0.08], w: [0.0045, 0.0065], spread: 0.032, lean: [0.05, 0.3], bend: [0.2, 0.5], shade: [0.75, 1.1], root: 0.35, ramp: [0.3, 0.82], sway: 0.6, comb: [0.25, 0.7] },
+  mid: { blades: 14, seg: 3, h: [0.07, 0.15], w: [0.005, 0.007], spread: 0.045, lean: [0.05, 0.35], bend: [0.3, 0.7], shade: [0.7, 1.15], root: 0.3, ramp: [0.3, 0.8], sway: 0.6, comb: [0.35, 0.8], lying: 0.05 },
+  mid2: { blades: 14, seg: 3, h: [0.07, 0.15], w: [0.005, 0.007], spread: 0.05, lean: [0.05, 0.35], bend: [0.3, 0.7], shade: [0.7, 1.15], root: 0.3, ramp: [0.3, 0.8], sway: 0.6, comb: [0.2, 0.65], lying: 0.05 },
   // tall unkempt grass: tips that only glint (no silver flames), a few blades broken over
-  tall: { blades: 9, seg: 3, h: [0.12, 0.3], w: [0.008, 0.012], spread: 0.06, lean: [0.1, 0.6], bend: [0.4, 1.3], shade: [0.6, 1.15], root: 0.35, rootUp: 0.9, moon: [0.08, 0.35], ramp: [0.42, 0.85], sway: 1, lying: 0.12 },
+  tall: { blades: 16, seg: 3, h: [0.12, 0.3], w: [0.0045, 0.0068], spread: 0.065, lean: [0.1, 0.5], bend: [0.4, 1.0], shade: [0.6, 1.15], root: 0.35, rootUp: 0.9, moon: [0.08, 0.3], ramp: [0.42, 0.78], sway: 1, lying: 0.12, comb: [0.35, 0.8] },
   // dead straw: pale, bent and broken, a fifth of it lying flat
-  straw: { blades: 8, seg: 3, h: [0.08, 0.22], w: [0.007, 0.01], spread: 0.06, lean: [0.25, 1.0], bend: [0.5, 1.6], shade: [0.75, 1.2], root: 0.45, rootUp: 0.9, moon: [0.08, 0.35], ramp: [0.45, 0.85], sway: 0.8, lying: 0.22 },
+  straw: { blades: 12, seg: 3, h: [0.08, 0.22], w: [0.004, 0.006], spread: 0.065, lean: [0.25, 0.9], bend: [0.5, 1.3], shade: [0.75, 1.2], root: 0.45, rootUp: 0.9, moon: [0.08, 0.3], ramp: [0.45, 0.8], sway: 0.8, lying: 0.22, comb: [0.2, 0.7] },
   // the far hill: upright strokes lit like the turf under them (no dark roots); they fade into
   // the turf with distance (groundShading fade), two combs so no tuft repeats like a stamp
   far: { blades: 5, seg: 2, h: [0.05, 0.13], w: [0.006, 0.009], spread: 0.04, lean: [0.03, 0.15], bend: [0.1, 0.35], shade: [0.9, 1.05], root: 0.9, rootUp: 2.2, moon: [0.03, 0.2], comb: [0.1, 0.45], ramp: [0.65, 0.9], sway: 0.25 },
@@ -134,8 +143,8 @@ function tuftGeometry(kind: Kind, seed: number): BufferGeometry {
     for (let i = 0; i <= SEG * sub; i++) {
       const t = i / (SEG * sub);
       if (i % sub === 0) {
-        // a strap that keeps its width, then a short pointed tip
-        const wt = w * (1 - 0.35 * t) * Math.min(1, (1 - t) * 3.2) + 0.0004;
+        // a strap narrowing all the way to a fine point (a wide base tapering evenly read as a spike)
+        const wt = w * (1 - 0.55 * t) * Math.min(1, (1 - t) * 2.2) + 0.0003;
         const n = rootN.clone().lerp(tipN, Math.pow(t, 0.9)).normalize();
         const ramp = sp.ramp ?? [0.22, 0.95];
         const s = ramp[0] + (ramp[1] - ramp[0]) * Math.pow(t, 0.8);
@@ -256,11 +265,12 @@ function scatter(cell: number, densityScale: number): Tuft[] {
     for (let j = 0; j < nz; j++) {
       const x = -PAGE.w / 2 + (i + rand(5, i, j * 2)) * cell;
       const z = -PAGE.d / 2 + (j + rand(5, i, j * 2 + 1)) * cell;
-      // fewer tufts far from the hero camera (they grow wider instead)
+      // fewer tufts far from the hero camera (they grow wider instead); full where a door shot sees them close
       const dist = Math.hypot(x - HERO_EYE.x, z - HERO_EYE.z);
+      const nearDoor = doorDistance(x, z);
       // the hill's top, seen against the sky from the hero view: a dense, moonlit fringe
       const crest = smoothstep(-1.4, -3.2, z);
-      const far = Math.min(1, Math.max(0.4 + 0.22 * crest, (6.0 / dist) ** 1.1));
+      const far = Math.min(1, Math.max(0.4 + 0.22 * crest, (6.0 / dist) ** 1.1, (2.6 / nearDoor) ** 1.1));
       // denser in the foreground (the turf between tufts must not read as bare snow)
       if (rand(6, i, j) > (0.58 + 0.14 * smoothstep(1.8, 3.6, z)) * far * densityScale) continue;
       const st = site(x, z);
@@ -273,7 +283,7 @@ function scatter(cell: number, densityScale: number): Tuft[] {
       if (rand(15, i, j) < st.strawy * 0.75) kind = 'straw';
       // the far hill (the hero view's middle distance and its crest): light strokes in two combs;
       // past FAR_MAX nothing (the turf's own colour carries it, no sub-pixel blades)
-      const isFar = (kind === 'short' || kind === 'mid' || kind === 'mid2') && rand(17, i, j) < Math.max(smoothstep(7.4, 9.8, dist), crest);
+      const isFar = (kind === 'short' || kind === 'mid' || kind === 'mid2') && nearDoor > 3.2 && rand(17, i, j) < Math.max(smoothstep(7.4, 9.8, dist), crest);
       if (isFar) {
         // and only in loose patches: the turf between them carries the hill
         if (dist > FAR_MAX || rand(21, i, j) > 0.35 + 0.65 * smoothKnee(0.5 + 1.4 * fbm(x, z, 77, 2, 0.9))) continue;

@@ -155,7 +155,8 @@ export function pailLitAt(f: number): number {
  * jerks back up on the ember flick (at(11, 2), the score's 'ghost-shoo').
  */
 export function ghostLowerAt(f: number): number {
-  const shoo = progress(f, at(11, 2), at(11, 2) + 8, 'outCubic');
+  // (the recoil over 12 frames, so the shoo is seen: an 8-frame jerk left the frame empty by 378)
+  const shoo = progress(f, at(11, 2), at(11, 2) + 12, 'inOutSine');
   return progress(f, at(10, 3), at(11), 'inOutSine') * (1 - shoo);
 }
 

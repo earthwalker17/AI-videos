@@ -80,7 +80,7 @@ const CAMERA_SIDE: readonly [number, number] = [0.6, 0.8];
 const hanging = (name: string, x: number, z: number, y0: number, y1: number, r = 0.45) => ({ name, x, z, r, y0: y0 - groundHeight(x, z), h: y1 - groundHeight(x, z) });
 
 /** the frames the peek ghost hangs let down (film/beats.ts ghostLowerAt above 0) */
-const PEEKING = [at(10, 3), at(11, 2) + 8] as const;
+const PEEKING = [at(10, 3), at(11, 2) + 14] as const;
 
 export interface CameraObstacle {
   name: string;
@@ -98,12 +98,12 @@ export const obstacleAt = (o: CameraObstacle, f: number | undefined): boolean =>
 
 /** Where no camera may stand: a plan circle from the ground (or from y0 above it) up to h. */
 export const CAMERA_OBSTACLES: readonly CameraObstacle[] = [
-  hanging('ghost 0', 3.48, 2.52, 1.62, 3.3),
+  hanging('ghost 0', 3.54, 2.56, 1.62, 3.3),
   hanging('ghost 1', 2.81, 2.18, 2.35, 3.6),
   // the peek ghost gathered up under the limb at rest (world/Ghosts.tsx GATHER_MIN), let down only
   // while it peeks: it leans out toward Clawd and comes down beside his hat
   hanging('ghost 2 (the peek)', 1.5, 1.56, 2.5, 3.3),
-  { ...hanging('ghost 2 (let down)', 1.52, 1.36, 0.1, 3.3, 0.56), when: PEEKING },
+  { ...hanging('ghost 2 (let down)', 1.56, 1.28, -0.02, 3.3, 1.0), when: PEEKING },
   // the high ghost above the moon, tied on above the frame's top edge
   hanging('ghost 3', 3.16, 2.42, 2.75, 4.1),
   ...STONES.map((s, i) => ({ name: `stone ${i} (${s.kind})`, x: s.x, z: s.z, r: 0.28, h: s.h + 0.1 })),

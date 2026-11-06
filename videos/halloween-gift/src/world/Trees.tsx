@@ -179,18 +179,20 @@ function ghostParams(): Partial<TreeParams> & { seed: number } {
     stubs: { count: 3, length: 0.14, radius: 0.04 },
     ground: localGround(B, 0),
     keepOut: (p) => moon(p) || drop(p),
+    // (the S-curve leans out to the right above the roots: upright, its trunk walled off the hero
+    // frame's right edge where the reference shows the lit sky right of the moon)
     trunkPath: [
       [0, -0.35, 0],
       [0.03, 0.15, 0],
-      [-0.16, 0.7, 0.05],
-      [-0.06, 1.2, 0.0],
-      [-0.32, 1.7, -0.05],
-      [-0.42, 2.15, -0.1],
-      [-0.3, 2.6, -0.15],
-      [-0.36, 3.1, -0.2],
-      [-0.55, 3.6, -0.26],
-      [-0.5, 4.1, -0.3],
-      [-0.38, 4.5, -0.28],
+      [-0.12, 0.7, 0.05],
+      [0.04, 1.2, 0.0],
+      [0.06, 1.7, -0.05],
+      [0.22, 2.15, -0.1],
+      [0.42, 2.6, -0.15],
+      [0.48, 3.1, -0.2],
+      [0.42, 3.6, -0.26],
+      [0.5, 4.1, -0.3],
+      [0.62, 4.5, -0.28],
     ],
     hero: [
       {
@@ -201,18 +203,21 @@ function ghostParams(): Partial<TreeParams> & { seed: number } {
         at: 0.66,
         dir: [-1, 0, 0],
         length: 0,
-        radius: 0.62,
-        elbow: 0.06,
+        // (a gnarled bough, not a tusk: past its root it is about a third of the thickness it was,
+        // 8 to 14 px across the hero frame's top as the reference's limb, knobbly at its elbows and
+        // the ropes' knots, twigs and spurs off its upper side)
+        radius: 0.44,
+        elbow: 0.05,
         flat: 0.66,
         flatTwist: 0.12,
         path: HERO_LIMB.map(([k, y, s]) => L(k, y, s)),
-        radii: [1, 0.76, 0.62, 0.54, 0.47, 0.43, 0.39, 0.34, 0.28, 0.18, 0.06],
-        knobs: HOOK_K.map((k) => ({ at: L(k, heroLimbY(k)), r: 0.32, w: 0.07 })),
+        radii: [1, 0.56, 0.42, 0.36, 0.31, 0.27, 0.24, 0.21, 0.17, 0.11, 0.04],
+        knobs: [...HOOK_K.map((k) => ({ at: L(k, heroLimbY(k)), r: 0.45, w: 0.06 })), ...HERO_LIMB.slice(2, 9).map(([k, y, s]) => ({ at: L(k, y, s), r: 0.32, w: 0.05 }))],
         // short gnarled spurs and broken stubs along it, rather than long branches (the frame's top is near)
-        stubs: { count: 6, length: 0.1, radius: 0.42 },
-        children: 8,
-        childLength: 0.45,
-        childRange: [0.06, 0.92],
+        stubs: { count: 10, length: 0.09, radius: 0.5 },
+        children: 12,
+        childLength: 0.36,
+        childRange: [0.06, 0.94],
       },
       {
         // the leader: up and left out of the frame's top, zig-zagging
@@ -520,6 +525,9 @@ export const CONIFERS: { x: number; z: number; h: number; r: number; seed: numbe
   { x: -2.6, z: -4.4, h: 2.8, r: 0.52, seed: 54 },
   { x: 6.2, z: -4.4, h: 1.8, r: 0.42, seed: 55 },
   { x: 7.0, z: -4.6, h: 1.4, r: 0.36, seed: 56 },
+  // beyond the lane right of the house: the gates shot's horizon there is silhouettes, not the page's edge
+  { x: 7.1, z: -1.6, h: 1.9, r: 0.42, seed: 59 },
+  { x: 7.45, z: -2.6, h: 1.5, r: 0.36, seed: 60 },
 ];
 
 function coniferParams(c: (typeof CONIFERS)[number]): Partial<ConiferParams> & { seed: number } {
@@ -720,10 +728,11 @@ export function Trees({ f, oldTree }: TreesProps) {
     // full rim drew a pale line along the limb's underside against the moonlit sky)
     // (and less haze: at the hero's distance the near trees' heavy share of fog turned it a flat pale teal)
     const barkGhost = storybookMaterial({ ...barkOpts, rim: 0.3, fog: 0.55 });
-    // the background trees: the same wood, further into the haze, no sway
-    const barkFar = storybookMaterial({ kind: 'bark', color: '#837074', color2: '#5c5862', vertexColors: true, roughness: 0.95, breakup: 0.35, scale: 0.2, bump: 0.5, rim: 1.5, map: tex.map, bumpMap: tex.bump, bumpScale: 1.6, fog: 1.6 });
-    // the pines: very dark plum, a faint rim only
-    const needles = storybookMaterial({ kind: 'plain', color: '#2a1f2c', color2: '#150f18', vertexColors: true, roughness: 1, breakup: 0.3, scale: 0.35, rim: 0.1, fog: 0.9 });
+    // the background trees: the same wood, in the haze (at 1.6 the haze turned them teal on the violet
+    // sky, the reference's are plum and lilac-slate silhouettes), no sway
+    const barkFar = storybookMaterial({ kind: 'bark', color: '#837074', color2: '#5c5862', vertexColors: true, roughness: 0.95, breakup: 0.35, scale: 0.2, bump: 0.5, rim: 1.5, map: tex.map, bumpMap: tex.bump, bumpScale: 1.6, fog: 0.7 });
+    // the pines: very dark plum, a faint rim only, little haze (at 0.9 they read teal, not plum)
+    const needles = storybookMaterial({ kind: 'plain', color: '#2a1f2c', color2: '#150f18', vertexColors: true, roughness: 1, breakup: 0.3, scale: 0.35, rim: 0.1, fog: 0.35 });
     return { geos, bark, barkGhost, barkFar, needles, oldAt: oldBase({ x: ox, z: oz }) };
   }, [ox, oz]);
   useLayoutEffect(

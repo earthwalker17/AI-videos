@@ -94,10 +94,13 @@ function bodyOf(stand: number, tilt: number) {
     { c: [0, 0.58 - 0.2 * s, 0], r: [0.19, 0.24 - 0.06 * s, 0.12] },
     { c: [0, 0.37 - 0.12 * s, -0.005], r: [0.175, 0.12, 0.115] },
   ];
-  // the bowl: its foot's centre; tipped toward Clawd it comes out and up a little
-  const bowlY = 0.6 - 0.24 * s;
-  // (its rim's front stays 2.5 cm behind the letter's card, which rises 0.45 in front of the doorway)
-  const bowl = new Vector3(0, bowlY + 0.02 * tilt, 0.27 + 0.01 * s).addScaledVector(TO_CLAWD, 0.06 * tilt);
+  // the bowl: its foot's centre; offered (tipped toward Clawd) it comes out to him and down toward
+  // his pail, so the candy's drop reads in one frame with his hat and pail (held at chest height it
+  // tipped over his hat, 18 cm off)
+  const offer = 0.09 * tilt;
+  const bowlY = 0.6 - 0.24 * s - offer;
+  // (its rim's front stays 2.5 cm behind the letter's card, which rises 0.45 in front of the doorway; the letter has sunk before the offer)
+  const bowl = new Vector3(0, bowlY + 0.02 * tilt, 0.27 + 0.01 * s).addScaledVector(TO_CLAWD, 0.11 * tilt);
   const q = new Quaternion().setFromAxisAngle(new Vector3(TO_CLAWD.z, 0, -TO_CLAWD.x), TILT_MAX * tilt);
   const inBowl = (x: number, y: number, z: number) => new Vector3(x, y, z).applyQuaternion(q).add(bowl);
   const shoulderY = ells[3].c[1];
@@ -106,7 +109,7 @@ function bodyOf(stand: number, tilt: number) {
     const hand = inBowl(side * 0.04, -0.021, -0.004);
     ells.push({ c: [hand.x, hand.y, hand.z], r: [0.05, 0.021, 0.064] });
     const wrist = inBowl(side * 0.078, -0.03, -0.062);
-    const elbow = new Vector3(side * 0.205, bowlY - 0.04 - 0.03 * s, 0.06 + 0.02 * s);
+    const elbow = new Vector3(side * 0.205, bowlY - 0.04 - 0.03 * s + 0.4 * offer, 0.06 + 0.02 * s + 0.5 * offer);
     const shoulder = new Vector3(side * 0.25, shoulderY - 0.03, -0.01);
     for (let k = 0; k <= 3; k++) {
       const t = k / 3;
@@ -335,6 +338,12 @@ function drape(pose: UserPose, t: number, out: Drape): void {
       // scallop: its crests reach out a little further and lift off the floor
       const hemWave = smoothstep(0.9, 1.0, v);
       let r = Math.max(0, r0 + A * fold * (1 - 0.5 * floor) + 0.009 * fine * fineK + 0.045 * smoothstep(0.26, 0.0, y0) ** 2 * (1 - 0.9 * slip) + 0.03 * hemWave * fold + 0.03 * corner * smoothstep(0.7, 1, v));
+      // the sheet's storage folds (a grid of shallow raised creases out of the linen cupboard: four
+      // round it, three down it) and, where it lies on the floor, the hem crumpled into ridges
+      const creaseU = Math.max(...[0.6, 1.95, 3.35, 4.75].map((a) => Math.exp(-(1 - Math.cos(th - a)) * 820)));
+      const creaseV = Math.max(...[0.34, 0.56, 0.77].map((c) => Math.exp(-(((v - c) / 0.014) ** 2))));
+      r += 0.0045 * Math.max(creaseU, creaseV) * smoothstep(0.22, 0.32, v) * (1 - floor);
+      r += floor * 0.014 * (Math.sin(13 * th + 2.1) * Math.sin(7 * th - 0.7) + 0.5 * Math.sin(23 * th + 1.3));
       // creases over the crown, gathered toward the bunch on top (the sheet pulled over the head)
       const crownK = smoothstep(0.0, 0.05, v) * (1 - smoothstep(0.1, 0.2, v));
       r -= crownK * (0.007 * Math.abs(Math.sin(3.5 * th + 0.8)) + 0.004 * Math.abs(Math.sin(6 * th + 2.2)));

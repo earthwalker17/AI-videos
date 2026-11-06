@@ -63,11 +63,13 @@ import {
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { TessellateModifier } from 'three/examples/jsm/modifiers/TessellateModifier.js';
 import { fbm2Fast as fbm2 } from '../kit/field.ts';
+import { fbm3 } from '../kit/stone.ts';
 import { Builder, cresting, finial, gablePlanes, ridgeCap, shingles, underGable, type Gable, type RGBA, type RoofPlane, type ShingleSpec, type V3 } from '../kit/roof.ts';
 import { useFilmFonts } from '../look/fonts.ts';
 import { storybookMaterial, type Paint } from '../look/materials.ts';
 import { canvas, seq } from '../look/paper.ts';
 import { GOLD_INK, useRedPaper } from '../look/redpaper.ts';
+import { pumpkinsLitAt } from '../film/beats.ts';
 import { DOOR_FRONT, FLOOR, houseFrame, LAND, onGround } from './layout.ts';
 import { ground, surfaceHeight } from './Terrain.tsx';
 
@@ -181,28 +183,32 @@ interface GlowUniforms {
   uGlowMul: { value: number };
   uGlowWin: { value: number };
   uGlowAlbedo: { value: number };
+  uGlowRed: { value: number };
 }
+/** the red lanterns' light, shared by every glow material (dimmed after the cold snap: House `f`) */
+const RED_GLOW = { value: 1 };
 
-const GLOW_VERT = 'attribute vec3 aGlow;\nattribute vec3 aGlowW;\nuniform float uGlowMul;\nuniform float uGlowWin;\nvarying vec3 vSbGlow;\n';
+const GLOW_VERT = 'attribute vec3 aGlow;\nattribute vec3 aGlowW;\nattribute vec3 aGlowR;\nuniform float uGlowMul;\nuniform float uGlowWin;\nuniform float uGlowRed;\nvarying vec3 vSbGlow;\n';
 const GLOW_FRAG = 'uniform float uGlowAlbedo;\nvarying vec3 vSbGlow;\n';
 
 /**
- * The storybook material plus a baked practical light: per-vertex RGB (aGlow: the lanterns, scaled
- * by uGlowMul; aGlowW: the windows, scaled by uGlowWin) added to the emitted light, times the
+ * The storybook material plus a baked practical light: per-vertex RGB (aGlow: the wall lantern, and
+ * aGlowR: the red lanterns, times uGlowRed, both scaled by uGlowMul; aGlowW: the windows, scaled by
+ * uGlowWin) added to the emitted light, times the
  * surface's albedo (uGlowAlbedo 1: light falling on it) or as it is (0: the surface glows itself,
  * the paper lanterns). One module-level injection, keyed apart from the plain storybook programs.
  */
 function injectGlow(this: MeshStandardMaterial, shader: WebGLProgramParametersWithUniforms, renderer: WebGLRenderer): void {
   SB_INJECT.call(this, shader, renderer);
   Object.assign(shader.uniforms, (this.userData as { glow: GlowUniforms }).glow);
-  shader.vertexShader = GLOW_VERT + shader.vertexShader.replace('#include <project_vertex>', 'vSbGlow = aGlow * uGlowMul + aGlowW * uGlowWin;\n#include <project_vertex>');
+  shader.vertexShader = GLOW_VERT + shader.vertexShader.replace('#include <project_vertex>', 'vSbGlow = (aGlow + aGlowR * uGlowRed) * uGlowMul + aGlowW * uGlowWin;\n#include <project_vertex>');
   shader.fragmentShader = GLOW_FRAG + shader.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vSbGlow * mix(vec3(1.0), diffuseColor.rgb, uGlowAlbedo);');
 }
 
 /** A storybook material that takes the baked practical light (see injectGlow). */
 export function glowMaterial(o: Paint, albedo = 1): MeshStandardMaterial {
   const m = storybookMaterial(o);
-  const glow: GlowUniforms = { uGlowMul: { value: 1 }, uGlowWin: { value: 1 }, uGlowAlbedo: { value: albedo } };
+  const glow: GlowUniforms = { uGlowMul: { value: 1 }, uGlowWin: { value: 1 }, uGlowAlbedo: { value: albedo }, uGlowRed: RED_GLOW };
   m.userData.glow = glow;
   const key = m.customProgramCacheKey();
   m.onBeforeCompile = injectGlow;
@@ -222,10 +228,14 @@ interface Practical {
 /** the red lanterns hang this much lower than DOOR_FRONT's places, on longer cords (the door shots cut their tops off) */
 const LANTERN_DROP = 0.08;
 export const RED_LANTERNS = DOOR_FRONT.lanterns.map(([x, y, z]) => new Vector3(x, y - LANTERN_DROP, z));
-const LANTERN_LIGHTS: Practical[] = [
-  { p: WALL_LANTERN, c: [0.3, 0.88, 1.0], power: 0.18, r0: 0.12, reach: 1.4 },
-  ...RED_LANTERNS.map((p) => ({ p, c: [1.0, 0.42, 0.16] as const, power: 0.026, r0: 0.1, reach: 0.65 })),
-];
+const WALL_LIGHT: Practical[] = [{ p: WALL_LANTERN, c: [0.3, 0.88, 1.0], power: 0.18, r0: 0.12, reach: 1.4 }];
+/**
+ * the red lanterns' light: a red-gold wash on the couplets, the 横批, the jambs and the porch
+ * (deep red, not the pumpkins' orange: warm light belongs to the candles)
+ */
+const RED_LIGHTS: Practical[] = RED_LANTERNS.map((p) => ({ p, c: [1.0, 0.28, 0.14] as const, power: 0.05, r0: 0.1, reach: 0.9 }));
+/** after the cold snap the red lanterns burn at this share (the pail's relight is the warm focus) until the porch relights */
+const RED_COLD = 0.4;
 
 function lightAt(P: Vector3, N: Vector3, lights: readonly Practical[], out: [number, number, number]): [number, number, number] {
   out[0] = out[1] = out[2] = 0;
@@ -248,7 +258,7 @@ function lightAt(P: Vector3, N: Vector3, lights: readonly Practical[], out: [num
 }
 
 /** Write a per-vertex glow attribute: fn(house-local position, normal) → RGB (m: geometry → house-local). */
-function setGlow(g: BufferGeometry, name: 'aGlow' | 'aGlowW', fn: (p: Vector3, n: Vector3) => readonly [number, number, number], m?: Matrix4): void {
+function setGlow(g: BufferGeometry, name: 'aGlow' | 'aGlowW' | 'aGlowR', fn: (p: Vector3, n: Vector3) => readonly [number, number, number], m?: Matrix4): void {
   const pos = g.attributes.position;
   const nor = g.attributes.normal;
   const arr = new Float32Array(pos.count * 3);
@@ -271,95 +281,123 @@ function setGlow(g: BufferGeometry, name: 'aGlow' | 'aGlowW', fn: (p: Vector3, n
   g.setAttribute(name, new BufferAttribute(arr, 3));
 }
 
-/** Both glow attributes: the lanterns' light and the windows' (house-local); `lanterns` may leave some out. */
-function bakeGlow(g: BufferGeometry, windows: readonly Practical[], m?: Matrix4, lanterns: readonly Practical[] = LANTERN_LIGHTS): void {
+/** The glow attributes: the wall lantern's light (unless `cyan` is false), the red lanterns' and the windows' (house-local). */
+function bakeGlow(g: BufferGeometry, windows: readonly Practical[], m?: Matrix4, cyan = true): void {
   const t: [number, number, number] = [0, 0, 0];
-  setGlow(g, 'aGlow', (p, n) => lightAt(p, n, lanterns, t), m);
+  setGlow(g, 'aGlow', (p, n) => lightAt(p, n, cyan ? WALL_LIGHT : [], t), m);
+  setGlow(g, 'aGlowR', (p, n) => lightAt(p, n, RED_LIGHTS, t), m);
   setGlow(g, 'aGlowW', (p, n) => lightAt(p, n, windows, t), m);
 }
 
 // ---- cut stone -----------------------------------------------------------------------------------
 
 /**
- * A dressed stone: a box with chamfered edges and corners (flat faces, crisp edges that catch the
- * light as thin lines), every corner knocked a little differently and every face a little out of
- * true, so no two stones are alike. Half extents h, chamfer ch (world units), transformed by m.
+ * A dressed stone, worn: a rounded box (its edges rounded by about the chamfer, each edge and corner
+ * worn a little differently), its faces a little out of true and pitted, smooth-shaded so it reads
+ * as weathered stone rather than a low-poly block; its pits and the joints round it darker in the
+ * vertex colour (a cheap occlusion). Half extents h, chamfer ch (world units), transformed by m
+ * (which may mirror: the winding follows).
  */
 function cutStone(out: Builder, m: Matrix4, h: readonly [number, number, number], ch: number, seed: number, rgba: RGBA, jit = 0.35): void {
-  let k = 0;
-  const r = () => rand(seed, 'cut', k++) - 0.5;
-  const ctr = new Vector3().applyMatrix4(m);
-  const V: Vector3[][] = [];
-  for (let c = 0; c < 8; c++) {
-    const s = [c & 1 ? 1 : -1, c & 2 ? 1 : -1, c & 4 ? 1 : -1];
-    const knock = 1 + Math.max(0, r()) * 1.8;
-    const row: Vector3[] = [];
-    for (let a = 0; a < 3; a++) {
-      const q = [0, 0, 0];
-      for (let i = 0; i < 3; i++) q[i] = i === a ? s[i] * (h[i] + r() * jit * ch) : s[i] * (h[i] - ch * knock * (1 + r() * 0.4));
-      row.push(new Vector3(q[0], q[1], q[2]).applyMatrix4(m));
-    }
-    V.push(row);
-  }
-  const idx = (s: number[]) => (s[0] > 0 ? 1 : 0) + (s[1] > 0 ? 2 : 0) + (s[2] > 0 ? 4 : 0);
-  const n = new Vector3();
-  const e1 = new Vector3();
-  const e2 = new Vector3();
-  const tri = (a: Vector3, b: Vector3, c: Vector3, col: RGBA) => {
-    n.crossVectors(e1.subVectors(b, a), e2.subVectors(c, a));
-    const mx = (a.x + b.x + c.x) / 3 - ctr.x;
-    const my = (a.y + b.y + c.y) / 3 - ctr.y;
-    const mz = (a.z + b.z + c.z) / 3 - ctr.z;
-    if (n.x * mx + n.y * my + n.z * mz < 0) out.tri(a, c, b, col);
-    else out.tri(a, b, c, col);
-  };
-  // (the bevels and knocked corners dark: the joints between the stones read recessed)
-  const dark: RGBA = [rgba[0] * 0.66, rgba[1] * 0.64, rgba[2] * 0.68, rgba[3] * 0.6];
-  // faces
-  for (let a = 0; a < 3; a++) {
-    const b = (a + 1) % 3;
-    const c = (a + 2) % 3;
-    for (const sa of [-1, 1]) {
-      const q = [
-        [-1, -1],
-        [1, -1],
-        [1, 1],
-        [-1, 1],
-      ].map(([sb, sc]) => {
-        const s = [0, 0, 0];
-        s[a] = sa;
-        s[b] = sb;
-        s[c] = sc;
-        return V[idx(s)][a];
-      });
-      tri(q[0], q[1], q[2], rgba);
-      tri(q[0], q[2], q[3], rgba);
-    }
-  }
-  // edge bevels
-  for (let a = 0; a < 3; a++)
-    for (let b = a + 1; b < 3; b++) {
-      const c = 3 - a - b;
-      for (const sa of [-1, 1])
-        for (const sb of [-1, 1]) {
-          const s0 = [0, 0, 0];
-          const s1 = [0, 0, 0];
-          s0[a] = s1[a] = sa;
-          s0[b] = s1[b] = sb;
-          s0[c] = -1;
-          s1[c] = 1;
-          const p0 = V[idx(s0)][a];
-          const p1 = V[idx(s1)][a];
-          const p2 = V[idx(s1)][b];
-          const p3 = V[idx(s0)][b];
-          const lit = (b === 1 && sb > 0) || (a === 1 && sa > 0);
-          const col: RGBA = lit ? [rgba[0] * 1.12, rgba[1] * 1.12, rgba[2] * 1.12, rgba[3]] : dark;
-          tri(p0, p1, p2, col);
-          tri(p0, p2, p3, col);
+  const N = 6;
+  const hx = h[0];
+  const hy = h[1];
+  const hz = h[2];
+  // (a dressed stone's arris worn round, not a pillow: about the chamfer, at most a third of its smallest half extent)
+  const rr = Math.max(0.004, Math.min(ch * 0.9, Math.min(hx, hy, hz) * 0.32));
+  // the faces out of true: each face pushed in or out a little; the stone's own pitting phase
+  const off = [0, 1, 2, 3, 4, 5].map((i) => (rand(seed, 'face', i) - 0.5) * jit * ch);
+  const ph = rand(seed, 'pit', 0) * 50;
+  const pos: number[] = [];
+  const ao: number[] = [];
+  const idx: number[] = [];
+  const P = new Vector3();
+  const I = new Vector3();
+  const D = new Vector3();
+  for (let f = 0; f < 6; f++) {
+    const ax = f >> 1;
+    const sg = f & 1 ? 1 : -1;
+    const bx = (ax + 1) % 3;
+    const cx = (ax + 2) % 3;
+    const base = pos.length / 3;
+    for (let j = 0; j <= N; j++)
+      for (let i = 0; i <= N; i++) {
+        const c = [0, 0, 0];
+        c[ax] = sg;
+        // (the grid bunched toward the edges, where the rounding turns)
+        const u = ((i / N) * 2 - 1) * (sg > 0 ? 1 : -1);
+        const v = (j / N) * 2 - 1;
+        c[bx] = Math.sign(u) * Math.abs(u) ** 0.8;
+        c[cx] = Math.sign(v) * Math.abs(v) ** 0.8;
+        P.set(c[0] * hx, c[1] * hy, c[2] * hz);
+        I.set(clamp(P.x, -(hx - rr), hx - rr), clamp(P.y, -(hy - rr), hy - rr), clamp(P.z, -(hz - rr), hz - rr));
+        D.subVectors(P, I);
+        const l = D.length();
+        if (l > 1e-7) P.copy(I).addScaledVector(D, rr / l);
+        const n = l > 1e-7 ? D.multiplyScalar(1 / l) : D.set(ax === 0 ? sg : 0, ax === 1 ? sg : 0, ax === 2 ? sg : 0);
+        // out of true: the nearest faces' offsets, blended by how square the normal faces them
+        let push = 0;
+        for (let q = 0; q < 3; q++) {
+          const nq = q === 0 ? n.x : q === 1 ? n.y : n.z;
+          push += off[q * 2 + (nq > 0 ? 1 : 0)] * Math.max(0, Math.abs(nq) - 0.3) * 1.4;
         }
-    }
-  // corners
-  for (let c = 0; c < 8; c++) tri(V[c][0], V[c][1], V[c][2], dark);
+        // pits and wear: a fine pitting field and a coarse lumpiness, deeper on the faces than on the edges
+        const fx = P.x * 34 + ph;
+        const fy = P.y * 34;
+        const fz = P.z * 34;
+        // (fbm3 is -1..1: its upper fifth pits the face 2 to 5 mm deep)
+        const pit = Math.max(0, fbm3(fx, fy, fz, seed & 1023, 2) - 0.2) * 0.009;
+        const lump = fbm3(P.x * 7 + ph, P.y * 7, P.z * 7, (seed + 7) & 1023, 2) * 0.004;
+        const d = push + lump - pit;
+        P.addScaledVector(n, d);
+        pos.push(P.x, P.y, P.z);
+        ao.push(1 - Math.min(0.45, pit * 110) + Math.max(-0.1, Math.min(0.1, lump * 25)));
+      }
+    for (let j = 0; j < N; j++)
+      for (let i = 0; i < N; i++) {
+        const a0 = base + j * (N + 1) + i;
+        const a1 = a0 + 1;
+        const a2 = a0 + N + 1;
+        const a3 = a2 + 1;
+        idx.push(a0, a1, a3, a0, a3, a2);
+      }
+  }
+  let g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+  g.setAttribute('aAo', new BufferAttribute(new Float32Array(ao), 1));
+  g.setIndex(idx);
+  const merged = mergeVertices(g, 1e-5);
+  g.dispose();
+  g = merged;
+  // outward winding (the grid's own may face in on some faces): flip any triangle facing the centre,
+  // take the smooth normals, then, if m mirrors, turn every triangle over (the normals stay outward)
+  const pa = g.attributes.position;
+  const ix = g.index!;
+  const A = new Vector3();
+  const B = new Vector3();
+  const C = new Vector3();
+  const nrm = new Vector3();
+  const swap = (t: number) => {
+    const k = ix.getX(t + 1);
+    ix.setX(t + 1, ix.getX(t + 2));
+    ix.setX(t + 2, k);
+  };
+  for (let t = 0; t < ix.count; t += 3) {
+    A.fromBufferAttribute(pa, ix.getX(t));
+    B.fromBufferAttribute(pa, ix.getX(t + 1));
+    C.fromBufferAttribute(pa, ix.getX(t + 2));
+    nrm.crossVectors(B.clone().sub(A), C.clone().sub(A));
+    if (nrm.dot(A.add(B).add(C)) < 0) swap(t);
+  }
+  g.computeVertexNormals();
+  if (m.determinant() < 0) for (let t = 0; t < ix.count; t += 3) swap(t);
+  const aoA = g.attributes.aAo;
+  // the joints round the stone and its knocked edges: darker toward the back (into the wall)
+  out.add(g, m, (_p, _n, i) => {
+    const k = aoA.getX(ix.getX(i));
+    return [rgba[0] * k, rgba[1] * k, rgba[2] * k, rgba[3]];
+  });
+  g.dispose();
 }
 
 // ---- walls -----------------------------------------------------------------------------------
@@ -515,16 +553,24 @@ function surround(out: Builder, w: Wall, o: Opening, seed: number, width: number
   const M = wallMatrix(w);
   const r = (k: number) => rand(seed, 'surround', k);
   let k = 0;
-  const P = (u: number, y: number, d: number) => new Vector3(u, y, d).applyMatrix4(M);
   const stone = (q: [number, number][], d: number, rgba: RGBA) => {
-    // a prism: front polygon q (counter-clockwise) at depth d, sides back to the wall
-    const front = q.map(([u, y]) => P(u, y, d));
-    const back = q.map(([u, y]) => P(u, y, -0.005));
-    for (let i = 1; i < q.length - 1; i++) out.tri(front[0], front[i], front[i + 1], rgba);
-    for (let i = 0; i < q.length; i++) {
-      const j = (i + 1) % q.length;
-      out.quad(back[i], back[j], front[j], front[i], [rgba[0] * 0.72, rgba[1] * 0.72, rgba[2] * 0.72, 0.06]);
+    // a worn stone standing out of the wall (cutStone), fitted to the quad q (its corners in the
+    // wall's plane, counter-clockwise) and d proud of the wall
+    const cu = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4;
+    const cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4;
+    const eu = q[1][0] - q[0][0] + (q[2][0] - q[3][0]);
+    const ey = q[1][1] - q[0][1] + (q[2][1] - q[3][1]);
+    const ang = Math.atan2(ey, eu);
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
+    let ha = 0;
+    let hb = 0;
+    for (const [u, y] of q) {
+      ha = Math.max(ha, Math.abs((u - cu) * ca + (y - cy) * sa));
+      hb = Math.max(hb, Math.abs(-(u - cu) * sa + (y - cy) * ca));
     }
+    const sm = M.clone().multiply(new Matrix4().makeTranslation(cu, cy, (d - 0.012) / 2)).multiply(new Matrix4().makeRotationZ(ang));
+    cutStone(out, sm, [ha * 0.97, hb * 0.97, (d + 0.012) / 2], Math.min(0.012, d * 0.4), Math.floor(seed * 13 + cu * 977 + cy * 331), rgba, 0.5);
   };
   if (o.kind === 'round') {
     const R0 = o.w / 2;
@@ -651,7 +697,7 @@ function quoins(out: Builder, corner: V3, faceA: V3, faceB: V3, y0: number, y1: 
     m.setPosition(c);
     m.multiply(new Matrix4().makeRotationY((rand(seed, 'qr', i) - 0.5) * 0.06));
     // each block its own tone and cast (some warmer, some cooler), its edges knocked about
-    const v = 0.7 + 0.5 * rand(seed, 'qv', i);
+    const v = 0.68 + 0.32 * rand(seed, 'qv', i);
     const w = (rand(seed, 'qw', i) - 0.5) * 0.14;
     cutStone(out, m, [la / 2, h * 0.46, lb / 2], 0.016 + 0.016 * rand(seed, 'qc', i), seed * 37 + i, [v * (1 + w), v * 0.98, v * (1.02 - w), 0.45], 0.7);
     y += h;
@@ -943,6 +989,27 @@ function wallLantern(iron: Builder, glass: Builder, at: Vector3, s: number, corn
     iron.quad(capA[i], capA[j], g1[j], g1[i], [0.6, 0.6, 0.6, 0.2]);
   }
   iron.add(new SphereGeometry(0.014 * s, 6, 4), new Matrix4().makeTranslation(c.x, y1 + 0.095 * s, c.z), col);
+  // the crown: a leaf curling up and out at each of the cap's corners, a collar under the ball, and
+  // rivets at the frame's joints (the reference's lantern is forged, not a plain prism)
+  for (let i = 0; i < 4; i++) {
+    const [a, b] = P4[i];
+    const base = corner3(a, b, y1 + 0.004 * s, 1.38);
+    const mid = corner3(a, b, y1 + 0.03 * s, 1.62);
+    const tip = corner3(a, b, y1 + 0.05 * s, 1.5);
+    beam(iron, base, mid, t * 1.1, t * 0.8, up, col);
+    beam(iron, mid, tip, t * 0.8, t * 0.6, up, col);
+  }
+  {
+    const collar = new TorusGeometry(0.016 * s, 0.004 * s, 4, 10);
+    iron.add(collar, new Matrix4().makeTranslation(c.x, y1 + 0.075 * s, c.z).multiply(new Matrix4().makeRotationX(Math.PI / 2)), col);
+    collar.dispose();
+  }
+  for (const [y, k] of [[y0, 0.7], [y1, 1]] as const)
+    for (const [a, b] of P4) {
+      const rivet = new SphereGeometry(0.0045 * s, 5, 3);
+      iron.add(rivet, new Matrix4().makeTranslation(...corner3(a, b, y, k * 1.12).toArray()), [1.15, 1.15, 1.15, 0.4]);
+      rivet.dispose();
+    }
   // the bottom: an inverted pyramid with a drop
   const bot0 = P4.map(([a, b]) => corner3(a, b, y0, 0.8));
   const bot = new Vector3(c.x, y0 - 0.06 * s, c.z);
@@ -959,6 +1026,18 @@ function wallLantern(iron: Builder, glass: Builder, at: Vector3, s: number, corn
     return new Vector3().lerpVectors(arm0, arm1, Math.sin(a) * 0.75).add(new Vector3(0, -0.17 * Math.cos(a), 0));
   });
   for (let i = 0; i < 5; i++) beam(iron, pts[i], pts[i + 1], 0.013, 0.013, new Vector3(0, 0, 1), col);
+  // the brace's end curls into a scroll under the arm
+  {
+    const o = pts[0];
+    const along = new Vector3().subVectors(arm1, arm0).normalize();
+    const sc: Vector3[] = [];
+    for (let k = 0; k <= 10; k++) {
+      const a = (k / 10) * Math.PI * 1.7;
+      const rad = 0.045 * (1 - (0.7 * k) / 10);
+      sc.push(o.clone().addScaledVector(along, Math.sin(a) * rad).add(new Vector3(0, -rad + Math.cos(a) * rad, 0)));
+    }
+    for (let k = 0; k < 10; k++) beam(iron, sc[k], sc[k + 1], 0.011, 0.011, new Vector3(0, 0, 1), col);
+  }
   beam(iron, new Vector3(corner.x - 0.012, top - 0.22, corner.z + 0.012), new Vector3(corner.x - 0.012, top + 0.03, corner.z + 0.012), 0.05, 0.016, new Vector3(-1, 0, 1).normalize(), col);
 }
 
@@ -1135,11 +1214,12 @@ function masonryCanvas(): { color: HTMLCanvasElement; bump: HTMLCanvasElement } 
     }
     y += h;
   }
-  // stucco patches over the rubble, their edges peeled
-  for (let i = 0; i < 16; i++) {
+  // stucco patches over the rubble, their edges peeled (a third of the wall at most: in the door
+  // shots, where the wall fills a fifth of the frame, the stones must read)
+  for (let i = 0; i < 9; i++) {
     const cx = r() * N;
     const cy = r() * N;
-    const R = 70 + r() * 170;
+    const R = 55 + r() * 120;
     const pts: [number, number][] = [];
     const n = 22;
     for (let j = 0; j < n; j++) {
@@ -1155,6 +1235,13 @@ function masonryCanvas(): { color: HTMLCanvasElement; bump: HTMLCanvasElement } 
         g.beginPath();
         pts.forEach(([px, py], j) => (j ? g.lineTo(px, py) : g.moveTo(px, py)));
         g.closePath();
+        // its broken edge casts a little shadow on the rubble below it
+        g.save();
+        g.translate(0, 5);
+        g.strokeStyle = 'rgba(8,4,10,0.55)';
+        g.lineWidth = 6;
+        g.stroke();
+        g.restore();
         g.fillStyle = tone;
         g.fill();
         g.strokeStyle = 'rgba(160,150,158,0.5)';
@@ -1229,6 +1316,31 @@ function lanternCanvas(): HTMLCanvasElement {
   grd.addColorStop(1, 'rgb(60,150,170)');
   g.fillStyle = grd;
   g.fillRect(0, 0, W, H);
+  // each pane darker toward its frame (the glow falls off into the leading, not a flat pane)
+  for (const [x0, y0, x1, y1] of [
+    [0, 0, 12, 0],
+    [W, 0, W - 12, 0],
+    [0, 0, 0, 16],
+    [0, H, 0, H - 14],
+  ]) {
+    const e = g.createLinearGradient(x0, y0, x1, y1);
+    e.addColorStop(0, 'rgba(10,40,50,0.7)');
+    e.addColorStop(1, 'rgba(10,40,50,0)');
+    g.fillStyle = e;
+    g.fillRect(0, 0, W, H);
+  }
+  // soot on the glass: a smudge up from the flame and a few seeded smears
+  const sm = seq(83, 'soot');
+  g.fillStyle = 'rgba(20,30,34,0.28)';
+  g.beginPath();
+  g.ellipse(W * 0.5, H * 0.12, W * 0.42, H * 0.14, 0, 0, Math.PI * 2);
+  g.fill();
+  for (let i = 0; i < 7; i++) {
+    g.fillStyle = `rgba(20,34,40,${0.08 + 0.12 * sm()})`;
+    g.beginPath();
+    g.ellipse(sm() * W, sm() * H, 3 + sm() * 8, 8 + sm() * 22, (sm() - 0.5) * 0.6, 0, Math.PI * 2);
+    g.fill();
+  }
   return c;
 }
 
@@ -1518,11 +1630,15 @@ function buildHouse(): HouseGeos {
   for (const { wall } of W) for (const o of wall.openings ?? []) if (o.kind !== 'door') glassAt(wall, o);
 
   // the roofs
-  const tileSpec = { tileW: 0.25, exposure: 0.16, thickness: 0.03, kick: 0.03, ao: 0.74, edgeLight: 0.8, value: 0.45, grain: 0.16 };
+  // (big wavy slates, as the reference's: at 0.25 wide they merged into a smooth plane at the hero's
+  // distance; each course's step shadow and lit lower lip strong, tiles twisted a few degrees, some
+  // slipped or missing)
+  const tileSpec = { tileW: 0.36, exposure: 0.23, thickness: 0.042, kick: 0.045, ao: 0.82, edgeLight: 1.0, value: 0.45, grain: 0.16, twist: 0.1, missing: 0.03, slipped: 0.05, wave: 0.22 };
   roofTiles(roof, wood, dw, 1, tileSpec, (p) => underHip(tw, p, 0.012) || underGable(bay, p, 0.012));
   hippedTiles(roof, wood, tw, 2, tileSpec, (p) => underGable(dw, p, 0.012) || underGable(bay, p, 0.012));
-  roofTiles(roof, wood, bay, 3, { tileW: 0.15, exposure: 0.1, thickness: 0.016 }, (p) => underHip(tw, p, 0.012));
-  roofTiles(roof, wood, PORCH, 4, { tileW: 0.15, exposure: 0.1, thickness: 0.016 });
+  const small = { tileW: 0.22, exposure: 0.145, thickness: 0.026, kick: 0.03, ao: 0.78, edgeLight: 0.9, twist: 0.1, missing: 0.03, slipped: 0.05 };
+  roofTiles(roof, wood, bay, 3, small, (p) => underHip(tw, p, 0.012));
+  roofTiles(roof, wood, PORCH, 4, small);
   // painted light on the roofs: dark at the eaves, lifting toward the ridges where the low moon
   // behind grazes over them (each roof by its own eave and peak), so the slopes read as planes
   {
@@ -1737,19 +1853,25 @@ function buildHouse(): HouseGeos {
   // the baked practical light on everything near the lanterns and windows
   for (const k of ['walls', 'stones', 'reveal', 'roof', 'wood', 'gold']) bakeGlow(out[k], windowLights);
   // the iron takes the red lanterns' light only (the cyan lantern's own cage would glow grey)
-  for (const k of ['iron', 'lanternIron']) bakeGlow(out[k], windowLights, undefined, LANTERN_LIGHTS.slice(1));
+  for (const k of ['iron', 'lanternIron']) bakeGlow(out[k], windowLights, undefined, false);
   const leaf = new Matrix4().makeTranslation(HINGE[0], HINGE[1], HINGE[2] + LEAF_T);
   for (const k of ['doorWood', 'doorIron']) bakeGlow(out[k], windowLights, leaf);
-  // the paper lanterns glow themselves: brightest at the equator between the ribs, dim at the caps
-  setGlow(out.paper, 'aGlow', (p) => {
+  // the paper lanterns glow themselves, lit from a flame inside: deep red paper, a hot orange-gold
+  // core band round the equator between the ribs (brightest toward the door yard, where the lens
+  // is), falling off to a dark red toward the caps; the ribs dark lines
+  setGlow(out.paper, 'aGlowR', (p, n) => {
     let best = RED_LANTERNS[0];
     for (const L of RED_LANTERNS) if (L.distanceToSquared(p) < best.distanceToSquared(p)) best = L;
-    const dy = (p.y - best.y) / 0.09;
+    const dy = clamp((p.y - best.y) / 0.09, -1, 1);
     const th = Math.atan2(p.z - best.z, p.x - best.x) + best.x * 3;
-    const between = Math.pow(Math.abs(Math.sin(th * 6)), 0.5);
-    const k = (0.15 + 0.85 * (1 - dy * dy)) * (0.45 + 0.55 * between) * 0.8;
-    return [k, k * 0.17, k * 0.04];
+    const between = 0.3 + 0.7 * Math.pow(Math.abs(Math.sin(th * 6)), 0.6);
+    const band = 1 - dy * dy;
+    // (a narrow core: a wide one burned the whole ball orange, a fifth pumpkin in the door shots)
+    const core = band ** 10 * (0.5 + 0.5 * clamp(n.z * 0.8 - n.y * 0.3 + 0.2, 0, 1));
+    const red = 0.1 + 0.42 * band;
+    return [(0.55 * red + 0.95 * core) * between, (0.012 * red + 0.22 * core) * between, (0.02 * red + 0.05 * core) * between];
   });
+  setGlow(out.paper, 'aGlow', () => [0, 0, 0]);
   setGlow(out.paper, 'aGlowW', () => [0, 0, 0]);
   const cap0 = digCap();
   const decal = contactDecal();
@@ -1866,12 +1988,12 @@ export interface HouseProps {
   doorOpen?: number;
   /** the windows' and the room's glow, 0..1 */
   windows?: number;
-  /** the film frame (reserved for flicker; the house is otherwise static) */
+  /** the film frame: the red lanterns dim after the cold snap (film/beats.ts pumpkinsLitAt) */
   f?: number;
 }
 
 /** The last house in its frame (houseFrame), the door at the local origin. */
-export function House({ doorOpen = 0, windows = 1 }: HouseProps) {
+export function House({ doorOpen = 0, windows = 1, f }: HouseProps) {
   const { fonts, ready } = useFilmFonts();
   const geos = useMemo(buildHouse, []);
   const glowTex = useMemo(() => {
@@ -1896,12 +2018,16 @@ export function House({ doorOpen = 0, windows = 1 }: HouseProps) {
     return t;
   }, []);
   const mats = useMemo(() => {
-    // the cottage holds its value in the mid-ground haze, as in the reference (the castle behind is hazed)
-    const fog = 0.5;
-    const walls = glowMaterial({ kind: 'stone', color: '#ffffff', color2: '#4a4250', map: wallTex.map, bumpMap: wallTex.bump, bumpScale: 2.6, breakup: 0.22, scale: 0.16, bump: 0.75, topCoat: 0.2, vertexColors: true, rim: 0.8, fog });
+    // the cottage holds its own plum in the mid-ground haze, as in the reference (the castle behind
+    // is hazed; at 0.45 the haze still turned its walls a navy slate from the hero view)
+    const fog = 0.25;
+    // a dark plum house, not a navy one: the reference's walls are plum stone (about sRGB 53, 38, 53)
+    // and its roofs a slate violet (54, 53, 71); backlit, the cottage lives on the night's ambient,
+    // so the walls take more of it and a plum cast (red lifted past white: the masonry map is grey)
+    const walls = glowMaterial({ kind: 'stone', color: new Color(1.38, 1.0, 1.06), color2: '#5a4250', map: wallTex.map, bumpMap: wallTex.bump, bumpScale: 3.2, breakup: 0.22, scale: 0.16, bump: 0.75, topCoat: 0.2, vertexColors: true, rim: 0.8, fog, ambient: 1.8 });
     // the dressed stones: pitted, chiselled faces (a strong fine bump), mottled, lichen on their tops
-    const stones = glowMaterial({ kind: 'stone', color: '#8a8794', color2: '#544f60', breakup: 0.55, scale: 0.034, bump: 3.2, topCoat: 0.2, vertexColors: true, rim: 0.4, fog, ambient: 0.85 });
-    const roof = glowMaterial({ kind: 'stone', color: '#575166', color2: '#3d3848', breakup: 0.22, scale: 0.07, bump: 0.55, vertexColors: true, rim: 1.1, roughness: 0.7, fog });
+    const stones = glowMaterial({ kind: 'stone', color: '#887482', color2: '#54485a', breakup: 0.55, scale: 0.034, bump: 3.2, topCoat: 0.2, vertexColors: true, rim: 0.25, fog, ambient: 0.95 });
+    const roof = glowMaterial({ kind: 'stone', color: '#625a6c', color2: '#40384a', breakup: 0.22, scale: 0.07, bump: 0.55, vertexColors: true, rim: 1.1, roughness: 0.7, fog, ambient: 1.9 });
     const wood = glowMaterial({ kind: 'wood', color: '#54424a', color2: '#36282e', breakup: 0.3, scale: 0.1, bump: 0.8, vertexColors: true, rim: 0.6, fog });
     const iron = glowMaterial({ kind: 'iron', color: '#2a2a31', metalness: 0.45, roughness: 0.5, breakup: 0.12, scale: 0.04, bump: 0.3, vertexColors: true, rim: 1.1, fog });
     const glass = storybookMaterial({ color: '#04090c', emissive: '#7fe4f2', emissiveMap: glowTex, emissiveIntensity: 2.2, roughness: 0.25, fog: 0.4, rim: 0, ambient: 0, breakup: 0 });
@@ -1910,7 +2036,7 @@ export function House({ doorOpen = 0, windows = 1 }: HouseProps) {
     // bumped, they glittered white per pixel against the glow and would boil in motion)
     const lanternIron = glowMaterial({ kind: 'iron', color: '#1b1a1f', metalness: 0.15, roughness: 0.85, breakup: 0, scale: 0.04, bump: 0.05, vertexColors: true, rim: 0.3, fog });
     const eyes = storybookMaterial({ color: '#000000', emissive: '#ffd35a', emissiveIntensity: 2.6, fog: 0.5, rim: 0, ambient: 0, breakup: 0 });
-    const paper = glowMaterial({ kind: 'cloth', color: '#8f2a27', color2: '#5e1a1c', breakup: 0.18, scale: 0.05, vertexColors: true, rim: 0.4, roughness: 0.8, fog }, 0);
+    const paper = glowMaterial({ kind: 'cloth', color: '#6e1614', color2: '#3e0c0e', breakup: 0.18, scale: 0.05, vertexColors: true, rim: 0.3, roughness: 0.8, fog }, 0);
     const gold = glowMaterial({ kind: 'iron', color: '#a8843c', metalness: 0.65, roughness: 0.42, breakup: 0.1, scale: 0.03, vertexColors: true, rim: 0.5, fog });
     const room = new MeshBasicMaterial({ vertexColors: true });
     const roomBack = new MeshBasicMaterial({ map: roomTex });
@@ -1981,6 +2107,11 @@ export function House({ doorOpen = 0, windows = 1 }: HouseProps) {
   useLayoutEffect(() => () => paperMats.forEach((m) => m.dispose()), [paperMats]);
   const k = clamp(windows, 0, 1);
   const open = clamp(doorOpen, 0, 1);
+  // the red lanterns dim with the cold snap, back up as the porch relights
+  const red = f === undefined ? 1 : RED_COLD + (1 - RED_COLD) * pumpkinsLitAt(f, true);
+  useLayoutEffect(() => {
+    RED_GLOW.value = red;
+  }, [red]);
   // the glows follow `windows`; the door leaf, swung into the dark room, loses the moon's rim, the
   // lanterns' light and some of the night's ambient as it opens
   useLayoutEffect(() => {
