@@ -41,7 +41,7 @@ export const ROLE_LABELS: readonly RoleLabel[] = [
   // on clear ground east of the deck, between its frame and the Thread cord's descent (>= 12 px from both)
   { text: WORDS.router.en, foot: [REEL_FRAME[2].x1 - 8, 300, REEL_FRAME_Z[1]], dx: 40, dy: 26, anchor: 'start' },
   // the reporting Worker: the leader ends on the test tower bay's nameplate
-  { text: WORDS.worker.en, foot: [rectC(BAYS.tests.box)[0], BAYS.tests.box.y0 + BAYS.tests.southWall / 2, BAYS.tests.wallH], dx: 30, dy: 50, anchor: 'start' },
+  { text: WORDS.worker.en, foot: [rectC(BAYS.tests.box)[0] + 40, BAYS.tests.box.y0 - 8, 0], dx: 30, dy: 44, anchor: 'start' },
   // beside your desk, at its west edge (not a heading for the notes)
   { text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [YOU.slab.x0 + 2, rectC(YOU.slab)[1] - 30, YOU.top], dx: -24, dy: 16, anchor: 'end' },
 ];

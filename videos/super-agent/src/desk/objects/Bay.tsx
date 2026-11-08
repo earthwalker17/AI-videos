@@ -6,19 +6,19 @@
  * (lit while computing) and a three-tool rack. What differs is the task, and it breaks the bay's
  * outline: every bay stays under 80, clearly below the deck at 120.
  * - BugBay: a bench whose six test pins stand above its walls, the vermilion folder docked on it with
- *   the request on top; its rack holds tweezers, a magnifier and a probe;
- * - TestsBay: a stack light of test lamps taller than its walls (a dome on top); its rack holds a
- *   caliper, a fork gauge and a stopwatch;
- * - DocsBay: wide and low, type set in lines in a galley tray (ink on enamel); its rack holds a nib,
- *   a ruler and a composing stick.
+ *   the request on top (its beetle a die-cut window);
+ * - TestsBay: a capped stack of three test lamps taller than its walls, concentric lenses on top;
+ * - DocsBay: wide and low, type set in lines in a galley tray (ink on paper).
+ * Every rack holds the same three tools (a magnifier, a wrench, a pen): the family's shared fixture.
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
-import type { BufferGeometry } from 'three';
+import { Path, Shape, type BufferGeometry } from 'three';
 import { bayDoor, bayWalls } from '../footprints.ts';
-import { cylinderZ, disc, dome, frame, merge, plane, planeOn, ringFlat, slab, tube } from '../geom.ts';
-import { EMIT, Step, WithMats, isStepped, useDeskMats, type DeskMats } from '../kit.tsx';
-import { BAYS, BAY_FLOOR, BENCH, FOLDER, GALLEY_TRAY, PINS, REQUEST, SHEET, TOWER, rectC, type BayLayout, type Rect } from '../layout.ts';
+import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, tube } from '../geom.ts';
+import { EMIT, Step, WithMats, isStepped, useDeskMats, useDeskSets, type DeskMats } from '../kit.tsx';
+import { BAYS, BAY_FLOOR, BENCH, FOLDER, GALLEY_TRAY, PINS, REQUEST, SHEET, TOWER, rectC, towerTop, type BayLayout, type Rect } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
+import type { MeshBasicMaterial } from 'three';
 import type { DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
@@ -43,59 +43,34 @@ function rackRows(rack: Rect): { rail: BufferGeometry; rows: number[]; x0: numbe
   return { rail, rows: [rack.y0 + 8 + d * 0.16, rack.y0 + 8 + d * 0.5, rack.y0 + 8 + d * 0.84], x0: rack.x0 + 14, x1: rack.x1 - 14 };
 }
 
-/** Debugging: tweezers, a magnifier, a probe. */
-function bugTools(rack: Rect): Tools {
+/**
+ * The shared rack: every Worker has the same three tools (one family), lying in its rack, each a
+ * silhouette of about 60 u (50 px): a magnifier (read), a wrench (run), a pen (write).
+ */
+function sharedTools(rack: Rect): Tools {
   const { rows, x0, x1 } = rackRows(rack);
   const [a, b, c] = rows;
-  const tweezers = merge([
-    tube(
-      [
-        [x0, a - 1, z],
-        [x1 - 4, a - 5, z],
-      ],
-      1.6,
-      6,
-      6,
-    ),
-    tube(
-      [
-        [x0, a + 1, z],
-        [x1 - 4, a + 5, z],
-      ],
-      1.6,
-      6,
-      6,
-    ),
-  ]);
-  const magnifier = merge([ringFlat(10, 2.6, x1 - 12, b, z), rodX(x0 + 18, x1 - 24, b, 2)]);
-  const probe = rodX(x0 + 16, x1, c, 1.2);
-  return { metal: merge([tweezers, magnifier, probe]), grips: merge([rodX(x0, x0 + 16, b, 3.8), merge([rodX(x0, x0 + 16, c, 3.6), dome(4, x0, c, z)])]) };
-}
-
-/** Testing: a caliper, a fork gauge, a stopwatch on its strap. */
-function testTools(rack: Rect): Tools {
-  const { rows, x0, x1 } = rackRows(rack);
-  const [a, b, c] = rows;
-  const caliper = merge([slab({ x0, x1, y0: a - 2.5, y1: a + 2.5 }, z - 1.5, z + 1.5, 1, 0.4), slab({ x0, x1: x0 + 5, y0: a - 12, y1: a + 2 }, z - 1.5, z + 1.5, 1, 0.4), slab({ x0: x0 + 22, x1: x0 + 27, y0: a - 12, y1: a + 2 }, z - 1.5, z + 1.5, 1, 0.4)]);
-  const fork = merge([rodX(x0 + 16, x1, b - 4, 1.6), rodX(x0 + 16, x1, b + 4, 1.6), rodX(x0 + 10, x0 + 18, b, 2.6)]);
-  const watch = merge([disc(11, z - 2, z + 2.5, { cx: x1 - 12, cy: c, bevel: 1 }), cylinderZ(2, z, z + 2, x1 - 12, c + 13, 8)]);
-  const strap = rodX(x0, x1 - 22, c, 2.4);
-  return { metal: merge([caliper, fork, watch]), grips: merge([strap, rodX(x0, x0 + 12, b, 3.4)]) };
-}
-
-/** Writing: a nib, a ruler, a composing stick. */
-function docTools(rack: Rect): Tools {
-  const { rows, x0, x1 } = rackRows(rack);
-  const [a, b, c] = rows;
-  const nib = (() => {
-    const g = cylinderZ(3.4, 0, x1 - x0 - 18, 0, 0, 14, 0.6);
+  const magnifier = merge([ringFlat(10, 2.8, x1 - 12, a, z), rodX(x0 + 22, x1 - 23, a, 2)]);
+  const jaw = (() => {
+    const s = new Shape();
+    s.absarc(x1 - 10, b, 10, 0, Math.PI * 2, false);
+    const h = new Path();
+    h.moveTo(x1 - 4, b - 4.5);
+    h.lineTo(x1 + 2, b - 4.5);
+    h.lineTo(x1 + 2, b + 4.5);
+    h.lineTo(x1 - 4, b + 4.5);
+    h.closePath();
+    s.holes.push(h);
+    return extrude(s, z - 2, z + 2, 0.6);
+  })();
+  const wrench = merge([jaw, slab({ x0: x0 + 4, x1: x1 - 16, y0: b - 3.5, y1: b + 3.5 }, z - 2, z + 2, 1.5, 0.5)]);
+  const pen = (() => {
+    const g = cylinderZ(3.4, 0, x1 - x0 - 16, 0, 0, 14, 0.6);
     g.rotateY(Math.PI / 2);
-    g.translate(x0 + 18, a, z);
+    g.translate(x0 + 16, c, z);
     return g;
   })();
-  const ruler = merge([slab({ x0, x1, y0: b - 5, y1: b + 5 }, z - 2, z + 1, 1, 0.4), ...Array.from({ length: 8 }, (_, i) => slab({ x0: x0 + 6 + i * 8, x1: x0 + 7.4 + i * 8, y0: b + 1, y1: b + 5 }, z + 1, z + 1.6, 0.2, 0.1))]);
-  const stick = merge([slab({ x0, x1, y0: c - 6, y1: c + 6 }, z - 2, z, 1, 0.4), slab({ x0, x1, y0: c + 4, y1: c + 6 }, z - 2, z + 4, 0.5, 0.3), slab({ x0: x1 - 4, x1, y0: c - 6, y1: c + 6 }, z - 2, z + 4, 0.5, 0.3)]);
-  return { metal: merge([ruler, stick]), grips: merge([nib, rodX(x0, x0 + 18, a, 3.6)]) };
+  return { metal: merge([magnifier, wrench]), grips: merge([rodX(x0, x0 + 22, a, 3.8), pen, merge([rodX(x0, x0 + 16, c, 3.6), dome(3.6, x0, c, z)])]) };
 }
 
 function useBayGeometry(b: BayLayout, tools: (rack: Rect) => Tools) {
@@ -122,7 +97,7 @@ function useBayGeometry(b: BayLayout, tools: (rack: Rect) => Tools) {
 }
 
 /** The class every Worker shares, with its task's superstructure as children. */
-function BayBase({ b, slot, tools, children }: { b: BayLayout; slot: 'slotBug' | 'slotTests' | 'slotDocs'; tools: (rack: Rect) => Tools; children: ReactNode }) {
+function BayBase({ b, slot, slotMat, tools = sharedTools, children }: { b: BayLayout; slot: 'slotBug' | 'slotTests' | 'slotDocs'; slotMat?: MeshBasicMaterial; tools?: (rack: Rect) => Tools; children: ReactNode }) {
   const m = useDeskMats();
   const g = useBayGeometry(b, tools);
   return (
@@ -133,7 +108,7 @@ function BayBase({ b, slot, tools, children }: { b: BayLayout; slot: 'slotBug' |
       <mesh geometry={g.door} material={m.enamelShade} />
       <mesh geometry={g.doorBar} material={m.steel} />
       <mesh geometry={g.slotBlock} material={m.graphiteDark} />
-      <mesh geometry={g.slit} material={m[slot]} />
+      <mesh geometry={g.slit} material={slotMat ?? m[slot]} />
       <mesh geometry={g.slitLip} material={m.steel} />
       <mesh geometry={g.tray} material={m.enamelShade} />
       <mesh geometry={g.stack} material={m.paper} />
@@ -165,21 +140,46 @@ function useBenchGeometry() {
     // the six pins stand above the walls: a base, a post (the flags are posed per frame)
     const pinBases = merge(Array.from({ length: PINS.n }, (_, i) => cylinderZ(5, BENCH.z[1], BENCH.z[1] + 4, PINS.x0 + i * PINS.dx, PINS.y, 16)));
     const pinPosts = merge(Array.from({ length: PINS.n }, (_, i) => cylinderZ(1.8, BENCH.z[1] + 4, BENCH.z[1] + PINS.h, PINS.x0 + i * PINS.dx, PINS.y, 10)));
-    const flag = slab({ x0: -8, x1: 8, y0: -18, y1: -2 }, 0, 1, 1.5, 0.3);
+    const flag = slab({ x0: -11, x1: 11, y0: -22, y1: -2 }, 0, 1.2, 1.5, 0.3);
     const folder = slab(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 3, 1);
     const folderTop = planeOn(FOLDER.box, FOLDER.z[1] + 0.2);
     const folderTab = slab({ x0: FOLDER.box.x0 + 8, x1: FOLDER.box.x0 + 50, y0: FOLDER.box.y0 - 9, y1: FOLDER.box.y0 + 2 }, FOLDER.z[0], FOLDER.z[0] + 2, 2, 0.6);
-    const request = (() => {
-      const g = plane(REQUEST.l, REQUEST.w, 0, 0, 0, 0);
+    const place = (g: BufferGeometry) => {
       g.rotateZ(REQUEST.rot - Math.PI / 2);
-      g.translate(REQUEST.c[0], REQUEST.c[1], REQUEST.z + 0.4);
+      g.translate(REQUEST.c[0], REQUEST.c[1], 0);
       return g;
+    };
+    // the print covers the slip's west 82 u (the code), clear of the beetle window
+    const request = (() => {
+      const g = plane(82, REQUEST.w, -REQUEST.l / 2 + 41, 0, REQUEST.z + 0.5);
+      const uv = g.getAttribute('uv');
+      for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * (82 / REQUEST.l));
+      return place(g);
     })();
     const requestBody = (() => {
-      const g = slab({ x0: -REQUEST.l / 2, x1: REQUEST.l / 2, y0: -REQUEST.w / 2, y1: REQUEST.w / 2 }, 0, 0.8, 1.5, 0.2);
-      g.rotateZ(REQUEST.rot - Math.PI / 2);
-      g.translate(REQUEST.c[0], REQUEST.c[1], REQUEST.z - 0.4);
-      return g;
+      const s = new Shape();
+      const hw = REQUEST.l / 2;
+      const hh = REQUEST.w / 2;
+      s.moveTo(-hw, -hh);
+      s.lineTo(hw, -hh);
+      s.lineTo(hw, hh);
+      s.lineTo(-hw, hh);
+      s.closePath();
+      // the beetle, cut through: body, head and three legs a side (the folder shows through)
+      const bx = hw - 19;
+      const body = new Path();
+      body.absellipse(bx, -1, 10, 8, 0, Math.PI * 2, true);
+      s.holes.push(body);
+      const head = new Path();
+      head.absellipse(bx + 14, -1, 4, 4.5, 0, Math.PI * 2, true);
+      s.holes.push(head);
+      for (const side of [-1, 1])
+        for (const k of [-1, 0, 1]) {
+          const leg = new Path();
+          leg.absellipse(bx + k * 6, -1 + side * 11.5, 1.4, 3.6, 0, Math.PI * 2, true);
+          s.holes.push(leg);
+        }
+      return place(extrude(s, REQUEST.z - 0.6, REQUEST.z + 0.3, 0));
     })();
     return { top, edge, legs, pinBases, pinPosts, flag, folder, folderTop, folderTab, request, requestBody };
   }, []);
@@ -198,11 +198,12 @@ function PinFlag({ i, state, geometry }: { i: number; state: number; geometry: B
 
 export function BugBay({ s }: { s: DeskState }) {
   const g = useBenchGeometry();
+  const { full } = useDeskSets();
   return (
     <Step on={isStepped(s.step, 'bugBay')}>
       <WithMats>
         {(m) => (
-          <BayBase b={BAYS.bug} slot="slotBug" tools={bugTools}>
+          <BayBase b={BAYS.bug} slot="slotBug" slotMat={full.slotBug}>
             <mesh geometry={g.legs} material={m.graphiteDark} />
             <mesh geometry={g.top} material={m.graphite} />
             <mesh geometry={g.edge} material={m.enamelShade} />
@@ -211,11 +212,12 @@ export function BugBay({ s }: { s: DeskState }) {
             {s.pins.map((p, i) => (
               <PinFlag key={i} i={i} state={p} geometry={g.flag} />
             ))}
-            <mesh geometry={g.folder} material={m.vermilionShade} />
-            <mesh geometry={g.folderTop} material={m.printed.folder} />
-            <mesh geometry={g.folderTab} material={m.vermilionShade} />
-            <mesh geometry={g.requestBody} material={m.vermilionPaper} />
-            <mesh geometry={g.request} material={m.printed.request} />
+            {/* the request keeps its vermilion when the bay steps down: it is the film's tracer */}
+            <mesh geometry={g.folder} material={full.vermilionShade} />
+            <mesh geometry={g.folderTop} material={full.printed.folder} />
+            <mesh geometry={g.folderTab} material={full.vermilionShade} />
+            <mesh geometry={g.requestBody} material={full.vermilionPaper} />
+            <mesh geometry={g.request} material={full.printed.request} />
           </BayBase>
         )}
       </WithMats>
@@ -229,18 +231,27 @@ function useTowerGeometry() {
   return useMemo(() => {
     const T = TOWER;
     const z0 = T.base + T.post;
-    const post = merge([disc(T.r + 6, T.base, T.base + 3, { cx: T.x, cy: T.y, bevel: 1 }), cylinderZ(5, T.base + 3, z0, T.x, T.y, 16)]);
-    const lamps: BufferGeometry[] = [];
-    const rings: BufferGeometry[] = [];
+    const drums: BufferGeometry[] = [];
+    const bands: BufferGeometry[] = [];
+    const lenses: BufferGeometry[] = [];
     for (let i = 0; i < T.n; i++) {
       const a = z0 + i * (T.seg + T.gap);
-      lamps.push(cylinderZ(T.r, a, a + T.seg, T.x, T.y, 40));
-      rings.push(cylinderZ(T.r + 1.2, a + T.seg, a + T.seg + T.gap, T.x, T.y, 40));
+      drums.push(cylinderZ(T.r, a, a + T.seg, T.x, T.y, 64));
+      bands.push(cylinderZ(T.r + 1.5, a + T.seg - 4, a + T.seg, T.x, T.y, 64));
+      // each lamp's lens faces south, toward the camera
+      const lens = dome(9, 0, 0, 0);
+      lens.rotateX(-Math.PI / 2);
+      lens.translate(T.x, T.y - T.r + 0.5, a + T.seg / 2);
+      lenses.push(lens);
+      if (i > 0) drums.push(cylinderZ(T.r - 6, a - T.gap, a, T.x, T.y, 48));
     }
-    rings.push(cylinderZ(T.r + 1.2, z0 - 2, z0, T.x, T.y, 40));
-    const top = z0 + T.n * T.seg + (T.n - 1) * T.gap;
-    const cap = dome(T.r - 1, T.x, T.y, top);
-    return { post, lamps: merge(lamps), rings: merge(rings), cap };
+    const top = towerTop();
+    const cap = disc(T.r + 2, top, top + T.dome, { cx: T.x, cy: T.y, bevel: 1.5 });
+    // the cap's concentric lenses, the tower's mark seen from above
+    const capLens = disc(T.r - 12, top + T.dome, top + T.dome + 1.5, { cx: T.x, cy: T.y, bevel: 0.6 });
+    const capRings = merge([ringFlat(T.r - 6, 1.6, T.x, T.y, top + T.dome + 0.4), ringFlat(T.r - 22, 1.4, T.x, T.y, top + T.dome + 1.8), ringFlat(8, 1.2, T.x, T.y, top + T.dome + 1.9)]);
+    const base = disc(T.r + 6, T.base, T.base + T.post, { cx: T.x, cy: T.y, bevel: 1 });
+    return { drums: merge(drums), bands: merge(bands), lenses: merge(lenses), cap, capLens, capRings, base };
   }, []);
 }
 
@@ -252,11 +263,14 @@ export function TestsBay({ s }: { s: DeskState }) {
     m.slotTests.color.set(LIGHT_HEX.work).multiplyScalar(0.25 + (EMIT.slotDocs - 0.25) * s.testsLight);
   }, [m, s.testsLight]);
   return (
-    <BayBase b={BAYS.tests} slot="slotTests" tools={testTools}>
-      <mesh geometry={g.post} material={m.graphite} />
-      <mesh geometry={g.lamps} material={m.paperLit} />
-      <mesh geometry={g.rings} material={m.graphite} />
+    <BayBase b={BAYS.tests} slot="slotTests">
+      <mesh geometry={g.base} material={m.graphiteDark} />
+      <mesh geometry={g.drums} material={m.graphite} />
+      <mesh geometry={g.bands} material={m.enamelShade} />
+      <mesh geometry={g.lenses} material={m.paperLit} />
       <mesh geometry={g.cap} material={m.enamel} />
+      <mesh geometry={g.capLens} material={m.paperLit} />
+      <mesh geometry={g.capRings} material={m.steel} />
     </BayBase>
   );
 }
@@ -292,7 +306,7 @@ export function DocsBay({ s }: { s: DeskState }) {
     <Step on={isStepped(s.step, 'docsBay')}>
       <WithMats>
         {(m) => (
-          <BayBase b={BAYS.docs} slot="slotDocs" tools={docTools}>
+          <BayBase b={BAYS.docs} slot="slotDocs">
             <DocsParts m={m} />
           </BayBase>
         )}

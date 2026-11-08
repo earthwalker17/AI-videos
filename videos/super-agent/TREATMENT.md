@@ -795,7 +795,8 @@ live process, never a thing.**
 - **Settings:** mipmap bloom, threshold 1.0, smoothing 0.03, intensity 0.3, radius 0.4, 5
   levels; NEUTRAL tone mapping; dither on.
 - **Light colours:** chroma at most 0.03, warm white and never amber.
-- **Check:** bloom 0 against 0.3 on style frame (b); the user picks.
+- **Chosen:** intensity 0.3, the user's pick on 2026-11-09 ("Bloom 0.3 (Recommended)") from
+  style frame (b) with and without bloom.
 
 ### Palette
 Nothing else is used. Y is BT.709 limited-range luma; contrast is against the desk.
@@ -969,8 +970,8 @@ the only path to you. T is the causing frame.
 ### Camera
 - **Lens.** Long: a vertical fov of 20° at a distance of 3063 u at 1.0×, so 1 u = 1 px. Shot
   sizes: wide 0.5×, medium 0.85–1.2×, close 1.6–2.2×.
-- **Angle: the user's pick** from style frame (b): a fixed 15° pitch (the long-lens desk) or
-  straight down (pitch 0, the plan view). The angle does not change during the film.
+- **Angle: a fixed 15° pitch** (the long-lens desk), the user's pick on 2026-11-09 ("15° tilt
+  (Recommended)") over the plan view. The angle does not change during the film.
 - **Moves.** Truck, dolly and zoom only, with no rotation or shake. Moves start on downbeats,
   last 1–2 bars and stay under 700 px/s on screen.
 - **One continuous world**, no cuts; one dissolve to the end card.
@@ -1209,7 +1210,9 @@ diagram.
   identical; fresh-page hashes inside a span equal to the span's; `GREY_TEXT` fringes at most
   9 codes over the canvas; at most 3 emitters; the ground at luma 38 or more.
 - Then a critic round, fixes and a "refine, don't add" pass.
-- ◆ **The user picks the angle and the bloom.**
+- ◆ **The user picks the angle and the bloom.** Done 2026-11-09 after three critic rounds
+  (21/34, 23/38, then the third pass): 15°, bloom 0.3, and "Right direction, refine
+  (Recommended)" for the Register Desk itself.
 
 **Step 2: the stills, in the chosen view.**
 
@@ -1508,8 +1511,7 @@ stand are under risk 8)
 **Open questions**
 1. The final title: "Who Routes the Agents? / 谁来调度智能体？" is the working title; "The
    Human Switchboard / 人肉调度员" is the alternative.
-2. The angle (15° long lens or plan view) and the bloom (0 or 0.3): the user picks from style
-   frame (b).
+2. ~~The angle and the bloom.~~ Settled 2026-11-09: 15° and bloom 0.3.
 3. **The zh sign-off of every new string.** N1–N11, the cache, jobs, ≤ 100 words and load
    tags, the four trait words and the six classic-ideas labels are drafts until the user signs
    them off (SCRIPT.md); the three hero stamps read the same in both languages and only need

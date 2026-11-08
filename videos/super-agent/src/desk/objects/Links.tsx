@@ -6,19 +6,21 @@
  *   are explained at C17.
  * - Chute: the reply chute, the only path down to you, from the deck's south-west corner to your
  *   in-tray.
- * - Cargo: the report card (in flight under the transit light, then docked in the deck's mouth),
- *   and the reply slip that cites it (riding the chute under the transit light, then resting in your
- *   in-tray). Only one carrier flies at a time, and it carries the one transit light, shining
- *   through its punched hole.
+ * - Cargo: the report card (in flight under the one transit light, through its punched hole; then
+ *   docked in the deck's mouth, its body folded into a tab that drops into the spill drawer), and the
+ *   reply that cites it (out of the slot under the index sector, down the chute, into your in-tray
+ *   beside #0403). A reply carries no transit light: the treatment lists report cards and dispatch
+ *   folders only.
  * (Grooves, the whole hand-overs, are engraved in the desk itself: gl/desk.ts.)
  */
+import { clamp, easings } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
 import { BoxGeometry, CircleGeometry, TorusGeometry } from 'three';
 import { cylinderZ, disc, merge, plane, ringFlat, slab, sweep, tube, twistedPair } from '../geom.ts';
 import { EMIT, Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
-import { CARD, CHUTE, CHUTE_POSTS, CHUTE_W, CORDS, DECK, MAST, MOUTH, SLIP, YOU, rectC, type P3 } from '../layout.ts';
+import { CARD, CHUTE, CHUTE_POSTS, CHUTE_W, CORDS, DECK, INDEX, MAST, MOUTH, SLIP, YOU, rectC, type P3 } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
-import { polylineAt, slipPose, type DeskState } from '../state.ts';
+import { polylineAt, slipPose, tabArc, type DeskState } from '../state.ts';
 
 function useCordGeometry() {
   return useMemo(() => {
@@ -134,44 +136,58 @@ export function Chute() {
   );
 }
 
-/** Where the landed reply rests: on top of the slips already in your in-tray. */
-const IN_TRAY_REST: P3 = [rectC(YOU.inTray)[0], rectC(YOU.inTray)[1] - 4, YOU.top + 6];
+/** Where the landed reply rests: in the in-tray's north half, beside #0403 (not on it). */
+const IN_TRAY_REST: P3 = [rectC(YOU.inTray)[0], YOU.inTray.y1 - 28, YOU.top + 5];
+/** The slot under the index sector the reply emerges from. */
+const SLOT_OUT: P3 = [INDEX.pivot[0] - 24, INDEX.pivot[1] - 26, DECK.top - 6];
 
 function useCargoGeometry() {
   return useMemo(() => {
     const card = new BoxGeometry(CARD.w, CARD.d, 1.8);
     const cardFace = plane(CARD.w, CARD.d, 0, 0, 1.0);
-    // the transit light through the card's punched hole (texture: 14 u from its east end)
+    // the transit light through the card's punched hole (texture: 10 u from its east edge, 46 u down)
     const cardLight = (() => {
-      const g = new CircleGeometry(5.5, 24);
-      g.translate(CARD.w / 2 - 14, 0, 1.15);
+      const g = new CircleGeometry(4.8, 24);
+      g.translate(CARD.w / 2 - 10, CARD.d / 2 - 46, 1.15);
       return g;
     })();
     const slip = new BoxGeometry(SLIP.l, SLIP.w, 1.2);
     const slipFace = plane(SLIP.l, SLIP.w, 0, 0, 0.9);
-    // the slip's punched hole is at its trailing end (texture: 9 u from its east end, which rides up-chute)
-    const slipLight = (() => {
-      const g = new CircleGeometry(4.2, 20);
-      g.translate(SLIP.l / 2 - 9, 0, 1.0);
-      return g;
-    })();
-    // the enamel stop tab, at the leading end
+    // the enamel stop tab, at the slip's east end
     const tab = slab({ x0: SLIP.l / 2 - 4, x1: SLIP.l / 2 + 8, y0: -9, y1: 9 }, -0.6, 2.2, 2, 0.6);
-    return { card, cardFace, cardLight, slip, slipFace, slipLight, tab };
+    return { card, cardFace, cardLight, slip, slipFace, tab };
   }, []);
 }
+
+const lerp3 = (a: P3, b: P3, t: number): P3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 export function Cargo({ s }: { s: DeskState }) {
   const m = useDeskMats();
   const g = useCargoGeometry();
-  const level = s.transit.level;
   useLayoutEffect(() => {
-    // the one transit light: on whichever carrier is in flight, eased in and out at either end of its ride
-    m.transit.color.set(LIGHT_HEX.work).multiplyScalar(EMIT.transit * level);
-  }, [m, level]);
+    // the one transit light, on the report card in flight: faded in and out over 4 f, dark in its dock frame
+    m.transit.color.set(LIGHT_HEX.work).multiplyScalar(EMIT.transit * s.transit);
+  }, [m, s.transit]);
   const card = s.card;
-  const riding = s.slip && s.slip.s < 1 ? slipPose(s.slip.s) : null;
-  const landed = s.slip !== null && s.slip.s >= 1;
+  const d = s.dock;
+  // the reply: out from under the index sector, down the chute (its text reading up-chute), then
+  // turning along the exit curve to lie as it will in the tray, and landing on spring-dock
+  let slipPose3: { p: P3; rot: [number, number, number, 'ZYX'] } | null = null;
+  if (s.slip) {
+    const { emerge, s: k, settle, squash } = s.slip;
+    const start = slipPose(0);
+    if (emerge < 1) {
+      slipPose3 = { p: lerp3(SLOT_OUT, [start.p[0], start.p[1], start.p[2] + 6], emerge), rot: [0, start.slope, start.heading + Math.PI, 'ZYX'] };
+    } else if (k < 1) {
+      const pose = slipPose(k);
+      const turn = clamp((k - 0.7) / 0.3);
+      const heading = pose.heading + Math.PI + (0.08 - (pose.heading + Math.PI)) * easings.inOutSine(turn);
+      slipPose3 = { p: [pose.p[0], pose.p[1], pose.p[2] + 6], rot: [0, pose.slope * (1 - turn), heading, 'ZYX'] };
+    } else {
+      const z = IN_TRAY_REST[2] + (1 - settle) * 7;
+      slipPose3 = { p: [IN_TRAY_REST[0], IN_TRAY_REST[1], z - squash * 0.4], rot: [0, 0, 0.08, 'ZYX'] };
+    }
+  }
   const squash = 1 - 0.03 * (s.slip?.squash ?? 0);
   return (
     <group>
@@ -179,26 +195,18 @@ export function Cargo({ s }: { s: DeskState }) {
         <group position={[card.pos[0], card.pos[1], card.pos[2]]} rotation={[0.18 - 0.36 * card.s, -0.12, 0.06]}>
           <mesh geometry={g.card} material={m.paperLit} />
           <mesh geometry={g.cardFace} material={m.printed.report} />
-          {s.transit.on === 'card' && <mesh geometry={g.cardLight} material={m.transit} />}
+          {s.transit > 0 && <mesh geometry={g.cardLight} material={m.transit} />}
         </group>
       )}
-      {s.cardDocked && (
-        <group position={[MOUTH.land[0], MOUTH.land[1], MOUTH.land[2]]} rotation={[0.28, 0, 0]}>
+      {d && !d.gone && (
+        // at the mouth: settles on spring-dock, its body folds up into a tab, the tab drops into the spill drawer
+        <group position={d.drop > 0 ? tabArc(d.drop) : [MOUTH.land[0], MOUTH.land[1], MOUTH.land[2] + (1 - d.settle) * 6]} rotation={[0.28 + 1.1 * d.fold, 0, 0.6 * d.drop]} scale={[1 - 0.35 * d.fold, 1 - 0.7 * d.fold, 1]}>
           <mesh geometry={g.card} material={m.paperLit} />
-          <mesh geometry={g.cardFace} material={m.printed.report} />
+          {d.fold < 0.5 && <mesh geometry={g.cardFace} material={m.printed.report} />}
         </group>
       )}
-      {riding && (
-        // the slip's text reads up-chute (its +x points back up the chute), so its hole trails
-        <group position={[riding.p[0], riding.p[1], riding.p[2] + 6]} rotation={[0, riding.slope, riding.heading + Math.PI, 'ZYX']}>
-          <mesh geometry={g.slip} material={m.paperLit} />
-          <mesh geometry={g.slipFace} material={m.printed.reply} />
-          <mesh geometry={g.tab} material={m.enamel} />
-          {s.transit.on === 'slip' && <mesh geometry={g.slipLight} material={m.transit} />}
-        </group>
-      )}
-      {landed && (
-        <group position={[IN_TRAY_REST[0], IN_TRAY_REST[1], IN_TRAY_REST[2]]} rotation={[0, 0, 0.08]} scale={[1, 1, squash]}>
+      {slipPose3 && (
+        <group position={slipPose3.p} rotation={slipPose3.rot} scale={[1, 1, squash]}>
           <mesh geometry={g.slip} material={m.paperLit} />
           <mesh geometry={g.slipFace} material={m.printed.reply} />
           <mesh geometry={g.tab} material={m.enamel} />

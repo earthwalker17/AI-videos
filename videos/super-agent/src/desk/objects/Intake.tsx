@@ -4,16 +4,15 @@
  *   feeder, an enamel hopper with a punched card in its mouth (two silhouette families); the mail
  *   slot and the calendar pad are vellum plan drawings of the same box-and-mouth feeders (proposed:
  *   generic in act one, FACTS l.115). The conversation spool beside the chat drum starts the Thread cord.
- * - The Fast Path: a steel gate of fingers across the intake (code, not the Router) and the spike
- *   where dropped noise is impaled (empty here: its pile grows from f2470); survivors ride the belt
- *   up into the Register's throat.
+ * - The Fast Path: a steel gate of fingers across the intake (code, not the Router); survivors ride
+ *   the belt up into the Register's throat. (The spike for dropped noise enters at 5.2, f2470.)
  * In C12 all of it steps down (state.ts FOCUS_BEATS).
  */
 import { useMemo } from 'react';
 import { Shape } from 'three';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, slab, sweep, tube } from '../geom.ts';
 import { Step, WithMats, isStepped } from '../kit.tsx';
-import { BELT, FEEDERS, FEEDER_H, GATE, SPIKE, SPOOL, rectC, type P2, type P3, type Rect } from '../layout.ts';
+import { BELT, FEEDERS, FEEDER_H, GATE, SPOOL, rectC, type P2, type P3, type Rect } from '../layout.ts';
 import type { DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
@@ -49,8 +48,8 @@ function useFeederGeometry() {
     );
     // the slip: its west end still in the spout, the rest lying out on the desk in front of it, whole
     const slip = (() => {
-      const g = plane(80, 40, 0, 0, 0);
-      g.translate(cx + r + 66, spoutY, 0.8);
+      const g = plane(96, 40, 0, 0, 0);
+      g.translate(cx + r + 72, spoutY, 0.8);
       return g;
     })();
     const spoolPost = merge([cylinderZ(6, 0, SPOOL.z[0], SPOOL.x, SPOOL.y, 16), disc(18, 0, 4, { cx: SPOOL.x, cy: SPOOL.y, bevel: 1 })]);
@@ -63,6 +62,7 @@ function useFeederGeometry() {
     const F = FEEDERS.ci;
     const ciBody = merge([slab(F, 0, FEEDER_H.ci - 8, 6, 3), frame(F, 9, FEEDER_H.ci - 8, FEEDER_H.ci, 6, 1.5)]);
     const cards = slab(inset(F, 14), FEEDER_H.ci - 10, FEEDER_H.ci - 5, 2, 0.5);
+    const topCard = planeOn(inset(F, 14), FEEDER_H.ci - 4.7);
     const ciMouth = merge([slab({ x0: F.x1 - 4, x1: F.x1 + 22, y0: rectC(F)[1] - 32, y1: rectC(F)[1] + 32 }, 0, 8, 2, 1), slab({ x0: F.x1 - 4, x1: F.x1 + 22, y0: rectC(F)[1] + 26, y1: rectC(F)[1] + 32 }, 8, 18, 1, 0.6)]);
     const ciCard = (() => {
       const g = plane(84, 50, 0, 0, 0);
@@ -73,7 +73,7 @@ function useFeederGeometry() {
     // vellum drawings: the mail and calendar feeders, proposed
     const mail = planeOn(FEEDERS.mail, 0.4);
     const calendar = planeOn(FEEDERS.calendar, 0.4);
-    return { drum, lid, lidSlot, spout, slip, spoolPost, flanges, barrel, wound, spoolCap, ciBody, cards, ciMouth, ciCard, mail, calendar };
+    return { drum, lid, lidSlot, spout, slip, spoolPost, flanges, barrel, wound, spoolCap, ciBody, cards, topCard, ciMouth, ciCard, mail, calendar };
   }, []);
 }
 
@@ -100,10 +100,8 @@ function useGateGeometry() {
         ]);
       }),
     );
-    // the spike: a base and a tapered pin, empty for now
-    const spikeBase = disc(SPIKE.baseR, 0, 6, { cx: SPIKE.x, cy: SPIKE.y, bevel: 2 });
-    const spikePin = cylinderZ(3.2, 6, SPIKE.h, SPIKE.x, SPIKE.y, 14, 0.4);
-    return { gateBar, gateCap, fingers, spikeBase, spikePin };
+    // (the spike enters at 5.2, f2470: it is not in this shot)
+    return { gateBar, gateCap, fingers };
   }, []);
 }
 
@@ -180,7 +178,8 @@ export function Feeders({ s }: { s: DeskState }) {
             <mesh geometry={g.wound} material={m.cordVermilion} />
             <mesh geometry={g.spoolCap} material={m.steel} />
             <mesh geometry={g.ciBody} material={m.enamel} />
-            <mesh geometry={g.cards} material={m.paper} />
+            <mesh geometry={g.cards} material={m.paperLit} />
+            <mesh geometry={g.topCard} material={m.printed.ciCard} />
             <mesh geometry={g.ciMouth} material={m.enamelShade} />
             <mesh geometry={g.ciCard} material={m.printed.ciCard} />
             <mesh geometry={g.mail} material={m.vellumMail} />
@@ -204,8 +203,6 @@ export function Gate({ s }: { s: DeskState }) {
               <mesh geometry={g.gateBar} material={m.graphite} />
               <mesh geometry={g.gateCap} material={m.enamelShade} />
               <mesh geometry={g.fingers} material={m.steel} />
-              <mesh geometry={g.spikeBase} material={m.enamelShade} />
-              <mesh geometry={g.spikePin} material={m.steel} />
             </group>
           )}
         </WithMats>

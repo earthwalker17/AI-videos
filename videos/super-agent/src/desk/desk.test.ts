@@ -3,10 +3,10 @@ import { CELLS, NAMEPLATE, PRINT_STRINGS, REPLY, REPORT, SLIPS } from '../print.
 import { D1, FRAMING_B, deskCamera, project, projectBox } from './camera.ts';
 import { footprintsAt, KIND, MAX_FOOTPRINTS, cullRadius, packFootprints, staticFootprints, type Footprint } from './footprints.ts';
 import { neutral, preToe } from './gl/post.ts';
-import { BAYS, BENCH, CELLS_X, CORDS, DECK, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, TAPE, TOWER, WINDOW, penumbra, shadowOffset, towerTop, type BayId } from './layout.ts';
+import { BAYS, BENCH, CELLS_X, CORDS, DECK, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, TAPE, TOWER, WINDOW, penumbra, PENUMBRA_K, shadowOffset, towerTop, type BayId } from './layout.ts';
 import { MAX_POOLS, linearOf, packPools, poolsAt } from './pools.ts';
 import { ROUND2, MOTION_TESTS } from '../lookdev/frames.ts';
-import { cardArc, deskStateAt, DETENT, EVENTS_B, LAMP_STEPS } from './state.ts';
+import { cardArc, deskStateAt, DETENT, EVENTS_B, LAMP_STEPS, SLIP_LANDS, SLIP_RIDE_FROM } from './state.ts';
 
 const B = deskStateAt(ROUND2.stillB);
 
@@ -57,8 +57,8 @@ describe('desk camera', () => {
         [DECK.x0, DECK.y0, 0],
         [DECK.x1, DECK.y1, DECK.top],
       ]);
-      expect(deck.x0).toBeGreaterThan(620);
-      expect(deck.x1).toBeLessThan(1220);
+      expect(deck.x0).toBeGreaterThan(700);
+      expect(deck.x1).toBeLessThan(1500);
       expect(deck.y0).toBeGreaterThan(72);
       for (const b of Object.values(BAYS)) {
         const box = projectBox(pose, [
@@ -83,7 +83,7 @@ describe('desk layout', () => {
     expect(SHADOW_DIR[0] * KEY[0] + SHADOW_DIR[1] * KEY[1]).toBeLessThan(0);
     expect(Math.hypot(...shadowOffset(120))).toBeCloseTo(SHADOW_K * 120, 9);
     expect(penumbra(0)).toBe(4);
-    expect(penumbra(100)).toBeCloseTo(39, 9);
+    expect(penumbra(100)).toBeCloseTo(4 + 100 * PENUMBRA_K, 9);
   });
   it('lays the five inline cells inside the window, over the tape, newest west by the print head', () => {
     expect(CELLS_X).toHaveLength(5);
@@ -110,7 +110,9 @@ describe('desk layout', () => {
   it('gives each bay its own ground: no two bays overlap, every bay is below the deck', () => {
     const ids = Object.keys(BAYS) as BayId[];
     for (const a of ids) {
-      expect(BAYS[a].box.y1).toBeLessThan(DECK.y0);
+      // tucked under the deck's south edge at most: the rail cuts across a north wall, never more
+      expect(BAYS[a].box.y1).toBeLessThan(DECK.y0 + 30);
+      expect(BAYS[a].box.y0).toBeLessThan(DECK.y0 - 150);
       for (const b of ids) {
         if (a >= b) continue;
         const A = BAYS[a].box;
@@ -129,10 +131,11 @@ describe('desk footprints', () => {
   it('fits the shaders at every frame of the lookdev span', () => {
     for (const f of [2100, 2190, 2200, 2210, 2340]) expect(footprintsAt(deskStateAt(f)).length).toBeLessThanOrEqual(MAX_FOOTPRINTS);
   });
-  it('adds the card (flying or docked) and the slip while it rides', () => {
+  it('adds the card (flying, docked, its tab dropping) and the slip while it rides', () => {
     const base = staticFootprints().length;
-    expect(footprintsAt(B).length).toBe(base + 2);
-    expect(footprintsAt(deskStateAt(2240)).length).toBe(base + 1);
+    expect(footprintsAt(B).length).toBe(base + 1);
+    expect(footprintsAt(deskStateAt(2185)).length).toBe(base + 1);
+    expect(footprintsAt(deskStateAt(2240)).length).toBe(base);
     expect(footprintsAt(deskStateAt(2150)).length).toBe(base);
   });
   it('culls no farther than the shadow and contact reach', () => {
@@ -204,35 +207,35 @@ describe('desk state at still B (C12)', () => {
     expect(ROUND2.stillB).toBeGreaterThan(MOTION_TESTS.mt1[0]);
     expect(ROUND2.stillB).toBeLessThan(MOTION_TESTS.mt1[1]);
   });
-  it('runs the handshake in cause order inside MT1: card flies, docks, stamps in, arm turns, reply rides, lands, lamp steps up', () => {
+  it('runs the handshake in cause order inside MT1: fly, dock, stamp, detent, fold, drop, arm, emerge, ride, land, lamp', () => {
     const E = EVENTS_B;
-    const docked = E.cardEject + E.cardFly;
-    const landed = E.slipLeave + E.slipRide;
-    const order = [E.testsCap, E.cardEject, docked, E.stampIn, E.armTurn, E.slipLeave, landed, E.lampUp];
+    const order = [E.testsCap, E.cardEject, E.cardEject + E.cardFly, E.stampIn, E.reelDetent, E.fold, E.tabDrop, E.armTurn, E.slipLeave, SLIP_RIDE_FROM, SLIP_LANDS, E.lampUp];
     for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
     expect(E.testsCap).toBeGreaterThanOrEqual(MOTION_TESTS.mt1[0]);
     expect(E.lampUp + 10).toBeLessThan(MOTION_TESTS.mt1[1]);
-    // nothing acts before its cause: no reply before the stamp, no lit cell before the dock
+    // the arm settles (about 6 f) before the reply moves
+    expect(Math.abs(deskStateAt(E.slipLeave).arm - DETENT.you)).toBeLessThan(0.05);
     for (let f = MOTION_TESTS.mt1[0]; f < MOTION_TESTS.mt1[1]; f++) {
       const s = deskStateAt(f);
-      if (s.slip) expect(s.cellLit).toBeGreaterThan(0.9);
-      if (s.cellLit > 0) expect(s.cardDocked).toBe(true);
-      // one carrier flies at a time, and only it wears the transit light
-      expect(s.card !== null && s.slip !== null && s.slip.s < 1).toBe(false);
-      if (s.transit.on === 'card') expect(s.card).not.toBeNull();
-      if (s.transit.on === 'slip') expect(s.slip!.s).toBeLessThan(1);
+      // nothing acts before its cause: no lit cell before the dock, no reply before the stamp
+      if (s.cellLit > 0) expect(s.dock).not.toBeNull();
+      if (s.slip) expect(s.cellLit).toBeGreaterThan(0.99);
+      // the transit light only on the report card in flight, and dark in its dock frame
+      if (s.transit > 0) expect(s.card).not.toBeNull();
     }
+    expect(deskStateAt(E.cardEject + E.cardFly).transit).toBe(0);
   });
-  it('has the card docked with its cell lit, the arm at its west detent, the reply 25-40% down the chute under the transit light', () => {
+  it('has the stamp-in done, the card folded away, the arm west and the reply 25-40% down the chute', () => {
     expect(B.card).toBeNull();
-    expect(B.cardDocked).toBe(true);
-    expect(B.cellLit).toBeGreaterThan(0.95);
-    expect(B.arm).toBeCloseTo(DETENT.you, 1);
+    expect(B.dock?.gone).toBe(true);
+    expect(B.cellLit).toBeGreaterThan(0.99);
+    expect(B.reel).toBeGreaterThan(0.95);
+    expect(B.arm).toBeCloseTo(DETENT.you, 2);
     expect(deskStateAt(EVENTS_B.armTurn).arm).toBeCloseTo(DETENT.tests, 6);
+    expect(B.slip!.emerge).toBe(1);
     expect(B.slip!.s).toBeGreaterThan(0.25);
     expect(B.slip!.s).toBeLessThan(0.4);
-    expect(B.transit.on).toBe('slip');
-    expect(B.transit.level).toBe(1);
+    expect(B.transit).toBe(0);
     expect(B.lamp).toBeCloseTo(LAMP_STEPS.dim, 6);
     expect(deskStateAt(EVENTS_B.lampUp + 12).lamp).toBeCloseTo(LAMP_STEPS.up, 2);
   });
@@ -242,16 +245,14 @@ describe('desk state at still B (C12)', () => {
   });
   it('steps down what C12 leaves out, fully during the line', () => {
     expect(B.step.amount).toBe(1);
-    for (const id of ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'cord'] as const) expect(B.step.ids).toContain(id);
-    expect(B.step.ids).not.toContain('bugBay');
+    for (const id of ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'cord', 'reel', 'lock'] as const) expect(B.step.ids).toContain(id);
     expect(deskStateAt(2100).step.amount).toBe(0);
   });
-  it('keeps the slip and the card once they land: the slip in your in-tray, the card in the mouth', () => {
-    const later = deskStateAt(2240);
+  it('keeps the reply once it lands: in your in-tray, settled on spring-dock', () => {
+    const later = deskStateAt(SLIP_LANDS + 12);
     expect(later.slip?.s).toBe(1);
-    expect(later.card).toBeNull();
-    expect(later.cardDocked).toBe(true);
-    expect(later.transit.on).toBeNull();
+    expect(later.slip!.settle).toBeGreaterThan(0.95);
+    expect(later.transit).toBe(0);
   });
   it('is a pure function of the frame', () => {
     expect(deskStateAt(ROUND2.stillB)).toEqual(B);
@@ -265,7 +266,8 @@ describe('micro-print', () => {
   });
   it('cites: the reply answers the report it follows, and only the bug bay holds the request work', () => {
     expect(REPLY[0]).toBe(REPORT[0]);
-    expect(CELLS[0].code).toBe(REPORT[0].slice(1));
+    expect(CELLS[0].code).toBe(REPORT[0]);
+    expect(NAMEPLATE.tests).toContain(REPORT[0]);
     expect(NAMEPLATE.bug).toContain(SLIPS.request);
     expect(NAMEPLATE.tests).not.toContain(SLIPS.request);
     expect(NAMEPLATE.docs).not.toContain(SLIPS.request);

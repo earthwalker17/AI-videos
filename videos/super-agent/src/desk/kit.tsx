@@ -33,6 +33,7 @@ export interface DeskMats {
   screen: MeshStandardMaterial;
   printed: {
     tape: MeshStandardMaterial;
+    tapeBefore: MeshStandardMaterial;
     reelTop: MeshStandardMaterial;
     nameplate: Record<BayId, MeshStandardMaterial>;
     dossier: Record<BayId, MeshStandardMaterial>;
@@ -84,6 +85,13 @@ export function useDeskMats(): DeskMats {
   const stepped = useContext(StepContext);
   if (!sets) throw new Error('desk: an object was drawn outside <DeskKit>');
   return stepped ? sets.stepped : sets.full;
+}
+
+/** Both sets (an object stepped down as a whole may keep one live part at full: the bug bay's slot and request). */
+export function useDeskSets(): DeskSets {
+  const sets = useContext(DeskContext);
+  if (!sets) throw new Error('desk: an object was drawn outside <DeskKit>');
+  return sets;
 }
 
 /** Render with the materials of the enclosing set (inside `<Step>`, the stepped set). */
@@ -144,15 +152,16 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
     screen: matte('#202423', 0.25, 0, stepped),
     printed: {
       tape: P(t.tape, HEX.paper),
+      tapeBefore: P(t.tapeBefore, HEX.paper),
       reelTop: P(t.reelTop, '#FFFFFF'),
       nameplate: { bug: E(t.nameplate.bug), tests: E(t.nameplate.tests), docs: E(t.nameplate.docs) },
       dossier: { bug: P(t.dossier.bug), tests: P(t.dossier.tests), docs: P(t.dossier.docs) },
       policy: P(t.policy, HEX.paper),
       lens: P(t.policy, HEX.paperLit, 0.35),
-      fanfold: P(t.fanfold, HEX.paperShade),
+      fanfold: P(t.fanfold, HEX.paper),
       fanfoldSide: P(t.fanfoldSide, HEX.paperShade),
       report: P(t.report, HEX.paperLit),
-      galley: E(t.galley),
+      galley: P(t.galley, HEX.paperLit),
       reply: P(t.reply, HEX.paperLit),
       inTray: t.inTray.map((x) => P(x, HEX.paper)),
       chat: P(t.chat, HEX.paper),

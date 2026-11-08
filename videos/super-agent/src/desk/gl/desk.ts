@@ -104,9 +104,9 @@ float grooveShade(vec2 p) {
   float wallBand = smoothstep(0.5 * w - aa, 0.5 * w + aa, best) * (1.0 - smoothstep(w - aa, w + aa, best));
   float lipBand = smoothstep(w - aa, w + aa, best) * (1.0 - smoothstep(w + 3.0 - aa, w + 3.0 + aa, best));
   // the floor: dark, and darker in the shadow of the wall nearer the key
-  float floorShade = -0.22 - 0.12 * smoothstep(0.0, 0.5, side * dot(nrm, uLight) * 0.5 + 0.5);
-  float wallShade = face > 0.0 ? 1.1 * face : 0.34 * face;
-  float lipShade = face > 0.0 ? 0.9 * face : -0.08;
+  float floorShade = -0.30 - 0.06 * smoothstep(0.0, 0.5, side * dot(nrm, uLight) * 0.5 + 0.5);
+  float wallShade = face > 0.0 ? 2.2 * face : 0.30 * face;
+  float lipShade = face > 0.0 ? 7.5 * face : 0.6;
   return floorBand * floorShade + wallBand * wallShade + lipBand * lipShade;
 }
 
@@ -143,7 +143,7 @@ void main() {
   col *= 1.0 + grooveShade(p) + imprintShade(p);
   col *= 1.0 + dskPool(vec3(p, 0.0));
   vec2 sh = dskShade(p, 0.0);
-  float dark = 1.0 - (1.0 - 0.40 * sh.x) * (1.0 - 0.38 * sh.y);
+  float dark = 1.0 - (1.0 - 0.40 * sh.x) * (1.0 - 0.46 * sh.y);
   col = mix(col, uTint, dark);
   // a soft floor: below 1.3x luma 38 the darkening is compressed, never clipped flat (the tooth survives)
   float yl = dot(col, vec3(0.2126, 0.7152, 0.0722));

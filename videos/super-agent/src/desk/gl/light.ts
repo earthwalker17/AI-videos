@@ -10,7 +10,7 @@
  */
 import { Vector3 } from 'three';
 import { MAX_FOOTPRINTS, packFootprints, type Footprint } from '../footprints.ts';
-import { SHADOW_DIR, SHADOW_K, type Pool } from '../layout.ts';
+import { PENUMBRA_K, SHADOW_DIR, SHADOW_K, type Pool } from '../layout.ts';
 import { MAX_POOLS, packPools } from '../pools.ts';
 
 /** The shared uniform objects (pass these same objects to every material's patch). */
@@ -62,7 +62,7 @@ float dskShape(vec4 a, vec4 b, vec4 c, vec2 p) {
   }
   return length(q) - a.z;
 }
-float dskPen(float h) { return 4.0 + 0.35 * h; }
+float dskPen(float h) { return 4.0 + ${PENUMBRA_K.toFixed(3)} * h; }
 
 vec2 dskShade(vec2 p, float zr) {
   float cov = 0.0;

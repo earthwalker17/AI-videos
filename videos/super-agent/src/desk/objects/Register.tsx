@@ -15,7 +15,7 @@ import { useMemo } from 'react';
 import { CircleGeometry, Matrix4, Path, Shape, type BufferGeometry } from 'three';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
 import { Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
-import { CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, GAUGE, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
+import { CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
 import { PRINT_SIZE } from '../gl/text.ts';
 import { DETENT, type DeskState } from '../state.ts';
 
@@ -224,21 +224,6 @@ function useRegisterGeometry() {
       g.translate(THROAT.box.x1 - 6, (THROAT.box.y0 + THROAT.box.y1) / 2, (THROAT.z[0] + THROAT.z[1]) / 2 + 4);
       return g;
     })();
-    const gaugeBody = disc(GAUGE.r + 3, GAUGE.z - 4, GAUGE.z, { cx: GAUGE.x, cy: GAUGE.y, bevel: 1 });
-    const gaugeFace = plane(2 * GAUGE.r, 2 * GAUGE.r, GAUGE.x, GAUGE.y, GAUGE.z + 0.2);
-    // the needle sits low: near the start of its arc
-    const needle = (() => {
-      const s = new Shape();
-      s.moveTo(0, -1.2);
-      s.lineTo(GAUGE.r - 3, 0);
-      s.lineTo(0, 1.2);
-      s.closePath();
-      const g = extrude(s, GAUGE.z + 0.4, GAUGE.z + 1.4, 0);
-      g.rotateZ(Math.PI * 0.86);
-      g.translate(GAUGE.x, GAUGE.y, 0);
-      return g;
-    })();
-    const gaugeHub = dome(2.4, GAUGE.x, GAUGE.y, GAUGE.z + 1.2);
 
     // the policy card pinned under the loupe on its swing arm
     const policyBase = slab(inset(POLICY_CARD.box, -4), top, POLICY_CARD.z - 0.5, 3, 1);
@@ -261,12 +246,11 @@ function useRegisterGeometry() {
       tube(
         [
           [LOUPE.pivot[0], LOUPE.pivot[1], top + 2],
-          [LOUPE.pivot[0], LOUPE.pivot[1], LOUPE.z - 4],
-          [LOUPE.pivot[0] + 8, LOUPE.pivot[1] - 30, LOUPE.z + 2],
-          [LOUPE.x + 6, LOUPE.y + LOUPE.r + 2, LOUPE.z],
+          [LOUPE.pivot[0], LOUPE.pivot[1], LOUPE.z],
+          [LOUPE.x - LOUPE.r, LOUPE.y, LOUPE.z],
         ],
         2.6,
-        24,
+        16,
         8,
       ),
       cylinderZ(7, top, top + 8, LOUPE.pivot[0], LOUPE.pivot[1], 20),
@@ -402,10 +386,6 @@ function useRegisterGeometry() {
       throat,
       cheeks,
       collar,
-      gaugeBody,
-      gaugeFace,
-      needle,
-      gaugeHub,
       policyBase,
       policyCard,
       pin,
@@ -453,18 +433,30 @@ export function Register({ s }: { s: DeskState }) {
       <mesh geometry={g.cross} material={m.graphiteDark} />
       <mesh geometry={g.plate} material={m.graphiteDeck} />
       <mesh geometry={g.gussets} material={m.enamelShade} />
-      {/* the reel */}
-      <mesh geometry={g.flange} material={m.graphiteDark} />
-      <mesh geometry={g.pack} material={m.paperShade} />
-      <mesh geometry={g.packTop} material={m.printed.reelTop} />
-      <mesh geometry={g.hub} material={m.enamel} />
-      <mesh geometry={g.hubSlot} material={m.graphiteDark} />
-      <mesh geometry={g.spokes} material={m.enamel} />
+      {/* the reel: it detents one step as a report stamps in (stepped down in C12: its face is not the action) */}
+      <Step on={isStepped(s.step, 'reel')}>
+        <WithMats>
+          {(n) => (
+            <>
+              <mesh geometry={g.flange} material={n.graphiteDark} />
+              <mesh geometry={g.pack} material={n.paperShade} />
+              <group position={[REEL.x, REEL.y, 0]} rotation={[0, 0, -0.26 * s.reel]}>
+                <group position={[-REEL.x, -REEL.y, 0]}>
+                  <mesh geometry={g.packTop} material={n.printed.reelTop} />
+                  <mesh geometry={g.hub} material={n.enamel} />
+                  <mesh geometry={g.hubSlot} material={n.graphiteDark} />
+                  <mesh geometry={g.spokes} material={n.enamel} />
+                </group>
+              </group>
+            </>
+          )}
+        </WithMats>
+      </Step>
       <mesh geometry={g.frameMembers} material={m.graphite} />
       <mesh geometry={g.frameCaps} material={m.enamelShade} />
       <mesh geometry={g.bosses} material={m.enamel} />
       {/* the tape, the window and its lamp */}
-      <mesh geometry={g.tapeFlat} material={m.printed.tape} />
+      <mesh geometry={g.tapeFlat} material={s.cellLit > 0.5 ? m.printed.tape : m.printed.tapeBefore} />
       <mesh geometry={g.tapeRise} material={m.paper} />
       <mesh geometry={g.win} material={m.graphite} />
       <mesh geometry={g.bars} material={m.enamelShade} />
@@ -473,17 +465,13 @@ export function Register({ s }: { s: DeskState }) {
       <mesh geometry={g.hoodCaps} material={m.enamelShade} />
       <mesh geometry={g.lampArms} material={m.graphite} />
       <mesh geometry={g.lampFeet} material={m.graphiteDark} />
-      {/* the throat, the print head, the gauge */}
+      {/* the throat, the print head */}
       <mesh geometry={g.head} material={m.graphite} />
       <mesh geometry={g.headCap} material={m.enamel} />
       <mesh geometry={g.headHammer} material={m.steel} position={[0, 0, -9 * s.stamp]} />
       <mesh geometry={g.throat} material={m.graphiteDark} />
       <mesh geometry={g.cheeks} material={m.enamel} />
       <mesh geometry={g.collar} material={m.steel} />
-      <mesh geometry={g.gaugeBody} material={m.graphite} />
-      <mesh geometry={g.gaugeFace} material={m.printed.gauge} />
-      <mesh geometry={g.needle} material={m.rubber} />
-      <mesh geometry={g.gaugeHub} material={m.graphite} />
       {/* the Slow Path: the loupe over the pinned policy card (stepped down in C12) */}
       <Step on={isStepped(s.step, 'policy')}>
         <WithMats>
@@ -513,11 +501,19 @@ export function Register({ s }: { s: DeskState }) {
       <mesh geometry={g.tabs} material={m.paper} />
       <mesh geometry={g.hopper} material={m.enamelShade} />
       {/* the sealed shell key */}
-      <mesh geometry={g.lockBlock} material={m.graphite} />
-      <mesh geometry={g.lockPlate} material={m.enamel} />
-      <mesh geometry={g.lockFace} material={m.printed.lockFace} />
-      <mesh geometry={g.keyMetal} material={m.steel} />
-      <mesh geometry={g.seal} material={m.enamelShade} />
+      <Step on={isStepped(s.step, 'lock')}>
+        <WithMats>
+          {(n) => (
+            <>
+              <mesh geometry={g.lockBlock} material={n.graphite} />
+              <mesh geometry={g.lockPlate} material={n.enamel} />
+              <mesh geometry={g.lockFace} material={n.printed.lockFace} />
+              <mesh geometry={g.keyMetal} material={n.steel} />
+              <mesh geometry={g.seal} material={n.enamelShade} />
+            </>
+          )}
+        </WithMats>
+      </Step>
       {/* the pilot jewel */}
       <mesh geometry={g.jewel} material={m.jewel} />
       <mesh geometry={g.bezel} material={m.steel} />
@@ -547,8 +543,8 @@ export function Register({ s }: { s: DeskState }) {
         </WithMats>
       </Step>
       {/* the dispatch ramp */}
-      <mesh geometry={g.rampSheet} material={m.graphite} />
-      <mesh geometry={g.rampCheeks} material={m.enamelShade} />
+      <mesh geometry={g.rampSheet} material={m.enamelShade} />
+      <mesh geometry={g.rampCheeks} material={m.steel} />
     </group>
   );
 }

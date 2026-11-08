@@ -30,8 +30,8 @@ export interface Framing {
 /** The pitches the user chooses between: 15° (recommended) and the 0° plan view. */
 export type Angle = 0 | 15;
 
-/** Style frame (b), "Two levels": camera 0.85×, aimed 40 u north of the world's origin (layout.ts) so the diagram fills the band above the notes. */
-export const FRAMING_B: Framing = { x: 0, y: 40, zoom: 0.85 };
+/** Style frame (b), "Two levels": camera 0.85×, trucked 200 u west and 40 u north of the world's origin (layout.ts) so the content is centred and fills the band above the notes. */
+export const FRAMING_B: Framing = { x: -200, y: 40, zoom: 0.85 };
 
 /**
  * The pose for a framing at a pitch: the camera sits south of its aim point, tilted `angle`

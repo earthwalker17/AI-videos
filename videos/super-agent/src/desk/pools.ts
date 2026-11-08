@@ -7,7 +7,7 @@
  * Colours are the synthesis's light colours (chroma ≤ 0.03, never amber), in linear RGB relative
  * to the albedo. Pure.
  */
-import { BAYS, BENCH, CELLS_X, GALLEY_TRAY, TAPE, rectC, type Pool, type P3 } from './layout.ts';
+import { BAYS, CELLS_X, TAPE, rectC, type Pool, type P3 } from './layout.ts';
 import { LAMP_AIM, type DeskState } from './state.ts';
 
 /** At most this many pools (the uniform array's size). */
@@ -36,19 +36,18 @@ export const LIGHT_HEX = { yours: '#FFF1E0', reading: '#F4F5F2', work: '#EEF3F0'
 export function poolsAt(s: DeskState): Pool[] {
   const cellY = (TAPE.y0 + TAPE.y1) / 2;
   const newest = (CELLS_X[0][0] + CELLS_X[0][1]) / 2;
+  const slot = BAYS.bug.slot;
   const pools: Pool[] = [
-    // the Register's hooded reading lamp, on the newest cells (it never blooms: a pool only)
-    { c: [newest + 40, cellY], z: [118, 170], sigma: [96, 38], rgb: tint(LIGHT_HEX.reading, 1.55) },
-    // the stamp-in: the newest cell lights as the report's header goes inline
-    { c: [newest, cellY], z: [118, 140], sigma: [30, 26], rgb: tint(LIGHT_HEX.reading, 0.9 * s.cellLit) },
-    // your lamp on your in-tray, where the reply lands: one step dimmer until it has
-    { c: LAMP_AIM, z: [0, 140], sigma: [92, 82], rgb: tint(LIGHT_HEX.yours, 2.3 * s.lamp) },
-    // the bug bay's work slot lights its own bench, folder and floor
-    { c: [rectC(BENCH.top)[0] + 10, rectC(BENCH.top)[1] + 10], z: [0, 90], sigma: [110, 86], rgb: tint(LIGHT_HEX.work, 1.25 * s.bugLight) },
+    // the Register's hooded reading lamp, on the window (it never blooms: a pool only)
+    { c: [newest + 70, cellY], z: [118, 170], sigma: [130, 40], rgb: tint(LIGHT_HEX.reading, 2.4) },
+    // the stamp-in: the newest cell lights as the report's header prints into it
+    { c: [newest, cellY], z: [118, 140], sigma: [40, 30], rgb: tint(LIGHT_HEX.reading, 1.6 * s.cellLit) },
+    // your lamp on your in-tray, where the reply lands: its maximum on the tray, a step brighter once it has
+    { c: LAMP_AIM, z: [0, 140], sigma: [74, 66], rgb: tint(LIGHT_HEX.yours, 4.2 * s.lamp) },
+    // the bug bay's work slot: cast forward (south) from the slot onto its bench, no halo round the walls
+    { c: [rectC(slot)[0], slot.y0 - 34], z: [30, 70], sigma: [56, 34], rgb: tint(LIGHT_HEX.work, 1.0 * s.bugLight) },
     // the test tower's work light, dimming as it finishes
-    { c: [rectC(BAYS.tests.slot)[0] + 30, rectC(BAYS.tests.slot)[1] - 34], z: [0, 60], sigma: [70, 56], rgb: tint(LIGHT_HEX.work, 0.75 * s.testsLight) },
-    // the docs galley's clamped work light (stepped down with its bay in C12)
-    { c: [rectC(GALLEY_TRAY.box)[0], rectC(GALLEY_TRAY.box)[1]], z: [0, 50], sigma: [120, 54], rgb: tint(LIGHT_HEX.work, 0.32) },
+    { c: [rectC(BAYS.tests.slot)[0] + 20, rectC(BAYS.tests.slot)[1] - 30], z: [0, 60], sigma: [56, 44], rgb: tint(LIGHT_HEX.work, 0.6 * s.testsLight) },
   ];
   if (pools.length > MAX_POOLS) throw new Error(`desk: ${pools.length} pools, over ${MAX_POOLS}`);
   return pools;

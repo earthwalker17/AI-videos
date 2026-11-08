@@ -9,9 +9,10 @@ export const ROUND2 = {
   /**
    * (b) two levels, "Workers report up. Only the Router talks to you.": C12 alone, the built tag gone;
    * the report card has docked in the Register's mouth with its cell lit, the index arm has turned
-   * west and the reply that cites it is about 30% down the chute (desk/state.ts EVENTS_B)
+   * west and the reply that cites it is about 30% down the chute; the card's body has folded into
+   * the spill drawer (desk/state.ts EVENTS_B)
    */
-  stillB: 2210,
+  stillB: 2218,
   /** the built tag beside C11 */
   tag: 2050,
   /** (c) context as a cache at the Register's window: N5, with the cache tag */

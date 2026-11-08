@@ -41,8 +41,12 @@ export const SHADOW_DIR: P2 = (() => {
 })();
 /** A shadow is offset this far per unit of height (synthesis §2: 0.84·h). */
 export const SHADOW_K = 0.84;
-/** Penumbra width of a shadow cast from height h above its receiver (4 + 0.35·h px). */
-export const penumbra = (h: number): number => 4 + 0.35 * h;
+/**
+ * Penumbra width of a shadow cast from height h above its receiver: 4 + k·h. The synthesis gives
+ * k = 0.35; at 0.22 the deck's shadow keeps a readable cast edge on the bays (critic round 2).
+ */
+export const PENUMBRA_K = 0.22;
+export const penumbra = (h: number): number => 4 + PENUMBRA_K * h;
 /** Where the shadow of a point at height h above the receiver lands, relative to the point. */
 export const shadowOffset = (h: number): P2 => [SHADOW_DIR[0] * SHADOW_K * h, SHADOW_DIR[1] * SHADOW_K * h];
 
@@ -90,15 +94,22 @@ export const TAPE_FLAT_X1 = TAPE.x1 - 24;
 export const WINDOW = { frame: { x0: -300, x1: 26, y0: 183, y1: 267 } as Rect, z: [122, 133] as const, bar: 8 } as const;
 /**
  * The five inline cells, 58 u each along the tape. The print head is at the west end and the tape
- * runs east onto the reel, so the newest cell is the west-most (index 0), right by the print head.
+ * runs east onto the reel, so the newest cell is the west-most (index 0), right by the print head;
+ * it is wider, to carry its report's ID at ≥ 24 px.
  */
-export const CELLS_X: readonly [number, number][] = [0, 1, 2, 3, 4].map((i) => [-292 + 62 * i, -292 + 62 * i + 58] as [number, number]);
+export const CELLS_X: readonly [number, number][] = [
+  [-292, -194],
+  [-190, -141],
+  [-137, -88],
+  [-84, -35],
+  [-31, 18],
+];
 
 /**
  * The Continuous plate (trait 连续), docked at the turn (cues.ts 'trait-continuous', f1640): a
  * narrow enamel apron along the deck's front, its words texture-size now that they have been read.
  */
-export const TRAIT_PLATE = { box: { x0: -150, x1: 86, y0: 90, y1: 122 } as Rect, z: [114, 119] as const } as const;
+export const TRAIT_PLATE = { box: { x0: -56, x1: 188, y0: 84, y1: 122 } as Rect, z: [114, 119] as const } as const;
 /** The hooded reading lamp: a base on the deck's cross member, a bent arm, a hood over the newest cells (a pool, never bloom). */
 export const READ_LAMP = { base: [-30, 300] as P2, hood: { x0: -296, x1: -150, y: 276, z: 178, r: 19 } } as const;
 
@@ -106,11 +117,9 @@ export const READ_LAMP = { base: [-30, 300] as P2, hood: { x0: -296, x1: -150, y
 export const PRINT_HEAD = { box: { x0: -342, x1: -300, y0: 178, y1: 272 } as Rect, z: [122, 180] as const } as const;
 /** The throat: the intake's mouth on the deck's west end. */
 export const THROAT = { box: { x0: -394, x1: -342, y0: 193, y1: 257 } as Rect, z: [96, 126] as const } as const;
-/** The neck-collar gauge on the throat (its needle low: the queue is short). */
-export const GAUGE = { x: -372, y: 172, r: 15, z: 127 } as const;
 /** The policy card pinned under the loupe, and the loupe on its swing arm. */
 export const POLICY_CARD = { box: { x0: -356, x1: -282, y0: 310, y1: 396 } as Rect, z: 126 } as const;
-export const LOUPE = { x: -319, y: 336, z: 160, r: 28, pivot: [-338, 440] as P2 } as const;
+export const LOUPE = { x: -319, y: 320, z: 156, r: 21, pivot: [-352, 320] as P2 } as const;
 
 /** The index arm on its detent plate: it turns to face whom the Register addresses. */
 export const INDEX = { pivot: [-318, 150] as P2, z: 126, length: 140, plateR: 46, plateA: [-176, -4] as const } as const;
@@ -120,8 +129,8 @@ export const INDEX = { pivot: [-318, 150] as P2, z: 126, length: 140, plateR: 46
  * newest window cell, so docking, stamping in and the lit cell read as one event.
  */
 export const MOUTH = { box: { x0: -260, x1: -176, y0: 62, y1: 126 } as Rect, z: [104, 124] as const, land: [-218, 90, 116] as P3 } as const;
-/** The spill drawer, pulled out under the south rail; folded bodies drop in here. */
-export const DRAWER = { box: { x0: 120, x1: 220, y0: 92, y1: 150 } as Rect, z: [80, 108] as const } as const;
+/** The spill drawer, pulled out under the south rail beside the mouth: a report's folded body drops in here (Inline & Spill). */
+export const DRAWER = { box: { x0: -168, x1: -74, y0: 92, y1: 150 } as Rect, z: [80, 108] as const } as const;
 /** The sealed restricted-shell key in its lock plate on the north-east corner (FACTS: the Router keeps a shell). */
 export const LOCK = { box: { x0: 240, x1: 298, y0: 436, y1: 500 } as Rect, z: [122, 156] as const, key: { x0: 298, x1: 330, y: 468, z: 145, bowR: 13 } } as const;
 /** The pilot jewel on the south rail: lit, never blooming. */
@@ -169,57 +178,57 @@ export interface BayLayout {
 export const BAYS: Record<BayId, BayLayout> = {
   tests: {
     id: 'tests',
-    box: { x0: -320, x1: -100, y0: -170, y1: 92 },
+    box: { x0: -330, x1: -120, y0: -130, y1: 139 },
     wallH: 40,
     wall: 10,
-    southWall: 26,
-    door: [-240, -180],
-    slot: { x0: -306, x1: -250, y0: 46, y1: 76 },
-    dossier: { x0: -306, x1: -228, y0: -140, y1: -80 },
+    southWall: 34,
+    door: [-262, -204],
+    slot: { x0: -318, x1: -262, y0: 92, y1: 124 },
+    dossier: { x0: -320, x1: -230, y0: -100, y1: -40 },
     sheets: 22,
-    rack: { x0: -212, x1: -112, y0: -142, y1: -76 },
+    rack: { x0: -224, x1: -132, y0: -102, y1: -38 },
   },
   docs: {
     id: 'docs',
-    box: { x0: -40, x1: 300, y0: -120, y1: 92 },
+    box: { x0: -80, x1: 210, y0: -84, y1: 139 },
     wallH: 30,
     wall: 10,
-    southWall: 26,
-    door: [200, 260],
-    slot: { x0: 236, x1: 288, y0: 44, y1: 76 },
-    dossier: { x0: -26, x1: 52, y0: -90, y1: -32 },
+    southWall: 34,
+    door: [122, 178],
+    slot: { x0: 140, x1: 198, y0: 94, y1: 126 },
+    dossier: { x0: -70, x1: 20, y0: -70, y1: -10 },
     sheets: 26,
-    rack: { x0: 180, x1: 288, y0: -92, y1: -30 },
+    rack: { x0: 104, x1: 198, y0: -50, y1: 32 },
   },
   bug: {
     id: 'bug',
-    box: { x0: 470, x1: 690, y0: -190, y1: 90 },
+    box: { x0: 250, x1: 470, y0: -200, y1: 90 },
     wallH: 40,
     wall: 10,
-    southWall: 26,
-    door: [500, 560],
-    slot: { x0: 568, x1: 678, y0: 42, y1: 76 },
-    dossier: { x0: 484, x1: 566, y0: -160, y1: -110 },
+    southWall: 34,
+    door: [270, 326],
+    slot: { x0: 344, x1: 460, y0: 42, y1: 78 },
+    dossier: { x0: 262, x1: 352, y0: -168, y1: -108 },
     sheets: 40,
-    rack: { x0: 580, x1: 680, y0: -162, y1: -106 },
+    rack: { x0: 366, x1: 458, y0: -168, y1: -86 },
   },
 };
 /** The bay floor plate's top. */
 export const BAY_FLOOR = 6;
 
 /** The bug bay's bench, its six test pins standing above the walls, and the docked vermilion folder with the request on it. */
-export const BENCH = { top: { x0: 494, x1: 666, y0: -98, y1: 22 } as Rect, z: [52, 60] as const, leg: 10 } as const;
-export const PINS = { x0: 508, dx: 28, y: 10, h: 24, n: 6 } as const;
-export const FOLDER = { box: { x0: 512, x1: 648, y0: -88, y1: -4 } as Rect, z: [60, 67] as const } as const;
+export const BENCH = { top: { x0: 270, x1: 450, y0: -80, y1: 32 } as Rect, z: [50, 58] as const, leg: 10 } as const;
+export const PINS = { x0: 284, dx: 30, y: 22, h: 26, n: 6 } as const;
+export const FOLDER = { box: { x0: 292, x1: 428, y0: -72, y1: 6 } as Rect, z: [58, 65] as const } as const;
 /** The request: a vermilion chat slip 1.3× the others (40 × 88), with a beetle cut-out. */
-export const REQUEST = { c: [582, -48] as P2, w: 52, l: 114, rot: Math.PI / 2 - 0.06, z: 67.6 } as const;
+export const REQUEST = { c: [360, -33] as P2, w: 52, l: 114, rot: Math.PI / 2 - 0.06, z: 65.6 } as const;
 
-/** The test tower: a stack light of test lamps on a short post, taller than its walls, a dome on top. */
-export const TOWER = { x: -170, y: -40, r: 12, seg: 16, gap: 3, n: 3, base: BAY_FLOOR, post: 10, dome: 8 } as const;
+/** The test tower: a capped stack of three test lamps, taller than its walls, concentric lenses on top. */
+export const TOWER = { x: -226, y: 8, r: 46, seg: 20, gap: 3, n: 3, base: BAY_FLOOR, post: 4, dome: 4 } as const;
 export const towerTop = (): number => TOWER.base + TOWER.post + TOWER.n * TOWER.seg + (TOWER.n - 1) * TOWER.gap;
 
 /** The docs galley: a wide, low tray of type set in lines (ink on enamel). */
-export const GALLEY_TRAY = { box: { x0: -24, x1: 220, y0: -24, y1: 74 } as Rect, z: [BAY_FLOOR, 16] as const } as const;
+export const GALLEY_TRAY = { box: { x0: -64, x1: 124, y0: 20, y1: 116 } as Rect, z: [BAY_FLOOR, 16] as const } as const;
 
 // ------------------------------------------------------------------------------------------------
 // You: a small desk with a bent-arm lamp (the film's only Λ), a laptop, the chore tray, the in-tray
@@ -232,12 +241,12 @@ export const YOU = {
   lidH: 88,
   /** how far past upright the lid leans back (radians) */
   lidLean: 0.27,
-  tray: { x0: -640, x1: -452, y0: -270, y1: -178 } as Rect,
-  inTray: { x0: -562, x1: -458, y0: -118, y1: -24 } as Rect,
+  tray: { x0: -650, x1: -462, y0: -272, y1: -176 } as Rect,
+  inTray: { x0: -590, x1: -450, y0: -136, y1: -20 } as Rect,
 } as const;
 
 /** The lamp: base, elbow, head; the hood aims at the in-tray, where the reply lands. */
-export const LAMP = { base: [-796, -46, YOU.top] as P3, elbow: [-716, -10, 196] as P3, head: [-606, -48, 136] as P3, aim: [-510, -71, YOU.top] as P3, baseR: 26, hoodR: 26, hoodL: 42 } as const;
+export const LAMP = { base: [-796, -46, YOU.top] as P3, elbow: [-716, -10, 196] as P3, head: [-606, -48, 136] as P3, aim: [-520, -60, YOU.top] as P3, baseR: 26, hoodR: 26, hoodL: 42 } as const;
 
 /** The reply chute: the only path down to you, from the deck's south-west corner to the in-tray. */
 export const CHUTE: readonly P3[] = [
@@ -245,8 +254,8 @@ export const CHUTE: readonly P3[] = [
   [-402, 92, 101],
   [-452, 54, 88],
   [-488, 4, 72],
-  [-506, -40, 58],
-  [-510, -66, 50],
+  [-512, -30, 60],
+  [-520, -44, 52],
 ];
 export const CHUTE_W = 60;
 export const CHUTE_POSTS: readonly P2[] = [
@@ -287,16 +296,16 @@ export const CORDS: { readonly vermilion: readonly P3[] } = {
     [300, 476, 194],
     [MAST.x, MAST.y, MAST.h],
     [430, 330, 172],
-    [520, 220, 132],
-    [566, 120, 82],
-    [576, 82, 52],
+    [450, 220, 132],
+    [446, 130, 84],
+    [438, 82, 52],
   ],
 };
 
 /** The report card (1.3× its old size) flies from the tower's dome up into the mouth (apex 70 over the line). */
 export const CARD = { w: 98, d: 68, apex: 70 } as const;
-/** The reply slip (40 × 88) with its enamel stop tab. */
-export const SLIP = { w: 40, l: 88 } as const;
+/** The reply slip (44 × 100: its report's ID at ≥ 24 px) with its enamel stop tab. */
+export const SLIP = { w: 44, l: 100 } as const;
 
 // ------------------------------------------------------------------------------------------------
 // Grooves engraved in the desk from the ramp's foot to each bay's door (whole hand-overs)
@@ -304,9 +313,9 @@ export const SLIP = { w: 40, l: 88 } as const;
 const doorOf = (b: BayLayout): P2 => [(b.door[0] + b.door[1]) / 2, b.box.y1 + 4];
 export const GROOVE_START: P2 = [RAMP.foot + 4, (RAMP.y0 + RAMP.y1) / 2];
 export const GROOVES: Record<BayId, readonly P2[]> = {
-  bug: [GROOVE_START, [420, 184], [492, 140], doorOf(BAYS.bug)],
-  docs: [GROOVE_START, [316, 176], [256, 136], doorOf(BAYS.docs)],
-  tests: [GROOVE_START, [318, 150], [200, 108], [-40, 106], [-170, 104], doorOf(BAYS.tests)],
+  bug: [GROOVE_START, [346, 160], [312, 116], doorOf(BAYS.bug)],
+  docs: [GROOVE_START, [300, 172], [220, 156], doorOf(BAYS.docs)],
+  tests: [GROOVE_START, [300, 176], [100, 160], [-100, 152], doorOf(BAYS.tests)],
 };
 export const GROOVE_HALF_W = 11;
 

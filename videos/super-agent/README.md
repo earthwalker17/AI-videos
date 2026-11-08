@@ -32,6 +32,9 @@ The film has been in production since 2026-11-08. Decisions with the user so far
 | 2026-11-09 | Concept | "Desk, render both angles (Recommended)": the Register Desk, shown at 15° and straight down |
 | 2026-11-09 | Micro-print | "Micro-print as texture (Recommended)" (≥ 18 px, texture only) |
 | 2026-11-09 | zh copy of the 3:45 cut | "Correct as written" (n1–n11, tags, plates, labels, stamps); C12: "Keep C12 as signed off" |
+| 2026-11-09 | Angle (style frame b) | "15° tilt (Recommended)" |
+| 2026-11-09 | Bloom | "Bloom 0.3 (Recommended)": on live processes only, ≤ 3 sources |
+| 2026-11-09 | Register Desk direction, seen at round-2 style frame (b) | "Right direction, refine (Recommended)": keep refining (b), then the other lookdev stills and the two motion tests |
 
 **What this means (session 3).** The session-3 brief named the faults:
 - basic flat geometry;
@@ -138,10 +141,12 @@ amended by that brief.
 | Path | What |
 |---|---|
 | `src/cues.ts` | Every on-screen string (EN, zh) and span; `cue(id)`, `at(bar, beat)`. Copy changes re-run `src/cues.test.ts` and a new zh check |
-| `src/look/` | Palette, type scale, strokes, safe areas, `MAX_TEXT_PX` (136), `STEP_DOWN`; fonts (Plex, Noto Sans SC slices planned from WORDS, JetBrains Mono); the flat ground with its dither |
+| `src/look/` | Palette, type scale, strokes, safe areas, `MAX_TEXT_PX` (136), `STEP_DOWN`; fonts (Plex Sans, Noto Sans SC slices planned from WORDS, IBM Plex Mono); the flat ground with its dither |
 | `src/kit/` | Film-agnostic 2D parts: timeline and easings, wipe/fade text and the notes block, the camera with screen-space labels, SVG diagram parts, tapered sketch strokes, the dither tile |
 | `src/film/` | The world (coordinates, routes, camera framings, tested), the act-one sketch world, the transit map, pills, glyphs, tags, the timetable chart (proportions tested) |
 | `src/lookdev/stills.tsx` | The lookdev compositions: Still1 (f750), Still2 (f1880), Still3 (f4130), Chart (f3500), StepDown (f4400); `StillScenes.tsx` places their contents |
+| `src/desk/` | The Register Desk (session 3): layout, state (the event schedule and per-beat focus), camera, footprints and pools, GL materials, post and canvas text, and the objects (Register, bays, your desk, intake, links); tested in `desk.test.ts` |
+| `src/lookdev/round2.tsx`, `frames.ts` | Lookdev round 2 (its own entry): StyleB15/StyleB0 with and without bloom, ground diagnostics; the round's film frames |
 | `src/lookdev/probe.tsx` | The determinism probe ('Probe') and the notes width sheet ('Notes') |
 | `src/Main.tsx` | Leader test card, the probe in film frames 0–299, then bare ground (the beats are built in session 4) |
 | `audio/` | The score sketch (bars 1–27): instruments, foley, arrangement, on `@aiv/pipeline/audio/kit` |

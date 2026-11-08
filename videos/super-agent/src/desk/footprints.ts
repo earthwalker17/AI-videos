@@ -9,8 +9,8 @@
  * Pure: the footprints are a function of the layout and the frame's state. The GPU gets them
  * packed as three vec4 each (`packFootprints`).
  */
-import { SHADOW_K, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CHUTE_W, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, SLIP, SPIKE, SPOOL, THROAT, TOWER, TRAIT_PLATE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
-import { slipPose, type DeskState } from './state.ts';
+import { SHADOW_K, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CHUTE_W, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
+import { slipPose, tabArc, type DeskState } from './state.ts';
 
 /** At most this many footprints reach the GPU (the uniform array's size). */
 export const MAX_FOOTPRINTS = 128;
@@ -114,6 +114,7 @@ export function staticFootprints(): Footprint[] {
   fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1], 0.4));
   fp.push(rectFp(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 0.7));
   fp.push(circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1));
+  fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1] + PINS.h, 0, 4));
   fp.push(rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1], 1, 4));
   // you
   fp.push(rectFp(YOU.slab, 0, YOU.top, 1, 8));
@@ -135,24 +136,24 @@ export function staticFootprints(): Footprint[] {
   fp.push(rectFp(FEEDERS.ci, 0, FEEDER_H.ci, 1, 8));
   fp.push(circleFp([SPOOL.x, SPOOL.y], SPOOL.r, 0, SPOOL.z[1], 1));
   fp.push(rectFp(GATE.bar, 0, GATE.h, 1, 3));
-  fp.push(circleFp([SPIKE.x, SPIKE.y], 4, 0, SPIKE.h, 1));
-  fp.push(circleFp([SPIKE.x, SPIKE.y], SPIKE.baseR, 0, 6, 1));
   fp.push(segFp(BELT.from, BELT.to, BELT.w / 2));
   // the request's Thread cord
   fp.push(...polySegs(CORDS.vermilion, 4));
   return fp;
 }
 
-/** The footprints that move with the frame: the card in flight or docked, the slip in the chute. */
+/** The footprints that move with the frame: the card in flight or at the mouth, its tab, the slip in the chute. */
 export function movingFootprints(s: DeskState): Footprint[] {
   const fp: Footprint[] = [];
   if (s.card) {
     const [x, y, z] = s.card.pos;
     fp.push({ kind: 'rect', c: [x, y], h: [CARD.w / 2, CARD.d / 2], r: 4, rot: 0, z0: z - 1, z1: z + 1, contact: 0 });
-  } else if (s.cardDocked) {
-    fp.push({ kind: 'rect', c: [MOUTH.land[0], MOUTH.land[1]], h: [CARD.w / 2, CARD.d / 2 - 10], r: 4, rot: 0, z0: MOUTH.land[2] - 6, z1: MOUTH.land[2] + 6, contact: 0 });
+  } else if (s.dock && !s.dock.gone) {
+    const [x, y, z] = s.dock.drop > 0 ? tabArc(s.dock.drop) : MOUTH.land;
+    const d = (CARD.d / 2) * (1 - 0.7 * s.dock.fold);
+    fp.push({ kind: 'rect', c: [x, y], h: [CARD.w / 2 - 10, d], r: 4, rot: 0, z0: z - 4, z1: z + 4, contact: 0 });
   }
-  if (s.slip && s.slip.s < 1) {
+  if (s.slip && s.slip.s < 1 && s.slip.emerge >= 1) {
     const pose = slipPose(s.slip.s);
     fp.push({ kind: 'rect', c: [pose.p[0], pose.p[1]], h: [SLIP.l / 2, SLIP.w / 2], r: 3, rot: pose.heading, z0: pose.p[2] + 2, z1: pose.p[2] + 3, contact: 0 });
   }
