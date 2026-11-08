@@ -23,23 +23,26 @@ Decisions section of `docs/ARCHITECTURE.md`.
 ## Now: what *Who Routes the Agents?* (#4, `super-agent`) needs
 The first 2D, text-led, bilingual film, and the second scored one. Each item is built and
 verified in its own commit, in this order (the video's README has the session plan):
-- [ ] **Determinism lint for 2D DOM work:** ban CSS `transition`/`animation`/`@keyframes`,
-  `element.animate`/`getAnimations` and `ResizeObserver`/`IntersectionObserver` in frame code.
-  Today ESLint sees only JS clocks.
-- [ ] **Dependencies:** `@remotion/paths` and `@remotion/layout-utils` (4.0.539), plus
-  fontsource IBM Plex Sans, Noto Sans SC and JetBrains Mono (approved 2026-11-08).
-- [ ] **Score kit** (decision 21 triggers on the second scored film; a new decision 29).
-  - Copy the generic DSP, convolution, reverb, mastering, mixer and grid timeline from the
-    frozen `videos/halloween-gift/audio/` into `packages/pipeline/src/audio/runtime/kit/`.
-  - Then add the synthesis voices, envelopes, delay and ducking the film needs.
-- [ ] **2D measurements:**
-  - Remotion s/frame and MiB/frame for a DOM/SVG page;
-  - large-DOM-text determinism at chunk starts (`aiv still --check`, two fresh renders);
-  - whether a 2D import bundles the kit's 3D exports;
-  - a static dither for dark gradients.
-- [ ] **Two-user promotions:** the bilingual caption pattern → `@aiv/remotion-kit`; cue-text
-  helpers and `readingSeconds` → `@aiv/core`. The film's 2D motion kit starts in
-  `videos/super-agent/src/kit/` and is promoted with the next 2D explainer.
+- [x] **Determinism lint for 2D DOM work** (2026-11-08): frame code may not use CSS
+  `transition`/`animation`/`@keyframes`, the Web Animations API or `ResizeObserver`/
+  `IntersectionObserver`.
+- [x] **Dependencies** (2026-11-08): `@remotion/paths` and `@remotion/layout-utils` 4.0.539, plus
+  fontsource IBM Plex Sans, Noto Sans SC and JetBrains Mono.
+- [x] **Score kit** (2026-11-08, decision 29): the generic DSP, convolution, reverb, mastering,
+  mixer and grid timeline, copied from the frozen film and bit-identical to it with default options,
+  plus oscillators, ADSR, delay, ducking and Karplus–Strong, at `@aiv/pipeline/audio/kit`. The
+  film's instruments stay in its own `audio/`.
+- [x] **2D measurements** (2026-11-08):
+  - 0.20–0.21 s/frame and 0.49 MiB/frame at 1080p;
+  - deterministic across fresh runs and at chunk starts with text ≤ 136 px (`engines/remotion/ENGINE.md`,
+    `knowledge/dom-text-determinism.md`);
+  - a flat ground, because CSS gradients band.
+  Follow-ups are under Known gaps.
+- [ ] **Two-user promotions:** `readingSeconds` and the hold rule → `@aiv/core` are done
+  (2026-11-08). Still to do:
+  - the bilingual caption pattern and the cue-text helpers → `@aiv/remotion-kit` / `@aiv/core`,
+    when the film's notes block settles;
+  - the film's 2D motion kit (`videos/super-agent/src/kit/`), promoted with the next 2D explainer.
 - [ ] **Captions:** an SRT draft generator from cue-sheet text events and a per-language
   subtitle linter (the limits in `references/subtitles.md`), in `@aiv/pipeline` and `aiv`.
 - [ ] **Bilibili publishing:** a `references/bilibili-publishing.md` (AI-content label,
@@ -87,6 +90,14 @@ Built when a film needs them, not before:
   - a few dark pixels can differ by one or two levels across a chunk start (GPU rounding, cause
     not traced).
 - `aiv check` does not lint STYLE.md headings; add it when the second style exists.
+- 2D DOM pages (found on *Who Routes the Agents?*, 2026-11-08):
+  - the kit's `TestCard` and `Title` text is not in a composited layer and probably gets LCD
+    colour fringes. An engine-wide `--disable-lcd-text` launch flag would fix every page; it
+    changes the templates' frame hashes;
+  - `@aiv/remotion-kit` has no `"sideEffects": false`, so a 2D video bundles 18 three.js modules,
+    `@remotion/three` and `Stage3D`/`PostChain` (React Three Fiber and postprocessing are dropped);
+  - a 200 px Plex line is not bit-exact across pages at 1080p: keep DOM text ≤ 136 px
+    (`knowledge/dom-text-determinism.md`).
 - QA's black and freeze thresholds are hard-coded (`qa.ts`).
   - A dark look must keep its ground above limited-range luma 38 (or declare `qa.allowBlack`).
   - Still diagram holds over 3 s need `hold` cues or `qa.allowFreeze`.

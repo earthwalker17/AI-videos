@@ -52,6 +52,7 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [Convert RGB frames to BT.709 once, explicitly, and check it from the final file](../knowledge/bt709-from-rgb.md): Rendered frames are sRGB-encoded RGB. Video delivery is YUV with a colour matrix and a range.
 - [Plan a camera move by how fast its picture moves, before rendering it](../knowledge/camera-moves-by-screen-flow.md): A camera path that looks fine as positions and angles can still strobe at 24 fps without motion blur, or wipe a near object across the lens: what the eye sees is how many pixels…
 - [Make every frame a pure function of its index](../knowledge/deterministic-frames.md): A video rendered in chunks, resumed after a crash, or re-rendered next month must produce the same pixels for the same frame.
+- [Keep DOM text under the size where headless Chrome rasters it differently per page, and out of LCD antialiasing](../knowledge/dom-text-determinism.md): A 2D explainer drawn as DOM text and SVG in headless Chrome must give the same pixels whether a frame is the first on a fresh page or the hundredth in a chunk.
 - [Capture WebGL and WebGPU on a Windows laptop GPU with headless Chrome](../knowledge/headless-gpu-windows.md): Headless Chrome can render on the real GPU of a modest Windows laptop, but only with the right build and flags, and its screenshots are the wrong way to get frames out.
 - [Master to -14 LUFS with a two-pass, linear loudnorm](../knowledge/loudness-two-pass.md): Platforms turn loud uploads down and leave quiet ones quiet, so a mix should arrive at the platform's reference loudness with headroom for true peaks.
 - [Animate everything on ones when the camera moves, and measure cadence, not stills](../knowledge/motion-cadence.md): A stylised film often animates its characters "on twos" (a new pose every other frame) for a hand-made feel.
@@ -76,6 +77,13 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [A bat from one outline spec, posed in 3D and drawn the same way in 2D: furry body, scalloped membrane wings](../videos/halloween-gift/src/kit/bat.ts) (`halloween-gift`)
 - [Torn orb cobwebs between anchor points, drawn as anti-aliased camera-facing thread ribbons](../videos/halloween-gift/src/kit/cobweb.ts) (`halloween-gift`)
 - [A hardcover book's parts as geometry: bevelled boards, a banded spine, a page block with leaf lines, a cover that hinges](../videos/halloween-gift/src/kit/book.ts) (`halloween-gift`)
+- [Bar/beat helpers from a musical grid, pure progress combinators (seq, all, lagged, delay windows) and named easings for frame-driven 2D motion](../videos/super-agent/src/kit/timeline.ts) (`super-agent`)
+- [Frame-driven text: a 6-frame clip-path wipe and fade (never typewriter), a bilingual EN + zh notes block on fixed baselines, explicit zh phrase breaks, grey (non-LCD) antialiasing through a layer hint](../videos/super-agent/src/kit/text.tsx) (`super-agent`)
+- [A 2D translate-and-scale camera over a large world, non-scaling strokes, and labels projected into screen space so they keep their size at any zoom](../videos/super-agent/src/kit/camera.tsx) (`super-agent`)
+- [SVG diagram parts for dark ink maps: rings, platform boxes, pills, edges drawn on at a constant pen speed, tokens riding a path, dashed and hatched variants](../videos/super-agent/src/kit/diagram.tsx) (`super-agent`)
+- [Tapered, variable-width sketch strokes with seeded pressure, drawn as filled polygons (no filters)](../videos/super-agent/src/kit/sketch.ts) (`super-agent`)
+- [A seeded dither tile laid out with Remotion <Img> (waited for, unlike CSS background images) to break up banding on dark grounds](../videos/super-agent/src/kit/dither.tsx) (`super-agent`)
+- [Plans the unicode-range slices of a CJK fontsource family that a film's strings need, so only those slices load and their coverage is proven](../videos/super-agent/src/look/fontPlan.ts) (`super-agent`)
 
 ## References
 - [Parodying a company's notice — trademark guidelines, fair use, YouTube policy (2026-11)](../references/brand-parody.md): What decides how closely a fan parody may imitate a real company's notice (here: the account-suspension email users receive from Anthropic), from the company's own trademark…

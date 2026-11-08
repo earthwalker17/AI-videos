@@ -274,6 +274,19 @@ physical iridescent material, 4x MSAA HalfFloat composer, bloom, vignette, dithe
 - **FFV1 mezzanine:** about 0.35 MiB per frame at 960x540 and 1.20 MiB per frame at 1080p.
   Dithering adds noise that FFV1 cannot predict; without it the template was 0.27 and
   0.79 MiB per frame.
+- **2D DOM + SVG page** (measured 2026-11-08 on `videos/super-agent`'s determinism probe):
+  - **Scene:** a flat dark ground with a seeded dither tile; text in Plex, Noto Sans SC and
+    JetBrains Mono up to 160 px; SVG edges drawn on; a token riding them; a zoom from 1.0× to
+    1.6×; screen-space labels; no R3F.
+  - **Speed:** 0.202-0.211 s per frame at 1920x1080 in a run, of which PNG decode is 39-42 ms.
+    A one-page `aiv still --span` gave 0.18 s at 1080p and 0.11 s at draft. A still on a fresh
+    page takes 0.85-0.91 s.
+  - **Size:** the FFV1 mezzanine is 0.49 MiB per frame (162.7 MB for 315 frames).
+  - **Bundle:** 520 files, 4.2 s warm.
+  - **Determinism:** two `--fresh` 1080p runs of 315 frames gave identical frame hashes and a
+    byte-identical mezzanine. `aiv still --check review` matched all 12 mid-chunk frames
+    rendered as chunk starts.
+  - Large DOM text and the knock-on rules: [knowledge/dom-text-determinism.md](../../knowledge/dom-text-determinism.md).
 - **Deliverables (final):** the `youtube` mp4 is 4.3 MB and the archive master 10.9 MB.
 - **Doctor GPU probe:** 0.8 s. WebGL family: `ANGLE (Intel, Intel(R) UHD Graphics, D3D11)`.
 - **Disk:**

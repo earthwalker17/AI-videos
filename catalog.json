@@ -131,7 +131,36 @@
       ],
       "path": "videos/super-agent",
       "watch": null,
-      "reusable": []
+      "reusable": [
+        {
+          "path": "videos/super-agent/src/kit/timeline.ts",
+          "what": "Bar/beat helpers from a musical grid, pure progress combinators (seq, all, lagged, delay windows) and named easings for frame-driven 2D motion"
+        },
+        {
+          "path": "videos/super-agent/src/kit/text.tsx",
+          "what": "Frame-driven text: a 6-frame clip-path wipe and fade (never typewriter), a bilingual EN + zh notes block on fixed baselines, explicit zh phrase breaks, grey (non-LCD) antialiasing through a layer hint"
+        },
+        {
+          "path": "videos/super-agent/src/kit/camera.tsx",
+          "what": "A 2D translate-and-scale camera over a large world, non-scaling strokes, and labels projected into screen space so they keep their size at any zoom"
+        },
+        {
+          "path": "videos/super-agent/src/kit/diagram.tsx",
+          "what": "SVG diagram parts for dark ink maps: rings, platform boxes, pills, edges drawn on at a constant pen speed, tokens riding a path, dashed and hatched variants"
+        },
+        {
+          "path": "videos/super-agent/src/kit/sketch.ts",
+          "what": "Tapered, variable-width sketch strokes with seeded pressure, drawn as filled polygons (no filters)"
+        },
+        {
+          "path": "videos/super-agent/src/kit/dither.tsx",
+          "what": "A seeded dither tile laid out with Remotion <Img> (waited for, unlike CSS background images) to break up banding on dark grounds"
+        },
+        {
+          "path": "videos/super-agent/src/look/fontPlan.ts",
+          "what": "Plans the unicode-range slices of a CJK fontsource family that a film's strings need, so only those slices load and their coverage is proven"
+        }
+      ]
     }
   ],
   "series": [
@@ -198,6 +227,11 @@
       "id": "deterministic-frames",
       "title": "Make every frame a pure function of its index",
       "path": "knowledge/deterministic-frames.md"
+    },
+    {
+      "id": "dom-text-determinism",
+      "title": "Keep DOM text under the size where headless Chrome rasters it differently per page, and out of LCD antialiasing",
+      "path": "knowledge/dom-text-determinism.md"
     },
     {
       "id": "headless-gpu-windows",
