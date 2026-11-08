@@ -28,6 +28,8 @@ table is generated from it.
 | `@remotion/cli` | 4.0.539 |
 | `@remotion/renderer` | 4.0.539 |
 | `@remotion/three` | 4.0.539 |
+| `@remotion/paths` | 4.0.539 |
+| `@remotion/layout-utils` | 4.0.539 |
 | `react` | 19.3.1 |
 | `react-dom` | 19.3.1 |
 | `three` | 0.186.1 |
@@ -38,6 +40,9 @@ table is generated from it.
 | `@fontsource-variable/inter` | 5.3.0 |
 | `@fontsource-variable/noto-serif-sc` | 5.3.1 |
 | `@fontsource/im-fell-english` | 5.3.0 |
+| `@fontsource-variable/ibm-plex-sans` | 5.3.0 |
+| `@fontsource-variable/noto-sans-sc` | 5.3.1 |
+| `@fontsource-variable/jetbrains-mono` | 5.3.0 |
 | `playwright-core` | 1.64.1 |
 | `vite` | 8.3.5 |
 | `typescript` | 5.9.3 |

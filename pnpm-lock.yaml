@@ -9,9 +9,18 @@ catalogs:
     '@eslint/js':
       specifier: 10.0.1
       version: 10.0.1
+    '@fontsource-variable/ibm-plex-sans':
+      specifier: 5.3.0
+      version: 5.3.0
     '@fontsource-variable/inter':
       specifier: 5.3.0
       version: 5.3.0
+    '@fontsource-variable/jetbrains-mono':
+      specifier: 5.3.0
+      version: 5.3.0
+    '@fontsource-variable/noto-sans-sc':
+      specifier: 5.3.1
+      version: 5.3.1
     '@fontsource-variable/noto-serif-sc':
       specifier: 5.3.1
       version: 5.3.1
@@ -28,6 +37,12 @@ catalogs:
       specifier: 4.0.539
       version: 4.0.539
     '@remotion/cli':
+      specifier: 4.0.539
+      version: 4.0.539
+    '@remotion/layout-utils':
+      specifier: 4.0.539
+      version: 4.0.539
+    '@remotion/paths':
       specifier: 4.0.539
       version: 4.0.539
     '@remotion/renderer':
@@ -101,9 +116,18 @@ importers:
       '@aiv/remotion-kit':
         specifier: workspace:*
         version: link:packages/remotion-kit
+      '@fontsource-variable/ibm-plex-sans':
+        specifier: 'catalog:'
+        version: 5.3.0
       '@fontsource-variable/inter':
         specifier: 'catalog:'
         version: 5.3.0
+      '@fontsource-variable/jetbrains-mono':
+        specifier: 'catalog:'
+        version: 5.3.0
+      '@fontsource-variable/noto-sans-sc':
+        specifier: 'catalog:'
+        version: 5.3.1
       '@fontsource-variable/noto-serif-sc':
         specifier: 'catalog:'
         version: 5.3.1
@@ -119,6 +143,12 @@ importers:
       '@remotion/cli':
         specifier: 'catalog:'
         version: 4.0.539(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)
+      '@remotion/layout-utils':
+        specifier: 'catalog:'
+        version: 4.0.539
+      '@remotion/paths':
+        specifier: 'catalog:'
+        version: 4.0.539(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/three':
         specifier: 'catalog:'
         version: 4.0.539(@react-three/fiber@9.8.2(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(three@0.186.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(remotion@4.0.539(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(three@0.186.1)
@@ -744,8 +774,17 @@ packages:
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
+  '@fontsource-variable/ibm-plex-sans@5.3.0':
+    resolution: {integrity: sha512-agG8tXFEo0hD9+J7npa4vbbWult52eMLVaQ6WQRlhs/iCAojrMAoejru85W9HTVXHfyUj96KM7gp/KGAS87XaQ==}
+
   '@fontsource-variable/inter@5.3.0':
     resolution: {integrity: sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==}
+
+  '@fontsource-variable/jetbrains-mono@5.3.0':
+    resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
+
+  '@fontsource-variable/noto-sans-sc@5.3.1':
+    resolution: {integrity: sha512-UB96JJ17HyD5ehEU7Em0hDdh7fvTMB4B4Hzmq5c4QaNwwSLqTrdM2S+coySeBqCkXwh0DxqXT0b0wMrmzorFpQ==}
 
   '@fontsource-variable/noto-serif-sc@5.3.1':
     resolution: {integrity: sha512-aIHcBaL13QctVaJFeT6wqfgO9Rq/cNtD5g2ob4ze59fYPYwacGthnIrHBe83kDpMEB/k6VGtGc6fS99RImcoSQ==}
@@ -944,6 +983,9 @@ packages:
 
   '@remotion/elevenlabs@4.0.539':
     resolution: {integrity: sha512-B/WswM4UWebc9kHhMGnFhQH13od27p6x480fe2UJCrljkCI5UZPKiRyzH6LIPAknyuYInds48DnQVNVaJwuqPg==}
+
+  '@remotion/layout-utils@4.0.539':
+    resolution: {integrity: sha512-DdIANgI2l2t+ByrEFMDZbe4nxpvmZBR7dDu+bwkz1OnOKDiFuVBGIzzhfKrYE5tARYHQEvSisp/tpytGz/Le2Q==}
 
   '@remotion/licensing@4.0.539':
     resolution: {integrity: sha512-rkKXwA+iISnUma61TudwROPTIEl2MVmiNzdKJNCywkEL379k1FPVuK+P7VeQiAKcVDM9h/Lwq67ZMfdR4r20SA==}
@@ -3081,7 +3123,13 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
+  '@fontsource-variable/ibm-plex-sans@5.3.0': {}
+
   '@fontsource-variable/inter@5.3.0': {}
+
+  '@fontsource-variable/jetbrains-mono@5.3.0': {}
+
+  '@fontsource-variable/noto-sans-sc@5.3.1': {}
 
   '@fontsource-variable/noto-serif-sc@5.3.1': {}
 
@@ -3392,6 +3440,8 @@ snapshots:
     dependencies:
       '@remotion/captions': 4.0.539
       zod: 4.5.4
+
+  '@remotion/layout-utils@4.0.539': {}
 
   '@remotion/licensing@4.0.539': {}
 
