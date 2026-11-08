@@ -15,6 +15,12 @@ the rule of two.
 | `useFont(spec)`, `loadFont(spec)` | Any other font, from its files and the film's strings. Each frame is held until the font is loaded, and the render fails if the font lacks a character (see [Fonts](#fonts)). |
 | `textCanvas(w, h)`, `textContext(canvas)`, `fillTextChecked(g, text, x, y)` | Text in a 2D canvas that rasters the same in every render: a CPU canvas, and a `fillText` that throws while a face it needs is still loading (see [Canvas text](#canvas-text)). |
 | `useRenderScale()`, `useRenderSize()` | Output pixels per CSS pixel (0.5 for draft), and the output size. |
+| `NOISE_GLSL`, `NOISE3_GLSL` | GLSL hash, value noise and fbm in 2D and 3D (see [From A Halloween Gift](#from-a-halloween-gift)). |
+| `FinishEffect` | Vignette, floor lift and frame-indexed grain after the tone mapping. |
+| `Curve`, `distanceToPolyline` | Centripetal Catmull-Rom curves with an arc-length table, in any dimension. |
+| `CamPath` | A camera path with a monotone time warp and hold keys: a pure function of the frame. |
+| `screenBoxAt(pose, points, w, h)` | Where 3D points land on the DOM layer through a camera pose. |
+| `patchMaterial(material, patch)` | GLSL injected into a built-in material, keyed so three never mixes up two patches' programs. |
 
 ## Stage3D
 
@@ -160,6 +166,76 @@ the same.
   intensity. The template's crystal looked matte grey until it did this.
 - **Mind what a glossy floor mirrors.** A light placed behind the subject, such as a rim
   light, is reflected straight at the camera by a glossy floor and washes the frame in haze.
+
+## From A Halloween Gift
+
+These parts were copied, not moved, from the frozen film *A Halloween Gift* at its release tag
+`video/halloween-gift/v1`, for their second use by *Who Routes the Agents?* (video #4,
+[decision 30](../../docs/ARCHITECTURE.md#decisions)). The film keeps its own copies and is
+rebuilt from its tag. Each file's header names its source. With default options each copy
+computes what the film's does (`*.test.ts` port the film's camera-path tests).
+
+| Here | From `videos/halloween-gift/src/` | Changed |
+|---|---|---|
+| `src/glsl.ts`: `NOISE_GLSL`, `NOISE3_GLSL` | `look/glsl.ts` | nothing |
+| `src/finish.ts`: `FinishEffect`, `FINISH_TINT_GLSL` | `look/NightPost.tsx` (not `NightPost` itself) | options (below), and the tint is skipped when it is off |
+| `src/spline.ts`: `Curve`, `distanceToPolyline` | `kit/spline.ts` | its segment evaluator is exported as `barryGoldman` |
+| `src/campath.ts`: `CamPath`, `CamKey`, `CamPose` | `film/campath.ts` | it uses the spline's evaluator (the same arithmetic) |
+| `src/project.ts`: `screenBoxAt` | `overlay/project.ts` | the film's `screenBox(f, …)`, which reads its own camera, stays there |
+| `src/materials.ts`: `patchMaterial` | the `onBeforeCompile` pattern of `look/materials.ts` | a new helper; the storybook look stays in the film |
+
+**The noise.** Paste each string once into a shader that needs it (its functions are not
+guarded). `aivHash12` and `aivHash13` have the form and constants of David Hoskins' "Hash
+without Sine" (`hash12`, `hash13`); its licence is still to be confirmed (docs/ROADMAP.md, Known
+gaps). The finish effect's grain hash `fHash` has the same form.
+
+**`FinishEffect`** goes in `afterToneMapping`: it works on display values. Its options default to
+the film's values: `vignette` 0.8, `grain` 1, `foot` 1 (the band across the bottom of the
+frame), and a floor `liftLow` `#1a0505` to `liftHigh` `#0d1018` (sRGB). With `vignette: 0` and
+`foot: 0` the shader skips the tint, so the corners and the foot are never darkened. A black
+lift adds no floor. The grain changes with `frame`, so set it from the frame index every frame.
+Make the effect inside the factory (the composer disposes its effects when it is rebuilt) and
+keep a reference to it, as the film did:
+
+```tsx
+const hold = useMemo(() => ({ finish: null as FinishEffect | null }), []);
+const after = useCallback(() => [(hold.finish = new FinishEffect({ vignette: 0, foot: 0, liftLow: '#05070a', liftHigh: '#05070a' }))], [hold]);
+useLayoutEffect(() => {
+  if (hold.finish) hold.finish.frame = frame;
+});
+<PostChain effects={effects} afterToneMapping={after} />;
+```
+
+**`Curve`.** Centripetal Catmull-Rom through the points, with the ends by reflection. `at(u)` is
+uniform in segments; `pointAt(s)`, `tangentAt(s)` and `polyline(n)` are in arc length. It does
+not overshoot between uneven keys (tested: collinear keys measure exactly, and a zig-zag never
+turns back on a chord).
+
+**`CamPath`.** Positions and aim points on centripetal curves that share their knots, and a
+Fritsch–Carlson monotone warp from frames to knot time, so speed is continuous through every
+key. A `hold` key (and the first and last) eases in and out; the others are passed at speed.
+`at(f)` gives a `CamPose` (`pos`, `look`, vertical `fov` in degrees, `focus`), clamped outside
+the keys.
+
+**`screenBoxAt(pose, points, width, height)`.** The CSS-px box of the points seen through
+the pose, at the composition's CSS size. Both layers use one pose, so a DOM label lands on its
+3D object at every zoom. Keep the points in front of the camera.
+
+**`patchMaterial(material, { key, uniforms, vertex, fragment })`.** Each stage takes a `head`
+(GLSL put before the shader) and `replace` (chunk name to the GLSL that replaces its
+`#include <name>`; include the chunk again in your text to keep it). It throws at compile for a
+chunk the shader lacks. Why it exists: three shares one GPU program between every material with
+the same program cache key, and the default key is `onBeforeCompile.toString()`. Two materials
+patched by closures of one function, with different GLSL, would then share whichever program
+compiled first. `patchMaterial` keys each patch by its `key` plus a hash of the GLSL it injects
+(`materialPatchKey`). three adds the material's `defines` to the key itself, so switch variants
+with `material.defines`. Every patched material shares one `onBeforeCompile`, which assigns the
+patch's uniform objects on every compile, so a recompile never strands a uniform. Put shared
+uniforms in a module-scope object, set them once per frame, and pass the same objects to every
+patch. `material.clone()` does not carry the patch.
+
+Not yet verified by a render in the kit: all of these. *A Halloween Gift* rendered the
+originals, and the tests check the copies' arithmetic, options, keys and injection, not pixels.
 
 ## Fonts
 

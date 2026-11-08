@@ -362,3 +362,36 @@ new entry that supersedes it, not editing history.
     contract, never Node or a video (a lint block and a test check it). Cost: every scored
     video's audio hash covers the whole kit, so any kit edit makes every unfrozen scored
     video's tracks stale until `aiv audio` rebuilds them. Their pictures are never affected.
+30. **2026-11-09 · A diagram film is a lit WebGL world under DOM text.** *Who Routes the
+    Agents?* (video #4) first drew its 2D world as DOM and SVG. The user rejected that look as
+    "too simple and crude": DOM gradients band, and there is no real light, shadow or bloom.
+    - **Layers.** The picture of an explainer that needs material and light is now two
+      layers on one Remotion composition:
+      - a WebGL world (React Three Fiber under the kit's `Stage3D` and `PostChain`, lit,
+        dithered once at the 8-bit output);
+      - above it, a DOM layer for every line of text that is meant to be read (notes, labels,
+        tags), which keeps the proven text rules: ≤ 136 px, a `GREY_TEXT` layer, fonts gated
+        by `useFont`.
+    - **One camera.** Both layers are posed by one pure function of the frame (world → camera
+      pose → screen), so a label lands on its object at every zoom.
+    - **Text inside the world.** Text that must sit in depth, be lit, or exceed 136 px (hero
+      numbers, micro-print as texture) is drawn once into a CPU canvas (`textCanvas`) and used
+      as a texture.
+    - **Where the code lives.** A film's shaders, geometry and world layout live in the video
+      (`videos/<slug>/src/<world>/`) until a second film needs them. Generic parts copied from
+      the frozen *A Halloween Gift* go into `@aiv/remotion-kit` now, because this is their
+      second use: noise GLSL, the finish effect, the spline and camera path, the projection
+      that pins DOM boxes to 3D points, and the `onBeforeCompile` material pattern.
+    - **Cost:** about 2–4× the DOM layer's per-frame time, measured on the probe before
+      anything is built; a DOM-over-WebGL frame must pass the chunk-start checks (the kit's
+      knowledge card).
+31. **2026-11-09 · Lookdev includes motion tests.** Lookdev stills could not show what the user
+    judges just as hard: whether relationships are alive and the motion elegant. So
+    `aiv still --span` renders up to 240 contiguous frames (8 s) in one engine call.
+    - `--encode` turns the span into a lossless clip, a preview mp4, a contact sheet and motion
+      QA, all in the stills folder and never in a render run.
+    - `--inner <n>` re-renders `n` frames inside the span, each on a fresh page, and compares
+      their hashes with the span's. This is the chunk-start check for lookdev entries, which
+      `--check` cannot compare (they have no run).
+    - A look is signed off on stills **and** motion tests, after the frame-critic's craft
+      criterion has been calibrated to fail the looks the user rejected.
