@@ -185,8 +185,9 @@ Answers to the fact questions the treatment left open:
   the coding simulated.
 
 ## Chinese text check
-**Pending.** The user, the fluent reader, signs off every zh string in session 2, when
-SCRIPT.md fixes the copy. Until then every zh line in the treatment is a draft.
+**Signed off 2026-11-08.** The user, the fluent reader, checked every zh-Hans string in
+SCRIPT.md (section "zh sign-off", the same strings as `src/cues.ts` `WORDS`) and answered
+"Correct as written". Any string added or changed after that date needs the same check again.
 - **Sources.** The Chinese original was not read: WeChat served a verification page
   (wechat-original) and the Zhihu copy returned HTTP 403 (zhihu-copy). The terms therefore
   follow IT之家 and 量子位 [S] (ithome-2026-10-31, qbitai-2026-10-31), the prototype's own zh

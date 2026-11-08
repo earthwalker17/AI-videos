@@ -770,6 +770,10 @@ of the thesis.
 - The user's Middle-earth map film: no terrain, parchment or fantasy lettering.
 
 ## Sound design
+**Score sketch, 2026-11-08: the right direction.** The user listened to the sketch of bars
+1–27 (`audio/`, built by `aiv audio`: -14.0 LUFS, true peak -2.6 dBTP) and answered "Right
+direction". The full score keeps these voices and devices.
+
 **Tempo and clock.** 90 bpm in 4/4: 80 frames per bar, 20 per beat, 10 per eighth, 5 per
 sixteenth. At 48 kHz that is 1,600 samples per frame, so audio and picture are exact. Picture
 and score read one typed timeline module (bar map, cue table, event schedule).
@@ -827,6 +831,18 @@ the lookdev stills, and the full score before the review cut.
 Three stills at 1080p before any scene code, each reviewed by the frame-critic agent, compared
 against genre references and the article's figures, run through a colour-blindness simulation,
 and then signed off by the user.
+
+**Outcome, round 1 (2026-11-08): the look is NOT approved.** The stills were built
+(`src/lookdev/stills.tsx`) and taken through two adversarial frame-critic rounds and a code
+review (out/super-agent/stills/lookdev-1, -2, -3). The user's verdict:
+- "everything except the look itself should be OK";
+- "the look is still too simple and crude to be something worth watching".
+
+The composition, content, framing and story of the stills stand. The rendering style of the
+dark ink map (flat ink lines and sketch strokes on a flat ground) is to be reworked. The user
+gives the changes in the brief of the next session, and no scene code is built until a second
+lookdev round is signed off. The descriptions below are round 1 as specified; the stills as
+built differ in a few places, listed in README.md (Handoff).
 
 **Still 1, f750 (0:25.0): the switchboard, sketch world.**
 - Camera 1.3× on the act-one hub: your ink ring with the ink interchange ring just closed round

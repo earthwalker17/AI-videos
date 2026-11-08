@@ -203,6 +203,12 @@ holds:
   frames). The tags stay lower case, as the other tags are.
 
 ## zh sign-off
+**Signed off 2026-11-08.** Asked whether every zh-Hans string in this section is correct, the
+user, the fluent reader, answered "Correct as written". That covers the 28 narration lines, the
+title, the tags, the chart labels, the end card, and the choices below (双层架构, 手绘线, the
+Netflix-style punctuation). Any string added or changed after that date needs the same check
+again.
+
 For the user, the fluent reader: tick each string or write the change beside it. The terms
 are explained in the glossary below. Every string is in `src/cues.ts`; a changed line has to
 clear its hold again (`pnpm exec vitest run videos/super-agent/src/cues.test.ts`), so a
