@@ -9,8 +9,10 @@
  * Pure: the footprints are a function of the layout and the frame's state. The GPU gets them
  * packed as three vec4 each (`packFootprints`).
  */
-import { SHADOW_K, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CHUTE_W, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
-import { slipPose, tabArc, type DeskState } from './state.ts';
+import { SHADOW_K, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
+import { CARD_C, CARD_FILE, DISPATCH, FRESH, HATCH_DEPTH, NEXT_SLIP, SINK } from './layout.ts';
+import { CORD_FROM, TAB_REST_C, slipPose, tabArc, type DeskState } from './state.ts';
+import { CHORES, TRAY_Z, YOU_POSE_B, strutOnLid, type YouPose } from './you.ts';
 
 /** At most this many footprints reach the GPU (the uniform array's size). */
 export const MAX_FOOTPRINTS = 128;
@@ -64,8 +66,65 @@ function bayFootprints(b: BayLayout): Footprint[] {
   return fp;
 }
 
-/** Every footprint that does not move in this lookdev (the layout's). */
-export function staticFootprints(): Footprint[] {
+/**
+ * Your desk's footprints at a pose (`you.ts`): the slab, the lamp's base, arms and head, the
+ * laptop and its lid, the lid strut, the shadow-board tray and each chore resting in it (a recess's
+ * floor is in the plate's shadow; a chore stands proud of it), the in-tray.
+ */
+export function youFootprints(pose: YouPose): Footprint[] {
+  const [sx, sy] = pose.shift;
+  const at2 = (x: number, y: number): P2 => [x + sx, y + sy];
+  const at3 = (p: P3): P3 => [p[0] + sx, p[1] + sy, p[2]];
+  const R = (r: Rect): Rect => ({ x0: r.x0 + sx, x1: r.x1 + sx, y0: r.y0 + sy, y1: r.y1 + sy });
+  const { base, elbow, head } = pose.lamp;
+  const fp: Footprint[] = [];
+  fp.push(rectFp(R(YOU.slab), 0, YOU.top, 1, 8));
+  fp.push(circleFp(at2(base[0], base[1]), LAMP.baseR, YOU.top, YOU.top + 8, 1));
+  fp.push(segFp(at3([base[0], base[1], YOU.top + 8]), at3(elbow), 5));
+  fp.push(segFp(at3(elbow), at3(head), 5));
+  fp.push(circleFp(at2(head[0], head[1]), LAMP.hoodR, head[2] - 26, head[2] + 14, 0));
+  fp.push(rectFp(R(YOU.laptop), YOU.top, YOU.top + 8, 1, 6));
+  const lid = YOU.laptop;
+  const lx = (lid.x0 + lid.x1) / 2;
+  fp.push(segFp(at3([lx, lid.y1, YOU.top + 8]), at3([lx, lid.y1 + YOU.lidH * Math.sin(YOU.lidLean), YOU.top + 8 + YOU.lidH * Math.cos(YOU.lidLean)]), (lid.x1 - lid.x0) / 2 - 4));
+  fp.push(rectFp(R(YOU.tray), YOU.top, TRAY_Z.plate, 1, 6));
+  const { key, glass, strut } = CHORES;
+  if (pose.held.key > 0.5) fp.push(rectFp(R({ x0: key.c[0] - key.bowR, x1: key.c[0] + key.bit.x[1], y0: key.c[1] + key.shank[0], y1: key.c[1] + key.bowY + key.bowR }), TRAY_Z.floor, TRAY_Z.floor + 4, 0.7, 4));
+  if (pose.held.glass > 0.5) fp.push(rectFp(R({ x0: glass.c[0] - glass.half[0] + 1, x1: glass.c[0] + glass.half[0] - 1, y0: glass.c[1] - glass.half[1], y1: glass.c[1] + glass.half[1] }), TRAY_Z.floor, TRAY_Z.floor + 27, 0.8, 4));
+  if (pose.held.strut > 0.5) {
+    if (pose.strut === 'tray') fp.push(rectFp(R({ x0: strut.c[0] - strut.half[0], x1: strut.c[0] + strut.half[0], y0: strut.c[1] - strut.half[1], y1: strut.c[1] + strut.half[1] }), TRAY_Z.floor, TRAY_Z.floor + 8, 0.7, 4));
+    else {
+      const s = strutOnLid();
+      fp.push(segFp(at3(s.a), at3(s.b), 3.4));
+    }
+  }
+  if (pose.inTray) fp.push(rectFp(R(YOU.inTray), YOU.top, YOU.top + 18, 1, 4));
+  return fp;
+}
+
+/** Footprints moved up or down by dz (a bay rising out of or sinking into its hatch); what ends under the desk casts nothing on it. */
+export function shiftFootprints(fps: readonly Footprint[], dz: number): Footprint[] {
+  if (dz === 0) return [...fps];
+  const out: Footprint[] = [];
+  for (const fp of fps) {
+    if (fp.kind === 'rect' || fp.kind === 'circle') {
+      if (fp.z1 + dz <= 0.5) continue;
+      out.push({ ...fp, z0: Math.max(0, fp.z0 + dz), z1: fp.z1 + dz });
+    } else if (fp.kind === 'seg') {
+      if (Math.max(fp.ha, fp.hb) + dz <= 0.5) continue;
+      out.push({ ...fp, ha: Math.max(0, fp.ha + dz), hb: Math.max(0, fp.hb + dz) });
+    } else out.push(fp);
+  }
+  return out;
+}
+
+/** The test tower's bay and its tower (they sink together once it has finished). */
+function testsFootprints(): Footprint[] {
+  return [...bayFootprints(BAYS.tests), circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1)];
+}
+
+/** Every footprint that does not move in this lookdev (the layout's); `testsSink`: the finished test bay sunk into its hatch (0..1). */
+export function staticFootprints(testsSink = 0): Footprint[] {
   const fp: Footprint[] = [];
   // under the deck the desk sees less sky: the deck's outline as a canopy
   fp.push({ kind: 'canopy', c: [(DECK.x0 + DECK.x1) / 2, (DECK.y0 + DECK.y1) / 2], h: [(DECK.x1 - DECK.x0) / 2 - 10, (DECK.y1 - DECK.y0) / 2 - 10], z: DECK.railZ0, strength: 0.6 });
@@ -106,30 +165,21 @@ export function staticFootprints(): Footprint[] {
   // the ramp's curved sheet, as a sloped plate from the east rail down to its foot
   const rampY = (RAMP.y0 + RAMP.y1) / 2;
   fp.push(segFp([RAMP.x, rampY, RAMP.top], [RAMP.foot - 14, rampY, 4], (RAMP.y1 - RAMP.y0) / 2));
-  // the pulley bracket off the east rail, which the Thread cord touches
-  fp.push(segFp([MAST.arm[0], MAST.arm[1], DECK.top - 4], [MAST.x, MAST.y, DECK.top - 4], 4));
-  fp.push(segFp([MAST.x, MAST.y, DECK.top - 4], [MAST.x, MAST.y, MAST.h], 5));
   // the bays: every one under 80
-  for (const b of Object.values(BAYS)) fp.push(...bayFootprints(b));
+  if (testsSink > 0) {
+    for (const b of Object.values(BAYS)) if (b.id !== 'tests') fp.push(...bayFootprints(b));
+  } else for (const b of Object.values(BAYS)) fp.push(...bayFootprints(b));
   fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1], 0.4));
   fp.push(rectFp(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 0.7));
-  fp.push(circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1));
+  if (testsSink > 0) fp.push(...shiftFootprints(testsFootprints(), -SINK * testsSink));
+  else fp.push(circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1));
   fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1] + PINS.h, 0, 4));
   fp.push(rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1], 1, 4));
   // you
-  fp.push(rectFp(YOU.slab, 0, YOU.top, 1, 8));
-  fp.push(circleFp([LAMP.base[0], LAMP.base[1]], LAMP.baseR, YOU.top, YOU.top + 8, 1));
-  fp.push(segFp([LAMP.base[0], LAMP.base[1], YOU.top + 8], LAMP.elbow, 5));
-  fp.push(segFp(LAMP.elbow, LAMP.head, 5));
-  fp.push(circleFp([LAMP.head[0], LAMP.head[1]], LAMP.hoodR, LAMP.head[2] - 26, LAMP.head[2] + 14, 0));
-  fp.push(rectFp(YOU.laptop, YOU.top, YOU.top + 8, 1, 6));
-  const lid = YOU.laptop;
-  const lx = (lid.x0 + lid.x1) / 2;
-  fp.push(segFp([lx, lid.y1, YOU.top + 8], [lx, lid.y1 + YOU.lidH * Math.sin(YOU.lidLean), YOU.top + 8 + YOU.lidH * Math.cos(YOU.lidLean)], (lid.x1 - lid.x0) / 2 - 4));
-  fp.push(rectFp(YOU.tray, YOU.top, YOU.top + 12, 1, 6));
-  fp.push(rectFp(YOU.inTray, YOU.top, YOU.top + 18, 1, 4));
+  fp.push(...youFootprints(YOU_POSE_B));
   // the chute and its posts
-  fp.push(...polySegs(CHUTE, CHUTE_W / 2));
+  // the chute: a narrow line of shadow (a wide one smudged its own trough)
+  fp.push(...polySegs(CHUTE, 12));
   for (const [x, y] of CHUTE_POSTS) fp.push(circleFp([x, y], 6, 0, 90, 1));
   // intake
   fp.push(circleFp(rectC(FEEDERS.chat), (FEEDERS.chat.y1 - FEEDERS.chat.y0) / 2, 0, FEEDER_H.chat, 1));
@@ -137,8 +187,6 @@ export function staticFootprints(): Footprint[] {
   fp.push(circleFp([SPOOL.x, SPOOL.y], SPOOL.r, 0, SPOOL.z[1], 1));
   fp.push(rectFp(GATE.bar, 0, GATE.h, 1, 3));
   fp.push(segFp(BELT.from, BELT.to, BELT.w / 2));
-  // the request's Thread cord
-  fp.push(...polySegs(CORDS.vermilion, 4));
   return fp;
 }
 
@@ -153,6 +201,31 @@ export function movingFootprints(s: DeskState): Footprint[] {
     const d = (CARD.d / 2) * (1 - 0.7 * s.dock.fold);
     fp.push({ kind: 'rect', c: [x, y], h: [CARD.w / 2 - 10, d], r: 4, rot: 0, z0: z - 4, z1: z + 4, contact: 0 });
   }
+  // the Thread cord and its guide, from 7.1 only (design D1)
+  if (s.f >= CORD_FROM) {
+    fp.push(segFp([MAST.arm[0], MAST.arm[1], DECK.top - 4], [MAST.x, MAST.y, DECK.top - 4], 4));
+    fp.push(segFp([MAST.x, MAST.y, DECK.top - 4], [MAST.x, MAST.y, MAST.h], 5));
+    fp.push(...polySegs(CORDS.vermilion, 4));
+  }
+  // MT1's next dispatch: the chat slip in flight or in the throat, the folder, the fresh bay rising out of its hatch
+  const n = s.next;
+  if (n.slip) fp.push({ kind: 'rect', c: [n.slip.p[0], n.slip.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 3, rot: n.slip.heading, z0: n.slip.p[2] - 0.4, z1: n.slip.p[2] + 0.4, contact: 0 });
+  if (n.folder) fp.push({ kind: 'rect', c: [n.folder.p[0], n.folder.p[1]], h: [DISPATCH.w / 2, DISPATCH.d / 2], r: 3, rot: n.folder.heading, z0: n.folder.p[2] - 1.5, z1: n.folder.p[2] + 1.5, contact: 0.6 });
+  if (n.hatch > 0) {
+    const F = CARD_FILE;
+    const fresh = [...bayFootprints(FRESH), rectFp({ x0: F.x0 - F.cheek, x1: F.x1 + F.cheek, y0: F.y - F.r, y1: F.y + F.r }, BAY_FLOOR, F.z + F.cheekR, 1, 6)];
+    fp.push(...shiftFootprints(fresh, -HATCH_DEPTH * (1 - n.rise)));
+  }
+  // still (c): the report in flight, its body at the mouth, the tab dropping into the drawer
+  const c = s.cache;
+  if (c?.card) fp.push({ kind: 'rect', c: [c.card.pos[0], c.card.pos[1]], h: [CARD_C.w / 2, CARD_C.d / 2], r: 4, rot: 0, z0: c.card.pos[2] - 1, z1: c.card.pos[2] + 1, contact: 0 });
+  if (c && (c.docked || c.drop > 0)) {
+    const t = c.drop;
+    const [x, y, z] = t > 0 ? [MOUTH.land[0] + (TAB_REST_C[0] - MOUTH.land[0]) * t, MOUTH.land[1] + (TAB_REST_C[1] - MOUTH.land[1]) * t, MOUTH.land[2] + (TAB_REST_C[2] - MOUTH.land[2]) * t] : MOUTH.land;
+    const half = c.fold > 0.5 || t > 0 ? CARD_C.w / 4 : CARD_C.w / 2;
+    // folded, the tab lies over the body's east half
+    fp.push({ kind: 'rect', c: [x + (CARD_C.w / 2 - half), y - 6], h: [half, CARD_C.d * 0.3], r: 3, rot: 0, z0: z - 3, z1: z + 3, contact: 0 });
+  }
   if (s.slip && s.slip.s < 1 && s.slip.emerge >= 1) {
     const pose = slipPose(s.slip.s);
     fp.push({ kind: 'rect', c: [pose.p[0], pose.p[1]], h: [SLIP.l / 2, SLIP.w / 2], r: 3, rot: pose.heading, z0: pose.p[2] + 2, z1: pose.p[2] + 3, contact: 0 });
@@ -162,7 +235,7 @@ export function movingFootprints(s: DeskState): Footprint[] {
 
 /** All footprints at a frame (static first). Throws past MAX_FOOTPRINTS. */
 export function footprintsAt(s: DeskState): Footprint[] {
-  const all = [...staticFootprints(), ...movingFootprints(s)];
+  const all = [...staticFootprints(s.testsSink), ...movingFootprints(s)];
   if (all.length > MAX_FOOTPRINTS) throw new Error(`desk: ${all.length} footprints, over the ${MAX_FOOTPRINTS} the shaders hold`);
   return all;
 }

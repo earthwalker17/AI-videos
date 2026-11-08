@@ -6,7 +6,7 @@
  * state does, so the printed textures (gl/text.ts) are drawn once, with their faces loaded
  * (packages/remotion-kit README.md, Canvas text).
  */
-import { Stage3D, useFont } from '@aiv/remotion-kit';
+import { Stage3D, useFont, type CamPose } from '@aiv/remotion-kit';
 import { useMemo, type ReactNode } from 'react';
 import { AbsoluteFill } from 'remotion';
 import { useFilmFonts } from '../look/fonts.ts';
@@ -15,7 +15,7 @@ import { DeskWorld } from './DeskWorld.tsx';
 import type { Footprint } from './footprints.ts';
 import { DESK_HEX } from './gl/desk.ts';
 import { PRINT_FONT } from './gl/text.ts';
-import { Overlay } from './Overlay.tsx';
+import { Overlay, type RoleLabel, type TagSpec } from './Overlay.tsx';
 import { deskStateAt, type DeskState } from './state.ts';
 
 /** The film frames this lookdev world is posed for; outside them it holds the nearest. */
@@ -30,15 +30,24 @@ export interface DeskFrameProps {
   objects: (s: DeskState) => ReactNode;
   /** footprints to cast instead of the layout's (the harness) */
   footprints?: Footprint[];
+  /** the camera at a film frame (default: style frame (b)'s framing, held) */
+  poseAt?: (f: number, angle: Angle) => CamPose;
+  /** the film frames the world is posed for (default LOOKDEV_SPAN); outside them it holds the nearest */
+  span?: readonly [number, number];
+  /** the role labels in view (default: the Overlay's) and the tags */
+  labels?: readonly RoleLabel[];
+  tags?: readonly TagSpec[];
+  /** the desk's state at a film frame (default: state.ts deskStateAt) */
+  stateAt?: (f: number) => DeskState;
 }
 
-export function DeskFrame({ f, angle, bloom, objects, footprints }: DeskFrameProps) {
+export function DeskFrame({ f, angle, bloom, objects, footprints, poseAt, span = LOOKDEV_SPAN, labels, tags, stateAt = deskStateAt }: DeskFrameProps) {
   const { fonts, ready } = useFilmFonts();
   const print = useFont(PRINT_FONT);
   const all = ready && print.ready;
-  const wf = Math.min(Math.max(f, LOOKDEV_SPAN[0]), LOOKDEV_SPAN[1]);
-  const s = useMemo(() => deskStateAt(wf), [wf]);
-  const pose = useMemo(() => deskCamera(FRAMING_B, angle), [angle]);
+  const wf = Math.min(Math.max(f, span[0]), span[1]);
+  const s = useMemo(() => stateAt(wf), [stateAt, wf]);
+  const pose = useMemo(() => (poseAt ? poseAt(wf, angle) : deskCamera(FRAMING_B, angle)), [poseAt, wf, angle]);
   return (
     <AbsoluteFill style={{ background: DESK_HEX.base }}>
       {all && (
@@ -48,7 +57,7 @@ export function DeskFrame({ f, angle, bloom, objects, footprints }: DeskFramePro
           </DeskWorld>
         </Stage3D>
       )}
-      <Overlay f={f} pose={pose} fonts={fonts} ready={all} />
+      <Overlay f={f} pose={pose} fonts={fonts} ready={all} labels={labels} tags={tags} />
     </AbsoluteFill>
   );
 }

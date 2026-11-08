@@ -14,9 +14,8 @@ import { fillTextChecked, textCanvas, type FontSpec } from '@aiv/remotion-kit';
 import mono500 from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2';
 import mono700 from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-700-normal.woff2';
 import { CanvasTexture, SRGBColorSpace, type Texture } from 'three';
-import { WORDS } from '../../cues.ts';
-import { CELLS, CELLS_BEFORE, DOSSIER, FANFOLD, GALLEY, IN_TRAY, NAMEPLATE, POLICY, PRINT_STRINGS, REPLY, REPORT, SLIPS } from '../../print.ts';
-import { BAYS, CARD, CELLS_X, REEL, SLIP, TAPE, TAPE_FLAT_X1, TRAIT_PLATE, type BayId, type BayLayout } from '../layout.ts';
+import { CACHE_CELLS, CELLS, CELLS_BEFORE, CELLS_NEXT, DOSSIER, DOSSIER_FINE, FANFOLD, FANFOLD_FINE, GALLEY, GALLEY_FINE, IN_TRAY, NAMEPLATE, NEXT_WORD, POLICY, PRINT_STRINGS, REPLY, REPORT, REPORT_C, SLIPS } from '../../print.ts';
+import { BAYS, CACHE_WINDOW, CARD, CARD_C, CELLS_X, DISPATCH, FRESH, NEXT_SLIP, REEL, SLIP, TAPE, TAPE_FLAT_X1, TRAIT_PLATE, type BayLayout, type WorkerId } from '../layout.ts';
 
 /** IBM Plex Mono's latin files (its unicode.json `latin` range), the two weights the print uses. */
 const LATIN = 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD';
@@ -35,14 +34,17 @@ export const TEX = 2.8;
 export const PRINT_EM = 25;
 /** An ID in the report's chain (bay → Router → you): at least 24 px on screen. */
 export const ID_EM = 30;
-const INK = '#2A2B2A';
+export const INK = '#2A2B2A';
 const VERMILION = '#E8603F';
 
-type Draw = (g: CanvasRenderingContext2D) => void;
+export type Draw = (g: CanvasRenderingContext2D) => void;
 
-function texture(w: number, h: number, draw: Draw, aniso: number, bg = '#FFFFFF'): Texture {
-  const { c, g } = textCanvas(Math.ceil(w * TEX), Math.ceil(h * TEX));
-  g.scale(TEX, TEX);
+/** Texels per world unit for what the close shot (still (c), 2.0x) reads: about 2.8 per screen pixel there. */
+export const TEX_CLOSE = 6;
+
+export function texture(w: number, h: number, draw: Draw, aniso: number, bg = '#FFFFFF', scale = TEX): Texture {
+  const { c, g } = textCanvas(Math.ceil(w * scale), Math.ceil(h * scale));
+  g.scale(scale, scale);
   if (bg === 'transparent') g.clearRect(0, 0, w, h);
   else {
     g.fillStyle = bg;
@@ -56,7 +58,7 @@ function texture(w: number, h: number, draw: Draw, aniso: number, bg = '#FFFFFF'
 }
 
 /** Text in a face at `size` world units (weight 500 or 700), ink colour. */
-function print(g: CanvasRenderingContext2D, family: string, text: string, x: number, y: number, size = PRINT_EM, weight: 500 | 700 = 500, color = INK, align: CanvasTextAlign = 'left'): void {
+export function print(g: CanvasRenderingContext2D, family: string, text: string, x: number, y: number, size = PRINT_EM, weight: 500 | 700 = 500, color = INK, align: CanvasTextAlign = 'left'): void {
   g.font = `${weight} ${size}px ${family}`;
   g.fillStyle = color;
   g.textAlign = align;
@@ -65,7 +67,7 @@ function print(g: CanvasRenderingContext2D, family: string, text: string, x: num
 }
 
 /** A thin rule (ink at a weight). */
-function rule(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, w = 1.2, color = INK): void {
+export function rule(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, w = 1.2, color = INK): void {
   g.strokeStyle = color;
   g.lineWidth = w;
   g.beginPath();
@@ -79,7 +81,7 @@ function rule(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y
  * about 30 u wide (25 px): a notched chat slip, a punched CI card with its clipped corner, a docs
  * report (a sheet with a folded corner), a test report (a card with its punched hole).
  */
-function cargoMark(g: CanvasRenderingContext2D, kind: string, x: number, y: number, color = INK): void {
+export function cargoMark(g: CanvasRenderingContext2D, kind: string, x: number, y: number, color = INK): void {
   g.fillStyle = color;
   g.beginPath();
   if (kind === 'chat') {
@@ -132,8 +134,22 @@ export interface PrintTextures {
   tape: Texture;
   tapeBefore: Texture;
   reelTop: Texture;
-  nameplate: Record<BayId, Texture>;
-  dossier: Record<BayId, Texture>;
+  nameplate: Record<WorkerId, Texture>;
+  dossier: Record<WorkerId, Texture>;
+  /** MT1: the tape after the chat slip is stamped in, the chat slip, the dispatch folder's cover */
+  tape2: Texture;
+  chatNext: Texture;
+  folderFresh: Texture;
+  /** still (c): the tape without cells, the older cards (each with its stub at its west end), the inline record, the report card's face and back */
+  tapeBlank: Texture;
+  cacheCells: Texture[];
+  record: Texture;
+  cardC: Texture;
+  cardCBack: Texture;
+  /** the close shot's fine print on the fanfold, the galley and the dossiers */
+  fanfoldFine: Texture;
+  galleyFine: Texture;
+  dossierFine: Record<WorkerId, Texture>;
   policy: Texture;
   fanfold: Texture;
   fanfoldSide: Texture;
@@ -173,6 +189,11 @@ export const PRINT_SIZE = {
   folder: [136, 84],
   vellumMail: [124, 80],
   vellumCalendar: [124, 80],
+  chatNext: [NEXT_SLIP.l, NEXT_SLIP.w],
+  folderFresh: [DISPATCH.w, DISPATCH.d],
+  record: [CACHE_WINDOW.record[1] - CACHE_WINDOW.record[0], TAPE.y1 - TAPE.y0],
+  cardC: [CARD_C.w, CARD_C.d],
+  cardCBack: [CARD_C.w / 2, CARD_C.d * (1 - CARD_C.header)],
 } as const satisfies Record<string, readonly [number, number]>;
 
 export function makePrintTextures(family: string, sans: string, aniso: number): PrintTextures {
@@ -182,20 +203,42 @@ export function makePrintTextures(family: string, sans: string, aniso: number): 
   // the tape: five inline cells under the window, printed ink with its tooth. The newest (west, by the
   // print head) carries its report's ID at >= 24 px and its mark; older cells print a step dimmer
   // once a new report has stamped in (the stamp-in swaps `tapeBefore` for `tape`)
-  const tapeOf = (cells: readonly { code: string; kind: string; request: boolean }[], fresh: boolean) =>
+  const tapeOf = (cells: readonly { code: string; kind: string; request: boolean }[], fresh: boolean, notch = false) =>
     tex(S.tape, (g) => {
       const [, h] = S.tape;
       cells.forEach((cell, i) => {
         const x = CELLS_X[i][0] - TAPE.x0;
         const w = CELLS_X[i][1] - CELLS_X[i][0];
-        const ink = i === 0 ? INK : fresh ? '#8A867C' : '#55534D';
+        const ink = i === 0 ? INK : fresh ? '#7E7A71' : '#55534D';
+        // once a new report has stamped in, the older cells dim a step (their paper greys by ~25 codes)
+        if (i > 0 && fresh) {
+          g.fillStyle = '#C8C3B8';
+          g.fillRect(x + 2, 4, w - 4, h - 8);
+        }
         g.strokeStyle = ink;
         g.lineWidth = i === 0 ? 2.2 : 1.2;
         g.strokeRect(x + 2, 4, w - 4, h - 8);
         g.filter = 'blur(0.35px)';
-        if (i === 0) {
+        // only the teaching chain's ID is printed as a number (#0408, once stamped in); everything else is a mark
+        if (i === 0 && fresh && cell.code) {
           print(g, family, cell.code, x + 4, 32, ID_EM, 700, ink);
           cargoMark(g, cell.kind, x + 8, 38, ink);
+        } else if (i === 0 && fresh) {
+          // a mark only (one ID chain): the accepted slip, larger, with the loupe's notch cut in its edge
+          g.save();
+          g.translate(x + 14, 12);
+          g.scale(1.6, 1.6);
+          cargoMark(g, cell.kind, 0, 0, ink);
+          g.restore();
+          if (notch) {
+            g.fillStyle = '#FFFFFF';
+            g.beginPath();
+            g.moveTo(x + 14 + 22, 12);
+            g.lineTo(x + 14 + 30, 12);
+            g.lineTo(x + 14 + 26, 19);
+            g.closePath();
+            g.fill();
+          }
         } else cargoMark(g, cell.kind, x + 8, 20, ink);
         g.filter = 'none';
         if (cell.request) {
@@ -212,6 +255,7 @@ export function makePrintTextures(family: string, sans: string, aniso: number): 
     });
   const tape = tapeOf(CELLS, true);
   const tapeBefore = tapeOf(CELLS_BEFORE, false);
+  const tape2 = tapeOf(CELLS_NEXT, true, true);
 
   // the reel's top: the wound tape seen edge-on, one ring per turn
   const reelTop = (() => {
@@ -243,21 +287,22 @@ export function makePrintTextures(family: string, sans: string, aniso: number): 
   })();
 
   // each bay's nameplate carries its task's ID at >= 24 px (the report's chain starts here)
+  const WORKERS: Record<WorkerId, BayLayout> = { ...BAYS, fresh: FRESH };
   const nameplate = Object.fromEntries(
-    (Object.keys(NAMEPLATE) as BayId[]).map((id) => {
-      const size = bandSize(BAYS[id]);
+    (Object.keys(NAMEPLATE) as WorkerId[]).map((id) => {
+      const size = bandSize(WORKERS[id]);
       return [id, tex(size, (g) => print(g, family, NAMEPLATE[id], size[0] / 2, size[1] * 0.82, ID_EM - 2, 700, INK, 'center'))];
     }),
-  ) as Record<BayId, Texture>;
+  ) as Record<WorkerId, Texture>;
 
   const dossier = Object.fromEntries(
-    (Object.keys(DOSSIER) as BayId[]).map((id) => [
+    (Object.keys(DOSSIER) as WorkerId[]).map((id) => [
       id,
-      tex(dossierSize(BAYS[id]), (g) => {
+      tex(dossierSize(WORKERS[id]), (g) => {
         DOSSIER[id].forEach((line, i) => print(g, family, line, 4, 22 + i * 24, PRINT_EM, i === 0 ? 700 : 500));
       }),
     ]),
-  ) as Record<BayId, Texture>;
+  ) as Record<WorkerId, Texture>;
 
   const policy = tex(S.policy, (g) => {
     POLICY.forEach((line, i) => print(g, family, line, 37, 26 + i * 24, PRINT_EM, i === 0 ? 700 : 500, INK, 'center'));
@@ -327,15 +372,14 @@ export function makePrintTextures(family: string, sans: string, aniso: number): 
     g.lineTo(0, 12);
     g.closePath();
     g.fill();
-    print(g, family, SLIPS.card, w - 4, 26, PRINT_EM, 500, '#5A5850', 'right');
     for (let r = 0; r < 2; r++) for (let i = 0; i < 9; i++) if ((i * 7 + r * 3) % 4 !== 0) g.fillRect(8 + i * 8, 30 + r * 9, 3, 6);
     rule(g, 4, h - 4, w - 4, h - 4, 0.8, '#B5AFA3');
   });
 
   // the request: vermilion paper with its beetle cut-out (the folder under it shows through, darker)
   const request = tex(S.request, (g) => {
-    // the beetle is a die-cut window in the slip's geometry (objects/Bay.tsx), clear of the code
-    print(g, family, SLIPS.request, 4, 33, PRINT_EM, 700, '#5E2214');
+    // the beetle is a die-cut window in the slip's geometry (objects/Bay.tsx); no code on it (one ID chain)
+    rule(g, 6, 40, 74, 40, 1.2, '#C9A89C');
   });
 
   const folder = tex(S.folder, (g) => {
@@ -374,21 +418,184 @@ export function makePrintTextures(family: string, sans: string, aniso: number): 
     aniso,
   );
 
-  // the trait plate along the deck's front apron: texture-size now (it was read when it docked, at C9)
+  // the Continuous plate: its notes loop engraved as a mark (it was read at C9, when it docked)
   const trait = tex(S.trait, (g) => {
-    const em = 24.5;
-    const t = `${WORDS.traitContinuous.en} · ${WORDS.traitContinuous['zh-Hans']}`;
-    g.font = `600 ${em}px ${sans}`;
+    const [w, h] = S.trait;
+    g.strokeStyle = INK;
+    g.lineWidth = 2.6;
+    g.beginPath();
+    g.ellipse(w / 2, h / 2, w * 0.36, h * 0.3, 0, 0, Math.PI * 2);
+    g.stroke();
     g.fillStyle = INK;
-    g.textAlign = 'center';
-    fillTextChecked(g, t, S.trait[0] / 2, S.trait[1] * 0.78);
+    g.fillRect(w / 2 + w * 0.36 - 4, h / 2 - 5, 8, 10);
   });
 
-  return { trait, tape, tapeBefore, reelTop, nameplate, dossier, policy, fanfold, fanfoldSide, report, galley, reply, inTray, chat, ciCard, request, folder, vellumMail, vellumCalendar, gauge, lockFace };
+  // MT1: the next chat slip (its word, no clock or ID) and the dispatch folder's cover (its kind and the loupe's notch: accepted)
+  const chatNext = tex(S.chatNext, (g) => {
+    print(g, family, NEXT_WORD, 18, 29, PRINT_EM, 500);
+    rule(g, 64, 24, 88, 24, 1.2, '#9E988C');
+  });
+  const folderFresh = tex(S.folderFresh, (g) => {
+    // a label: the kind's mark, small, at the leading corner; the cover's rules
+    const [w, h] = S.folderFresh;
+    g.strokeStyle = '#8E887D';
+    g.lineWidth = 1.2;
+    g.strokeRect(3, 3, w - 6, h - 6);
+    g.save();
+    g.translate(w - 30, 8);
+    g.scale(0.6, 0.6);
+    cargoMark(g, 'chat', 0, 0, '#4A4A45');
+    g.restore();
+    tooth(g, w, h);
+  });
+
+  const close = (size: readonly [number, number], draw: Draw, bg?: string) => texture(size[0], size[1], draw, aniso, bg, TEX_CLOSE);
+  const tapeH = TAPE.y1 - TAPE.y0;
+  // still (c): the tape itself, its tooth and sprocket ticks, without cells (the cells are cards in the window)
+  const tapeBlank = tex(S.tape, (g) => {
+    tooth(g, S.tape[0], tapeH);
+    for (let x = 4; x < S.tape[0]; x += 9) {
+      g.fillStyle = '#C9C4B8';
+      g.fillRect(x, 1, 3, 1.6);
+      g.fillRect(x, tapeH - 2.6, 3, 1.6);
+    }
+  });
+  // the older cards in the window, newest first: a stub at the west end (a small mark of their kind over a
+  // perforation; the request's carries its vermilion), the body east of it (the full mark and two lines of
+  // print), which the shrink tears away. The newest is the wide cell (CELLS_X[0])
+  const stubW = CACHE_WINDOW.stub;
+  const cacheCells = CACHE_CELLS.map((cell, i) => {
+    const w = CELLS_X[i][1] - CELLS_X[i][0];
+    return close([w, tapeH], (g) => {
+      g.strokeStyle = '#55534D';
+      g.lineWidth = 1.2;
+      g.strokeRect(1, 4, w - 2, tapeH - 8);
+      // the stub: its kind as a small mark, a column of ticks, the perforation
+      g.save();
+      g.translate(3, 10);
+      g.scale(0.36, 0.36);
+      cargoMark(g, cell.kind, 0, 0, '#3E3D39');
+      g.restore();
+      // two punched holes: a stub, as torn off a ticket
+      g.fillStyle = '#5A5852';
+      for (const y of [30, 40]) {
+        g.beginPath();
+        g.arc(9, y, 2.2, 0, Math.PI * 2);
+        g.fill();
+      }
+      if (cell.request) {
+        g.fillStyle = VERMILION;
+        g.fillRect(3, 50, 12, 6);
+      }
+      g.setLineDash([1.6, 1.6]);
+      rule(g, stubW - 0.6, 5, stubW - 0.6, tapeH - 5, 0.9, '#6E6A62');
+      g.setLineDash([]);
+      // the body: its kind's mark, torn away as the card shrinks
+      g.filter = 'blur(0.2px)';
+      cargoMark(g, cell.kind, stubW + 6, 20, '#55534D');
+      g.filter = 'none';
+      tooth(g, w, tapeH);
+    });
+  });
+  // the inline record: the request's header (its ID, the teaching ID here, and its vermilion bar) and a
+  // three-line summary (printed fields), then the pointer: a tab's outline with an arrow down to the drawer
+  const record = close(S.record, (g) => {
+    const [w, h] = S.record;
+    g.strokeStyle = INK;
+    g.lineWidth = 1.6;
+    g.strokeRect(1.5, 3.5, w - 3, h - 7);
+    print(g, family, REPORT_C.id, 6, 25, 21, 700);
+    g.fillStyle = VERMILION;
+    g.fillRect(7, 32, 40, 5);
+    // the pointer: the folded tab (a card turned over its crease) and an arrow down into the drawer
+    g.fillStyle = INK;
+    g.beginPath();
+    g.moveTo(8, 43);
+    g.lineTo(34, 43);
+    g.lineTo(40, 49);
+    g.lineTo(40, 59);
+    g.lineTo(8, 59);
+    g.closePath();
+    g.fill();
+    g.fillStyle = '#FFFFFF';
+    g.beginPath();
+    g.moveTo(34, 43);
+    g.lineTo(34, 49);
+    g.lineTo(40, 49);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = INK;
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(58, 42);
+    g.lineTo(58, 53);
+    g.stroke();
+    g.fillStyle = INK;
+    g.beginPath();
+    g.moveTo(52, 51);
+    g.lineTo(64, 51);
+    g.lineTo(58, 59);
+    g.closePath();
+    g.fill();
+    rule(g, 84, 8, 84, h - 8, 1.1, '#7E7A71');
+    REPORT_C.summary.forEach((line, i) => print(g, family, line, 90, 19 + i * 19.6, 17.5, 500));
+    tooth(g, w, h);
+  });
+  // the report card: its header strip (the ID, a perforation) over the body (the full record, as print
+  // texture, and the crease it folds along)
+  const cardC = close(S.cardC, (g) => {
+    const [w, h] = S.cardC;
+    const hy = h * CARD_C.header;
+    print(g, family, REPORT_C.id, 5, 19, 16, 700);
+    g.fillStyle = VERMILION;
+    g.fillRect(58, 9, 30, 4);
+    g.setLineDash([2, 2]);
+    rule(g, 2, hy, w - 2, hy, 1, '#8E887D');
+    g.setLineDash([]);
+    REPORT_C.body.forEach((line, i) => {
+      const x = i % 2 === 0 ? 5 : w / 2 + 5;
+      const y = hy + 13 + Math.floor(i / 2) * 15;
+      print(g, family, line, x, y, 10, 500, '#4A4A45');
+      rule(g, x, y + 4, x + 36, y + 4, 1.2, '#9E988C');
+    });
+    rule(g, w / 2, hy + 3, w / 2, h - 3, 0.7, '#B8B2A6');
+    tooth(g, w, h);
+  });
+  // its back's east half, which the fold turns up: the tab's face, the ID it points by
+  const cardCBack = close(S.cardCBack, (g) => {
+    const [w, h] = S.cardCBack;
+    print(g, family, REPORT_C.id, w / 2, h / 2 + 4, 14, 700, INK, 'center');
+    rule(g, 8, h / 2 + 10, w - 8, h / 2 + 10, 1.2, '#7E7A71');
+    tooth(g, w, h);
+  });
+
+  // the close shot's fine print: the same kinds of print at about 9.5 u (20 px at 2.0x), so they stay texture
+  const FINE = 9.5;
+  const fanfoldFine = close(S.fanfold, (g) => {
+    const [w, h] = S.fanfold;
+    FANFOLD_FINE.forEach((line, i) => print(g, family, line, 4 + (i % 2) * 86, 12 + Math.floor(i / 2) * 15.5, FINE, 500, '#7E7A71'));
+    for (let y = 1; y < 5; y++) rule(g, 0, y * 15.5 + 3, w, y * 15.5 + 3, 0.8, '#C2BCB0');
+    tooth(g, w, h);
+  });
+  const galleyFine = close(S.galley, (g) => {
+    const [w, h] = S.galley;
+    g.filter = 'blur(0.2px)';
+    GALLEY_FINE.forEach((line, i) => print(g, family, line, 4 + (i % 2) * 88, 13 + Math.floor(i / 2) * 17, FINE, i % 2 === 0 ? 700 : 500, INK));
+    g.filter = 'none';
+    tooth(g, w, h);
+  });
+  const dossierFine = Object.fromEntries(
+    (Object.keys(DOSSIER) as WorkerId[]).map((id) => {
+      const size = dossierSize(WORKERS[id]);
+      return [id, close(size, (g) => DOSSIER_FINE.slice(0, Math.max(2, Math.floor((size[1] - 4) / 12))).forEach((line, i) => print(g, family, line, 3, 11 + i * 12, FINE, i === 0 ? 700 : 500)))];
+    }),
+  ) as Record<WorkerId, Texture>;
+
+  return { trait, tape, tapeBefore, reelTop, nameplate, dossier, policy, fanfold, fanfoldSide, report, galley, reply, inTray, chat, ciCard, request, folder, vellumMail, vellumCalendar, gauge, lockFace, tape2, chatNext, folderFresh, tapeBlank, cacheCells, record, cardC, cardCBack, fanfoldFine, galleyFine, dossierFine };
 }
 
 /** Paper tooth over ink: small deterministic specks in the paper's colour (index-hashed, no randomness). */
-function tooth(g: CanvasRenderingContext2D, w: number, h: number): void {
+export function tooth(g: CanvasRenderingContext2D, w: number, h: number): void {
   g.fillStyle = 'rgba(255,255,255,0.55)';
   const n = Math.round((w * h) / 9);
   for (let i = 0; i < n; i++) {

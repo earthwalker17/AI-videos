@@ -9,12 +9,12 @@
 import type { CamPose } from '@aiv/remotion-kit';
 import { AbsoluteFill } from 'remotion';
 import { WORDS, cue } from '../cues.ts';
-import { narrationAt } from '../film/onScreen.ts';
+import { cueReveal, narrationAt } from '../film/onScreen.ts';
 import { GREY_TEXT, Label, NotesBlock, lineWidth, type TextLook } from '../kit/text.tsx';
 import type { FilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
 import { project } from './camera.ts';
-import { BAYS, REEL_FRAME, REEL_FRAME_Z, YOU, rectC, type P3 } from './layout.ts';
+import { BAYS, REEL, YOU, rectC, type P3 } from './layout.ts';
 
 /** Text colours of the Register Desk (synthesis §2, Palette): EN and zh. */
 export const TEXT_HEX = { en: '#ECE9E2', zh: '#BAB7AF', leader: '#C9C6BE' } as const;
@@ -38,12 +38,12 @@ export interface RoleLabel {
 }
 
 export const ROLE_LABELS: readonly RoleLabel[] = [
-  // on clear ground east of the deck, between its frame and the Thread cord's descent (>= 12 px from both)
-  { text: WORDS.router.en, foot: [REEL_FRAME[2].x1 - 8, 300, REEL_FRAME_Z[1]], dx: 40, dy: 26, anchor: 'start' },
-  // the reporting Worker: the leader ends on the test tower bay's nameplate
-  { text: WORDS.worker.en, foot: [rectC(BAYS.tests.box)[0] + 40, BAYS.tests.box.y0 - 8, 0], dx: 30, dy: 44, anchor: 'start' },
-  // beside your desk, at its west edge (not a heading for the notes)
-  { text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [YOU.slab.x0 + 2, rectC(YOU.slab)[1] - 30, YOU.top], dx: -24, dy: 16, anchor: 'end' },
+  // its leader ends on the reel's body; the label sits on clear ground east of the deck
+  { text: WORDS.router.en, foot: [REEL.x + 92, REEL.y - 40, REEL.packZ[1]], dx: 150, dy: 30, anchor: 'start' },
+  // the reporting Worker: the leader ends on the test bay's south wall, below its nameplate
+  { text: WORDS.worker.en, foot: [rectC(BAYS.tests.box)[0] + 70, BAYS.tests.box.y0 + 3, 20], dx: 52, dy: 58, anchor: 'start' },
+  // beside your desk: a clear hairline from the slab's west edge out to the label (design D3)
+  { text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [YOU.slab.x0 + 14, rectC(YOU.slab)[1] - 30, YOU.top], dx: -84, dy: 30, anchor: 'end' },
 ];
 
 /** The leader's ends (screen px): from the foot to the label's nearest corner, stopping short of the text. */
@@ -57,14 +57,31 @@ export function leaderOf(foot: [number, number], l: RoleLabel, width: number, si
   return { a: foot, b: [cx, cy], x, y };
 }
 
-export function Overlay({ f, pose, fonts, ready }: { f: number; pose: CamPose; fonts: FilmFonts; ready: boolean }) {
+/**
+ * A tag (the cache tag in still (c)): EN over zh, 40 px, shown on its cue's window (a 6 f wipe in,
+ * a 6 f fade out), on a hairline leader that ends on the body it qualifies (design D3). `at` is the
+ * screen point the EN line's baseline starts (anchor start) or ends (anchor end) on; the zh line sits
+ * under it.
+ */
+export interface TagSpec {
+  cue: string;
+  words: { en: string; 'zh-Hans': string };
+  at: readonly [number, number];
+  anchor: 'start' | 'end';
+  foot: P3;
+}
+/** The zh line's baseline under the EN line's, and where the leader leaves the text block. */
+export const TAG_GAP = 50;
+
+/** `labels`: the role labels in view (act one has only yours); `tags`: the tags shown on their cues. */
+export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = [] }: { f: number; pose: CamPose; fonts: FilmFonts; ready: boolean; labels?: readonly RoleLabel[]; tags?: readonly TagSpec[] }) {
   if (!ready) return null;
   const look = notesLookDesk(fonts);
   const size = TYPE.label.size;
   return (
     <AbsoluteFill>
       <svg width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
-        {ROLE_LABELS.map((l) => {
+        {labels.map((l) => {
           const foot = project(pose, l.foot);
           const w = lineWidth(l.text, { family: fonts.sans, weight: TYPE.label.weight, size });
           const { a, b, x, y } = leaderOf(foot, l, w, size);
@@ -77,6 +94,34 @@ export function Overlay({ f, pose, fonts, ready }: { f: number; pose: CamPose; f
           );
         })}
       </svg>
+      {tags.map((t) => {
+        const r = cueReveal(t.cue, f);
+        if (!r.visible) return null;
+        const foot = project(pose, t.foot);
+        const tsize = TYPE.label.size;
+        const wEn = lineWidth(t.words.en, { family: fonts.sans, weight: TYPE.label.weight, size: tsize });
+        const wZh = lineWidth(t.words['zh-Hans'], { family: fonts.sans, weight: TYPE.label.cjkWeight, size: tsize });
+        const w = Math.max(wEn, wZh) + 8;
+        const x0 = t.anchor === 'start' ? t.at[0] - 4 : t.at[0] - w + 4;
+        // the leader leaves the block's edge nearest the foot, between its two lines
+        const lx = foot[0] < x0 ? x0 - 8 : x0 + w + 8;
+        const ly = t.at[1] + TAG_GAP / 2 - 12;
+        return (
+          <svg key={t.cue} width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity }}>
+            <defs>
+              <clipPath id={`wipe-${t.cue}`}>
+                <rect x={x0 - 4} y={t.at[1] - 60} width={(w + 8) * r.wipe} height={TAG_GAP + 90} />
+              </clipPath>
+            </defs>
+            <line x1={foot[0]} y1={foot[1]} x2={foot[0] + (lx - foot[0]) * Math.min(1, r.wipe * 1.6)} y2={foot[1] + (ly - foot[1]) * Math.min(1, r.wipe * 1.6)} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />
+            <circle cx={foot[0]} cy={foot[1]} r={4} fill={TEXT_HEX.en} />
+            <g clipPath={`url(#wipe-${t.cue})`}>
+              <Label x={t.at[0]} y={t.at[1]} text={t.words.en} family={fonts.sans} size={tsize} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={t.anchor} />
+              <Label x={t.at[0]} y={t.at[1] + TAG_GAP} text={t.words['zh-Hans']} family={fonts.sans} size={tsize} weight={TYPE.label.cjkWeight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.zh} anchor={t.anchor} />
+            </g>
+          </svg>
+        );
+      })}
       {narrationAt(f).map((id) => {
         const w = WORDS[id] as { en: string; 'zh-Hans': string };
         return <NotesBlock key={id} f={f} span={cue(id)} en={w.en} zh={w['zh-Hans']} layout={NOTES} look={look} ready={ready} />;

@@ -13,9 +13,57 @@ import { Shape } from 'three';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, slab, sweep, tube } from '../geom.ts';
 import { Step, WithMats, isStepped } from '../kit.tsx';
 import { BELT, FEEDERS, FEEDER_H, GATE, SPOOL, rectC, type P2, type P3, type Rect } from '../layout.ts';
-import type { DeskState } from '../state.ts';
+import { CORD_FROM, type DeskState } from '../state.ts';
+import { ACT_ONE_END, GENERIC_FEEDERS } from '../actOne.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
+
+/**
+ * Act one's mail and calendar feeders: generic, so graphite and paper (no enamel: not the
+ * prototype's built channels). A letter box with a slot on top and an envelope, flap up, in its
+ * mouth; a tear-off pad on a graphite base, its binding along the north edge, one torn leaf beside it.
+ */
+function genericFeeders() {
+  const G = GENERIC_FEEDERS;
+  const B = G.mailBox;
+  const [bx, by] = rectC(B);
+  const box = slab(B, 0, G.mailH, 6, 2.5);
+  const plate = slab(inset(B, 7), G.mailH - 0.5, G.mailH + 2, 4, 1);
+  const slot = planeOn({ x0: bx - 30, x1: bx + 30, y0: by - 3.5, y1: by + 3.5 }, G.mailH + 2.15);
+  const mouth = slab({ x0: B.x1 - 2, x1: B.x1 + 16, y0: by - 28, y1: by + 28 }, 0, G.envelope.z, 2, 1);
+  const E = G.envelope;
+  const place = (g: ReturnType<typeof slab>, c: P2, rot: number) => {
+    g.rotateZ(rot);
+    g.translate(c[0], c[1], 0);
+    return g;
+  };
+  const envelope = place(slab({ x0: -E.w / 2, x1: E.w / 2, y0: -E.d / 2, y1: E.d / 2 }, E.z, E.z + 0.7, 1.5, 0.2), E.c, E.rot);
+  const flap = (() => {
+    const t = new Shape();
+    t.moveTo(-E.w / 2 + 2, E.d / 2 - 2);
+    t.lineTo(E.w / 2 - 2, E.d / 2 - 2);
+    t.lineTo(0, -E.d * 0.08);
+    t.closePath();
+    return place(extrude(t, E.z + 0.7, E.z + 1.3, 0.2), E.c, E.rot);
+  })();
+  const P = G.pad;
+  const base = slab(P, 0, 8, 6, 2);
+  const leaves = slab(inset(P, 8), 8, G.padH, 3, 0.6);
+  const binding = slab({ x0: P.x0 + 6, x1: P.x1 - 6, y0: P.y1 - 16, y1: P.y1 - 6 }, G.padH - 1, G.padH + 4, 3, 1.2);
+  const rings = merge([0.3, 0.7].map((k) => tube([[P.x0 + (P.x1 - P.x0) * k, P.y1 - 20, G.padH], [P.x0 + (P.x1 - P.x0) * k, P.y1 - 11, G.padH + 6], [P.x0 + (P.x1 - P.x0) * k, P.y1 - 2, G.padH + 1]], 1.6, 10, 8)));
+  const L = G.leaf;
+  const leaf = (() => {
+    // a torn leaf: its top edge ragged where it left the pad
+    const t = new Shape();
+    t.moveTo(-L.w / 2, -L.d / 2);
+    t.lineTo(L.w / 2, -L.d / 2);
+    t.lineTo(L.w / 2, L.d / 2 - 4);
+    for (let i = 1; i <= 8; i++) t.lineTo(L.w / 2 - (L.w * i) / 8, L.d / 2 - (i % 2 ? 0 : 4));
+    t.closePath();
+    return place(extrude(t, 0.2, 0.9, 0.15), L.c, L.rot);
+  })();
+  return { box, plate, slot, mouth, envelope, flap, base, leaves, binding, rings, leaf };
+}
 
 function useFeederGeometry() {
   return useMemo(() => {
@@ -73,7 +121,7 @@ function useFeederGeometry() {
     // vellum drawings: the mail and calendar feeders, proposed
     const mail = planeOn(FEEDERS.mail, 0.4);
     const calendar = planeOn(FEEDERS.calendar, 0.4);
-    return { drum, lid, lidSlot, spout, slip, spoolPost, flanges, barrel, wound, spoolCap, ciBody, cards, topCard, ciMouth, ciCard, mail, calendar };
+    return { drum, lid, lidSlot, spout, slip, spoolPost, flanges, barrel, wound, spoolCap, ciBody, cards, topCard, ciMouth, ciCard, mail, calendar, generic: genericFeeders() };
   }, []);
 }
 
@@ -162,6 +210,11 @@ function useBeltGeometry() {
 
 export function Feeders({ s }: { s: DeskState }) {
   const g = useFeederGeometry();
+  // the conversation spool belongs to the Threads: it is not on the desk in act one (nor are the mail
+  // and calendar drawings: those feeders are generic until the turn), and it carries
+  // no vermilion winding until the request's Thread first pays out (state.ts CORD_FROM, design D1)
+  const spool = s.f >= ACT_ONE_END;
+  const wound = s.f >= CORD_FROM;
   return (
     <Step on={isStepped(s.step, 'intake')}>
       <WithMats>
@@ -172,18 +225,40 @@ export function Feeders({ s }: { s: DeskState }) {
             <mesh geometry={g.lidSlot} material={m.hollow} />
             <mesh geometry={g.spout} material={m.enamelShade} />
             <mesh geometry={g.slip} material={m.printed.chat} />
-            <mesh geometry={g.spoolPost} material={m.graphite} />
-            <mesh geometry={g.flanges} material={m.enamel} />
-            <mesh geometry={g.barrel} material={m.graphiteDark} />
-            <mesh geometry={g.wound} material={m.cordVermilion} />
-            <mesh geometry={g.spoolCap} material={m.steel} />
+            {spool && (
+              <>
+                <mesh geometry={g.spoolPost} material={m.graphite} />
+                <mesh geometry={g.flanges} material={m.enamel} />
+                <mesh geometry={g.barrel} material={m.graphiteDark} />
+                {wound && <mesh geometry={g.wound} material={m.cordVermilion} />}
+                <mesh geometry={g.spoolCap} material={m.steel} />
+              </>
+            )}
             <mesh geometry={g.ciBody} material={m.enamel} />
             <mesh geometry={g.cards} material={m.paperLit} />
             <mesh geometry={g.topCard} material={m.printed.ciCard} />
             <mesh geometry={g.ciMouth} material={m.enamelShade} />
             <mesh geometry={g.ciCard} material={m.printed.ciCard} />
-            <mesh geometry={g.mail} material={m.vellumMail} />
-            <mesh geometry={g.calendar} material={m.vellumCalendar} />
+            {spool ? (
+              <>
+                <mesh geometry={g.mail} material={m.vellumMail} />
+                <mesh geometry={g.calendar} material={m.vellumCalendar} />
+              </>
+            ) : (
+              <>
+                <mesh geometry={g.generic.box} material={m.graphite} />
+                <mesh geometry={g.generic.plate} material={m.graphiteDark} />
+                <mesh geometry={g.generic.slot} material={m.hollow} />
+                <mesh geometry={g.generic.mouth} material={m.graphite} />
+                <mesh geometry={g.generic.envelope} material={m.paper} />
+                <mesh geometry={g.generic.flap} material={m.paperShade} />
+                <mesh geometry={g.generic.base} material={m.graphite} />
+                <mesh geometry={g.generic.leaves} material={m.paper} />
+                <mesh geometry={g.generic.binding} material={m.graphiteDark} />
+                <mesh geometry={g.generic.rings} material={m.steel} />
+                <mesh geometry={g.generic.leaf} material={m.paper} />
+              </>
+            )}
           </group>
         )}
       </WithMats>

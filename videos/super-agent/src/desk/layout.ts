@@ -106,10 +106,10 @@ export const CELLS_X: readonly [number, number][] = [
 ];
 
 /**
- * The Continuous plate (trait 连续), docked at the turn (cues.ts 'trait-continuous', f1640): a
- * narrow enamel apron along the deck's front, its words texture-size now that they have been read.
+ * The Continuous plate (trait 连续), docked at the turn (cues.ts 'trait-continuous', f1640): an
+ * enamel plate on the deck itself, between the rail and the window, its loop engraved as a mark.
  */
-export const TRAIT_PLATE = { box: { x0: -56, x1: 188, y0: 84, y1: 122 } as Rect, z: [114, 119] as const } as const;
+export const TRAIT_PLATE = { box: { x0: -248, x1: -132, y0: 140, y1: 178 } as Rect, z: [122, 126] as const } as const;
 /** The hooded reading lamp: a base on the deck's cross member, a bent arm, a hood over the newest cells (a pool, never bloom). */
 export const READ_LAMP = { base: [-30, 300] as P2, hood: { x0: -296, x1: -150, y: 276, z: 178, r: 19 } } as const;
 
@@ -122,7 +122,7 @@ export const POLICY_CARD = { box: { x0: -356, x1: -282, y0: 310, y1: 396 } as Re
 export const LOUPE = { x: -319, y: 320, z: 156, r: 21, pivot: [-352, 320] as P2 } as const;
 
 /** The index arm on its detent plate: it turns to face whom the Register addresses. */
-export const INDEX = { pivot: [-318, 150] as P2, z: 126, length: 140, plateR: 46, plateA: [-176, -4] as const } as const;
+export const INDEX = { pivot: [-318, 150] as P2, z: 126, length: 74, plateR: 46, plateA: [-176, -4] as const } as const;
 
 /**
  * The mouth where Workers' report cards dock: a funnel off the deck's south rail, right under the
@@ -157,9 +157,11 @@ export const IMPRINTS: readonly { c: P2; w: number; d: number; rot: number }[] =
 // The Workers: one class of walled bay, each with its own superstructure, all under 80
 
 export type BayId = 'bug' | 'tests' | 'docs';
+/** Every Worker: the three bays of C11 and the fresh bay MT1 dispatches to (`FRESH`). */
+export type WorkerId = BayId | 'fresh';
 
 export interface BayLayout {
-  id: BayId;
+  id: WorkerId;
   box: Rect;
   wallH: number;
   wall: number;
@@ -184,9 +186,9 @@ export const BAYS: Record<BayId, BayLayout> = {
     southWall: 34,
     door: [-262, -204],
     slot: { x0: -318, x1: -262, y0: 92, y1: 124 },
-    dossier: { x0: -320, x1: -230, y0: -100, y1: -40 },
+    dossier: { x0: -318, x1: -228, y0: -94, y1: -34 },
     sheets: 22,
-    rack: { x0: -224, x1: -132, y0: -102, y1: -38 },
+    rack: { x0: -220, x1: -132, y0: -94, y1: -18 },
   },
   docs: {
     id: 'docs',
@@ -196,9 +198,9 @@ export const BAYS: Record<BayId, BayLayout> = {
     southWall: 34,
     door: [122, 178],
     slot: { x0: 140, x1: 198, y0: 94, y1: 126 },
-    dossier: { x0: -70, x1: 20, y0: -70, y1: -10 },
+    dossier: { x0: -70, x1: 20, y0: -44, y1: 14 },
     sheets: 26,
-    rack: { x0: 104, x1: 198, y0: -50, y1: 32 },
+    rack: { x0: 104, x1: 198, y0: -44, y1: 30 },
   },
   bug: {
     id: 'bug',
@@ -224,7 +226,7 @@ export const FOLDER = { box: { x0: 292, x1: 428, y0: -72, y1: 6 } as Rect, z: [5
 export const REQUEST = { c: [360, -33] as P2, w: 52, l: 114, rot: Math.PI / 2 - 0.06, z: 65.6 } as const;
 
 /** The test tower: a capped stack of three test lamps, taller than its walls, concentric lenses on top. */
-export const TOWER = { x: -226, y: 8, r: 46, seg: 20, gap: 3, n: 3, base: BAY_FLOOR, post: 4, dome: 4 } as const;
+export const TOWER = { x: -188, y: 62, r: 52, seg: 20, gap: 3, n: 3, base: BAY_FLOOR, post: 4, dome: 4 } as const;
 export const towerTop = (): number => TOWER.base + TOWER.post + TOWER.n * TOWER.seg + (TOWER.n - 1) * TOWER.gap;
 
 /** The docs galley: a wide, low tray of type set in lines (ink on enamel). */
@@ -254,8 +256,8 @@ export const CHUTE: readonly P3[] = [
   [-402, 92, 101],
   [-452, 54, 88],
   [-488, 4, 72],
-  [-512, -30, 60],
-  [-520, -44, 52],
+  [-514, -6, 60],
+  [-518, -18, 56],
 ];
 export const CHUTE_W = 60;
 export const CHUTE_POSTS: readonly P2[] = [
@@ -330,3 +332,74 @@ export interface Pool {
   /** linear RGB, relative to the albedo: 0.6 lifts a surface by 60% at the centre */
   rgb: P3;
 }
+
+// ------------------------------------------------------------------------------------------------
+// MT1, the next dispatch (film f2226-2340, TREATMENT Lookdev MT1, STORYBOARD 4.6): the next chat
+// slip is judged at the throat and dispatched down a fresh groove to a fresh bay that rises from its
+// floor hatch east of the bug bay (one Worker per task, so never the busy docs galley)
+
+/** The next chat slip (the spout's size): out of the spout, posted over the gate onto the belt, up into the throat and the head. */
+export const NEXT_SLIP = {
+  l: 96,
+  w: 40,
+  /** inside the spout's mouth, where it starts */
+  spout: [-890, 417, 26] as P3,
+  /** just past the gate's fingers, on the belt's foot (the post lands here) */
+  gate: [-540, 297, 30] as P3,
+  /** on the throat's floor, between its cheeks, its east end at the head */
+  throat: [-392, 225, 118.8] as P3,
+  /** fed into the print head (hidden in the deck plate under it) */
+  head: [-322, 225, 118.8] as P3,
+  apex: 72,
+} as const;
+/** The punch in the throat's north cheek that notches an accepted slip (the Slow Path's mark): it rises out of the cheek, drops on the slip's edge, sinks back. */
+export const PUNCH = { x: -378, y: 247, r: 4.5, h: 14, hidden: 114, out: 22, drop: 15 } as const;
+
+/** The fresh bay: one family with the others (the shared base), its own task's superstructure (a rotary card file). */
+export const FRESH: BayLayout = {
+  id: 'fresh',
+  box: { x0: 522, x1: 700, y0: -150, y1: 96 },
+  wallH: 40,
+  wall: 10,
+  southWall: 34,
+  door: [536, 592],
+  slot: { x0: 606, x1: 688, y0: 52, y1: 82 },
+  dossier: { x0: 536, x1: 610, y0: -122, y1: -66 },
+  sheets: 8,
+  rack: { x0: 616, x1: 690, y0: -122, y1: -50 },
+};
+/** How deep the fresh bay waits under its hatch, and how deep a finished bay sinks (TREATMENT element sheet: done sinks 40 u). */
+export const HATCH_DEPTH = 52;
+export const SINK = 40;
+/** The fresh bay's rotary card file: a drum of cards between two enamel cheeks, its axle along x. */
+export const CARD_FILE = { x0: 552, x1: 668, y: -14, z: 44, r: 32, core: 11, cards: 28, cheekR: 38, cheek: 6 } as const;
+/** The dispatch folder (the task handed over whole) and where it docks inside the fresh bay, past its door. */
+export const DISPATCH = { w: 62, d: 46, dock: [564, 58, 7.6] as P3 } as const;
+/** Where the folder waits, under the reel's flange (hidden from above), and the points it slides out over the east rail by. */
+export const FOLDER_SLOT: P3 = [160, 250, 115];
+export const FOLDER_OUT: readonly P3[] = [
+  [236, 218, 118],
+  [262, 212, 124.5],
+];
+/** The fresh groove: from the ramp's foot round the bug bay's north to the fresh bay's door. */
+export const GROOVE_FRESH: readonly P2[] = [[RAMP.foot + 4, (RAMP.y0 + RAMP.y1) / 2], [430, 194], [520, 166], [(FRESH.door[0] + FRESH.door[1]) / 2, FRESH.box.y1 + 4]];
+
+// ------------------------------------------------------------------------------------------------
+// Still (c), context as a cache (film f3150, STORYBOARD 6.3): the request's report at the window
+
+/** The report card of the request's bay (one family with the test card), and where it leaves the bay. */
+export const CARD_C = { w: 98, d: 68, header: 0.4, from: [404, 66, 40] as P3, apex: 60 } as const;
+/**
+ * The window in the close shot: the request's inline record (its header and a three-line summary)
+ * fills the newest cell, widened as the older cards shrink to 18 u stubs and pack east; a fifth
+ * stub leaves the window onto the tape run.
+ */
+export const CACHE_WINDOW = {
+  record: [-292, -72] as const,
+  stub: 18,
+  bar: 3,
+  /** the stubs' west edges after the shrink, newest first */
+  stubX0: [-69, -48, -27, -6, 30] as const,
+  /** the window bars' west edges after the shrink: each rides its stub's east edge */
+  barX0: [-50.5, -29.5, -8.5, 12.5] as const,
+} as const;

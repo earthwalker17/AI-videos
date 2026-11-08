@@ -20,7 +20,7 @@ import { cylinderZ, disc, merge, plane, ringFlat, slab, sweep, tube, twistedPair
 import { EMIT, Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
 import { CARD, CHUTE, CHUTE_POSTS, CHUTE_W, CORDS, DECK, INDEX, MAST, MOUTH, SLIP, YOU, rectC, type P3 } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
-import { polylineAt, slipPose, tabArc, type DeskState } from '../state.ts';
+import { CARD_FROM, CORD_FROM, polylineAt, slipPose, tabArc, type DeskState } from '../state.ts';
 
 function useCordGeometry() {
   return useMemo(() => {
@@ -62,6 +62,8 @@ function useCordGeometry() {
 
 export function Cords({ s }: { s: DeskState }) {
   const g = useCordGeometry();
+  // no Thread cord before C17's beat (design D1): it first pays out at 7.1
+  if (s.f < CORD_FROM) return null;
   return (
     <Step on={isStepped(s.step, 'cord')}>
       <WithMats>
@@ -155,19 +157,29 @@ function useCargoGeometry() {
     const slipFace = plane(SLIP.l, SLIP.w, 0, 0, 0.9);
     // the enamel stop tab, at the slip's east end
     const tab = slab({ x0: SLIP.l / 2 - 4, x1: SLIP.l / 2 + 8, y0: -9, y1: 9 }, -0.6, 2.2, 2, 0.6);
-    return { card, cardFace, cardLight, slip, slipFace, tab };
+    // the header strip: the card's top band (its texture's top 40%) as a narrow slip
+    const header = (() => {
+      const g = plane(CARD.w, CARD.d * 0.4, 0, 0, 0);
+      const uv = g.getAttribute('uv');
+      for (let i = 0; i < uv.count; i++) uv.setY(i, 0.6 + uv.getY(i) * 0.4);
+      return g;
+    })();
+    return { card, cardFace, cardLight, slip, slipFace, tab, header };
   }, []);
 }
 
 const lerp3 = (a: P3, b: P3, t: number): P3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+/** Where the header enters the print head. */
+const HEAD_IN: P3 = [-300, 225, 128];
 
 export function Cargo({ s }: { s: DeskState }) {
   const m = useDeskMats();
   const g = useCargoGeometry();
   useLayoutEffect(() => {
     // the one transit light, on the report card in flight: faded in and out over 4 f, dark in its dock frame
-    m.transit.color.set(LIGHT_HEX.work).multiplyScalar(EMIT.transit * s.transit);
-  }, [m, s.transit]);
+    // (one carrier at a time: the report card, MT1's dispatch folder, or still (c)'s report)
+    m.transit.color.set(LIGHT_HEX.work).multiplyScalar(EMIT.transit * Math.max(s.transit, s.next.folderTransit, s.cache?.transit ?? 0));
+  }, [m, s.transit, s.next.folderTransit, s.cache?.transit]);
   const card = s.card;
   const d = s.dock;
   // the reply: out from under the index sector, down the chute (its text reading up-chute), then
@@ -184,13 +196,27 @@ export function Cargo({ s }: { s: DeskState }) {
       const heading = pose.heading + Math.PI + (0.08 - (pose.heading + Math.PI)) * easings.inOutSine(turn);
       slipPose3 = { p: [pose.p[0], pose.p[1], pose.p[2] + 6], rot: [0, pose.slope * (1 - turn), heading, 'ZYX'] };
     } else {
-      const z = IN_TRAY_REST[2] + (1 - settle) * 7;
-      slipPose3 = { p: [IN_TRAY_REST[0], IN_TRAY_REST[1], z - squash * 0.4], rot: [0, 0, 0.08, 'ZYX'] };
+      const end = CHUTE[CHUTE.length - 1];
+      const p = lerp3([end[0], end[1], end[2] + 6], IN_TRAY_REST, settle);
+      slipPose3 = { p: [p[0], p[1], p[2] - squash * 0.4], rot: [0, 0, 0.08, 'ZYX'] };
     }
   }
   const squash = 1 - 0.03 * (s.slip?.squash ?? 0);
+  const out = s.cardOut;
+  const headerAt = lerp3([MOUTH.land[0], MOUTH.land[1] + 10, MOUTH.land[2] + 4], HEAD_IN, s.header);
   return (
     <group>
+      {out !== null && (
+        // rising out of the slot in the tower's cap: its lower part still inside the cap
+        <group position={[CARD_FROM[0], CARD_FROM[1], CARD_FROM[2] - CARD.d * 0.5 * (1 - out)]} rotation={[Math.PI / 2 - 0.2, 0, 0]}>
+          <mesh geometry={g.card} material={m.paperLit} />
+          <mesh geometry={g.cardFace} material={m.printed.report} />
+        </group>
+      )}
+      {s.header > 0 && s.header < 1 && (
+        // the report's header strip, sliding up from the holder into the print head
+        <mesh geometry={g.header} material={m.printed.report} position={headerAt} />
+      )}
       {card && (
         <group position={[card.pos[0], card.pos[1], card.pos[2]]} rotation={[0.18 - 0.36 * card.s, -0.12, 0.06]}>
           <mesh geometry={g.card} material={m.paperLit} />

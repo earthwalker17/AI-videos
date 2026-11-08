@@ -8,7 +8,10 @@
  * - BugBay: a bench whose six test pins stand above its walls, the vermilion folder docked on it with
  *   the request on top (its beetle a die-cut window);
  * - TestsBay: a capped stack of three test lamps taller than its walls, concentric lenses on top;
- * - DocsBay: wide and low, type set in lines in a galley tray (ink on paper).
+ * - DocsBay: wide and low, type set in lines in a galley tray (ink on paper);
+ * - FreshBay (MT1's dispatch): a rotary card file, a drum of cards between two enamel cheeks; it
+ *   rises from its floor hatch on spring-heavy, its door lifts for the folder and drops after it.
+ * A finished bay sinks 40 u into its hatch (the test tower from the rest, f2320), at 55% contrast.
  * Every rack holds the same three tools (a magnifier, a wrench, a pen): the family's shared fixture.
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
@@ -16,10 +19,10 @@ import { Path, Shape, type BufferGeometry } from 'three';
 import { bayDoor, bayWalls } from '../footprints.ts';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, tube } from '../geom.ts';
 import { EMIT, Step, WithMats, isStepped, useDeskMats, useDeskSets, type DeskMats } from '../kit.tsx';
-import { BAYS, BAY_FLOOR, BENCH, FOLDER, GALLEY_TRAY, PINS, REQUEST, SHEET, TOWER, rectC, towerTop, type BayLayout, type Rect } from '../layout.ts';
+import { BAYS, BAY_FLOOR, BENCH, CARD_FILE, FOLDER, FRESH, GALLEY_TRAY, HATCH_DEPTH, PINS, REQUEST, SHEET, SINK, TOWER, rectC, towerTop, type BayLayout, type Rect } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
 import type { MeshBasicMaterial } from 'three';
-import type { DeskState } from '../state.ts';
+import { closeAt, type DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 const z = BAY_FLOOR + 4;
@@ -96,23 +99,25 @@ function useBayGeometry(b: BayLayout, tools: (rack: Rect) => Tools) {
   }, [b, tools]);
 }
 
-/** The class every Worker shares, with its task's superstructure as children. */
-function BayBase({ b, slot, slotMat, tools = sharedTools, children }: { b: BayLayout; slot: 'slotBug' | 'slotTests' | 'slotDocs'; slotMat?: MeshBasicMaterial; tools?: (rack: Rect) => Tools; children: ReactNode }) {
+/** The class every Worker shares, with its task's superstructure as children; `door`: how far its door is lifted (0 shut). */
+function BayBase({ b, slot, slotMat, tools = sharedTools, door = 0, close = 0, children }: { b: BayLayout; slot: 'slotBug' | 'slotTests' | 'slotDocs' | 'slotFresh'; slotMat?: MeshBasicMaterial; tools?: (rack: Rect) => Tools; door?: number; close?: number; children: ReactNode }) {
   const m = useDeskMats();
   const g = useBayGeometry(b, tools);
+  const lift = door * (b.wallH - 2);
   return (
     <group>
-      <mesh geometry={g.floor} material={m.graphiteDeck} />
+      <mesh geometry={g.floor} material={m.floor} />
       <mesh geometry={g.walls} material={m.graphite} />
       <mesh geometry={g.band} material={m.printed.nameplate[b.id]} />
-      <mesh geometry={g.door} material={m.enamelShade} />
-      <mesh geometry={g.doorBar} material={m.steel} />
+      <mesh geometry={g.door} material={m.enamelShade} position={[0, 0, lift]} />
+      <mesh geometry={g.doorBar} material={m.steel} position={[0, 0, lift]} />
       <mesh geometry={g.slotBlock} material={m.graphiteDark} />
       <mesh geometry={g.slit} material={slotMat ?? m[slot]} />
       <mesh geometry={g.slitLip} material={m.steel} />
       <mesh geometry={g.tray} material={m.enamelShade} />
       <mesh geometry={g.stack} material={m.paper} />
       <mesh geometry={g.top} material={m.printed.dossier[b.id]} />
+      {close > 0 && <mesh geometry={g.top} material={m.printed.dossierFine[b.id]} position={[0, 0, 0.06]} />}
       <mesh geometry={g.rail} material={m.graphiteDark} />
       <mesh geometry={g.metal} material={m.steel} />
       <mesh geometry={g.grips} material={m.enamel} />
@@ -203,7 +208,7 @@ export function BugBay({ s }: { s: DeskState }) {
     <Step on={isStepped(s.step, 'bugBay')}>
       <WithMats>
         {(m) => (
-          <BayBase b={BAYS.bug} slot="slotBug" slotMat={full.slotBug}>
+          <BayBase b={BAYS.bug} slot="slotBug" slotMat={full.slotBug} close={closeAt(s.f)}>
             <mesh geometry={g.legs} material={m.graphiteDark} />
             <mesh geometry={g.top} material={m.graphite} />
             <mesh geometry={g.edge} material={m.enamelShade} />
@@ -256,6 +261,17 @@ function useTowerGeometry() {
 }
 
 export function TestsBay({ s }: { s: DeskState }) {
+  const parts = (
+    <Step on={s.testsStep > 0 ? 'late' : false}>
+      <TestsParts s={s} />
+    </Step>
+  );
+  // finished, it sinks into its hatch (the desk opens round it: objects/Dispatch.tsx DeskUniforms)
+  return s.testsSink > 0 ? <group position={[0, 0, -SINK * s.testsSink]}>{parts}</group> : parts;
+}
+
+/** The test tower's bay: once it has reported, it steps down on its own ramp (state.ts testsStep). */
+function TestsParts({ s }: { s: DeskState }) {
   const m = useDeskMats();
   const g = useTowerGeometry();
   useLayoutEffect(() => {
@@ -263,7 +279,7 @@ export function TestsBay({ s }: { s: DeskState }) {
     m.slotTests.color.set(LIGHT_HEX.work).multiplyScalar(0.25 + (EMIT.slotDocs - 0.25) * s.testsLight);
   }, [m, s.testsLight]);
   return (
-    <BayBase b={BAYS.tests} slot="slotTests">
+    <BayBase b={BAYS.tests} slot="slotTests" close={closeAt(s.f)}>
       <mesh geometry={g.base} material={m.graphiteDark} />
       <mesh geometry={g.drums} material={m.graphite} />
       <mesh geometry={g.bands} material={m.enamelShade} />
@@ -289,13 +305,14 @@ function useGalleyGeometry() {
   }, []);
 }
 
-function DocsParts({ m }: { m: DeskMats }) {
+function DocsParts({ m, close }: { m: DeskMats; close: number }) {
   const g = useGalleyGeometry();
   return (
     <>
       <mesh geometry={g.tray} material={m.graphiteDark} />
       <mesh geometry={g.rails} material={m.enamelShade} />
       <mesh geometry={g.type} material={m.printed.galley} />
+      {close > 0 && <mesh geometry={g.type} material={m.printed.galleyFine} position={[0, 0, 0.06]} />}
       <mesh geometry={g.stick} material={m.steel} />
     </>
   );
@@ -306,8 +323,8 @@ export function DocsBay({ s }: { s: DeskState }) {
     <Step on={isStepped(s.step, 'docsBay')}>
       <WithMats>
         {(m) => (
-          <BayBase b={BAYS.docs} slot="slotDocs">
-            <DocsParts m={m} />
+          <BayBase b={BAYS.docs} slot="slotDocs" close={closeAt(s.f)}>
+            <DocsParts m={m} close={closeAt(s.f)} />
           </BayBase>
         )}
       </WithMats>
@@ -315,3 +332,101 @@ export function DocsBay({ s }: { s: DeskState }) {
   );
 }
 
+
+// ------------------------------------------------------------------------------------------------
+
+function useCardFileGeometry() {
+  return useMemo(() => {
+    const F = CARD_FILE;
+    const along = (g: BufferGeometry) => {
+      // built along z, laid along x at the axle
+      g.rotateY(Math.PI / 2);
+      g.translate(0, F.y, F.z);
+      return g;
+    };
+    const cheeks = merge(
+      [F.x0 - F.cheek, F.x1].map((x) => {
+        const g = disc(F.cheekR, 0, F.cheek, { bevel: 1.2 });
+        along(g);
+        g.translate(x, 0, 0);
+        return g;
+      }),
+    );
+    // each cheek stands on a foot
+    const feet = merge([F.x0 - F.cheek - 4, F.x1 - 4].map((x) => slab({ x0: x, x1: x + F.cheek + 8, y0: F.y - 26, y1: F.y + 26 }, BAY_FLOOR, BAY_FLOOR + 6, 2, 1)));
+    const axle = (() => {
+      const g = cylinderZ(4, 0, F.x1 - F.x0 + 2 * F.cheek + 8, 0, 0, 16);
+      along(g);
+      g.translate(F.x0 - F.cheek - 4, 0, 0);
+      return g;
+    })();
+    const core = (() => {
+      const g = cylinderZ(F.core, 0, F.x1 - F.x0, 0, 0, 24);
+      along(g);
+      g.translate(F.x0, 0, 0);
+      return g;
+    })();
+    // the cards: thin radial leaves round the core, their outer edges a little ragged (seeded by index)
+    const cards = merge(
+      Array.from({ length: F.cards }, (_, i) => {
+        const a = (i / F.cards) * Math.PI * 2;
+        const r1 = F.r - ((i * 7) % 5) * 0.8;
+        const g = slab({ x0: F.x0 + 3, x1: F.x1 - 3, y0: -0.7, y1: 0.7 }, F.core - 1, r1, 0.3, 0.2);
+        // the slab stands in z from the axle: turn it round the axle (x) by a
+        g.rotateX(a);
+        g.translate(0, F.y, F.z);
+        return g;
+      }),
+    );
+    const crank = merge([
+      tube(
+        [
+          [F.x1 + F.cheek + 4, F.y, F.z],
+          [F.x1 + F.cheek + 9, F.y, F.z],
+          [F.x1 + F.cheek + 9, F.y - 18, F.z + 8],
+        ],
+        2.4,
+        12,
+        8,
+      ),
+      dome(4, F.x1 + F.cheek + 9, F.y - 18, F.z + 8),
+    ]);
+    return { cheeks, feet, axle, core, cards, crank };
+  }, []);
+}
+
+/** The fresh bay's own fixture: the card file (ask, look up). */
+function FreshParts({ m }: { m: DeskMats }) {
+  const g = useCardFileGeometry();
+  return (
+    <>
+      <mesh geometry={g.feet} material={m.graphiteDark} />
+      <mesh geometry={g.cheeks} material={m.enamel} />
+      <mesh geometry={g.axle} material={m.steel} />
+      <mesh geometry={g.core} material={m.graphiteDark} />
+      <mesh geometry={g.cards} material={m.paper} />
+      <mesh geometry={g.crank} material={m.steel} />
+    </>
+  );
+}
+
+/**
+ * The fresh bay of MT1's dispatch: under its hatch until the index turns to it, then it rises on
+ * spring-heavy; its door lifts for the folder and drops after it; its work light ignites.
+ */
+export function FreshBay({ s }: { s: DeskState }) {
+  const n = s.next;
+  const m = useDeskMats();
+  useLayoutEffect(() => {
+    // dark until the folder is in, then it ignites (spring-effects): a live process, it blooms
+    m.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 + (EMIT.slot - 0.12) * n.light);
+  }, [m, n.light]);
+  if (n.hatch <= 0) return null;
+  return (
+    <group position={[0, 0, -HATCH_DEPTH * (1 - n.rise)]}>
+      <BayBase b={FRESH} slot="slotFresh" door={n.door}>
+        <FreshParts m={m} />
+      </BayBase>
+    </group>
+  );
+}

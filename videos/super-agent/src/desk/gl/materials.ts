@@ -115,10 +115,18 @@ gl_FragColor.rgb = min(gl_FragColor.rgb, vec3(uClampMax));`,
 export const STEP = { full: { value: 0 }, stepped: { value: 0 } };
 /** What a stepped-down surface fades toward: the desk's colour (linear). */
 export const STEP_TARGET = { value: new Color('#212322') };
+/** Paper steps down toward a mid paper grey instead (its ink fades, it still reads as paper, never a dark slab). */
+export const STEP_TARGET_PAPER = { value: new Color('#9C978D') };
+/** A third step amount, for a part that steps down on its own (the test tower, once it has reported). */
+export const STEP_LATE = { value: 0 };
+/** A fourth, for parts on their own ramp inside a beat (state.ts `step.own`), set once per frame. */
+export const STEP_OWN = { value: 0 };
 
 export interface LitOptions {
-  /** in the stepped-down set */
-  stepped?: boolean;
+  /** in a stepped-down set: the beat's (true) or the late one */
+  stepped?: boolean | 'late' | 'own';
+  /** paper: step toward paper grey */
+  paperStep?: boolean;
   brush?: number;
   peel?: number;
   fibre?: number;
@@ -136,8 +144,8 @@ function patch<M extends MeshStandardMaterial>(m: M, key: string, o: LitOptions)
       uFibre: { value: o.fibre ?? 0 },
       uShadowAmt: { value: o.shadow ?? 0.75 },
       uClampMax: { value: 0.95 },
-      uStep: o.stepped ? STEP.stepped : STEP.full,
-      uStepTarget: STEP_TARGET,
+      uStep: o.stepped === 'late' ? STEP_LATE : o.stepped === 'own' ? STEP_OWN : o.stepped ? STEP.stepped : STEP.full,
+      uStepTarget: o.paperStep ? STEP_TARGET_PAPER : STEP_TARGET,
     },
     vertex: VERT_PATCH,
     fragment: FRAG_PATCH,
@@ -153,25 +161,25 @@ export function whiteTexture(): Texture {
 }
 
 /** Graphite (standard, no map): structure. */
-export function graphite(hex: string = HEX.graphite, o: { roughness?: number; metalness?: number; brush?: number; stepped?: boolean } = {}): MeshStandardMaterial {
+export function graphite(hex: string = HEX.graphite, o: { roughness?: number; metalness?: number; brush?: number; stepped?: boolean | 'late' | 'own' } = {}): MeshStandardMaterial {
   return patch(new MeshStandardMaterial({ color: new Color(hex), metalness: o.metalness ?? 0.55, roughness: o.roughness ?? 0.42 }), 'std', { brush: o.brush ?? 0.04, stepped: o.stepped });
 }
 
 /** A non-metal standard surface without a map (cords, rubber, glass-like dark parts). */
-export function matte(hex: string, roughness = 0.6, metalness = 0, stepped = false): MeshStandardMaterial {
+export function matte(hex: string, roughness = 0.6, metalness = 0, stepped: boolean | 'late' | 'own' = false): MeshStandardMaterial {
   return patch(new MeshStandardMaterial({ color: new Color(hex), metalness, roughness }), 'std', { stepped });
 }
 
 /** Paper (standard with a map): context. */
-export function paper(map: Texture, hex: string = HEX.paper, o: { roughness?: number; fibre?: number; stepped?: boolean } = {}): MeshStandardMaterial {
-  return patch(new MeshStandardMaterial({ color: new Color(hex), map, metalness: 0, roughness: o.roughness ?? 0.9 }), 'std-map', { fibre: o.fibre ?? 0.015, stepped: o.stepped });
+export function paper(map: Texture, hex: string = HEX.paper, o: { roughness?: number; fibre?: number; stepped?: boolean | 'late' | 'own' } = {}): MeshStandardMaterial {
+  return patch(new MeshStandardMaterial({ color: new Color(hex), map, metalness: 0, roughness: o.roughness ?? 0.9 }), 'std-map', { fibre: o.fibre ?? 0.015, stepped: o.stepped, paperStep: true });
 }
 
 /** The room environment's strength on enamel (the synthesis's 0.25 clipped a lit top to white: RoomEnvironment is bright). */
 export const ENAMEL_ENV = 0.1;
 
 /** Enamel (physical with a map and the room environment): built parts. */
-export function enamel(map: Texture, env: Texture, hex: string = HEX.enamel, o: { roughness?: number; clearcoat?: number; stepped?: boolean } = {}): MeshPhysicalMaterial {
+export function enamel(map: Texture, env: Texture, hex: string = HEX.enamel, o: { roughness?: number; clearcoat?: number; stepped?: boolean | 'late' | 'own' } = {}): MeshPhysicalMaterial {
   const m = new MeshPhysicalMaterial({ color: new Color(hex), map, metalness: 0, roughness: o.roughness ?? 0.3, clearcoat: o.clearcoat ?? 0.4, clearcoatRoughness: 0.25, envMap: env, envMapIntensity: ENAMEL_ENV });
   return patch(m, 'phys-map', { peel: 0.005, stepped: o.stepped });
 }

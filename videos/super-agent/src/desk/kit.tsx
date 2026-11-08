@@ -11,8 +11,8 @@ import { useThree } from '@react-three/fiber';
 import { createContext, useContext, useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { PMREMGenerator, type Material, type MeshBasicMaterial, type MeshStandardMaterial, type Texture } from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import type { BayId } from './layout.ts';
-import { HEX, STEP, emitter, enamel, graphite, matte, paper, stepColour, vellum, whiteTexture } from './gl/materials.ts';
+import type { WorkerId } from './layout.ts';
+import { HEX, STEP, STEP_LATE, emitter, enamel, graphite, matte, paper, stepColour, vellum, whiteTexture } from './gl/materials.ts';
 import { makePrintTextures, type PrintTextures } from './gl/text.ts';
 import { LIGHT_HEX } from './pools.ts';
 
@@ -20,6 +20,8 @@ export interface DeskMats {
   graphite: MeshStandardMaterial;
   graphiteDark: MeshStandardMaterial;
   graphiteDeck: MeshStandardMaterial;
+  /** the bays' floors: matte, so the deck's shadow reads on them */
+  floor: MeshStandardMaterial;
   steel: MeshStandardMaterial;
   rubber: MeshStandardMaterial;
   enamel: MeshStandardMaterial;
@@ -35,8 +37,8 @@ export interface DeskMats {
     tape: MeshStandardMaterial;
     tapeBefore: MeshStandardMaterial;
     reelTop: MeshStandardMaterial;
-    nameplate: Record<BayId, MeshStandardMaterial>;
-    dossier: Record<BayId, MeshStandardMaterial>;
+    nameplate: Record<WorkerId, MeshStandardMaterial>;
+    dossier: Record<WorkerId, MeshStandardMaterial>;
     policy: MeshStandardMaterial;
     lens: MeshStandardMaterial;
     fanfold: MeshStandardMaterial;
@@ -52,7 +54,21 @@ export interface DeskMats {
     gauge: MeshStandardMaterial;
     lockFace: MeshStandardMaterial;
     trait: MeshStandardMaterial;
+    /** MT1's next dispatch (gl/text.ts) */
+    tape2: MeshStandardMaterial;
+    chatNext: MeshStandardMaterial;
+    folderFresh: MeshStandardMaterial;
+    /** still (c): the bare tape, the report card's face and the tab's face (the window's cards draw with their own materials) */
+    tapeBlank: MeshStandardMaterial;
+    cardC: MeshStandardMaterial;
+    cardCBack: MeshStandardMaterial;
+    /** the close shot's fine print, laid over the micro-print and cross-faded in (objects/Dispatch.tsx DeskUniforms sets the opacity) */
+    fanfoldFine: MeshStandardMaterial;
+    galleyFine: MeshStandardMaterial;
+    dossierFine: Record<WorkerId, MeshStandardMaterial>;
   };
+  /** the fresh bay's work slot (computing: blooms) */
+  slotFresh: MeshBasicMaterial;
   vellumMail: MeshBasicMaterial;
   vellumCalendar: MeshBasicMaterial;
   /** the bug bay's work slot (computing: blooms) */
@@ -74,17 +90,23 @@ export interface DeskMats {
 interface DeskSets {
   full: DeskMats;
   stepped: DeskMats;
+  /** a part that steps down on its own ramp (the test tower once it has reported) */
+  late: DeskMats;
+  /** parts on their own focus ramp inside a beat (state.ts `step.own`: the intake and the Slow Path in MT1) */
+  own: DeskMats;
+  /** the printed textures (objects that make their own materials, e.g. the window's cards in still (c)) */
+  textures: PrintTextures;
 }
 
 const DeskContext = createContext<DeskSets | null>(null);
-const StepContext = createContext(false);
+const StepContext = createContext<boolean | 'late' | 'own'>(false);
 
 /** The materials for the object being drawn (the stepped set inside `<Step on>`). */
 export function useDeskMats(): DeskMats {
   const sets = useContext(DeskContext);
   const stepped = useContext(StepContext);
   if (!sets) throw new Error('desk: an object was drawn outside <DeskKit>');
-  return stepped ? sets.stepped : sets.full;
+  return stepped === 'late' ? sets.late : stepped === 'own' ? sets.own : stepped ? sets.stepped : sets.full;
 }
 
 /** Both sets (an object stepped down as a whole may keep one live part at full: the bug bay's slot and request). */
@@ -99,11 +121,12 @@ export function WithMats({ children }: { children: (m: DeskMats) => ReactNode })
   return <>{children(useDeskMats())}</>;
 }
 
-/** Whether a focus id is stepped down at this state. */
-export const isStepped = (step: { amount: number; ids: readonly string[] }, id: string): boolean => step.amount > 0 && step.ids.includes(id);
+/** Whether a focus id is stepped down at this state ('own': on its own ramp, the `own` set). */
+export const isStepped = (step: { amount: number; ids: readonly string[]; own?: { amount: number; ids: readonly string[] } }, id: string): boolean | 'own' =>
+  step.own?.ids.includes(id) ? (step.own.amount > 0 ? 'own' : false) : step.amount > 0 && step.ids.includes(id);
 
 /** Draw the children with the stepped-down set when `on` (a beat's focus leaves them out). */
-export function Step({ on, children }: { on: boolean; children: ReactNode }) {
+export function Step({ on, children }: { on: boolean | 'late' | 'own'; children: ReactNode }) {
   return <StepContext.Provider value={on}>{children}</StepContext.Provider>;
 }
 
@@ -125,7 +148,14 @@ function useEnamelEnv(): Texture {
   return env;
 }
 
-function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boolean): DeskMats {
+/** A print laid over another and cross-faded in: transparent, its opacity set per frame. */
+function fine<M extends MeshStandardMaterial>(m: M): M {
+  m.transparent = true;
+  m.opacity = 0;
+  return m;
+}
+
+function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boolean | 'late' | 'own'): DeskMats {
   const P = (map: Texture, hex: string = HEX.paper, roughness = 0.9) => paper(map, hex, { roughness, stepped });
   const E = (map: Texture, hex?: string) => enamel(map, env, hex, { stepped });
   const G = (hex: string, o: { roughness?: number; metalness?: number; brush?: number } = {}) => graphite(hex, { ...o, stepped });
@@ -139,6 +169,7 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
     graphite: G('#626764'),
     graphiteDark: G('#4A4E4C', { roughness: 0.5 }),
     graphiteDeck: G('#555957', { roughness: 0.46 }),
+    floor: matte('#3F4241', 0.8, 0, stepped),
     steel: G('#A3A8A5', { metalness: 0.75, roughness: 0.3, brush: 0.03 }),
     rubber: matte('#262827', 0.75, 0, stepped),
     enamel: E(white),
@@ -154,8 +185,8 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
       tape: P(t.tape, HEX.paper),
       tapeBefore: P(t.tapeBefore, HEX.paper),
       reelTop: P(t.reelTop, '#FFFFFF'),
-      nameplate: { bug: E(t.nameplate.bug), tests: E(t.nameplate.tests), docs: E(t.nameplate.docs) },
-      dossier: { bug: P(t.dossier.bug), tests: P(t.dossier.tests), docs: P(t.dossier.docs) },
+      nameplate: { bug: E(t.nameplate.bug), tests: E(t.nameplate.tests), docs: E(t.nameplate.docs), fresh: E(t.nameplate.fresh) },
+      dossier: { bug: P(t.dossier.bug), tests: P(t.dossier.tests), docs: P(t.dossier.docs), fresh: P(t.dossier.fresh) },
       policy: P(t.policy, HEX.paper),
       lens: P(t.policy, HEX.paperLit, 0.35),
       fanfold: P(t.fanfold, HEX.paper),
@@ -171,7 +202,17 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
       gauge: E(t.gauge),
       lockFace: E(t.lockFace),
       trait: E(t.trait),
+      tape2: P(t.tape2, HEX.paper),
+      chatNext: P(t.chatNext, HEX.paper),
+      folderFresh: P(t.folderFresh, HEX.paper),
+      tapeBlank: P(t.tapeBlank, HEX.paper),
+      cardC: P(t.cardC, HEX.paperLit),
+      cardCBack: P(t.cardCBack, HEX.paperLit),
+      fanfoldFine: fine(P(t.fanfoldFine, HEX.paper)),
+      galleyFine: fine(P(t.galleyFine, HEX.paperLit)),
+      dossierFine: { bug: fine(P(t.dossierFine.bug)), tests: fine(P(t.dossierFine.tests)), docs: fine(P(t.dossierFine.docs)), fresh: fine(P(t.dossierFine.fresh)) },
     },
+    slotFresh: em(LIGHT_HEX.work, EMIT.slot),
     vellumMail: vellum(t.vellumMail, stepped ? 0.6 : 1),
     vellumCalendar: vellum(t.vellumCalendar, stepped ? 0.6 : 1),
     slotBug: em(LIGHT_HEX.work, EMIT.slot),
@@ -184,26 +225,28 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
   };
 }
 
-export function DeskKit({ printFamily, sansFamily, step, children }: { printFamily: string; sansFamily: string; step: number; children: ReactNode }) {
+export function DeskKit({ printFamily, sansFamily, step, stepLate = 0, children }: { printFamily: string; sansFamily: string; step: number; stepLate?: number; children: ReactNode }) {
   const gl = useThree((s) => s.gl);
   const env = useEnamelEnv();
   const sets = useMemo(() => {
     const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
     const t = makePrintTextures(printFamily, sansFamily, aniso);
     const white = whiteTexture();
-    return { full: buildSet(t, env, white, false), stepped: buildSet(t, env, white, true) };
+    return { full: buildSet(t, env, white, false), stepped: buildSet(t, env, white, true), late: buildSet(t, env, white, 'late'), own: buildSet(t, env, white, 'own'), textures: t };
   }, [gl, env, printFamily, sansFamily]);
   // the stepped set's shared step amount, set before the frame is drawn
   useLayoutEffect(() => {
     STEP.stepped.value = step;
-  }, [step]);
+    STEP_LATE.value = stepLate;
+  }, [step, stepLate]);
   useLayoutEffect(
     () => () => {
       const seen = new Set<unknown>();
       const walk = (v: unknown): void => {
         if (!v || typeof v !== 'object' || seen.has(v)) return;
         seen.add(v);
-        if ('isMaterial' in v) {
+        if ('isTexture' in v) (v as Texture).dispose();
+        else if ('isMaterial' in v) {
           const mat = v as Material & { map?: Texture | null };
           mat.map?.dispose();
           mat.dispose();

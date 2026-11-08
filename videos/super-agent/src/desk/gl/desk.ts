@@ -12,13 +12,22 @@
  */
 import { Curve, NOISE_GLSL } from '@aiv/remotion-kit';
 import { Color, ShaderMaterial, Vector2, Vector4 } from 'three';
-import { GROOVES, GROOVE_HALF_W, IMPRINTS, KEY, type P2 } from '../layout.ts';
+import { GROOVES, GROOVE_FRESH, GROOVE_HALF_W, IMPRINTS, KEY, type P2 } from '../layout.ts';
 import { linearOf } from '../pools.ts';
 import { LIGHT_GLSL, LIGHT_UNIFORMS } from './light.ts';
 
 /** Points per groove polyline, and the grooves' count. */
 export const GROOVE_PTS = 14;
-const GROOVE_IDS = ['bug', 'tests', 'docs'] as const;
+const GROOVE_IDS = ['bug', 'tests', 'docs', 'fresh'] as const;
+
+/**
+ * What the frame sets on the desk (objects set them in layout effects, before the frame is drawn):
+ * how much of each groove is cut (the fresh groove is cut in MT1, the others are whole) and up to two
+ * open hatches, holes in the desk a bay rises or sinks through (x0, y0, x1, y1; far away when shut).
+ */
+export const DESK_GROOVE_CUT = { value: [1, 1, 1, 0] };
+export const HOLE_SHUT = (): Vector4 => new Vector4(1e6, 1e6, 1e6, 1e6);
+export const DESK_HOLES = { value: [HOLE_SHUT(), HOLE_SHUT()] };
 
 /** The desk's colours (sRGB hex from the synthesis's palette). */
 export const DESK_HEX = { base: '#212322', tint: '#121312' } as const;
@@ -28,7 +37,7 @@ export const DESK_FLOOR = ((28.4 / 255 + 0.055) / 1.055) ** 2.4;
 /** Each groove as a polyline through its keys (centripetal Catmull-Rom, the kit's Curve). */
 export function groovePolylines(): P2[][] {
   return GROOVE_IDS.map((id) => {
-    const c = new Curve(GROOVES[id].map((p) => [p[0], p[1]]));
+    const c = new Curve((id === 'fresh' ? GROOVE_FRESH : GROOVES[id]).map((p) => [p[0], p[1]]));
     return c.polyline(GROOVE_PTS - 1).map((p) => [p[0], p[1]] as P2);
   });
 }
@@ -66,6 +75,8 @@ uniform vec2 uLight;
 uniform vec4 uGroove[${GROOVE_IDS.length * GROOVE_PTS}];
 uniform vec4 uGrooveBox[${GROOVE_IDS.length}];
 uniform float uGrooveW;
+uniform float uGrooveCut[${GROOVE_IDS.length}];
+uniform vec4 uHole[2];
 uniform vec4 uImp[${IMPRINTS.length}];
 uniform vec4 uImpRot[${IMPRINTS.length}];
 ${NOISE_GLSL}
@@ -79,12 +90,16 @@ float grooveShade(vec2 p) {
   for (int g = 0; g < ${GROOVE_IDS.length}; g++) {
     vec4 bx = uGrooveBox[g];
     if (p.x < bx.x || p.y < bx.y || p.x > bx.z || p.y > bx.w) continue;
+    // how far the groove is cut, in segments (a whole groove: all of them)
+    float lim = uGrooveCut[g] * ${GROOVE_PTS - 1}.0;
+    if (lim <= 0.0) continue;
     for (int i = 0; i < ${GROOVE_PTS - 1}; i++) {
+      if (float(i) >= lim) break;
       vec2 A = uGroove[g * ${GROOVE_PTS} + i].xy;
       vec2 B = uGroove[g * ${GROOVE_PTS} + i + 1].xy;
       vec2 pa = p - A;
       vec2 ba = B - A;
-      float t = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, 1.0);
+      float t = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0.0, min(1.0, lim - float(i)));
       float d = length(pa - ba * t);
       if (d < best) {
         best = d;
@@ -137,9 +152,15 @@ float imprintShade(vec2 p) {
 
 void main() {
   vec2 p = vW.xy;
+  // an open hatch: the desk is cut away (the bay in it, or the dark below, shows through)
+  for (int h = 0; h < 2; h++) {
+    vec4 o = uHole[h];
+    if (p.x > o.x && p.y > o.y && p.x < o.z && p.y < o.w) discard;
+  }
   float tooth = aivNoise(p / 3.0) * 2.0 - 1.0;
   float cloud = aivFbm(p / 300.0 + 3.7) * 2.0 - 1.0;
-  vec3 col = uBase * (1.0 + 0.03 * tooth + 0.015 * cloud);
+  // tooth and cloud at amplitudes that survive the 8-bit delivery on this dark slate (about +/-2 and +/-1 codes)
+  vec3 col = uBase * (1.0 + 0.065 * tooth + 0.035 * cloud);
   col *= 1.0 + grooveShade(p) + imprintShade(p);
   col *= 1.0 + dskPool(vec3(p, 0.0));
   vec2 sh = dskShade(p, 0.0);
@@ -170,6 +191,8 @@ export function makeDeskMaterial(): ShaderMaterial {
       uGroove: { value: grooveUniform() },
       uGrooveBox: { value: grooveBoxes() },
       uGrooveW: { value: GROOVE_HALF_W },
+      uGrooveCut: DESK_GROOVE_CUT,
+      uHole: DESK_HOLES,
       uImp: { value: IMPRINTS.map((m) => new Vector4(m.c[0], m.c[1], m.w / 2, m.d / 2)) },
       uImpRot: { value: IMPRINTS.map((m) => new Vector4(Math.cos(m.rot), Math.sin(m.rot), 10, 0)) },
     },

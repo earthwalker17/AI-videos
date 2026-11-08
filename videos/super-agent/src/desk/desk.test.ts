@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { CELLS, NAMEPLATE, PRINT_STRINGS, REPLY, REPORT, SLIPS } from '../print.ts';
-import { D1, FRAMING_B, deskCamera, project, projectBox } from './camera.ts';
+import { CELLS, NAMEPLATE, PRINT_STRINGS, REPLY, REPORT, REPORT_C } from '../print.ts';
+import { D1, FRAMING_B, FRAMING_C, cameraAt, deskCamera, project, projectBox } from './camera.ts';
 import { footprintsAt, KIND, MAX_FOOTPRINTS, cullRadius, packFootprints, staticFootprints, type Footprint } from './footprints.ts';
 import { neutral, preToe } from './gl/post.ts';
 import { BAYS, BENCH, CELLS_X, CORDS, DECK, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, TAPE, TOWER, WINDOW, penumbra, PENUMBRA_K, shadowOffset, towerTop, type BayId } from './layout.ts';
 import { MAX_POOLS, linearOf, packPools, poolsAt } from './pools.ts';
 import { ROUND2, MOTION_TESTS } from '../lookdev/frames.ts';
-import { cardArc, deskStateAt, DETENT, EVENTS_B, LAMP_STEPS, SLIP_LANDS, SLIP_RIDE_FROM } from './state.ts';
+import { cardArc, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, LAMP_STEPS, SLIP_LANDS, SLIP_RIDE_FROM } from './state.ts';
 
 const B = deskStateAt(ROUND2.stillB);
 
@@ -135,7 +135,8 @@ describe('desk footprints', () => {
     const base = staticFootprints().length;
     expect(footprintsAt(B).length).toBe(base + 1);
     expect(footprintsAt(deskStateAt(2185)).length).toBe(base + 1);
-    expect(footprintsAt(deskStateAt(2240)).length).toBe(base);
+    // MT1's next chat slip lands at the gate at 2240 (state.ts EVENTS_D)
+    expect(footprintsAt(deskStateAt(2240)).length).toBe(base + 1);
     expect(footprintsAt(deskStateAt(2150)).length).toBe(base);
   });
   it('culls no farther than the shadow and contact reach', () => {
@@ -209,7 +210,9 @@ describe('desk state at still B (C12)', () => {
   });
   it('runs the handshake in cause order inside MT1: fly, dock, stamp, detent, fold, drop, arm, emerge, ride, land, lamp', () => {
     const E = EVENTS_B;
-    const order = [E.testsCap, E.cardEject, E.cardEject + E.cardFly, E.stampIn, E.reelDetent, E.fold, E.tabDrop, E.armTurn, E.slipLeave, SLIP_RIDE_FROM, SLIP_LANDS, E.lampUp];
+    const order = [E.testsCap, E.cardEject, E.cardEject + E.cardFly, E.reelDetent, E.header, E.stampIn, E.fold, E.tabDrop, E.tabDrop + E.tabFrames, E.slipLeave, SLIP_RIDE_FROM, SLIP_LANDS, E.lampUp];
+    expect(E.armTurn).toBeGreaterThan(E.stampIn);
+    expect(E.armTurn + 6).toBeLessThanOrEqual(E.slipLeave);
     for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
     expect(E.testsCap).toBeGreaterThanOrEqual(MOTION_TESTS.mt1[0]);
     expect(E.lampUp + 10).toBeLessThan(MOTION_TESTS.mt1[1]);
@@ -225,7 +228,7 @@ describe('desk state at still B (C12)', () => {
     }
     expect(deskStateAt(E.cardEject + E.cardFly).transit).toBe(0);
   });
-  it('has the stamp-in done, the card folded away, the arm west and the reply 25-40% down the chute', () => {
+  it('has the stamp-in done, the card folded away, the arm west and the reply 60-70% down the chute, clear of the arm', () => {
     expect(B.card).toBeNull();
     expect(B.dock?.gone).toBe(true);
     expect(B.cellLit).toBeGreaterThan(0.99);
@@ -233,8 +236,8 @@ describe('desk state at still B (C12)', () => {
     expect(B.arm).toBeCloseTo(DETENT.you, 2);
     expect(deskStateAt(EVENTS_B.armTurn).arm).toBeCloseTo(DETENT.tests, 6);
     expect(B.slip!.emerge).toBe(1);
-    expect(B.slip!.s).toBeGreaterThan(0.25);
-    expect(B.slip!.s).toBeLessThan(0.4);
+    expect(B.slip!.s).toBeGreaterThan(0.6);
+    expect(B.slip!.s).toBeLessThan(0.7);
     expect(B.transit).toBe(0);
     expect(B.lamp).toBeCloseTo(LAMP_STEPS.dim, 6);
     expect(deskStateAt(EVENTS_B.lampUp + 12).lamp).toBeCloseTo(LAMP_STEPS.up, 2);
@@ -268,8 +271,73 @@ describe('micro-print', () => {
     expect(REPLY[0]).toBe(REPORT[0]);
     expect(CELLS[0].code).toBe(REPORT[0]);
     expect(NAMEPLATE.tests).toContain(REPORT[0]);
-    expect(NAMEPLATE.bug).toContain(SLIPS.request);
-    expect(NAMEPLATE.tests).not.toContain(SLIPS.request);
-    expect(NAMEPLATE.docs).not.toContain(SLIPS.request);
+    // one ID chain (design D2): #0408 is the only ID printed as a number, but for the request's own (#0405) in still (c)'s close shot
+    for (const s of PRINT_STRINGS) if (/#\d{4}/.test(s)) expect([REPORT[0], REPORT_C.id].some((id) => s.includes(id))).toBe(true);
+    expect(NAMEPLATE.bug).not.toMatch(/#/);
+  });
+});
+
+describe('MT1 after the reply: the next dispatch (state.ts EVENTS_D)', () => {
+  it('runs in cause order inside MT1: slip, post, belt, loupe, notch, feed, detent, stamp, arm, cut, hatch, rise, folder, door, dock, light', () => {
+    const E = EVENTS_D;
+    const order = [E.slipOut, E.post, E.belt, E.loupe, E.scan, E.notch, E.feed, E.reelDetent, E.stampIn, E.armTurn, E.cut, E.hatch, E.rise, E.folderOut, E.ramp, E.groove, E.doorUp, E.dock, E.doorDown, E.light];
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
+    // the post lands at the gate on f2240 (TREATMENT MT1) and the door lifts 4 f before the folder arrives
+    expect(E.post + E.postFrames).toBe(2240);
+    expect(E.dock - E.doorUp).toBe(4);
+    expect(E.slipOut).toBeGreaterThan(ROUND2.stillB);
+    expect(E.light + 10).toBeLessThanOrEqual(MOTION_TESTS.mt1[1]);
+  });
+  it('leaves still B as it was: nothing of the dispatch exists at f2225', () => {
+    expect(B.next.slip).toBeNull();
+    expect(B.next.folder).toBeNull();
+    expect(B.next.hatch).toBeCloseTo(0, 9);
+    expect(B.next.loupe).toBeCloseTo(0, 9);
+    expect(B.cache).toBeNull();
+    expect(B.testsSink).toBeCloseTo(0, 9);
+    expect(B.step.own).toBeUndefined();
+  });
+  it('keeps one transit light: the folder carries it only in flight, never with the card', () => {
+    for (let f = MOTION_TESTS.mt1[0]; f < MOTION_TESTS.mt1[1]; f++) {
+      const s = deskStateAt(f);
+      if (s.next.folderTransit > 0) expect(s.next.folder).not.toBeNull();
+      expect(s.transit > 0 && s.next.folderTransit > 0).toBe(false);
+    }
+    expect(deskStateAt(EVENTS_D.dock).next.folderTransit).toBe(0);
+  });
+  it('turns the arm to the fresh bay after the stamp-in and settles it before the folder moves', () => {
+    expect(deskStateAt(EVENTS_D.armTurn).arm).toBeCloseTo(DETENT.you, 6);
+    expect(Math.abs(deskStateAt(EVENTS_D.folderOut).arm - DETENT.fresh)).toBeLessThan(0.05);
+  });
+});
+
+describe('still C: context as a cache (state.ts EVENTS_C)', () => {
+  const C = deskStateAt(ROUND2.stillC);
+  it('runs in cause order: rise, fly, dock, shrink with the reel, header, stamp, dim, fold, drop', () => {
+    const E = EVENTS_C;
+    const order = [E.cardOut, E.cardEject, E.cardEject + E.cardFly, E.shrink, E.header, E.stampIn, E.dim, E.fold, E.tabDrop];
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
+    // the tape moves with the reel, never before it
+    expect(E.reelDetent).toBe(E.shrink);
+  });
+  it('holds at f3150: the reel still, the record inked, the stubs shrunk and dimmed, the body mid-fold', () => {
+    const c = C.cache!;
+    expect(c.reel).toBeGreaterThan(0.99);
+    expect(deskStateAt(ROUND2.stillC + 1).cache!.reel).toBeCloseTo(c.reel, 3);
+    expect(c.ink).toBe(1);
+    for (const k of c.shrink) expect(k).toBe(1);
+    expect(c.dim).toBe(1);
+    expect(c.fold).toBeGreaterThan(0.4);
+    expect(c.fold).toBeLessThan(0.9);
+    expect(c.drop).toBe(0);
+    expect(c.card).toBeNull();
+    expect(c.transit).toBe(0);
+  });
+  it('closes the camera on the window from bar 34 and holds it at 2.0x', () => {
+    expect(closeAt(ROUND2.stillC)).toBe(1);
+    expect(closeAt(ROUND2.stillB)).toBeCloseTo(0, 9);
+    const pose = cameraAt(ROUND2.stillC, 15);
+    expect(pose).toEqual(deskCamera(FRAMING_C, 15));
+    expect(cameraAt(ROUND2.stillB, 15)).toEqual(deskCamera(FRAMING_B, 15));
   });
 });

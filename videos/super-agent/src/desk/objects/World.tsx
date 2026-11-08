@@ -2,7 +2,9 @@
  * Every object of the Register Desk at a state (one component per role, objects/*.tsx).
  */
 import type { DeskState } from '../state.ts';
-import { BugBay, DocsBay, TestsBay } from './Bay.tsx';
+import { BugBay, DocsBay, FreshBay, TestsBay } from './Bay.tsx';
+import { Cache } from './Cache.tsx';
+import { DeskUniforms, Dispatch } from './Dispatch.tsx';
 import { Feeders, Gate } from './Intake.tsx';
 import { Cargo, Chute, Cords } from './Links.tsx';
 import { Register } from './Register.tsx';
@@ -21,6 +23,10 @@ export function World({ s }: { s: DeskState }) {
       <Chute />
       <Cords s={s} />
       <Cargo s={s} />
+      <FreshBay s={s} />
+      <Dispatch s={s} />
+      <Cache s={s} />
+      <DeskUniforms s={s} />
     </>
   );
 }

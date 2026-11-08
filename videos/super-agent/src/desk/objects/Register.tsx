@@ -11,13 +11,13 @@
  * - a sealed restricted-shell key on the north-east leg (FACTS l.114), and no bench: it never does the work;
  * - the pilot jewel: lit, never blooming.
  */
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { CircleGeometry, Matrix4, Path, Shape, type BufferGeometry } from 'three';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
 import { Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
-import { CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
+import { CACHE_WINDOW, CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
 import { PRINT_SIZE } from '../gl/text.ts';
-import { DETENT, type DeskState } from '../state.ts';
+import { DETENT, EVENTS_B, EVENTS_D, closeAt, loupeAt, type DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 
@@ -225,6 +225,24 @@ function useRegisterGeometry() {
       return g;
     })();
 
+    // the neck-collar gauge on the throat: an arc scale and a needle sitting low (the queue is short)
+    const gx = THROAT.box.x0 + 8;
+    const gy = THROAT.box.y0 - 34;
+    const gaugeBody = disc(28, top - 2, top + 3, { cx: gx, cy: gy, bevel: 1.2 });
+    const gaugeFace = plane(48, 48, gx, gy, top + 3.2);
+    const needle = (() => {
+      const s = new Shape();
+      s.moveTo(0, -1.8);
+      s.lineTo(22, 0);
+      s.lineTo(0, 1.8);
+      s.closePath();
+      const g = extrude(s, top + 3.5, top + 4.8, 0);
+      g.rotateZ(Math.PI * 0.86);
+      g.translate(gx, gy, 0);
+      return g;
+    })();
+    const gaugeHub = dome(3.4, gx, gy, top + 4.6);
+
     // the policy card pinned under the loupe on its swing arm
     const policyBase = slab(inset(POLICY_CARD.box, -4), top, POLICY_CARD.z - 0.5, 3, 1);
     const policyCard = planeOn(POLICY_CARD.box, POLICY_CARD.z);
@@ -417,13 +435,71 @@ function useRegisterGeometry() {
       trait,
       traitFace,
       bolts,
+      gaugeBody,
+      gaugeFace,
+      needle,
+      gaugeHub,
     };
   }, []);
+}
+
+/** One older cell's step along the tape, in the tape texture's u. */
+const CELL_STEP_U = (CELLS_X[1][1] - CELLS_X[1][0] + 4) / (TAPE_FLAT_X1 - TAPE.x0);
+/** One stub's step along the tape in still (c). */
+const STUB_STEP_U = (CACHE_WINDOW.stub + CACHE_WINDOW.bar) / (TAPE_FLAT_X1 - TAPE.x0);
+
+/**
+ * The loupe on its swing arm, turned `a` about its pivot (MT1: it scans the policy card). Its lens
+ * shows the card under its centre, magnified 1.1x, wherever it is; at rest (a = 0) the parts are drawn
+ * exactly as before.
+ */
+function LoupeSwing({ a, lens, children }: { a: number; lens: BufferGeometry; children: ReactNode }) {
+  const rest = useMemo(() => Float32Array.from(lens.getAttribute('uv').array as ArrayLike<number>), [lens]);
+  useLayoutEffect(() => {
+    const uv = lens.getAttribute('uv');
+    if (a === 0) (uv.array as Float32Array).set(rest);
+    else {
+      const pos = lens.getAttribute('position');
+      const [cw, ch] = PRINT_SIZE.policy;
+      const [cx, cy] = loupeAt(a);
+      const c = Math.cos(a);
+      const sn = Math.sin(a);
+      for (let i = 0; i < uv.count; i++) {
+        const ox = pos.getX(i) - LOUPE.x;
+        const oy = pos.getY(i) - LOUPE.y;
+        const wx = ox * c - oy * sn;
+        const wy = ox * sn + oy * c;
+        uv.setXY(i, (cx - POLICY_CARD.box.x0) / cw + wx / (1.1 * cw), (cy - POLICY_CARD.box.y0) / ch + wy / (1.1 * ch));
+      }
+    }
+    uv.needsUpdate = true;
+  }, [a, lens, rest]);
+  if (a === 0) return <>{children}</>;
+  const [px, py] = LOUPE.pivot;
+  return (
+    <group position={[px, py, 0]} rotation={[0, 0, a]}>
+      <group position={[-px, -py, 0]}>{children}</group>
+    </group>
+  );
 }
 
 export function Register({ s }: { s: DeskState }) {
   const m = useDeskMats();
   const g = useRegisterGeometry();
+  const C = s.cache;
+  useLayoutEffect(() => {
+    // the tape advances one cell, driven by the reel's detent: the old print slides east, fresh tape comes out of the head
+    const before = m.printed.tapeBefore.map;
+    if (before) before.offset.x = -CELL_STEP_U * s.tape;
+    // MT1's second stamp-in drives the stamped tape on one more cell; in still (c) the bare tape moves one stub with the reel
+    const stamped = m.printed.tape.map;
+    if (stamped) stamped.offset.x = -CELL_STEP_U * s.next.tape;
+    const bare = m.printed.tapeBlank.map;
+    if (bare) bare.offset.x = -STUB_STEP_U * (C?.tape ?? 0);
+  }, [m, s.tape, s.next.tape, C?.tape]);
+  const tapeMat = C ? m.printed.tapeBlank : s.f >= EVENTS_D.stampIn + 1 ? m.printed.tape2 : s.f >= EVENTS_B.stampIn + 1 ? m.printed.tape : m.printed.tapeBefore;
+  const reelTurn = s.reel + s.next.reel + (C?.reel ?? 0);
+  const hammer = Math.max(s.stamp, s.next.stamp, C?.stamp ?? 0);
   return (
     <group>
       {/* the gantry */}
@@ -440,7 +516,7 @@ export function Register({ s }: { s: DeskState }) {
             <>
               <mesh geometry={g.flange} material={n.graphiteDark} />
               <mesh geometry={g.pack} material={n.paperShade} />
-              <group position={[REEL.x, REEL.y, 0]} rotation={[0, 0, -0.26 * s.reel]}>
+              <group position={[REEL.x, REEL.y, 0]} rotation={[0, 0, -0.26 * reelTurn]}>
                 <group position={[-REEL.x, -REEL.y, 0]}>
                   <mesh geometry={g.packTop} material={n.printed.reelTop} />
                   <mesh geometry={g.hub} material={n.enamel} />
@@ -456,10 +532,11 @@ export function Register({ s }: { s: DeskState }) {
       <mesh geometry={g.frameCaps} material={m.enamelShade} />
       <mesh geometry={g.bosses} material={m.enamel} />
       {/* the tape, the window and its lamp */}
-      <mesh geometry={g.tapeFlat} material={s.cellLit > 0.5 ? m.printed.tape : m.printed.tapeBefore} />
+      <mesh geometry={g.tapeFlat} material={tapeMat} />
       <mesh geometry={g.tapeRise} material={m.paper} />
       <mesh geometry={g.win} material={m.graphite} />
-      <mesh geometry={g.bars} material={m.enamelShade} />
+      {/* the window's bars; in still (c) they slide with the shrinking cards (objects/Cache.tsx) */}
+      {!C && <mesh geometry={g.bars} material={m.enamelShade} />}
       <mesh geometry={g.hood} material={m.enamel} />
       <mesh geometry={g.hoodLining} material={m.paperLit} />
       <mesh geometry={g.hoodCaps} material={m.enamelShade} />
@@ -468,10 +545,22 @@ export function Register({ s }: { s: DeskState }) {
       {/* the throat, the print head */}
       <mesh geometry={g.head} material={m.graphite} />
       <mesh geometry={g.headCap} material={m.enamel} />
-      <mesh geometry={g.headHammer} material={m.steel} position={[0, 0, -9 * s.stamp]} />
+      <mesh geometry={g.headHammer} material={m.steel} position={[0, 0, -9 * hammer]} />
       <mesh geometry={g.throat} material={m.graphiteDark} />
       <mesh geometry={g.cheeks} material={m.enamel} />
       <mesh geometry={g.collar} material={m.steel} />
+      <Step on={isStepped(s.step, 'gauge')}>
+        <WithMats>
+          {(n) => (
+            <>
+              <mesh geometry={g.gaugeBody} material={n.graphite} />
+              <mesh geometry={g.gaugeFace} material={n.printed.gauge} />
+              <mesh geometry={g.needle} material={n.rubber} />
+              <mesh geometry={g.gaugeHub} material={n.steel} />
+            </>
+          )}
+        </WithMats>
+      </Step>
       {/* the Slow Path: the loupe over the pinned policy card (stepped down in C12) */}
       <Step on={isStepped(s.step, 'policy')}>
         <WithMats>
@@ -480,9 +569,11 @@ export function Register({ s }: { s: DeskState }) {
               <mesh geometry={g.policyBase} material={n.graphiteDark} />
               <mesh geometry={g.policyCard} material={n.printed.policy} />
               <mesh geometry={g.pin} material={n.enamel} />
-              <mesh geometry={g.loupeRing} material={n.steel} />
-              <mesh geometry={g.lens} material={n.printed.lens} />
-              <mesh geometry={g.loupeArm} material={n.graphite} />
+              <LoupeSwing a={s.next.loupe} lens={g.lens}>
+                <mesh geometry={g.loupeRing} material={n.steel} />
+                <mesh geometry={g.lens} material={n.printed.lens} />
+                <mesh geometry={g.loupeArm} material={n.graphite} />
+              </LoupeSwing>
             </>
           )}
         </WithMats>
@@ -524,6 +615,7 @@ export function Register({ s }: { s: DeskState }) {
             <>
               <mesh geometry={g.fanfoldBody} material={n.paperShade} />
               <mesh geometry={g.fanfoldTop} material={n.printed.fanfold} />
+              {closeAt(s.f) > 0 && <mesh geometry={g.fanfoldTop} material={n.printed.fanfoldFine} position={[0, 0, 0.06]} />}
               <mesh geometry={g.fanfoldSide} material={n.printed.fanfoldSide} />
             </>
           )}

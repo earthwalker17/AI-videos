@@ -7,7 +7,7 @@
  * Colours are the synthesis's light colours (chroma ≤ 0.03, never amber), in linear RGB relative
  * to the albedo. Pure.
  */
-import { BAYS, CELLS_X, TAPE, rectC, type Pool, type P3 } from './layout.ts';
+import { BAYS, CELLS_X, FRESH, TAPE, rectC, type Pool, type P3 } from './layout.ts';
 import { LAMP_AIM, type DeskState } from './state.ts';
 
 /** At most this many pools (the uniform array's size). */
@@ -23,7 +23,7 @@ export function linearOf(hex: string): P3 {
   return [ch((n >> 16) & 255), ch((n >> 8) & 255), ch(n & 255)];
 }
 
-const tint = (hex: string, k: number): P3 => {
+export const tint = (hex: string, k: number): P3 => {
   // the light's colour normalised to unit luminance, times k
   const [r, g, b] = linearOf(hex);
   const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -33,13 +33,17 @@ const tint = (hex: string, k: number): P3 => {
 /** The synthesis's light colours. */
 export const LIGHT_HEX = { yours: '#FFF1E0', reading: '#F4F5F2', work: '#EEF3F0' } as const;
 
+/** Still (c): the reading pool's centre on the inline record. */
+const CACHE_POOL_X = -200;
+
 export function poolsAt(s: DeskState): Pool[] {
   const cellY = (TAPE.y0 + TAPE.y1) / 2;
   const newest = (CELLS_X[0][0] + CELLS_X[0][1]) / 2;
   const slot = BAYS.bug.slot;
   const pools: Pool[] = [
-    // the Register's hooded reading lamp, on the window (it never blooms: a pool only)
-    { c: [newest + 70, cellY], z: [118, 170], sigma: [130, 40], rgb: tint(LIGHT_HEX.reading, 2.4) },
+    // the Register's hooded reading lamp, on the window (it never blooms: a pool only); in still (c) its light
+    // gathers on the inline record (the hood is over the newest cells), so the stubs east of it sit a step below
+    s.cache ? { c: [CACHE_POOL_X, cellY], z: [118, 170], sigma: [96, 40], rgb: tint(LIGHT_HEX.reading, 2.4) } : { c: [newest + 70, cellY], z: [118, 170], sigma: [130, 40], rgb: tint(LIGHT_HEX.reading, 2.4) },
     // the stamp-in: the newest cell lights as the report's header prints into it
     { c: [newest, cellY], z: [118, 140], sigma: [40, 30], rgb: tint(LIGHT_HEX.reading, 1.6 * s.cellLit) },
     // your lamp on your in-tray, where the reply lands: its maximum on the tray, a step brighter once it has
@@ -48,6 +52,8 @@ export function poolsAt(s: DeskState): Pool[] {
     { c: [rectC(slot)[0], slot.y0 - 34], z: [30, 70], sigma: [56, 34], rgb: tint(LIGHT_HEX.work, 1.0 * s.bugLight) },
     // the test tower's work light, dimming as it finishes
     { c: [rectC(BAYS.tests.slot)[0] + 20, rectC(BAYS.tests.slot)[1] - 30], z: [0, 60], sigma: [56, 44], rgb: tint(LIGHT_HEX.work, 0.6 * s.testsLight) },
+    // MT1: the fresh bay's work light, ignited once the folder is in (dark before, so its pool adds nothing)
+    { c: [rectC(FRESH.slot)[0], FRESH.slot.y0 - 34], z: [-60, 70], sigma: [52, 34], rgb: tint(LIGHT_HEX.work, 1.0 * s.next.light) },
   ];
   if (pools.length > MAX_POOLS) throw new Error(`desk: ${pools.length} pools, over ${MAX_POOLS}`);
   return pools;

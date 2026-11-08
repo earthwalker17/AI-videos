@@ -12,7 +12,7 @@ export const ROUND2 = {
    * west and the reply that cites it is about 30% down the chute; the card's body has folded into
    * the spill drawer (desk/state.ts EVENTS_B)
    */
-  stillB: 2218,
+  stillB: 2225,
   /** the built tag beside C11 */
   tag: 2050,
   /** (c) context as a cache at the Register's window: N5, with the cache tag */
