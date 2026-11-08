@@ -86,6 +86,7 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [Plans the unicode-range slices of a CJK fontsource family that a film's strings need, so only those slices load and their coverage is proven](../videos/super-agent/src/look/fontPlan.ts) (`super-agent`)
 
 ## References
+- [Agent skills and method sources for code-made explainer films (2026-11)](../references/agent-video-skills-2026-11.md): The agent skills and method sources found while reworking video #4's look, after its first lookdev round passed the frame critic and was rejected by the user as too simple and…
 - [Parodying a company's notice — trademark guidelines, fair use, YouTube policy (2026-11)](../references/brand-parody.md): What decides how closely a fan parody may imitate a real company's notice (here: the account-suspension email users receive from Anthropic), from the company's own trademark…
 - [Claude Code packaging — skills, CLAUDE.md, plugins, marketplaces](../references/claude-code-packaging.md): How Claude Code finds and loads instructions, skills and plugins, and how third parties (Remotion, HyperFrames, lemo-opuscar) package theirs.
 - [Code-driven video engines — survey and verdicts (2026-11)](../references/code-video-engines-survey.md): A comparison of 16+ code-driven video engines and capture techniques other than Remotion (see remotion.md), checked against live repos and registries.

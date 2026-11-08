@@ -3,17 +3,18 @@
 | | |
 |---|---|
 | Upstream | Channel https://space.bilibili.com/3494362707135250 · video pages https://www.bilibili.com/video/BV1ot4z66EvR/ · https://www.bilibili.com/video/BV12DHQ61EhT/ · https://www.bilibili.com/video/BV1Fbpt6qEPq/ · https://www.bilibili.com/video/BV1vXHr6eEoN/ · https://www.bilibili.com/video/BV1WkJk6VEqA/ · https://www.bilibili.com/video/BV1FP4b67ENN/ · https://www.bilibili.com/video/BV1X8a16wEGh/ · https://www.bilibili.com/video/BV1q94h6DEH2/ · https://www.bilibili.com/video/BV1NDnR6JEAX/ · press https://eu.36kr.com/zh/p/4033742259672962 (same article: https://m.21jingji.com/article/20261022/herald/fd33d9fcf3cef29800ddd927d2ad46ef.html) · tutorial https://www.jxxy.net/ai/articles/vibe-knowledge-showcase-guide/ · genre spec https://github.com/MiyanoX/vibe-knowledge-video |
-| Pin | Upload list as shown on 2026-11-08 (26 videos, newest 《压缩即理解》 of 2026-11-06) · press article 2026-10-20 (36氪), copy 2026-10-22 (21财经) · tutorial updated 2026-10-26 · MiyanoX/vibe-knowledge-video `78cbecce056407402d33eab18de6ce3f584e60ca` (2026-10-13) |
+| Pin | Upload list as shown on 2026-11-08 (26 videos, newest 《压缩即理解》 of 2026-11-06; unchanged when pass 3 looked again that night) · video data of the three pass-3 films re-checked 2026-11-09 · press article 2026-10-20 (36氪), copy 2026-10-22 (21财经) · tutorial updated 2026-10-26 · MiyanoX/vibe-knowledge-video `78cbecce056407402d33eab18de6ce3f584e60ca` (2026-10-13) |
 | Licence | Films, covers, music and descriptions: their owners' (facts and our own descriptions only; no frame, sprite, cover, audio or copy in this repo) · press and tutorial: proprietary (paraphrase) · MiyanoX repo: MIT per its LICENSE file (GitHub's API reports NOASSERTION) |
-| Accessed | 2026-11-08 |
+| Accessed | 2026-11-08 (passes 1–3) · 2026-11-09 (length, upload date, uploader and master size of the three pass-3 films) |
 | Stale after | 2026-12-08 for the catalogue, counts and press (a fast-moving channel and genre); the style analysis and do-not-copy list hold until #4 is released |
 
 ## What it is
 A style study of the Bilibili creator 比特新语 and of the 2026 "Vibe知识" wave the press groups
 it with: short knowledge films, apparently without voiceover, whose animation is reportedly
-written as code by an AI model. Two passes on 2026-11-08: a sprite and cover study of 9 films,
-checked by an adversarial verifier whose corrections are applied here, and a frame study of 6
-films in the user's own browser.
+written as code by an AI model. Three passes on 2026-11-08: a sprite and cover study of 9 films,
+checked by an adversarial verifier whose corrections are applied here; a 360p frame study of 6
+films in the user's own browser; and a 1080p frame study of 3 of them, logged in, which
+found that the finish, not the geometry, carries the look.
 
 ## Why it matters here
 Video #4 (`videos/super-agent`), the science explainers series' first film and first short
@@ -43,11 +44,25 @@ come from art direction, not tooling.
     five films (压缩即理解 and the four compared below) fetched into page memory and decoded
     silently into loudness curves, never played or written to disk;
   - nothing liked, followed, posted or logged into; the tab was closed afterwards.
-- **Limits:** 360p frames and sprite cells about 200 px wide as displayed (hex values are
-  estimates, fonts judged by eye, micro labels and citations unreadable); bursts sample about
-  8 frames a second, so easing is approximate, and cut rates come from a frame-difference
-  scan; audio was not heard. On some page loads the player had autoplayed before the mute
+- **Limits of passes 1–2:** 360p frames and sprite cells about 200 px wide as displayed (hex
+  values are estimates, fonts judged by eye, micro labels and citations unreadable; pass 3
+  read them at 1080p for three films); bursts sample about 8 frames a second, so easing is
+  approximate, and cut rates come from a frame-difference scan; audio was not heard. On some page loads the player had autoplayed before the mute
   script ran (play head 0.02–1.3 s, once 2.4 s); whether any sound was audible is unknown.
+- **Pass 3, 1080p frames in the user's Chrome, logged in** (later on 2026-11-08, with the
+  user's consent to use their logged-in session):
+  - three films: 《压缩即理解》, 《涌现》— 参数的史诗 and 《剃刀》; the player at its 1080P 高清
+    setting, which measured 1920×1080;
+  - each video kept muted and paused by a script and seeked by it; a local style hid danmaku
+    and the player controls; screenshots viewed in the session only, never saved;
+  - view-only: nothing liked, followed, posted or downloaded; the upload list looked at again
+    (still 26, 《压缩即理解》 newest);
+  - recorded as qualities only: no hex values, sizes or counts were measured in this pass.
+- **Re-check on 2026-11-09:** the public video data of the three pass-3 films (length,
+  upload date, uploader, master size), one film per request through a summarising fetch
+  tool, without cookies or login.
+- **Limits of pass 3:** paused stills, so motion and easing were not seen at 1080p; for the
+  two 4K masters 1080p is a downscale; three films only; audio not heard.
 
 ## Key facts
 **Channel and catalogue** [V, pages on 2026-11-08, unless tagged]
@@ -122,7 +137,36 @@ come from art direction, not tooling.
 | Pacing | In 银牌's first 80 s a new beat lands every 4–5 s; the second half is slower. Share of half-second steps with no visible change: 涌现 44%, 剃刀 36%, 压缩 29%, 银牌 28%, 光遗传学 14% |
 | Narrative (162 s) | 0–17 s cold open on a concrete image · 17.1 s flash and title · concept, history with named people, data · about 94 s flash and the turn · about 145 s the payoff line · 150–162 s end card (title, sometimes a dedication, tiny citations, fade or blur out). The opening image often returns as a bookend |
 | End card and covers | Tiny source credits (JPL orbital elements and Toomre & Toomre 1972 in the tidal piece, pass 1), then a letterspaced signature. Covers are louder designed thumbnails (heavy headlines, gradients, HUD banners); 涌现's carries garbled pseudo-labels, possibly image-model output [U] |
-| Why it reads as premium [U] | Restraint (one idea per frame, bloom only on the focus), a literary serif against technical mono, thin lines, easing everywhere, structure locked to the music, sources cited, 4K masters |
+| Why it reads as premium [U] | Restraint (one idea per frame, bloom only on the focus), a literary serif against technical mono, thin lines, easing everywhere, structure locked to the music, sources cited, 4K masters. Pass 3 (below) refines this: the restraint is in the focus, the finish around it does the rest |
+
+**Pass 3: the three films** [V: browser 2026-11-08; length, upload date, uploader and master size re-checked 2026-11-09]
+
+| Film | Page | Length | Uploaded | Master |
+|---|---|---|---|---|
+| 《压缩即理解》 | BV1ot4z66EvR | 3:08 (188 s) | 2026-11-06 | 3840×2160 |
+| 《涌现》— 参数的史诗 | BV1vXHr6eEoN | 2:42 (162 s) | 2026-10-04 | 1920×1080 |
+| 《剃刀》 | BV1WkJk6VEqA | 2:40 (160 s) | 2026-10-15 | 3840×2160 |
+
+- 涌现's watermark still reads 幼笙吖, while its video data names 比特新语 as the uploader.
+
+**Pass 3: the finish at 1080p** [V as seen on paused 1080p stills; qualities only]
+
+| Channel | What the films do |
+|---|---|
+| Light | Only the active element is lit: a bright core with a soft halo on the line, node, pen tip or hero numeral that is happening now. Passive structure stays thin and unlit |
+| Content density | Real content, nothing placeholder: scrolling mono data tables (rows of date, planet and angle), a real book page with a chapter header, a real chat bubble with a timestamp, citations (author, year, arXiv id), axis ticks with units, breadcrumbs, counters (a step counter, a year counter, an observation count, a zoom factor) |
+| Lines and nodes | Smooth curves. Colour changes along a line to encode meaning: in 剃刀's node-link diagram it runs white to warm to red as doubt compounds. Nodes are luminous points, sometimes inside a thin lens ring with a micro citation |
+| Life from rules | Motion from rules and simulation: a boids-style murmuration of thousands of points, epicycle traces made of hundreds of observation dots, a fractal zoom labelled as rendered live on the GPU, curves drawn by a glowing pen tip |
+| Atmosphere and depth | Nebula haze, star fields, vignette, gradient grounds |
+| Type tiers | Four: hero (very large, glowing); caption (serif, one accent keyword); small mono labels and citations; counters in a condensed numeral face |
+| Bar charts | A dark track behind each bar, glow on the bar, a dashed outline marking a difference; per category a mini icon (a pixel grid, a waveform), a large CJK label and a small mono EN label |
+
+- **Conclusion** [U, judgement]: the geometry is not complex. What reads as premium is the
+  finish: light, content density, micro-type, rule-driven motion and atmosphere. #4's
+  round-1 look had none of these channels, which fits the user's verdict that it was too
+  simple and crude.
+- Pass 2's 360p frames under-read this finish: the micro labels and citations were
+  unreadable there, so its premium row leaned on restraint (Gotchas).
 
 ## What we adopted / adapted
 Principles only, rebuilt in our own grammar. The design round proposed a light, warm "survey
@@ -145,6 +189,16 @@ so #4 is dark like the genre and differs from it by line grammar and semantic co
 | Text motion | Typed or faded captions, keyword last | 6-frame wipe in, 6-frame fade out, never a typewriter |
 | Transitions | White flash or fog wash at act breaks, dissolves, depth-of-field pushes | One 3840×2160 transit map under a translate/scale camera on downbeats; no cuts, blur or particles; two declared rests instead of flashes |
 | Sound | A shared bed (likely a library track) whose jumps mark the act breaks | An original synthesised score, 90 bpm on a 66-bar grid, with a motif and a key change at the turn |
+
+The table records round 1, which the user did not approve on 2026-11-08 ("too simple and
+crude"). From pass 3, #4's look rework takes principles only, rebuilt in its own grammar;
+the round-2 look itself is set in `videos/super-agent`, not here:
+- **Light where it means** (the user's decision): light only where a live process is, never
+  a default glow on structure.
+- **Real micro-print as texture** at 18 px or more (the user's decision): our own true
+  labels, data and citations, never placeholder. Text meant to be read keeps the
+  1/30-of-height floor (36 px at 1080p).
+- **Curves and material** instead of glowing lines.
 
 ## What we deliberately did NOT adopt, and why
 Their identity is theirs, and the glow-on-navy package as a whole is what the press calls
@@ -173,25 +227,35 @@ Their identity is theirs, and the glow-on-navy package as a whole is what the pr
 - **The third-party spec's look**, including Juno's Chinese-plus-italic-English subtitle
   signature. The figures of the article #4 explains are a separate do-not-copy list
   ([deepseek-superagent-2026-11.md](deepseek-superagent-2026-11.md)).
+- **Pass 3 changes none of the above.** #4 still refuses the glow-on-navy package, serif
+  lockups, particles, nebula and vignette. The compositions pass 3 saw are theirs too: the
+  murmuration of points, the observation-dot epicycle traces, 剃刀's doubt-coloured node
+  chain, the fractal zoom labelled as live on the GPU, the scrolling date · planet · angle table.
 
 ## Gotchas
 - Defaults drift: AI-written 2D scenes tend towards glow, particles and gold on navy unless the
   art direction forbids them in writing [U]; prove the distance on lookdev stills, at thumbnail size.
 - `aiv qa` flags any 0.5 s with 98% of pixels below limited Y 37.9 (blackdetect `pix_th=0.10`):
   sparse scenes on a ground as dark as theirs (Y about 19) would trip it; #4's sits at 45.1.
-- They master in 4K; #4 renders 1080p, where its thinnest planned strokes are 2 px and a
-  dither tile handles banding: check line weight and gradients at delivery size.
+- They master in 4K; #4 renders 1080p, where its thinnest planned strokes are 2 px and ~~a
+  dither tile handles banding~~ (2026-11-08: a DOM dither tile only broke up the band edges;
+  round 2 dithers once at the output, `motion-graphics-2d-2026-11.md`): check line weight and
+  gradients at delivery size.
 - A summarising fetch can swap rows: pass 1 put 银牌 at 02:51, the 熵增 entry (银牌 runs 162 s);
   re-read numbers in a browser. A watermark can also differ from the uploader (涌现).
 - In a browser study the watch page can autoplay before an injected mute script runs: mute
   the tab or the system output before loading pages.
+- Judge the finish at 1080p or more. Logged out, the player gave 360p (plus a 30-second
+  1080p trial), where micro labels and citations cannot be read; pass 3 needed the
+  user's logged-in session for the 1080P setting.
 
 ## Not read
 - Any interview or process statement beyond the descriptions; the creator's off-site accounts.
-- Motion at full resolution, and the sound itself (光遗传学's 17 s break was checked by audio
-  only); 那一秒's formula stream beyond what was legible (F = m d²x/dt², t → −t, a struck-out
+- Motion at full resolution (pass 3 saw paused 1080p stills, not playback), the 4K
+  masters, and the sound itself (光遗传学's 17 s break was checked by audio only); 那一秒's formula stream beyond what was legible (F = m d²x/dt², t → −t, a struck-out
   ΔS ≤ 0, a 10^10^82 年 counter), so pass 1's Einstein field equations stay unconfirmed.
-- Frames of 以牙还牙, 那一秒 and the tidal piece beyond their sprites; frames of 37法则 and
+- 1080p frames of any film beyond the three of pass 3 (银牌 and 光遗传学 were seen at 360p only);
+  frames of 以牙还牙, 那一秒 and the tidal piece beyond their sprites; frames of 37法则 and
   拼尽全力 (covers only); the covers of 压缩即理解 and 光遗传学; a Bilibili post that returned a
   CAPTCHA (not retried); 观默's X post (its jxxy.net mirror was read).
 - The films the MiyanoX guide is based on, and its render, music and QA scripts.

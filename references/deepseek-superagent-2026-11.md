@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | Upstream | Article (English, X): https://x.com/DeepSeekHarness/status/2116857257245987236 · Chinese original (WeChat, not read): https://mp.weixin.qq.com/s/zoS7GlReWPhfCjENGxXCdg · prototype: https://github.com/deepseek-ai/dsh-superagent-prototype · DeepSeek Harness: https://github.com/deepseek-ai/deepseek-harness |
-| Pin | Article: X article id `2116829218935857152`, status `2116857257245987236`, created and last modified 2026-11-01T11:37:54Z, 143 blocks (read as JSON through the public api.fxtwitter.com proxy). Wayback: the X status at `20261104183343`, the prototype repo page at `20261104092814`. Prototype `8c32a9dc5d72c033816c6a8110b37f40cf94fba4` (its only commit). DeepSeek Harness `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159` (2026-11-04, branch `master`). |
+| Pin | Article: X article id `2116829218935857152`, status `2116857257245987236`, created and last modified 2026-11-01T11:37:54Z, 143 blocks (read as JSON through the public api.fxtwitter.com proxy; re-read there on 2026-11-09: still 143 blocks, modified time unchanged). Wayback: the X status at `20261104183343`, the prototype repo page at `20261104092814`. Prototype `8c32a9dc5d72c033816c6a8110b37f40cf94fba4` (its only commit). DeepSeek Harness `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159` (2026-11-04, branch `master`). |
 | Licence | Article and figures: no licence stated, so facts are paraphrased, quotes stay short and figures are never reused. Prototype and DeepSeek Harness: MIT ("Copyright (c) 2026 DeepSeek Harness Team" for the prototype). |
-| Accessed | 2026-11-08 (prototype and Harness first read 2026-11-07, about 23:40 UTC) |
+| Accessed | 2026-11-08 (prototype and Harness first read 2026-11-07, about 23:40 UTC). The facts added for the 3:45 cut were re-checked 2026-11-09: the article through the proxy, the prototype files and Harness presets at the pins. |
 | Stale after | 2026-12-08 for the prototype, the Harness (a pre-1.0 developer preview) and the reach counts. Check the article for edits or errata before the review cut and again before release. |
 
 ## What it is
@@ -35,6 +35,95 @@ Video #4 (`videos/super-agent`, *Who Routes the Agents? / 谁来调度智能体�
 7. **Experiments (blocks 105–120)**, below.
 8. **Open problems (blocks 121–136).** Scaling (sharding, Worker topology, a Router-trained model; block 124), long-term memory (block 125), working without sessions and stepping in mid-task (blocks 127–129), context boundaries and A2A (blocks 131–132), security: a loop compromised by intrusion or prompt injection could take over every connected endpoint, and credentials leak through context (blocks 134–136).
 9. **Conclusion (blocks 137–140).** Classic systems ideas "rather than proposing new theory" (block 138); people move up to "higher-level decisions and sign-off" (block 139). Block 141 calls the prototype "not an official DeepSeek product".
+
+## Key facts — the mechanisms behind the 3:45 cut [V via mirror unless marked; paraphrased]
+Read 2026-11-08 and re-read 2026-11-09 in the article's JSON through api.fxtwitter.com. **[V via mirror]** means checked in that third-party copy, not on x.com itself. The earlier [V] tags on article facts in this note rest on the same copy.
+
+- **Traits and their modules (blocks 12–18).**
+  - Continuous: one agent wherever people already work, so nobody has to ask which session holds what. The article's example: Plan A asked in IM, then Plan B in a PR comment, and it adjusts.
+  - Productive: several complex tasks run in parallel, and it takes the next instruction before the last one finishes.
+  - Proactive: it watches its environment, acts on what is worth it and otherwise stays quiet.
+  - Persistent: always online, in real environments, recovering by itself.
+  - Block 18 maps modules to traits: two levels → Continuous and Productive; event-driven → Proactive; full-duplex multi-channel → Continuous and Productive; compute/state/environment separation plus the Watchdog → Persistent.
+- **The chores (blocks 6, 7, 44).**
+  - Switching sessions by hand and remembering what each one holds (6).
+  - One synchronous session that blocks on long operations, mixes task contexts, stops when the device goes offline, and takes a lot of manual effort to keep running (7).
+  - A human prompt before each run (44).
+  - Calling these four chores and pairing each with a trait is our framing [U].
+- **Why the Router never works (blocks 31–32, 39, 53, 58).**
+  - All cross-task information and decisions meet in the Router, so it is the one sequence point, coordinator and memory. It does not execute, so that this single node never becomes the bottleneck (31).
+  - It handles only cold starts and cross-task coordination; code sends follow-ups to their Worker (53).
+  - It still sees every event, to track global state, but evaluates only events that have no subscriber yet (58).
+  - In the authors' experience the Router's work is simpler than expected, and a lighter model usually gives both speed and quality (32). Workers decide the result and the code quality, so they usually need the most capable models (39).
+- **Why batching is cheap (blocks 33–35).**
+  - Triggers that arrive during a turn queue up and go into the next call together, at little extra cost (33).
+  - At a steady rate they arrive one at a time and replies come back quickly (34).
+  - In a burst, a Router step has a long input and a short output. Merged Triggers are computed in parallel in prefill, so time per request grows much more slowly than batch size. The amortised time per decision falls as the backlog grows, up to a limit set by context length and by how many Triggers the model handles accurately in one turn (35).
+- **Inline & Spill (blocks 62–67).** Inject too much and attention is diluted; inject too little and the model spends steps reading through tools (62):
+  > Quoted from https://x.com/DeepSeekHarness/status/2116857257245987236 (accessed 2026-11-09): "Wasting the context window is wasting the model's intelligence."
+
+  - The window is treated as a cache (63). Inline what will likely be needed soon. Spill the rest outside, leaving a reference or summary in the window.
+  - With locality, in three steps (65–67):
+    1. Start with the object's ID and a summary.
+    2. Inline related IDs, then content near in space or time. The article's examples: the first 50 characters, the IM messages around a message and the one it replies to, and neighbouring review comments.
+    3. Truncate long content at a small cap and leave a pointer to read on.
+  - It applies to whichever session an event is routed to (62).
+- **Chain of Recall (blocks 68–71, 125).**
+  - The Router has a context problem of its own: follow-ups bypass it and past tasks pile up, yet a user may raise an old task in another channel (68).
+  - Triggers, Threads and Worker Sessions carry IDs. Each injected object inlines its neighbours' IDs, which form a reference graph. Each object recalled through a tool inlines the next hop's summaries and IDs, so the model walks back hop by hop, as far as it needs (70).
+  - The example: the message's Thread → a related Worker Session → another review Thread linked to that Worker (71).
+  - It lessens forgetting; it does not end it:
+    > Quoted from https://x.com/DeepSeekHarness/status/2116857257245987236 (accessed 2026-11-09): "It reduces how much earlier information the Router layer loses over long runs"
+  - After months of running, long-term memory becomes the main bottleneck (125).
+- **Acting ahead (blocks 73–74).**
+  - This is speculative execution. On a signal, it starts background work before knowing whether the result will be used, spending compute so that people wait less and step in less. It delivers what proves useful and discards the rest (73).
+  - The personal example: on a meeting invitation, it checks for conflicts, gathers background and drafts a reply.
+  - The team example: the internal user group's "silently reproduce and fix" policy. The agent speaks only once it has confirmed the issue and found a simple fix; otherwise it stays silent (74).
+- **Full-duplex (blocks 77–83).**
+  - There are two problems: long background work must not block the conversation (§4.1), and replies must suit each channel (§4.2) (77).
+  - A synchronous `run()` blocks the loop until the tool returns (79).
+  - An async `start()` returns "Started" at once, and the result comes back later as a new event. `stop()` ends a command that runs too long (81).
+  - New input is handled when the current inference step ends, not when background tools finish (82).
+  - Block 83:
+    > Quoted from https://x.com/DeepSeekHarness/status/2116857257245987236 (accessed 2026-11-09): "DeepSeek Harness already implements this asynchronous task mechanism, but it is not yet enabled by default."
+- **Channel norms (blocks 84–88).**
+  - Logs that suit a terminal swamp a group chat (85).
+  - The two levels solve part of this: a task's verbose reasoning stays in its Worker, and the Router layer handles all external interaction. Prompts set each channel's norms (86).
+  - IM keeps interruptions few. It speaks only when a decision or sign-off is needed, asks direct questions and gives short conclusions (87):
+    > Quoted from https://x.com/DeepSeekHarness/status/2116857257245987236 (accessed 2026-11-09): "One simple, effective hard rule we have verified is a cap of 100 words per reply."
+  - GitHub, email and documents get structured, dense output, such as a PR with the background, the change description and the verification results (88).
+  - The cap serves attention, not waiting.
+- **Compute, state, environments and BYOM (blocks 89–99).**
+  - One device holds the loop's compute, the session state and the execution environment, so the agent stops when that device sleeps (90).
+  - Step one: stateless, elastic cloud containers, with the state in a database (92).
+  - Step two: leave environments where they are, because in the broad sense context includes the execution environment itself (94).
+  - The alternatives fail. Rebuilding an environment in a cloud sandbox misses uncommitted changes, private credentials, intranet services and specific hardware. Moving work to the cloud costs users too much (95).
+  - Each endpoint runs a thin daemon that keeps no session state and only runs commands (96).
+  - BYOM connects people's own machines, which may be online only now and then, alongside cloud-hosted and on-demand machines (97). When a device reconnects, the cloud agent runs the tasks that need it (98).
+- **Watchdog (blocks 100–104).**
+  - A long-running system needs an independent control loop outside the main system (101).
+  - Many failures are not crashes (102), so it watches task progress as well as liveness:
+    > Quoted from https://x.com/DeepSeekHarness/status/2116857257245987236 (accessed 2026-11-09): "the process is still running, but the model is stuck in an unproductive loop or has drifted from its goal."
+  - It is a Watchdog Session driven by scheduled messages (103). It handles infrastructure failures (API errors, failed state recovery), has the model judge whether each Worker is making substantive progress or drifting, fixes anomalies and rechecks transient external failures.
+  - It has full tools, so maintainers can ask it why something failed and have it adjust prompts or trigger rules while the system runs (104).
+- **Open problems, in detail (blocks 121–136).** There are four areas (122).
+  - **Scaling.** When and how finely to shard the Router; when peer Workers should talk, and in what topology; training a model for Router work (judging events, batched dispatch, recall) (124). Memory over months (125).
+  - **Working without sessions.**
+    - How to present tasks to users. The chat window is central partly through path dependence; interaction may move into domain interfaces such as GitHub Issues and PRs; one visible conversation need not be one session (127).
+    - Many tasks still need a person partway through. How to let users step in, take over or work alongside at any point is open (128).
+    - Final designs will be customised per domain (129).
+  - **Context boundaries.** Provisioning instances amounts to choosing which context is shared and which is isolated (131). A2A here means agent-to-agent communication in general, not one protocol, across permission boundaries (132).
+  - **Security.**
+    - Until it is solved, untrusted input keeps the system to a small, trusted scope (134).
+    - The cloud/endpoint design assumes the two trust each other, and one compromised loop could take over every connected device (135).
+    - Credentials can leak through context with no breach at all, so the agent must use them without seeing them (136).
+- **Classic systems, by the article's own count (blocks 17, 137–140).**
+  - The ideas it names itself: Fast/Slow Path (47), the global sequence point (31), batching in prefill (33–35), the context cache with Inline/Spill from compiler optimisation and locality (63–64), speculative execution (73), the async loop (79–81), compute–storage separation (90) and an external control loop (101).
+  - Block 17 says classic systems ideas apply. Block 138 says the design applies them instead of new theory. It also says the internal instance runs continuously: it reproduces and fixes issues, answers code reviews and helps develop DeepSeek Harness itself.
+  - Block 139 credits the five modules with taking over session management and context syncing.
+  - The further analogies in the lineage table below (pub/sub, actors, the event loop, Lampson, Denning) are ours [U], not the article's.
+- **Lines the 2:56 cut left unused**: blocks 62 and 102 (quoted above), block 138's "rather than proposing new theory" (section 9 above), and block 27:
+  > Quoted from https://x.com/DeepSeekHarness/status/2116857257245987236 (accessed 2026-11-09): "a design habit carried over from low-level LLM APIs"
 
 ## Key facts — experiments [V numbers; ratios our arithmetic, U]
 - **Setup** (blocks 106, 108, 114): synthetic workloads, simplified environments;
@@ -76,13 +165,41 @@ Video #4 (`videos/super-agent`, *Who Routes the Agents? / 谁来调度智能体�
 | Inline & Spill; Chain of Recall | **Built in prototype form**: cards with a 160-character preview and a `read:` pointer, pages of 4,000 code units (8,000 max), every shown ID readable through a tool; no separate multi-hop algorithm [U] | `src/app/cards.ts`, `docs/007-architecture.md:550-594` |
 | Acting ahead (speculative) | **Mechanism only**: `auto`, rules and silent drop exist; the "silently reproduce and fix" rule (`silent-bugfix`) is a test fixture, not a default | `tests/runtime.spec.ts:295-318` |
 | Async full-duplex loop | **Built through Harness background jobs**: a foreground command becomes a job after 5 s (60 s in the standard preset), completion is delivered in-session (waking an idle agent), `job_kill` stops it; the names `start()`/`stop()` are not in the code | Harness `packages/shell/tool-bash`, `packages/jobs/tool-jobs`; `cordis.patch.yml:38-56` |
-| 100-word IM cap | **Built**: counted with `Intl.Segmenter('zh')`, enforced in the Feishu outbox, splitting refused; GitHub replies have no word cap (the schema allows 20,000 characters) and open with an automated-agent disclosure line | `src/infra/text.ts:2-16`, `src/app/outbox.ts:29` |
+| 100-word IM cap | **Built**: counted with `Intl.Segmenter('zh')`, enforced in the Feishu outbox, splitting refused. ~~GitHub replies have no word cap (the schema allows 20,000 characters)~~ Acknowledgements are held to 100 words in every channel, GitHub included; other GitHub replies have no word cap (the reply schema allows 20,000 characters) [V 2026-11-09]. GitHub replies open with an automated-agent disclosure line | `src/infra/text.ts:2-16`, `src/app/outbox.ts:29`, `src/app/tools/executor.ts:33`, `src/app/tools/main.ts:231` |
 | Stateless cloud compute + database | **Absent**: one local process, SQLite | `docs/007-architecture.md:452` |
 | Endpoint daemons / BYOM | **Absent** (the Harness has SSH providers; unused) | — |
-| Watchdog | **Absent as an agent**: an hourly status-and-restart prompt from another Harness profile; no model-judged progress check | `docs/006-deployment.md:133-141` |
+| Watchdog | ~~**Absent as an agent**~~ **Infrastructure half only, set up by the operator** [V 2026-11-09]: an hourly status-and-restart prompt, run by an agent in another Harness profile, that also reads the log and fixes what it can after a failed restart; no model-judged progress check | `docs/006-deployment.md:133-141` |
 | Sharding; experiment harness; memory, sessionless UI, A2A | **Absent** (one master session; unit and integration tests only) | `docs/007-architecture.md:475` |
 
 The article's own short summary (block 124) is what is built: one long-lived Router Session, subscription with pass-through, no direct Worker-to-Worker messages.
+
+**Matrix notes for the 3:45 cut** [V at `8c32a9d`: read 2026-11-08, re-checked 2026-11-09]
+- **Inline & Spill in numbers** (`docs/007-architecture.md`):
+  - At the Router, a `worker_report` arrives as a card with a summary of up to 600 characters. When the summary is truncated, the card adds `chars` and a read pointer (:589); `src/app/notices.ts` truncates behind `ticket/<id>/result`.
+  - Other loaded messages appear as 50-character `{id, from, preview}` stubs (:546). That is also the article's own example length (block 66).
+  - A Trigger's text is inlined up to 4,000 characters. Thread messages get 400 characters, or 1,200 for the two on either side of the Trigger (:543–545).
+  - A Worker's first message inlines up to 1,500 characters of the assignment (:594). Read pointers appear only for truncated content.
+  - So the mechanism is clearest at the Router. These numbers are not film copy (Q5 below).
+- **Isolation by ID** (:573, :575):
+  - An Executor Session reads only its own Ticket, its Threads, the Triggers that reached it, the prompt versions it worked under and the originals. Its pages leave out the ids of what it cannot read: Decisions and other Tickets.
+  - Every id a page shows can be read, so a Session walks from one object to the next. That is Chain of Recall in prototype form, and isolation is enforced by which IDs a Worker ever sees.
+- **Pass-through still informs the Router** [V 2026-11-09]:
+  - A person's follow-up on a subscribed Thread goes to the live Ticket's Executor with no Eval. The main Session still gets a `follow_up` notice: the worker decides, and the main Session may only stop the work (`src/app/notices.ts:78-105`, `src/core/model.ts:75-87`, `docs/007-architecture.md:585`).
+  - Bot and CI messages on that Thread also fan out to the Ticket, and they still go to Eval (`src/core/intake.ts:56-58`).
+  - This matches the article: the Router sees every event but evaluates only the unsubscribed ones (block 58).
+- **Background jobs** (`docs/003-execution.md:27, 29, 47`):
+  - The worker preset moves a foreground shell command to a background job after 5 s, so a Worker takes new messages at its next step. The router preset has the same 5 s shell and job-wait limits.
+  - Worker subagents use the Harness `standard` preset, where the threshold is 60 s.
+  - At Harness `fcc0ad4` [V 2026-11-09], the bash tool's `promoteOnTimeout` and `enableRunInBackground` default to true, and the `standard` preset (order 1) mounts `tool-jobs` (`packages/shell/tool-bash/README.md`, `packages/bundle/web-app/presets/standard.patch.yml`). Whether block 83's "not yet enabled by default" refers to this is [U] (Q6 below).
+- **Word caps** (`src/infra/text.ts:3-4`):
+  - `IM_WORDS = 100` and `NOTE_WORDS = 30`. A word is an `Intl.Segmenter('zh')` word-like segment, and link labels and URLs count.
+  - The 100-word cap covers Feishu replies (`src/app/outbox.ts:29`), every acknowledgement in any channel (`src/app/tools/executor.ts:33`, `src/app/assessment.ts:276`, `docs/007-architecture.md:548`) and notes to a Ticket's worker (`src/app/tools/main.ts:181`) [V 2026-11-09].
+  - The main Session's reply tool accepts only an answer, a ready result or a request for human action, and refuses progress updates (`src/app/tools/main.ts:224-231`). That builds block 87's rule of speaking only when a person is needed.
+- **The hourly check** (`docs/006-deployment.md:133-141`) [V 2026-11-09]:
+  - The operator asks an agent in their usual Harness profile to schedule an hourly prompt. It runs in that profile so that it keeps working while the service is down.
+  - The prompt runs `status` and says nothing when all is well. It reports errors or setup needs without restarting. Otherwise it restarts, respecting an intentional stop; if the restart fails, it reads the newest log and the troubleshooting section, fixes what it can and reports.
+  - That is the infrastructure half of block 103, set up by hand. Nothing judges Worker progress or drift, and nothing tunes prompts or rules (block 104).
+- **Models**: the Router's and the Workers' models are set separately (`eval.model`, `executor.model`, above). So the lighter-Router idea of block 32 is configurable in the prototype, not demonstrated by it.
 
 ## Key facts — DeepSeek Harness itself [V at `fcc0ad4` unless marked]
 - An open-source agent harness on Cordis, "Everything is a Plugin" (even the model adapter and agent loop are plugins); MIT, TypeScript; a **developer preview** whose README warns of compatibility-breaking changes. Issues off, Discussions on.
@@ -172,8 +289,24 @@ Sources: authors' terms via IT之家 or 量子位 [S]; a full reprint credited t
 7. The batching test used mock Workers, and its numbers belong to the authors' setup, not the public code.
 8. "Enough for a team of our current size": scale, sharding and long-term memory are open.
 9. The unprompted PRs (blocks 9, 138) come from the internal instance, which cannot be checked; the public prototype is reactive out of the box (`observe`).
-10. The prototype differs from the article: the Router keeps a shell, Workers reply on GitHub, and there is no cloud, BYOM, Watchdog, sharding or experiment harness.
+10. The prototype differs from the article: the Router keeps a shell, Workers reply on GitHub, and there is no cloud, BYOM, ~~Watchdog~~ model-judged Watchdog (only an operator-set hourly restart check, matrix 2026-11-09), sharding or experiment harness.
 11. Security is unsolved: one hijacked loop could reach every connected machine.
+
+## Key facts — open accuracy questions for the 3:45 cut (raised 2026-11-08)
+These stay open until the facts gate signs off the new lines. Where the 2026-11-09 re-check answered the fact, the film decision is still open.
+
+| # | Question | Found so far | Still to check |
+|---|---|---|---|
+| Q1 | Does a pass-through follow-up reach the Router at all, i.e. is it on the Router's tape? | Yes, in both. Article: the Router sees every event but evaluates only unsubscribed ones (block 58) [V via mirror]. Prototype: a person's follow-up reaches the main Session as a `follow_up` notice, and bot or CI messages still go to Eval (matrix notes) [V 2026-11-09] | Whether the film's tape records decisions (then "the tape does not tick" under C17 holds) or arrivals (then the follow-up must be marked without a decision) |
+| Q2 | Who posts the PR? | The design gives all external interaction to the Router layer (blocks 60, 86); in the prototype, Workers open PRs (`prompts/work.md`) | Draw no sender line; re-check if the prototype changes |
+| Q3 | Does C12's "only the Router talks to you" hold? | In IM only. Workers post their own acknowledgements through `orchestrator_ack` (`src/app/tools/executor.ts:29`) and reply on review threads (`prompts/replies.md`) | FACTS open item 2 decides the wording; tagBuilt keeps ending before C12 |
+| Q4 | Can any part of the Watchdog be drawn as built? | Only the infrastructure check exists: an agent-run hourly prompt that never judges progress (matrix) [V 2026-11-09] | N8 stays under tagProposed; a solid line may show a running Worker, never a progress judgement |
+| Q5 | Do the card numbers go on screen? | 600-character reports, 50-character stubs, 160-character previews, 1,500-character assignments and 4,000-unit pages are prototype details [V] | Film decision: keep them off screen; a tag says "prototype form" at most |
+| Q6 | Does N7 need a tag? | Block 83: in the Harness but not enabled by default. The prototype's presets switch it on at 5 s. At `fcc0ad4` the Harness `standard` preset looks switched on too [V code; U reading] | Which preset a fresh Harness profile gets, and what block 83 means by "default"; the cue sheet's draft tag is "prototype: background after 5 s" |
+| Q7 | Are the zh terms for the four traits the authors'? | 连续 / 高效 / 主动 / 持久 come from IT之家 [S] | The Chinese original's own terms, once it can be read (WeChat, Zhihu) |
+| Q8 | Is the token mapping right? | Yes [V via mirror, 2026-11-09]. Entity 13: 6.1M = single session, neutral prompt; 10.8M = single session, delegation prompt; 23.2M = Super-agent. The column is "cache-read tokens per run (all sessions)" | Nothing further: the lanes "one session / told to delegate / two levels" match |
+| Q9 | Is the request's stub on the tape a fact? | It is our metaphor for the Ticket record [U]. The prototype's main Session sees Ticket cards and `related_tickets`, not a log of every arrival (`docs/007-architecture.md:540-548`) | Keep it unlabelled, as a metaphor |
+| Q10 | Where does the Slow Path sit? | The article sends candidate events to an LLM without saying which session runs it (block 50); in the prototype the main Session runs the assessment after the code gate (matrix) | Keep the loupe on the Router and the code gate before it, as in the prototype |
 
 ## What we adopted / adapted
 Video #4's use of this note (treatment approved 2026-11-08):
@@ -183,12 +316,63 @@ Video #4's use of this note (treatment approved 2026-11-08):
 - **Credit and terms**: plain-text credit (title, DeepSeek Harness team, Yujia Qiao, the zh and EN dates) and a non-affiliation line; URLs off-screen (description, CREDITS.md, `sources.jsonl`, README). zh copy keeps the Latin technical terms, glossed as IT之家 and 量子位 do.
 - **Facts**: FACTS.md cites 1-based block numbers, the prototype SHA, the Wayback timestamps and the access date.
 
+**The 3:45 cut** (84 bars, 3:44.0). It is in the film's cue sheet from 2026-11-09. Its 11 new lines and new tags wait for the user's zh sign-off, and the length is beyond BRIEF's 2–3 minutes.
+- **Spine: the human router's chores, handed over** [U framing on blocks 6, 7, 44 and 139]:
+
+  | Chore | Trait | Where it is handed over |
+  |---|---|---|
+  | Switch and remember | Continuous | At the turn (beat 4) |
+  | Prompt each run | Proactive | Beat 5, "by design" |
+  | Wait | Productive | Beat 7 |
+  | Keep it running | Persistent | Beat 9, proposed |
+
+  - The open problems (beat 10) are the chores that cannot be handed over yet.
+  - The trait words appear only as small plates. Their zh comes from IT之家 [S], and Persistent's plate is drawn as proposed.
+  - The through-line is continuity against throughput: C7 asks it, and N9 brings it back (block 37).
+- **What the cut adds, and with which status:**
+
+  | Line | Mechanism (blocks) | Status on screen |
+  |---|---|---|
+  | N1 | The four chores (6, 7, 44) | Framing; no tag |
+  | N2 | Why the Router never works (31) | Design intent, inside the "two levels: built" scope. The Router is never drawn shell-less |
+  | N3 | Listening for events (15, 44) | Built for GitHub. Unprompted pickup carries tagGate ("proactive pickup off by default") in beat 5 |
+  | N4 + plate | Why batching is cheap (33, 35); plate 118–120 | Built in two forms. The plate reads "stress test · mock Workers" and shows endpoints only |
+  | N5 | Context as a cache (62–63, 65–67) | Prototype form, drawn at the Router; no card numbers. The cue sheet's tagCache reads "prototype: summaries and read pointers" and stays up through N6 |
+  | N6 | Chain of Recall (68, 70–71) | Prototype form. It starts from a GitHub review comment, because the prototype has no email source |
+  | N7 | Background jobs (79, 81–83) | Built through Harness background jobs. The cue sheet's draft tagJobs reads "prototype: background after 5 s"; its wording waits on Q6 |
+  | tag100 | The 100-word chat cap (87) | Built. It is attention protection, not waiting |
+  | tagLoad | The test's load (108) | C19's numbers, moved to a tag |
+  | N8 | Watchdog (101–103) | Under tagProposed, because the progress check is absent |
+  | N9 | Sharding and long-term memory (37, 124–125) | Open, in sketch line |
+  | N10 | Stepping in midway (128) | Open. It qualifies the sign-off ending (C27–C28) |
+  | N11 + labels | Classic systems (138); labels 47, 33, 63, 79, 90, 101 | The article's own claim. Only these six ideas are named on screen |
+
+- **Guards from the 2026-11-08 critique:**
+  - "Forgets nothing" is gone: recall reduces loss (block 68), and long-term memory is open (block 125).
+  - Proactive reads "by design" or "can take over", never "taken over" without the gate tag.
+  - The cap is attention protection, whichever beat it sits in.
+  - Inline & Spill is drawn at the Router, with the prototype's cards and read pointers.
+- **Cut from the 2:56 cut:** C13 (its block-27 line goes to the description), C16 (the plate keeps the endpoints, and N4 gives the reason) and C19 (its numbers move to tagLoad).
+- **Swaps, not in the cut:**
+  - Acting ahead (73–74), with the tag "prototype: mechanism only, not a default".
+  - The lighter-model line (32), marked "in the authors' experience".
+  - BYOM (97–98), as picture only, proposed.
+  - Credentials (136), open.
+
 ## What we deliberately did NOT adopt, and why
 - **Competitor comparisons and the "rival" framing**: the film is made with Claude, so they would not be neutral, and the article names no other product; its only outside reference is Anthropic's post.
 - **Anthropic's brain/hands metaphor**: it is Anthropic's image, not DeepSeek's; the film uses its own (a laptop shuts while dashed always-on parts carry on).
 - **The article's figures**: no layouts (module map with [2]–[6] tags, hub and spoke, sieve, thread cards, bypass lane, pointer graph, swimlanes, cloud over machines), no white-and-blue palette, cover art, matplotlib charts, IDs or dialogues. Data is re-plotted in our style and credited.
 - **Psychology on screen** (the Cowan coincidence invites a false proof), reach numbers, star counts and the CVE.
-- **Mechanisms cut for length**: the full-duplex loop (needs its own diagram), Inline & Spill and Chain of Recall (too deep for under three minutes), speculative work (only a test fixture in the prototype), the Watchdog and credential leakage (text budget). If a narrated version is ever made, the systems-ideas framing (block 138) and the full-duplex beat come back first.
+- ~~**Mechanisms cut for length**: the full-duplex loop (needs its own diagram), Inline & Spill and Chain of Recall (too deep for under three minutes), speculative work (only a test fixture in the prototype), the Watchdog and credential leakage (text budget). If a narrated version is ever made, the systems-ideas framing (block 138) and the full-duplex beat come back first.~~ That was the 2:56 cut. The 3:45 cut (2026-11-09) brings back the full-duplex loop, Inline & Spill, Chain of Recall, the Watchdog and the systems-ideas framing.
+- **Still left out of the 3:45 cut:**
+  - Acting ahead: only a test fixture in the prototype (swap A1).
+  - The lighter-model line (A2).
+  - BYOM in words (A3: picture only).
+  - Credential leakage (A4).
+  - A Router-trained model, sessionless interfaces beyond stepping in midway, and A2A and context boundaries.
+  - The prototype's card numbers.
+  - Analogies the article does not name (pub/sub, actors, the event loop, Lampson, Denning): description and README only.
 - **Prototype misdepictions**: a shell-less Router, sandboxed Workers, §7.2 numbers shown as properties of the public code.
 
 ## Gotchas
@@ -198,6 +382,19 @@ Video #4's use of this note (treatment approved 2026-11-08):
 - Grepping the prototype for "pass-through", "Chain of Recall", "watchdog", "spill", "BYOM", "daemon", "speculative" or "full-duplex" finds nothing: pass-through is "Subscription fan-out", and the roles are 主 Session / 执行器 Session.
 - A request addressed to the agent is explicit and works in every accept mode; only *inferred* work waits for `auto`.
 - The X article is editable and needs a login, and the fxtwitter proxy is third-party: keep the Wayback snapshots, and a local hash of the fetched JSON in `.cache/` (never in git).
+- **[V via mirror]** marks article facts read through api.fxtwitter.com. The Pin records that the article was read through that proxy, so the older [V] article tags carry the same caveat.
+- **Overclaims to avoid in the 3:45 cut** (critique of 2026-11-08):
+  - "Forgets nothing": recall reduces loss (block 68), and long-term memory is open (block 125).
+  - "Taken over" for Proactive: pickup is `observe` by default, and acting ahead is a mechanism plus a test fixture. Write "by design" or "can take over", with the gate tag.
+  - Filing the 100-word cap under waiting: it protects attention (block 87).
+  - Drawing Inline & Spill inside a Worker: it is clearest at the Router's `worker_report` cards.
+- **"Follow-ups skip the Router" means they skip its decision, not its view.** The Router sees every event (block 58), and the prototype sends it a `follow_up` notice.
+- **Block 83 versus the code.** The article says the async loop is in the Harness but not enabled by default. The prototype's presets switch it on at 5 s, and the Harness `standard` preset at `fcc0ad4` appears to as well. Write neither "on by default in DeepSeek Harness" nor "off in the prototype".
+- **Block 18 files multi-channel under Continuous and Productive.** The cap's attention reading comes from block 87, not from the trait map.
+- **"Delegation prompt" and "delegation-first prompt" are one design.** The table (entity 13) uses the first name, block 115 the second.
+- **The 50 characters appear twice:** as the article's locality example (block 66) and as the prototype's message stubs (`docs/007-architecture.md:546`). Neither is the source of the other's number.
+- **The prototype's hourly check is run by an agent**, so "absent as an agent" was wrong (struck in the matrix). What is absent is the progress and drift judgement.
+- **"3:45 cut" is a name.** The film is 6,720 frames, 3:44.0.
 
 ## Not read
 - The Chinese original (WeChat verification page; Zhihu 403; the Bilibili column empty; the CSDN copy 521): zh terms come from IT之家, 量子位 and one reprint.
@@ -205,3 +402,6 @@ Video #4's use of this note (treatment approved 2026-11-08):
 - The internal Super-agent instance, the experiment code, the model used, and whether the table minutes are time-scaled.
 - Every prototype source file in full (docs, prompts, presets and the cited files were read); the deepseek.com Harness page beyond a summary.
 - Leroy 2009 (attention residue) beyond its metadata; the Olsen & Goodrich fan-out paper; the full text of Mark et al. 2008.
+- Which preset a fresh Harness profile selects, and how the job runtime (`dsh-jobs-local`) is wired. At `fcc0ad4` only the bash tool's README and the preset files were read (Q6).
+- The Chinese original's own terms for the four traits and the new mechanisms (Q7).
+- Prototype checks not repeated on 2026-11-09 and still resting on the matrix: per-Thread batching, the 160-character previews, the Trigger sources, and acting ahead as a test fixture only.

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Upstream | ~25 repos, pinned below; lists: https://github.com/zhuyansen/awesome-claude-video-skills (`533c784c4f0f`, 394 repos indexed, licence NOASSERTION), https://www.remotion.dev/docs/resources |
+| Upstream | ~25 repos, pinned below; lists: https://github.com/zhuyansen/awesome-claude-video-skills (`533c784c4f0f`, 394 repos indexed, licence NOASSERTION; re-read 2026-11-08 at `6dbd11c4609a`: 454 repos, its LICENSE file dedicates the list to CC0 1.0, see agent-video-skills-2026-11.md), https://www.remotion.dev/docs/resources |
 | Pin | Per repo (HEAD SHAs as of 2026-11-01 unless dated) |
 | Licence | Per repo; several are NC, GPL, AGPL or unlicensed: structure and ideas only |
 | Accessed | 2026-11-01 |
