@@ -41,6 +41,7 @@ generalised from one film to any video and any engine.
 | `engines/web/src/harness/adapter.ts` | [tools/capture/session.ts](https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/tools/capture/session.ts) |
 | `engines/web/src/page/index.ts` | [src/render/capture.ts](https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/src/render/capture.ts) |
 | `videos/halloween-gift/audio/master.ts` (glue compressor, mastering chain)<br>`videos/halloween-gift/audio/reverb.ts` (seeded hall impulse response) | [tools/music/engine.py](https://github.com/earthwalker17/map-of-middle-earth/blob/696e968/tools/music/engine.py) (`glue_compress`, `master`, `hall_ir`), ported from Python to TypeScript |
+| `packages/pipeline/src/audio/runtime/kit/master.ts` (glue compressor, mastering chain)<br>`packages/pipeline/src/audio/runtime/kit/reverb.ts` (seeded impulse responses) | The same, by way of the halloween-gift copies above, which the shared score kit copied ([decision 29](docs/ARCHITECTURE.md#decisions)) |
 
 ### lemo-opuscar @ bebbbe1
 

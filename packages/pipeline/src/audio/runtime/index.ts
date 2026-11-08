@@ -1,5 +1,6 @@
 // @aiv/pipeline/audio — what a video's score (videos/<slug>/audio/) imports: the score contract,
-// WAV helpers and the library manifest. Only this folder and @aiv/core may be loaded by a score:
+// WAV helpers and the library manifest; the shared score kit (DSP, mixer, master, timeline) is
+// @aiv/pipeline/audio/kit, in kit/. Only this folder and @aiv/core may be loaded by a score:
 // both are covered by the audio input hash, and the stage refuses any other repo file. The
 // stage's own machinery (opening a library's store, running a job) is deliberately not exported:
 // a score reads files only through ctx.library(id), which verifies and records every read.

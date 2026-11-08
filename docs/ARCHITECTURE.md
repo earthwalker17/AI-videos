@@ -104,7 +104,12 @@ videos/<slug>/src ──aiv still─▶ out/<slug>/stills/<label>/f<NNNNN>.png +
   sha256 of each track and the cue sheet it was built against. The score runs in a fresh Node
   process with almost no environment, and the stage refuses it if it loaded any repository file
   outside those inputs. Picture and sound are separate builds of one timeline: an edit to the
-  score never invalidates a picture render.
+  score never invalidates a picture render. A score may build its sound on the shared score kit,
+  `@aiv/pipeline/audio/kit` (`packages/pipeline/src/audio/runtime/kit/`: oscillators,
+  envelopes, filters, Karplus–Strong, delay, ducking, convolution reverb, a mixer with named
+  buses and sends, the BS.1770 meter and the master, and the bar grid in samples). The kit lies
+  inside the runtime, so the audio hash covers it; a score's instruments and arrangement stay
+  in its video (decision 29).
 - **The runner** also writes `inputs.json` next to `render.json`: the picture hash's per-file
   hashes and settings, so post can tell which cue sheet a picture was rendered against and
   release can recompute the picture hash against the tree it releases.
@@ -335,3 +340,25 @@ new entry that supersedes it, not editing history.
     Cost: a second, small engine driver, and what a still is depends on the engine (Remotion:
     a fresh page per call, so each still is a chunk start; web: one page, in the order given),
     recorded in `stills.json`.
+29. **2026-11-08 · The score kit is shared.** Decision 21 kept musical code in the video until a
+    second scored film needed it. *Who Routes the Agents?* (video #4) is that film. So the
+    generic parts of *A Halloween Gift*'s score were copied into
+    `packages/pipeline/src/audio/runtime/kit/`, imported as `@aiv/pipeline/audio/kit`:
+    - the signal primitives, the FFT and convolution, the synthetic halls and rooms, the
+      PolyBLEP residual, the FM bell and peak levelling;
+    - the master: the BS.1770-4 meter, the true-peak limiter and the glue. Its high-pass, glue
+      settings, loudness target, ceiling and AAC true-peak margin are now options, defaulting
+      to that film's values;
+    - the mixer, generalised to named buses and sends, with a ducking hook;
+    - a timeline driven by the cue sheet's grid, `offsetFrames` included.
+
+    The kit also gained what video #4 needs and that is not musical content: band-limited
+    oscillators, ADSR, a tempo-synced ping-pong delay, sidechain ducking, Karplus–Strong and a
+    modal bank. With default options, the copies give the same samples as the frozen film's
+    modules. The sampler and SFZ reader stay in that film (video #4 plays no samples), as do
+    its instruments, effects and arrangement. A video's own musical content stays in
+    `videos/<slug>/audio/` until a second film needs it. The frozen film keeps its own copies,
+    unchanged, and is rebuilt from its tag. The kit imports only `@aiv/core` and the score
+    contract, never Node or a video (a lint block and a test check it). Cost: every scored
+    video's audio hash covers the whole kit, so any kit edit makes every unfrozen scored
+    video's tracks stale until `aiv audio` rebuilds them. Their pictures are never affected.

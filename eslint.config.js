@@ -178,4 +178,25 @@ export default tseslint.config(
       'no-restricted-syntax': ['error', ...NONDETERMINISM.map((r) => (r.message === FRAME_TIME ? { ...r, message: 'Derive time from the sample index (ctx.sampleRate), never a clock.' } : r))],
     },
   },
+  {
+    // the shared score kit (decision 29): pure DSP every scored video's audio hash covers. It sees
+    // only @aiv/core and the score contract, never Node, a video or the stage's machinery (its
+    // tests may: they are not hashed)
+    files: ['packages/pipeline/src/audio/runtime/kit/**'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'worker_threads'], message: 'The score kit is pure DSP: no Node built-ins.' },
+            { group: ['@aiv/pipeline', '@aiv/pipeline/*'], message: 'The score kit is part of @aiv/pipeline/audio: import its modules by relative path.' },
+            { group: ['../*', '!../types.ts'], message: "From the runtime the kit uses only the score contract (../types.ts): the rest is the stage's machinery (files, processes), and nothing above it (no video) may be imported." },
+          ],
+        },
+      ],
+      'no-restricted-globals': ['error', { name: 'process', message: SCORE_PROCESS }],
+      'no-restricted-properties': ['error', { object: 'globalThis', property: 'process', message: SCORE_PROCESS }, { object: 'global', property: 'process', message: SCORE_PROCESS }],
+    },
+  },
 );
