@@ -74,7 +74,11 @@ Always passed: `--ignore-gpu-blocklist`, `--enable-unsafe-webgpu`; the headless 
 
 **Other packages and services** [V]
 - Bundler applies its TS loader to `.tsx?` with no `node_modules` exclude, so raw-TypeScript workspace packages need no build step. Rspack opt-in (`Config.setRspack(true)`). `staticFile()` resolves inside one public dir. `<Folder>` names are limited to `[a-zA-Z0-9-]`.
-- 12 of 21 `@remotion/transitions` presentations are HTML-in-canvas and need `chrome://flags/#canvas-draw-element` for Studio preview; DOM-based ones: fade, slide, wipe, flip, clockWipe, iris, cube, none, pushCut.
+- ~~12 of 21 `@remotion/transitions` presentations are HTML-in-canvas and need `chrome://flags/#canvas-draw-element` for Studio preview; DOM-based ones: fade, slide, wipe, flip, clockWipe, iris, cube, none, pushCut.~~ Corrected 2026-11-08 from the npm `exports` of `@remotion/transitions` 4.0.539 [V]:
+  - there are 20 presentations, not 21, and there is no `cube`;
+  - 8 are DOM-based: fade, slide, wipe, flip, clock-wipe, iris, none, push-cut;
+  - the other 12 use HTML-in-canvas: swap, ripple, dissolve, book-flip, crosswarp, film-burn, zoom-blur, blur-slide, cross-zoom, dreamy-zoom, linear-blur, zoom-in-out;
+  - HTML-in-canvas is unverified in the Windows headless shell: see `motion-graphics-2d-2026-11.md`.
 - `@remotion/google-fonts` `loadFont` blocks until ready; unnarrowed CJK families pull 100+ unicode-range slices. `@remotion/fonts` loads local files.
 - `@remotion/gsap` (4.0.517, MIT) seeks a paused GSAP timeline to the current frame; GSAP itself is proprietary.
 - Client-side rendering (`@remotion/web-renderer`, stable 4.0.491) always sends a telemetry event; server-side rendering only does when a licence key is set.

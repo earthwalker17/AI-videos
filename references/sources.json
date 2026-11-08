@@ -574,6 +574,160 @@
       "why": "Reserved .example / .invalid names for fictional addresses.",
       "note": "brand-parody.md",
       "status": "verified"
+    },
+    {
+      "id": "deepseek-superagent-article",
+      "title": "Exploring Super-agent Design: Towards a More Autonomous Agent System (DeepSeek Harness team, English machine translation on X)",
+      "url": "https://x.com/DeepSeekHarness/status/2116857257245987236",
+      "pin": "X status 2116857257245987236 / article 2116829218935857152, created 2026-11-01T11:37:54Z, 143 blocks; Wayback 20261104183343",
+      "license": "No licence stated (facts paraphrased; figures never reused)",
+      "excerpt_policy": "short-quote",
+      "why": "The article video #4 explains: the Router/Worker design, its mechanisms, the synthetic experiments and the open problems.",
+      "note": "deepseek-superagent-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "deepseek-superagent-original-zh",
+      "title": "《Super-agent 设计探索：迈向更自主的 Agent 系统》 (Chinese original, WeChat)",
+      "url": "https://mp.weixin.qq.com/s/zoS7GlReWPhfCjENGxXCdg",
+      "pin": "published 2026-10-31 (per IT之家 and 量子位)",
+      "license": "No licence stated (facts paraphrased)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "The authors' own Chinese terms for the zh-Hans lines; not readable on 2026-11-08 (verification wall), so the terms come from Chinese press coverage.",
+      "note": "deepseek-superagent-2026-11.md",
+      "status": "unverified"
+    },
+    {
+      "id": "dsh-superagent-prototype",
+      "title": "deepseek-ai/dsh-superagent-prototype: research prototype of the Super-agent design (a DeepSeek Harness plugin)",
+      "url": "https://github.com/deepseek-ai/dsh-superagent-prototype/tree/8c32a9dc5d72c033816c6a8110b37f40cf94fba4",
+      "pin": "8c32a9dc5d72c033816c6a8110b37f40cf94fba4 (only commit, 2026-10-31); Wayback 20261104092814",
+      "license": "MIT",
+      "excerpt_policy": "vendorable",
+      "why": "Source of truth for what is built versus only proposed.",
+      "note": "deepseek-superagent-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "deepseek-harness",
+      "title": "deepseek-ai/deepseek-harness: DeepSeek Harness, an open-source agent harness (\"Everything is a Plugin\")",
+      "url": "https://github.com/deepseek-ai/deepseek-harness/tree/fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159",
+      "pin": "fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159 (2026-11-04); npm @deepseek-ai/dsh 0.2.2-rc.1",
+      "license": "MIT",
+      "excerpt_policy": "vendorable",
+      "why": "The harness the prototype plugs into, and where the async job loop lives.",
+      "note": "deepseek-superagent-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "ithome-superagent",
+      "title": "IT之家 report on the Super-agent article (2026-10-31 21:36)",
+      "url": "https://www.ithome.com/1/020/615.htm",
+      "pin": "2026-10-31",
+      "license": "Proprietary (facts paraphrased)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "Dates the Chinese original and gives the authors' Chinese terms.",
+      "note": "deepseek-superagent-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "qbitai-superagent",
+      "title": "量子位 report on the Super-agent article (2026-10-31 21:49)",
+      "url": "https://www.qbitai.com/2026/10/506904.html",
+      "pin": "2026-10-31",
+      "license": "Proprietary (facts paraphrased)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "Second Chinese source for the terms 订阅与直通 and 看门狗.",
+      "note": "deepseek-superagent-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "anthropic-managed-agents",
+      "title": "Scaling Managed Agents: Decoupling the brain from the hands (Anthropic)",
+      "url": "https://www.anthropic.com/research/managed-agents",
+      "pin": "2026-04-08",
+      "license": "Proprietary (facts paraphrased)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "The work the article compares its compute/state/environment split to; its brain/hands metaphor is not used in video #4.",
+      "note": "deepseek-superagent-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "bilibili-bitexinyu",
+      "title": "比特新语 on Bilibili: uploads and frames studied for style",
+      "url": "https://space.bilibili.com/3494362707135250",
+      "pin": "26 uploads as shown on 2026-11-08",
+      "license": "Owners' rights (descriptions and facts only; no frames, covers, audio or copy kept)",
+      "excerpt_policy": "link-only",
+      "why": "Style study of the genre the user admires; principles adapted, signatures refused.",
+      "note": "vibe-knowledge-style-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "vibe-knowledge-press-36kr",
+      "title": "36氪 / 21财经 article on the Vibe知识 wave (one article, two copies)",
+      "url": "https://eu.36kr.com/zh/p/4033742259672962",
+      "pin": "2026-10-20 (21财经 copy 2026-10-22)",
+      "license": "Proprietary (facts paraphrased)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "The genre critique (a homogenised look, 模型味) that shaped the art direction.",
+      "note": "vibe-knowledge-style-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "miyanox-vibe-knowledge-video",
+      "title": "MiyanoX/vibe-knowledge-video: a genre template repo (draw(t) capture, synthesised BGM, QA)",
+      "url": "https://github.com/MiyanoX/vibe-knowledge-video/tree/78cbecce056407402d33eab18de6ce3f584e60ca",
+      "pin": "78cbecce056407402d33eab18de6ce3f584e60ca",
+      "license": "MIT (per its LICENSE file; the GitHub API reports NOASSERTION)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "How the genre is made. Its style spec reproduces other creators' signatures, so its look is off-limits.",
+      "note": "vibe-knowledge-style-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "remotion-2d-packages",
+      "title": "@remotion/paths, @remotion/layout-utils, @remotion/shapes and @remotion/transitions at 4.0.539",
+      "url": "https://www.npmjs.com/package/@remotion/paths/v/4.0.539",
+      "pin": "4.0.539",
+      "license": "MIT (paths, layout-utils, shapes); Remotion License (transitions)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "Pure path maths and text measurement for the 2D kit; the transition presentations counted from the npm exports.",
+      "note": "motion-graphics-2d-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "fontsource-explainer-fonts",
+      "title": "fontsource variable fonts: IBM Plex Sans 5.3.0, Noto Sans SC 5.3.1, JetBrains Mono 5.3.0",
+      "url": "https://fontsource.org",
+      "pin": "@fontsource-variable/ibm-plex-sans 5.3.0, @fontsource-variable/noto-sans-sc 5.3.1, @fontsource-variable/jetbrains-mono 5.3.0",
+      "license": "OFL-1.1",
+      "excerpt_policy": "vendorable",
+      "why": "The type system of video #4, loaded from pinned npm packages (credited in the video, never committed).",
+      "note": "motion-graphics-2d-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "shiki",
+      "title": "shikijs/shiki and @shikijs/magic-move",
+      "url": "https://github.com/shikijs/shiki/tree/de15fd2efb709ea4528d894ab857ac145f3dc277",
+      "pin": "de15fd2efb709ea4528d894ab857ac145f3dc277; npm 4.6.0",
+      "license": "MIT",
+      "excerpt_policy": "vendorable",
+      "why": "Deterministic code tokens if a film shows code; magic-move only through its pure core.",
+      "note": "motion-graphics-2d-2026-11.md",
+      "status": "verified"
+    },
+    {
+      "id": "budoux",
+      "title": "google/budoux: phrase segmentation for CJK line breaks",
+      "url": "https://github.com/google/budoux",
+      "pin": "npm 0.10.3 (2026-11-06)",
+      "license": "Apache-2.0",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "An authoring aid for explicit zh phrase breaks (Intl.Segmenter splits technical terms).",
+      "note": "motion-graphics-2d-2026-11.md",
+      "status": "verified"
     }
   ]
 }

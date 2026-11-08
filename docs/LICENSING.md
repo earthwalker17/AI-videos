@@ -39,8 +39,9 @@ Dependencies are installed from npm and never redistributed here, but some carry
 obligations for whoever renders with them:
 
 - **Remotion** is source-available under the Remotion License, not an OSI open-source
-  licence. Individuals and organisations of up to three people may use it for
-  free, including commercially; larger companies need a Remotion company licence.
+  licence. Under the pinned 4.0.539 licence, individuals, for-profit organisations with
+  up to three employees and non-profit organisations may use it for free, including
+  commercially; larger companies need a Remotion company licence.
   If you fork this repository and render with the Remotion engine, check your own
   eligibility at <https://www.remotion.dev/license>. Remotion's documentation and
   agent skills are not copied into this repository.
