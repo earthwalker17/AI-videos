@@ -15,7 +15,7 @@ the rule of two.
 | `useFont(spec)`, `loadFont(spec)` | Any other font, from its files and the film's strings. Each frame is held until the font is loaded, and the render fails if the font lacks a character (see [Fonts](#fonts)). |
 | `textCanvas(w, h)`, `textContext(canvas)`, `fillTextChecked(g, text, x, y)` | Text in a 2D canvas that rasters the same in every render: a CPU canvas, and a `fillText` that throws while a face it needs is still loading (see [Canvas text](#canvas-text)). |
 | `useRenderScale()`, `useRenderSize()` | Output pixels per CSS pixel (0.5 for draft), and the output size. |
-| `NOISE_GLSL`, `NOISE3_GLSL` | GLSL hash, value noise and fbm in 2D and 3D (see [From A Halloween Gift](#from-a-halloween-gift)). |
+| `NOISE_GLSL`, `NOISE3_GLSL`, `NOISE3_BODY_GLSL`, `AIV_HASH_GLSL` | GLSL hash (public domain), value noise and fbm in 2D and 3D (see [From A Halloween Gift](#from-a-halloween-gift)). |
 | `FinishEffect` | Vignette, floor lift and frame-indexed grain after the tone mapping. |
 | `Curve`, `distanceToPolyline` | Centripetal Catmull-Rom curves with an arc-length table, in any dimension. |
 | `CamPath` | A camera path with a monotone time warp and hold keys: a pure function of the frame. |
@@ -177,7 +177,7 @@ computes what the film's does (`*.test.ts` port the film's camera-path tests).
 
 | Here | From `videos/halloween-gift/src/` | Changed |
 |---|---|---|
-| `src/glsl.ts`: `NOISE_GLSL`, `NOISE3_GLSL` | `look/glsl.ts` | nothing |
+| `src/glsl.ts`: `NOISE_GLSL`, `NOISE3_GLSL` | `look/glsl.ts` | the hashes: the kit's are its own (below) |
 | `src/finish.ts`: `FinishEffect`, `FINISH_TINT_GLSL` | `look/NightPost.tsx` (not `NightPost` itself) | options (below), and the tint is skipped when it is off |
 | `src/spline.ts`: `Curve`, `distanceToPolyline` | `kit/spline.ts` | its segment evaluator is exported as `barryGoldman` |
 | `src/campath.ts`: `CamPath`, `CamKey`, `CamPose` | `film/campath.ts` | it uses the spline's evaluator (the same arithmetic) |
@@ -185,9 +185,13 @@ computes what the film's does (`*.test.ts` port the film's camera-path tests).
 | `src/materials.ts`: `patchMaterial` | the `onBeforeCompile` pattern of `look/materials.ts` | a new helper; the storybook look stays in the film |
 
 **The noise.** Paste each string once into a shader that needs it (its functions are not
-guarded). `aivHash12` and `aivHash13` have the form and constants of David Hoskins' "Hash
-without Sine" (`hash12`, `hash13`); its licence is still to be confirmed (docs/ROADMAP.md, Known
-gaps). The finish effect's grain hash `fHash` has the same form.
+guarded). `NOISE_GLSL` and `NOISE3_GLSL` each carry the hash (`AIV_HASH_GLSL`); a shader that
+needs both pastes `NOISE_GLSL` and then `NOISE3_BODY_GLSL`. The hashes are not the film's:
+`aivHash12` and `aivHash13` run the float bits of their input through `aivMix32`, the fmix32
+finaliser of Austin Appleby's MurmurHash3, which its author placed in the public domain. The
+film's hashes (David Hoskins' "Hash without Sine", licence unconfirmed: docs/ROADMAP.md, Known
+gaps) stay in the frozen film only. `FinishEffect`'s grain uses `aivHash12` too. postprocessing
+prefixes each effect's function names, so two effects that both paste the hash do not collide.
 
 **`FinishEffect`** goes in `afterToneMapping`: it works on display values. Its options default to
 the film's values: `vignette` 0.8, `grain` 1, `foot` 1 (the band across the bottom of the

@@ -14,10 +14,12 @@
  * `NightPost` stays in it. Generalised: the vignette, grain, lift colours and foot band are
  * options, and their defaults are the film's values. With the defaults the shader computes what
  * the film's does. With `vignette: 0` and `foot: 0` the tint is skipped (a uniform branch), so the
- * picture is never darkened toward its corners or its foot, exactly.
+ * picture is never darkened toward its corners or its foot, exactly. The grain's hash is the kit's
+ * `aivHash12` (glsl.ts, public domain), not the film's.
  */
 import { BlendFunction, Effect, EffectAttribute } from 'postprocessing';
 import { Color, Uniform, type ColorRepresentation } from 'three';
+import { AIV_HASH_GLSL } from './glsl.ts';
 
 /** The finish's default vignette strength (*A Halloween Gift*'s). */
 export const FINISH_VIGNETTE = 0.8;
@@ -53,11 +55,7 @@ uniform vec3 uLiftLow;
 uniform vec3 uLiftHigh;
 uniform float uFoot;
 ${FINISH_TINT_GLSL}
-float fHash(vec2 p) {
-  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-  p3 += dot(p3, p3.yzx + 33.33);
-  return fract((p3.x + p3.y) * p3.z);
-}
+${AIV_HASH_GLSL}
 vec3 fEnc(vec3 c) { c = max(c, 0.0); return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 vec3 fDec(vec3 c) { c = max(c, 0.0); return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
@@ -79,7 +77,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   // amplified it most in the darkest channel (a teal speckle on dark maroon)
   vec3 e = fEnc(c);
   float l = dot(e, vec3(0.2126, 0.7152, 0.0722));
-  float n = fHash(floor(gl_FragCoord.xy / 1.5) + uFrame * 17.31) - 0.5;
+  float n = aivHash12(floor(gl_FragCoord.xy / 1.5) + uFrame * 17.31) - 0.5;
   float resp = smoothstep(0.03, 0.3, l) * (1.0 - smoothstep(0.7, 1.0, l));
   e += n * uGrain * (0.35 + 0.65 * resp) * 0.024;
   outputColor = vec4(clamp(fDec(e), 0.0, 1.0), inputColor.a);

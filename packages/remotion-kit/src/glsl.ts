@@ -6,16 +6,39 @@
  * Copied from the frozen film *A Halloween Gift* at its release tag `video/halloween-gift/v1`
  * (`videos/halloween-gift/src/look/glsl.ts`), unchanged, for its second use (video #4,
  * docs/ARCHITECTURE.md decision 30). The film keeps its own copy. The noise and fbm were written
- * for that film. The two hashes, `aivHash12` and `aivHash13`, have the form and constants of
- * David Hoskins' "Hash without Sine" `hash12` and `hash13` (shadertoy.com/view/4djSRW). Its licence
- * could not be read here (the page refuses automated fetches): see docs/ROADMAP.md, Known gaps.
+ * for that film. The hashes are not the film's: `aivHash12` and `aivHash13` hash the bits of
+ * their float inputs with `aivMix32`, the 32-bit finaliser (fmix32) of Austin Appleby's
+ * MurmurHash3, which its author placed in the public domain. Integer arithmetic wraps exactly, so
+ * the hash is the same on every GPU that computes the same input floats. The film's own hashes
+ * (another author's, licence unconfirmed: docs/ROADMAP.md, Known gaps) are not used here.
+ * `AIV_HASH_GLSL` is pasted into both strings; a shader that needs both pastes `NOISE3_GLSL`
+ * without the hash (`NOISE3_BODY_GLSL`) after `NOISE_GLSL`.
  */
-export const NOISE_GLSL = /* glsl */ `
-float aivHash12(vec2 p) {
-  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-  p3 += dot(p3, p3.yzx + 33.33);
-  return fract((p3.x + p3.y) * p3.z);
+/**
+ * The kit's hashes, in [0, 1): MurmurHash3's fmix32 (public domain) over the float bits of the
+ * input. Needs GLSL ES 3.00 (WebGL2, which three always uses).
+ */
+export const AIV_HASH_GLSL = /* glsl */ `
+uint aivMix32(uint h) {
+  h ^= h >> 16u;
+  h *= 0x85ebca6bu;
+  h ^= h >> 13u;
+  h *= 0xc2b2ae35u;
+  h ^= h >> 16u;
+  return h;
 }
+float aivHash12(vec2 p) {
+  uvec2 q = floatBitsToUint(p);
+  return float(aivMix32(q.x ^ aivMix32(q.y + 0x9e3779b9u)) >> 8u) * (1.0 / 16777216.0);
+}
+float aivHash13(vec3 p) {
+  uvec3 q = floatBitsToUint(p);
+  return float(aivMix32(q.x ^ aivMix32(q.y ^ aivMix32(q.z + 0x9e3779b9u))) >> 8u) * (1.0 / 16777216.0);
+}
+`;
+
+export const NOISE_GLSL = /* glsl */ `
+${AIV_HASH_GLSL}
 float aivNoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);
@@ -39,13 +62,8 @@ float aivFbm(vec2 p) {
 }
 `;
 
-/** 3D value noise and a 4-octave fbm in [0, 1] (world-space paint and bumps). */
-export const NOISE3_GLSL = /* glsl */ `
-float aivHash13(vec3 p) {
-  p = fract(p * 0.1031);
-  p += dot(p, p.zyx + 31.32);
-  return fract((p.x + p.y) * p.z);
-}
+/** 3D value noise and a 4-octave fbm in [0, 1], without the hash (paste after `NOISE_GLSL`). */
+export const NOISE3_BODY_GLSL = /* glsl */ `
 float aivNoise3(vec3 p) {
   vec3 i = floor(p);
   vec3 f = fract(p);
@@ -71,3 +89,6 @@ float aivFbm3(vec3 p) {
   return s / 0.9375;
 }
 `;
+
+/** 3D value noise and a 4-octave fbm in [0, 1] (world-space paint and bumps), with the hash. */
+export const NOISE3_GLSL = `${AIV_HASH_GLSL}${NOISE3_BODY_GLSL}`;

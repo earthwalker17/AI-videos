@@ -102,17 +102,13 @@ Built when a film needs them, not before:
     `@remotion/three` and `Stage3D`/`PostChain` (React Three Fiber and postprocessing are dropped);
   - a 200 px Plex line is not bit-exact across pages at 1080p: keep DOM text ≤ 136 px
     (`knowledge/dom-text-determinism.md`).
-- **Licence to confirm (found 2026-11-09).** These hashes have the exact form and constants of
-  David Hoskins' "Hash without Sine" (shadertoy.com/view/4djSRW):
-  - the frozen *A Halloween Gift*'s `look/glsl.ts` and `look/NightPost.tsx`;
-  - their kit copies, `@aiv/remotion-kit` `NOISE_GLSL` and `FinishEffect`.
-
-  Shadertoy refuses automated fetches, so the licence stated there is unread here.
-  - If it is MIT: add its `SPDX-FileCopyrightText` and `NOTICE.md` rows.
-  - Otherwise: replace the kit's hashes with a public-domain one (e.g. lowbias32, Unlicense).
-    The frozen film keeps its copy.
-
-  New shaders write their own hash.
+- **Licence to confirm (found 2026-11-09).** The frozen *A Halloween Gift*'s `look/glsl.ts` and
+  `look/NightPost.tsx` hashes have the exact form and constants of David Hoskins' "Hash without
+  Sine" (shadertoy.com/view/4djSRW). Shadertoy refuses automated fetches, so the licence stated
+  there is unread here. If it is MIT, add its `SPDX-FileCopyrightText` and `NOTICE.md` rows for
+  the film. The kit no longer carries it: since 2026-11-09 `@aiv/remotion-kit`'s `NOISE_GLSL`,
+  `NOISE3_GLSL` and `FinishEffect` use their own hash (MurmurHash3's fmix32, public domain).
+  New shaders use the kit's hash.
 - QA's black and freeze thresholds are hard-coded (`qa.ts`).
   - A dark look must keep its ground above limited-range luma 38 (or declare `qa.allowBlack`).
   - Still diagram holds over 3 s need `hold` cues or `qa.allowFreeze`.

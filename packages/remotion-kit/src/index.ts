@@ -12,7 +12,7 @@ export { useRenderScale, useRenderSize } from './scale.ts';
 export { swatchRectsCss, type CssSwatch } from './swatches.ts';
 // Copied from the frozen A Halloween Gift (video/halloween-gift/v1) for their second use
 // (docs/ARCHITECTURE.md decision 30): see README.md, "From A Halloween Gift".
-export { NOISE_GLSL, NOISE3_GLSL } from './glsl.ts';
+export { AIV_HASH_GLSL, NOISE_GLSL, NOISE3_BODY_GLSL, NOISE3_GLSL } from './glsl.ts';
 export { FinishEffect, FINISH_TINT_GLSL, FINISH_VIGNETTE, FINISH_LIFT, type FinishOptions } from './finish.ts';
 export { Curve, distanceToPolyline, type P2, type P3 } from './spline.ts';
 export { CamPath, type CamKey, type CamPose } from './campath.ts';

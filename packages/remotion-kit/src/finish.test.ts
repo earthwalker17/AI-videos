@@ -6,7 +6,7 @@ import { BloomEffect, EffectAttribute, ToneMappingEffect, ToneMappingMode, type 
 import { Color, PerspectiveCamera, Scene, SRGBColorSpace, type Vector2, type WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
 import { FINISH_LIFT, FINISH_TINT_GLSL, FINISH_VIGNETTE, FinishEffect } from './finish.ts';
-import { NOISE3_GLSL, NOISE_GLSL } from './glsl.ts';
+import { AIV_HASH_GLSL, NOISE3_BODY_GLSL, NOISE3_GLSL, NOISE_GLSL } from './glsl.ts';
 import { buildPostChain } from './PostChain.tsx';
 
 const value = (e: Effect, name: string) => e.uniforms.get(name)!.value as unknown;
@@ -66,11 +66,22 @@ describe('FinishEffect', () => {
 });
 
 describe('the noise GLSL', () => {
+  const defs = (src: string, name: string) => src.match(new RegExp(`\\b(?:float|uint) ${name}\\(`, 'g')) ?? [];
   it('defines each of its functions once', () => {
     for (const [src, names] of [
-      [NOISE_GLSL, ['aivHash12', 'aivNoise', 'aivFbm']],
-      [NOISE3_GLSL, ['aivHash13', 'aivNoise3', 'aivFbm3']],
+      [NOISE_GLSL, ['aivMix32', 'aivHash12', 'aivHash13', 'aivNoise', 'aivFbm']],
+      [NOISE3_GLSL, ['aivMix32', 'aivHash12', 'aivHash13', 'aivNoise3', 'aivFbm3']],
+      [NOISE_GLSL + NOISE3_BODY_GLSL, ['aivMix32', 'aivHash12', 'aivHash13', 'aivNoise', 'aivFbm', 'aivNoise3', 'aivFbm3']],
     ] as const)
-      for (const n of names) expect(src.match(new RegExp(`float ${n}\\(`, 'g'))).toHaveLength(1);
+      for (const n of names) expect(defs(src, n)).toHaveLength(1);
+  });
+  it("hashes with integer arithmetic (MurmurHash3's fmix32), not the film's float hash", () => {
+    expect(AIV_HASH_GLSL).toContain('floatBitsToUint');
+    expect(AIV_HASH_GLSL).toContain('0x85ebca6bu');
+    for (const src of [NOISE_GLSL, NOISE3_GLSL, new FinishEffect().getFragmentShader() ?? '']) {
+      expect(src).toContain('aivMix32');
+      expect(src).not.toContain('0.1031');
+      expect(src).not.toContain('33.33');
+    }
   });
 });
