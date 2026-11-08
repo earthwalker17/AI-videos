@@ -4,7 +4,11 @@
  * by). Pure functions of the sheet; `aiv audio` writes them into audio.json and fails (exit 1,
  * after writing the tracks) when one does not pass.
  */
-import type { CueEvent, CueSheet } from '@aiv/core';
+import { requiredHoldS, type CueEvent, type CueSheet } from '@aiv/core';
+
+// The reading-time rule lives in @aiv/core (reading.ts), shared with the videos' cue tests;
+// re-exported here so the audio stage's callers keep one import.
+export { CJK_PER_S, FIND_TEXT_S, MIN_TEXT_S, OTHER_PER_S, readingSeconds, requiredHoldS } from '@aiv/core';
 
 export interface IntentCheck {
   id: string;
@@ -14,32 +18,10 @@ export interface IntentCheck {
   detail: string;
 }
 
-/** Text must stay up at least this long, however short (s). */
-export const MIN_TEXT_S = 1.8;
-/** Seconds added to the reading time: the eye has to find the text first. */
-export const FIND_TEXT_S = 0.6;
 /** A title or end card stays up at least this long (s). */
 export const MIN_CARD_S = 4;
-/** Reading speeds: CJK characters and other (Latin…) characters per second. */
-export const CJK_PER_S = 4.5;
-export const OTHER_PER_S = 15;
 
-const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 const EPS = 1e-9;
-
-/** Seconds to read `text`: CJK code points / 4.5 + other non-space characters / 15. */
-export function readingSeconds(text: string): number {
-  let cjk = 0;
-  let other = 0;
-  for (const ch of text) {
-    if (CJK.test(ch)) cjk++;
-    else if (!/\s/u.test(ch)) other++;
-  }
-  return cjk / CJK_PER_S + other / OTHER_PER_S;
-}
-
-/** How long a text must be held: max(1.8 s, reading time + 0.6 s). */
-export const requiredHoldS = (text: string): number => Math.max(MIN_TEXT_S, readingSeconds(text) + FIND_TEXT_S);
 
 const spanS = (e: CueEvent, fps: number) => ((e.end ?? e.frame) - e.frame) / fps;
 

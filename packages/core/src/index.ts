@@ -3,5 +3,6 @@
 export * from './rng.ts';
 export * from './easing.ts';
 export * from './swatches.ts';
+export * from './reading.ts';
 export * from './exit.ts';
 export * from './contracts.ts';
