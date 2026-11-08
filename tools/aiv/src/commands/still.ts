@@ -1,12 +1,12 @@
 import { resolve } from 'node:path';
 import { EXIT } from '@aiv/core';
-import { CHECK_FRAMES, createLog, getProfile, MAX_STILLS, parseFrameList, resolveTarget, runStills } from '@aiv/pipeline';
-import { parse, usageError, type Command } from '../command.ts';
+import { CHECK_FRAMES, createLog, getProfile, MAX_SPAN, MAX_STILLS, MIN_ENCODE_FRAMES, parseFrameList, resolveTarget, runStills, validateStillsFrames } from '@aiv/pipeline';
+import { intFlag, parse, usageError, type Command } from '../command.ts';
 import { engineAdapter } from '../engines.ts';
 import { refuseFrozen } from '../frozen.ts';
 import { withHeavySlot } from '../heavySlot.ts';
 
-const usage = `usage: aiv still <target> --frames <list> [--profile draft|review|final] [--label <name>] [--entry <path>] [--composition <id>] [--ref <image>] [--check <profile>] [--span] [--browser pinned|system]
+const usage = `usage: aiv still <target> --frames <list> [--profile draft|review|final] [--label <name>] [--entry <path>] [--composition <id>] [--ref <image>] [--check <profile>] [--span [--encode] [--inner <n>]] [--browser pinned|system]
 
 Renders chosen frames of a video (videos/<slug>) or a template (template:<engine>) as PNG stills
 into out/<slug>/stills/<label>/: f<NNNNN>.png per frame and stills.json (frame hashes, timings,
@@ -19,7 +19,8 @@ It runs as the machine's one heavy job and never waits for the lock (exit 75 whi
 
   <target>           a video slug or template:<engine>
   --frames <list>    composition frames, test-card leader included (as in frames.sha256):
-                     indices and inclusive ranges, e.g. 40,240,300-303 (at most ${MAX_STILLS})
+                     indices and inclusive ranges, e.g. 40,240,300-303 (at most ${MAX_STILLS};
+                     with --span one range of at most ${MAX_SPAN})
   --profile          draft (half size) · review · final   (default review: full size; with
                      --check, that profile)
   --label <name>     the folder under out/<slug>/stills/ (default: the profile name); the stills
@@ -43,14 +44,27 @@ It runs as the machine's one heavy job and never waits for the lock (exit 75 whi
                      there (rendered mid-chunk in the run; here, on Remotion as a chunk start, on
                      the web engine after the other stills). A MISMATCH: the frame depends on what
                      was rendered before it
-  --span             render the frames, one contiguous range, in ONE call as inside a run's chunk
-                     (on Remotion the first opens the page, the rest follow in order): measures
-                     the steady cost per frame (timing.steadyMs, the median after the first)
+  --span             render the frames, one contiguous range of at most ${MAX_SPAN} (8 s at 30 fps),
+                     in ONE call as inside a run's chunk (on Remotion the first opens the page,
+                     the rest follow in order): measures the steady cost per frame
+                     (timing.steadyMs, the median after the first). A lookdev motion test
+  --encode           with --span (at least ${MIN_ENCODE_FRAMES} frames): after the stills, in the same folder
+                     (never in a render or qa folder): span.mkv (lossless FFV1 RGB like the
+                     mezzanine, verified to decode to the span's frame hashes), span.mp4 (a
+                     preview through the profile's delivery preset, as aiv post: BT.709 limited,
+                     tagged), contact.png and motion QA (motion.png, motion.json, strips/ as
+                     aiv qa makes them, measured on span.mkv, no cue sheet). Their frame numbers
+                     count from the span's first frame. stills.json encode: files and timings
+  --inner <n>        with --span: after the span, render n frames strictly inside it again
+                     (never its first; spread evenly), each in its own call (on Remotion a fresh
+                     page: a chunk start), and compare each sha256 with the span's. The
+                     chunk-start check for a lookdev entry, which has no run for --check. A
+                     MISMATCH (exit 1) writes inner-f<NNNNN>.png; stills.json inner says which
   --browser          web engine: pinned (default) or system
 
 A published or archived video is frozen: it renders only from a checkout of its release tag.
 
-exit: 0 done · 1 error, or a --check MISMATCH · 2 refused (the --check run differs; the
+exit: 0 done · 1 error, or a --check or --inner MISMATCH · 2 refused (the --check run differs; the
       composition contradicts video.json; the video is frozen) · 3 low memory · 64 usage
       · 75 machine busy: run again`;
 
@@ -70,6 +84,8 @@ export const still: Command = {
         ref: { type: 'string' },
         check: { type: 'string' },
         span: { type: 'boolean', default: false },
+        encode: { type: 'boolean', default: false },
+        inner: { type: 'string' },
         browser: { type: 'string', default: 'pinned' },
       },
       usage,
@@ -78,13 +94,15 @@ export const still: Command = {
     const browser = values.browser;
     if (browser !== 'pinned' && browser !== 'system') usageError(`--browser is pinned or system (got '${browser}')`, usage);
     if (values.frames === undefined && values.check === undefined) usageError('--frames is required (it may be left out with --check)', usage);
+    const inner = intFlag(values.inner, 'inner', usage);
+    const spanOpts = { span: values.span, encode: values.encode, inner };
     let frames: number[] | undefined;
-    if (values.frames !== undefined) {
-      try {
-        frames = parseFrameList(values.frames);
-      } catch (e) {
-        usageError((e as Error).message, usage);
-      }
+    try {
+      if (values.frames !== undefined) frames = parseFrameList(values.frames, { span: values.span });
+      // before the heavy slot: a wrong flag costs no engine boot
+      validateStillsFrames(frames, spanOpts);
+    } catch (e) {
+      usageError((e as Error).message, usage);
     }
     const check = values.check !== undefined ? getProfile(values.check) : undefined;
     const profile = getProfile(values.profile ?? check?.name ?? 'review');
@@ -105,7 +123,7 @@ export const still: Command = {
         composition: values.composition,
         ref: values.ref !== undefined ? resolve(values.ref) : undefined,
         check,
-        span: values.span,
+        ...spanOpts,
         log,
       });
       if (r.exit === EXIT.OK) log.info(r.message);

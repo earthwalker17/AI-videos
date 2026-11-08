@@ -134,10 +134,13 @@ export { SAMPLE_RATE } from './audio/runtime/types.ts';
 // post (shared by the CLI and tests)
 export { runPost, type PostOptions, type PostOutcome } from './post/post.ts';
 
-// stills (aiv still: lookdev stills, reference compare, chunk-start check)
+// stills (aiv still: lookdev stills, reference compare, chunk-start check, motion tests)
 export {
   runStills,
   parseFrameList,
+  validateStillsFrames,
+  innerRendering,
+  innerName,
   defaultCheckFrames,
   chunkStarts,
   parseFrameHashes,
@@ -156,6 +159,7 @@ export {
   type HashCheck,
   type CheckRunJson,
 } from './stills/stills.ts';
+export { MAX_SPAN, MIN_ENCODE_FRAMES, innerFrames, spanMkvArgs, encodeSpan, type StillsEncodeJson, type StillsInnerJson, type EncodeSpanOptions } from './stills/span.ts';
 export {
   ciede2000,
   srgbToLab,

@@ -20,10 +20,15 @@
  * profile would have), so it compares with run.json / inputs.json; --check refuses a run whose
  * hash or render size differs, because its frame hashes then describe other pixels.
  *
- * --span renders a contiguous range in ONE renderFrames call instead, as inside a run's chunk:
- * its first frame starts a page (on Remotion), the rest follow it in order. That is how to
- * measure a scene's steady-state cost per frame (stills.json `timing.steadyMs`: the median
- * interval between deliveries after the first) and to compare chunk-interior hashes.
+ * --span renders a contiguous range (at most MAX_SPAN frames) in ONE renderFrames call instead, as
+ * inside a run's chunk: its first frame starts a page (on Remotion), the rest follow it in order.
+ * That is how to measure a scene's steady-state cost per frame (stills.json `timing.steadyMs`: the
+ * median interval between deliveries after the first) and to compare chunk-interior hashes. With
+ * it, lookdev gets motion tests (span.ts, docs/ARCHITECTURE.md decision 31): --encode writes the
+ * span as a lossless clip, a preview mp4, a contact sheet and motion QA into the stills folder;
+ * --inner renders frames inside the span again, each in its own call (on Remotion a fresh page,
+ * so a chunk start), and compares their hashes with the span's: the chunk-start check for a
+ * lookdev entry, which has no run for --check.
  *
  * --entry / --composition render another entry file / composition of the same video (lookdev
  * entries): the adapter gets a shallow copy of the target with those config fields replaced.
@@ -49,6 +54,7 @@ import { createLog, type Log } from '../util/log.ts';
 import { outDir, partPath, repoRel, writeJson } from '../util/paths.ts';
 import { toolchain } from '../util/toolchain.ts';
 import { ANALYSIS_SIZE, compareSheet, compareStats, coverCrop, decodeRgb, imageSize, imageStats, METRICS, type ImageCrop, type ImageStats } from './compare.ts';
+import { encodeSpan, innerFrames, MAX_SPAN, MIN_ENCODE_FRAMES, type StillsEncodeJson, type StillsInnerJson } from './span.ts';
 
 /** At most this many stills per call: stills are for looking at; a range is a render. */
 export const MAX_STILLS = 120;
@@ -59,11 +65,18 @@ const usage = (msg: string): never => {
   throw new ExitError(EXIT.USAGE, msg);
 };
 
+const tooMany = (span: boolean): string =>
+  span
+    ? `--span renders at most ${MAX_SPAN} contiguous frames (8 s at 30 fps): a longer range is a render, aiv render --frames`
+    : `--frames asks for more than ${MAX_STILLS} stills: stills are for looking at, render a range with aiv render (or a motion test of up to ${MAX_SPAN} frames with --span)`;
+
 /**
  * "40,240,300-303" → [40, 240, 300, 301, 302, 303]: comma-separated frame indices and inclusive
- * ranges, sorted and deduplicated. Throws a usage error for anything else.
+ * ranges, sorted and deduplicated. At most MAX_STILLS frames, or MAX_SPAN with `span`. Throws a
+ * usage error for anything else.
  */
-export function parseFrameList(spec: string): number[] {
+export function parseFrameList(spec: string, o: { span?: boolean } = {}): number[] {
+  const max = o.span ? MAX_SPAN : MAX_STILLS;
   const out = new Set<number>();
   for (const raw of spec.split(',')) {
     const part = raw.trim();
@@ -72,10 +85,32 @@ export function parseFrameList(spec: string): number[] {
     const a = Number(m![1]);
     const b = m![2] === undefined ? a : Number(m![2]);
     if (b < a) usage(`--frames range ${part} runs backwards`);
-    if (b - a + 1 + out.size > MAX_STILLS) usage(`--frames asks for more than ${MAX_STILLS} stills: stills are for looking at, render a range with aiv render`);
+    if (b - a + 1 + out.size > max) usage(tooMany(!!o.span));
     for (let i = a; i <= b; i++) out.add(i);
   }
   return [...out].sort((x, y) => x - y);
+}
+
+/**
+ * The rules of --span, --encode and --inner (usage errors), checked by the CLI before it takes
+ * the heavy slot and by runStills before the engine opens. Without `frames` only the flags are
+ * checked: --encode and --inner need --span; --inner takes a whole number of at least 1. With
+ * them: at most MAX_STILLS stills, or one contiguous span of at most MAX_SPAN frames; --encode
+ * needs MIN_ENCODE_FRAMES (one motion window); --inner fewer frames than the span has after its
+ * first.
+ */
+export function validateStillsFrames(frames: readonly number[] | undefined, o: { span?: boolean; encode?: boolean; inner?: number }): void {
+  if (o.encode && !o.span) usage('--encode needs --span: a motion test is one contiguous range rendered in one call');
+  if (o.inner !== undefined && !o.span) usage('--inner needs --span: it renders frames inside the span again and compares them with it');
+  if (o.inner !== undefined && (!Number.isInteger(o.inner) || o.inner < 1)) usage(`--inner takes a whole number of frames, at least 1 (got ${o.inner})`);
+  if (!frames) return;
+  if (frames.length > (o.span ? MAX_SPAN : MAX_STILLS)) usage(tooMany(!!o.span));
+  if (!o.span || !frames.length) return;
+  const range = `--frames ${frames[0]}-${frames[frames.length - 1]}`;
+  if (frames.some((f, k) => f !== frames[0] + k)) usage(`--span renders one contiguous range: ${range} has gaps`);
+  if (o.encode && frames.length < MIN_ENCODE_FRAMES) usage(`--encode needs a span of at least ${MIN_ENCODE_FRAMES} frames (one motion window): ${range} has ${frames.length}`);
+  if (o.inner !== undefined && o.inner >= frames.length)
+    usage(`--inner ${o.inner}: a span of ${frames.length} frames has ${frames.length - 1} after its first (where its own call began anyway): ask for fewer`);
 }
 
 /** How an engine renders a still, and so what a --check MISMATCH means (stillsRendering). */
@@ -117,6 +152,19 @@ export function stillsRendering(engine: string): StillsRendering {
     rendering: `one engine session; each still in its own renderFrames([i, i+1]) call, in the order given; ${HASHED}`,
     mismatch: 'those frames depend on what the engine rendered before them (state carried between frames, a warm-up effect, randomness)',
   };
+}
+
+/**
+ * How --inner renders, by engine (stills.json `inner.rendering`): after the span, each frame in
+ * its own renderFrames([i, i+1]) call. On Remotion that call opens a fresh page, so it is a chunk
+ * start compared with the frame the span rendered mid-chunk; the web engine renders it on its one
+ * page after everything before it (no chunk start there).
+ */
+export function innerRendering(engine: string): string {
+  const what = "compared with the span's hash of that frame (rendered there after the frames before it)";
+  if (engine === 'remotion') return `after the span, each frame in its own renderFrames([i, i+1]) call, which opens a fresh page (Remotion), so each is a chunk start; ${what}; ${HASHED}`;
+  if (engine === 'web') return `after the span, each frame in its own renderFrames([i, i+1]) call on the one page the session loaded, after the span and the frames before it (no fresh page, no chunk start); ${what}; ${HASHED}`;
+  return `after the span, each frame in its own renderFrames([i, i+1]) call; ${what}; ${HASHED}`;
 }
 
 /** The frames a run of `frames` with chunks of `chunkFrames` starts a chunk (and, on Remotion, a page) on. */
@@ -207,6 +255,8 @@ export const stillsDir = (slug: string, label: string, root: string): string => 
 const pad5 = (i: number) => String(i).padStart(5, '0');
 export const stillName = (i: number): string => `f${pad5(i)}.png`;
 export const compareName = (i: number): string => `compare-${pad5(i)}.png`;
+/** an --inner frame that did not match the span's, written for a look */
+export const innerName = (i: number): string => `inner-f${pad5(i)}.png`;
 const LABEL = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /**
@@ -254,8 +304,12 @@ export interface StillsOptions {
   ref?: string;
   /** compare each still's sha256 with this profile's finished run (must be `profile`) */
   check?: Profile;
-  /** render the frames, which must be contiguous, in one renderFrames call (a chunk) */
+  /** render the frames, which must be contiguous (at most MAX_SPAN), in one renderFrames call (a chunk) */
   span?: boolean;
+  /** with span: span.mkv, span.mp4, contact.png and motion QA in the stills folder (span.ts) */
+  encode?: boolean;
+  /** with span: render this many frames inside the span again, each in its own call, and compare their hashes with the span's */
+  inner?: number;
   /** stop (exit 3) below this much free RAM, MB (default aiv.local.json abortFreeMB or 500) */
   abortFreeMB?: number;
   log?: Log;
@@ -314,6 +368,10 @@ export interface StillsJson {
     metrics: typeof METRICS;
   };
   check?: { profile: string; run: string; inputHash: string; frames: [number, number]; matched: number; mismatched: number };
+  /** --encode: the span's clip, preview, contact sheet and motion QA */
+  encode?: StillsEncodeJson;
+  /** --inner: the frames rendered again inside the span, each against the span's hash */
+  inner?: StillsInnerJson;
   createdAt: string;
 }
 
@@ -358,10 +416,13 @@ function readCheckRun(target: Target, profile: Profile): CheckRun {
 /** The display host of a session, as the runner compares it on resume. */
 const hostKey = (info: EngineInfo) => JSON.stringify({ browser: info.browser ?? null, gpu: info.gpu ?? null, driver: info.driver ?? null });
 
-/** f*.png, compare-*.png and stills.json of an earlier call (nothing else in the folder). */
+/** What --encode writes (span.ts), its partial files included. */
+const ENCODE_FILES = ['span.mkv', 'span.part.mkv', 'span.mp4', 'span.part.mp4', 'contact.png', 'contact.png.tiles', 'motion.png', 'motion.png.graph.txt', 'motion.json', 'strips'];
+
+/** f*.png, compare-*.png, inner-f*.png, stills.json and the --encode files of an earlier call (nothing else in the folder). */
 function wipeStills(dir: string): void {
   if (!existsSync(dir)) return;
-  for (const f of readdirSync(dir)) if (/^(f\d+|compare-\d+)(\.part)?\.png$/.test(f) || f === 'stills.json') rmSync(join(dir, f), { force: true });
+  for (const f of readdirSync(dir)) if (/^(f\d+|compare-\d+|inner-f\d+)(\.part)?\.png$/.test(f) || f === 'stills.json' || ENCODE_FILES.includes(f)) rmSync(join(dir, f), { recursive: true, force: true });
 }
 
 /** RGBA from the engine → an RGB PNG (alpha is opaque by the engine contract), written atomically. */
@@ -402,6 +463,8 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
   });
   try {
     if (!LABEL.test(label)) usage(`--label is a folder name of letters, digits, '.', '_' and '-' (got '${label}')`);
+    const spanOpts = { span: o.span, encode: o.encode, inner: o.inner };
+    validateStillsFrames(undefined, spanOpts);
     const target = withEntry(o.target, o.entry, o.composition);
     const size = renderSize(target.config.format, o.profile);
     const fps = target.config.format.fps;
@@ -433,7 +496,7 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
     }
     const frames = o.frames?.length ? [...o.frames] : check ? defaultCheckFrames(check.run.frames, check.run.settings.chunkFrames) : usage('--frames is required (without --check)');
     if (!frames.length) usage(`the ${o.check!.name} run (frames ${check!.run.frames[0]}-${check!.run.frames[1] - 1}) has no frame that is not a chunk start: name the frames with --frames`);
-    if (o.span && frames.some((f, k) => f !== frames[0] + k)) usage(`--span renders one contiguous range: --frames ${frames[0]}-${frames[frames.length - 1]} has gaps`);
+    validateStillsFrames(frames, spanOpts);
     let runStarts = new Set<number>();
     if (check) {
       const missing = frames.filter((i) => !check.hashes.has(i));
@@ -542,8 +605,47 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
       log.info(parts.join(' · '));
       results.push(entry);
     }
+
+    // --inner: frames inside the span again, each in its own call (on Remotion a fresh page: a chunk start)
+    let inner: StillsInnerJson | undefined;
+    if (o.inner !== undefined) {
+      const spanHash = new Map(results.map((r) => [r.i, r.sha256]));
+      if (!how0.freshPage) log.warn(`engine ${o.adapter.name} renders every call on the page it loaded: --inner compares frames rendered after other frames, it is no chunk-start check here`);
+      const checked: StillsInnerJson['frames'] = [];
+      for (const i of innerFrames(frames[0], frames.length, o.inner)) {
+        const mb = await availableMB();
+        if (mb < abortFreeMB) return outcome(EXIT.LOW_MEMORY, `host memory low (${mb} MB available < ${abortFreeMB} MB) before inner frame ${i}: the span's ${results.length} stills are written (no stills.json), run again when memory is back`);
+        const expected = spanHash.get(i)!;
+        let got: StillsInnerJson['frames'][number] | null = null;
+        const t = now();
+        await s.renderFrames!([i, i + 1], async (k, rgba, meta) => {
+          if (k !== i || got) throw new Error(`engine delivered frame ${k}${got ? ' twice' : ''} for inner frame ${i}`);
+          const h = sha256(rgba);
+          got = { i, sha256: h, expected, match: h === expected, ms: Math.round(meta?.ms ?? now() - t) };
+          // a mismatch is worth a look: the frame as this call rendered it
+          if (!got.match) {
+            got.file = innerName(i);
+            await writePng(rgba, size.width, size.height, join(dir, got.file));
+          }
+        });
+        const g = got as StillsInnerJson['frames'][number] | null;
+        if (!g) throw new Error(`engine delivered no frame for inner frame ${i}`);
+        log.info(`inner frame ${i} · ${g.ms} ms · sha256 ${g.sha256.slice(0, 12)} · ${g.match ? 'MATCH (span)' : `MISMATCH (span ${expected.slice(0, 12)}) · ${g.file}`}`);
+        checked.push(g);
+      }
+      const bad = checked.filter((c) => !c.match).length;
+      inner = { rendering: innerRendering(o.adapter.name), frames: checked, matched: checked.length - bad, mismatched: bad };
+    }
     await s.close();
     session = null;
+
+    // --encode: the browser is closed; the clip, the preview, the contact sheet and motion QA from the PNGs
+    let encode: StillsEncodeJson | undefined;
+    if (o.encode) {
+      const mb = await availableMB();
+      if (mb < abortFreeMB) return outcome(EXIT.LOW_MEMORY, `host memory low (${mb} MB available < ${abortFreeMB} MB) before --encode: the span's ${results.length} stills are written (no stills.json), run again when memory is back`);
+      encode = await encodeSpan({ dir, root, first: frames[0], hashes: results.map((r) => r.sha256), width: size.width, height: size.height, fps, profile: o.profile, log, now });
+    }
 
     const steadyMs = o.span && results.length > 1 ? median(results.slice(1).map((r) => r.ms)) : undefined;
     const [git, tc, refSha] = await Promise.all([gitState(root, [...ih.roots, 'pnpm-lock.yaml']), toolchain({ browser: s.info.browser, gpu: s.info.gpu }), ref && o.ref ? sha256File(o.ref) : Promise.resolve('')]);
@@ -582,6 +684,8 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
           }
         : {}),
       ...(check ? { check: { profile: check.run.settings.profile, run: repoRel(check.dir, root), inputHash: check.run.inputHash, frames: check.run.frames, matched: results.length - mismatched, mismatched } } : {}),
+      ...(encode ? { encode } : {}),
+      ...(inner ? { inner } : {}),
       createdAt: new Date().toISOString(),
     };
     writeJson(join(dir, 'stills.json'), json);
@@ -589,11 +693,24 @@ export async function runStills(o: StillsOptions): Promise<StillsOutcome> {
     const pace = steadyMs !== undefined ? `first ${(results[0].ms / 1000).toFixed(1)} s, then ${(steadyMs / 1000).toFixed(2)} s/frame (median, in one call)` : `${perFrame.toFixed(1)} s/still`;
     const head = `${results.length} stills ${size.width}x${size.height} in ${repoRel(dir, root)} · boot ${bootS.toFixed(1)} s, ${pace} · input hash ${ih.hash.slice(0, 12)}`;
     const refPart = ref ? ` · mean valueGridMAE ${(results.reduce((a, r) => a + r.compare!.valueGridMAE, 0) / results.length).toFixed(4)}, mean paletteDeltaE ${(results.reduce((a, r) => a + r.compare!.paletteDeltaE, 0) / results.length).toFixed(2)} (reported, not gating)` : '';
-    if (!check) return outcome(EXIT.OK, head + refPart, json);
-    const verdict = mismatched
-      ? `check vs ${check.run.settings.profile}: ${mismatched} of ${results.length} MISMATCH (frames ${results.filter((r) => r.check && !r.check.match).map((r) => r.i).join(', ')}): ${how.mismatch}`
-      : `check vs ${check.run.settings.profile}: all ${results.length} MATCH`;
-    return outcome(mismatched ? EXIT.ERROR : EXIT.OK, `${head}${refPart} · ${verdict}`, json);
+    const encodePart = encode
+      ? ` · encoded in ${encode.timing.totalS.toFixed(1)} s: ${encode.files.clip} (lossless, decodes to the span's hashes), ${encode.files.preview} (${encode.preview.preset}, ${encode.preview.encoder}), ${encode.files.contact}, ${encode.files.motionSheet} + ${encode.files.motionJson}${encode.files.strips.length ? ` + ${encode.files.strips.length} strip(s)` : ''} (frame numbers from frame ${encode.firstFrame} = 0): look at them, play ${encode.files.preview}`
+      : '';
+    const verdicts: string[] = [];
+    if (check)
+      verdicts.push(
+        mismatched
+          ? `check vs ${check.run.settings.profile}: ${mismatched} of ${results.length} MISMATCH (frames ${results.filter((r) => r.check && !r.check.match).map((r) => r.i).join(', ')}): ${how.mismatch}`
+          : `check vs ${check.run.settings.profile}: all ${results.length} MATCH`,
+      );
+    if (inner)
+      verdicts.push(
+        inner.mismatched
+          ? `inner check: ${inner.mismatched} of ${inner.frames.length} MISMATCH the span (frames ${inner.frames.filter((f) => !f.match).map((f) => f.i).join(', ')}; ${inner.frames.filter((f) => f.file).map((f) => f.file).join(', ')}): ${how0.mismatch}`
+          : `inner check: all ${inner.frames.length} MATCH the span (frames ${inner.frames.map((f) => f.i).join(', ')}${how0.freshPage ? ', each a chunk start' : ''})`,
+      );
+    const failed = mismatched > 0 || (inner?.mismatched ?? 0) > 0;
+    return outcome(failed ? EXIT.ERROR : EXIT.OK, [head + refPart + encodePart, ...verdicts].join(' · '), json);
   } catch (e) {
     const exit = exitOf(e);
     const msg = e instanceof Error ? e.message : String(e);

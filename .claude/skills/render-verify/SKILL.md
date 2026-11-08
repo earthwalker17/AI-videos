@@ -44,6 +44,20 @@ the reference, value maps, palettes) and note `valueGridMAE` and `paletteDeltaE`
 one call and reports the steady cost per frame (`timing.steadyMs`): measure a heavy scene that
 way before committing to it. A lookdev entry's compositions use the video's exact format.
 
+**Motion tests** (decision 31) run `--frames a-b --span --encode --inner 3`, up to 240 frames.
+Then:
+1. Read `contact.png`, `motion.png` and the strips in the stills folder.
+2. Step through about 24 consecutive PNGs around each handshake: no effect may start before
+   its cause, and nothing idle may move.
+3. Confirm that `stills.json` `inner` says every re-rendered inner frame matched. That is
+   the chunk-start check for a lookdev entry.
+4. Look at the preview `span.mp4` at full speed.
+
+**Craft.** Before showing a look to the user, run the `frame-critic` with criterion 12
+(finished craft). Trust it only once that criterion has failed the looks the user rejected.
+Then do a "refine, don't add" pass: make what is there crisper and more coherent, and add no
+new elements.
+
 ## Extra checks
 - **Determinism** (after touching shared code, or when something flickers): render
   `--fresh` twice and compare `out/<slug>/render/<profile>/frames.sha256`: identical or a bug.

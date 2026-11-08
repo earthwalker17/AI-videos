@@ -67,6 +67,17 @@ approval.
   and with `--ref` a compare sheet (side by side, value maps, palettes, the value-grid and ΔE
   numbers). Get the look signed off on stills early, against a reference when there is one.
   `--check <profile>` compares a few mid-chunk frames' hashes with that profile's run.
+- **Lookdev is stills and motion** (decision 31). A look is signed off on both.
+  - **Style frames.** When the direction is open, show the user style frames of the competing
+    directions (the same beat, the same text) and let them choose from images.
+  - **Motion tests.** Render a motion test of each signature relationship at full craft:
+    `aiv still <slug> --frames a-b --span --encode --inner 3` gives 12 to 240 frames (up to 8 s) in one engine call,
+    a lossless clip, a preview mp4, a contact sheet, motion QA and a chunk-start check of
+    inner frames.
+  - **Calibrated critic.** Run the `frame-critic` with its finished-craft criterion only after
+    that criterion fails the looks the user has already rejected.
+  - **Why.** A clean diagram can pass every technical check and still be "too simple and
+    crude to be worth watching" (video #4, round 1).
 - Run at least one adversarial critique and fix round: the `frame-critic` agent
   compares contact sheets against the brief, storyboard and style.
 - **Colour check.** A new video starts with the template's test card on its first
@@ -127,8 +138,11 @@ compare with SSIM. Remove the worktree with `git worktree remove` when done.
 
 ## Quality bars (every video)
 - **Hook:** the first five seconds give a reason to keep watching.
-- **Readable text:** on-screen text stays at least `max(1.8 s, reading time + 0.6 s)`,
-  sits inside the title-safe area, and is at least 1/30 of the frame height.
+- **Readable text:** on-screen text meant to be read stays at least
+  `max(1.8 s, reading time + 0.6 s)`, sits inside the title-safe area, and is at least 1/30 of
+  the frame height. Print used only as texture may be smaller, down to 18 px at 1080p: an ID
+  on a card or a line on a page, never anything needed to follow the film. The user decided
+  this on 2026-11-09, for video #4.
 - **Rest:** at least one deliberate moment of quiet or stillness.
 - **Sound:** -14 LUFS integrated (±1 LU), true peak ≤ -1 dBTP, no clipping; music ducks
   under narration; narration intelligible on laptop speakers. The intended silences and rests

@@ -10,7 +10,23 @@ import { resolveTarget } from '../runner/target.ts';
 import { fakeAdapter, syntheticFrame, tempRepo, type TempRepo } from '../testing.ts';
 import { sha256 } from '../util/hash.ts';
 import { silentLog } from '../util/log.ts';
-import { checkRefusals, chunkStarts, compareFrameHashes, defaultCheckFrames, parseFrameHashes, parseFrameList, runStills, stillsRendering, withEntry, type CheckRunJson, type StillsJson } from './stills.ts';
+import { MAX_SPAN, MIN_ENCODE_FRAMES } from './span.ts';
+import {
+  checkRefusals,
+  chunkStarts,
+  compareFrameHashes,
+  defaultCheckFrames,
+  innerRendering,
+  MAX_STILLS,
+  parseFrameHashes,
+  parseFrameList,
+  runStills,
+  stillsRendering,
+  validateStillsFrames,
+  withEntry,
+  type CheckRunJson,
+  type StillsJson,
+} from './stills.ts';
 
 describe('parseFrameList', () => {
   it('reads indices and inclusive ranges, sorted and unique', () => {
@@ -22,6 +38,57 @@ describe('parseFrameList', () => {
   it('refuses anything else as a usage error', () => {
     for (const bad of ['', 'a', '5-3', '1,,2', '-1', '1.5', '2-', '1-2-3']) expect(() => parseFrameList(bad), bad).toThrow(expect.objectContaining({ exit: EXIT.USAGE }));
     expect(() => parseFrameList('0-200')).toThrow(/more than 120/);
+    expect(() => parseFrameList('0-99,200-220')).toThrow(/more than 120/);
+  });
+
+  it('takes up to 240 frames for --span, 120 stills otherwise', () => {
+    expect(parseFrameList('0-119')).toHaveLength(MAX_STILLS);
+    expect(parseFrameList('15-254', { span: true })).toHaveLength(MAX_SPAN);
+    expect(() => parseFrameList('15-255', { span: true })).toThrow(expect.objectContaining({ exit: EXIT.USAGE, message: expect.stringMatching(/--span renders at most 240/) }));
+  });
+});
+
+describe('validateStillsFrames', () => {
+  const frames = (a: number, n: number) => Array.from({ length: n }, (_, k) => a + k);
+  const refused = (f: number[] | undefined, o: Parameters<typeof validateStillsFrames>[1]) => {
+    try {
+      validateStillsFrames(f, o);
+    } catch (e) {
+      expect((e as { exit?: number }).exit).toBe(EXIT.USAGE);
+      return (e as Error).message;
+    }
+    return null;
+  };
+
+  it('refuses --encode and --inner without --span, and an --inner that is not a whole number of at least 1', () => {
+    expect(refused(undefined, { encode: true })).toMatch(/--encode needs --span/);
+    expect(refused(frames(0, 30), { inner: 2 })).toMatch(/--inner needs --span/);
+    for (const n of [0, -1, 1.5]) expect(refused(undefined, { span: true, inner: n }), String(n)).toMatch(/--inner takes a whole number/);
+    expect(refused(undefined, { span: true, encode: true, inner: 3 })).toBeNull();
+  });
+
+  it('caps stills at 120 and a span at 240 contiguous frames', () => {
+    expect(refused(frames(0, 120), {})).toBeNull();
+    expect(refused(frames(0, 121), {})).toMatch(/more than 120 stills/);
+    expect(refused(frames(15, 240), { span: true, encode: true, inner: 3 })).toBeNull();
+    expect(refused(frames(15, 241), { span: true })).toMatch(/at most 240/);
+    expect(refused([10, 12], { span: true })).toMatch(/--frames 10-12 has gaps/);
+  });
+
+  it('needs one motion window for --encode and fewer --inner frames than the span has after its first', () => {
+    expect(refused(frames(0, 11), { span: true, encode: true })).toMatch(/at least 12 frames .*has 11/);
+    expect(refused(frames(0, 12), { span: true, encode: true })).toBeNull();
+    expect(refused(frames(0, 10), { span: true, inner: 9 })).toBeNull();
+    expect(refused(frames(0, 10), { span: true, inner: 10 })).toMatch(/--inner 10: a span of 10 frames has 9/);
+    expect(refused(frames(0, 1), { span: true, inner: 1 })).toMatch(/has 0/);
+  });
+});
+
+describe('innerRendering', () => {
+  it('calls an inner frame a chunk start only on Remotion', () => {
+    expect(innerRendering('remotion')).toMatch(/opens a fresh page \(Remotion\), so each is a chunk start/);
+    expect(innerRendering('web')).toMatch(/no fresh page, no chunk start/);
+    expect(innerRendering('fake')).not.toMatch(/chunk|page/);
   });
 });
 
@@ -219,6 +286,84 @@ describe('runStills', () => {
     const gaps = await runStills({ ...opts, adapter: fakeAdapter({ frames: 40 }), frames: [10, 12], span: true, label: 'gaps' });
     expect(gaps.exit).toBe(EXIT.USAGE);
     expect(gaps.message).toMatch(/has gaps/);
+  });
+
+  it('--inner renders frames inside the span again, each in its own call: MATCH, or MISMATCH (exit 1) where a call start differs', async () => {
+    const { opts } = base();
+    const adapter = fakeAdapter({ frames: 40 });
+    const ok = await runStills({ ...opts, adapter, frames: [10, 11, 12, 13, 14, 15], span: true, inner: 3, label: 'inner' });
+    expect(ok.exit, ok.message).toBe(EXIT.OK);
+    // one span call, then one call per inner frame (innerFrames: never the span's first)
+    expect(adapter.rendered).toEqual([10, 11, 12, 13, 14, 15, 11, 13, 15]);
+    const j = readStills(ok.dir);
+    expect(j.inner).toEqual({
+      rendering: innerRendering('fake'),
+      frames: [11, 13, 15].map((i) => ({ i, sha256: sha256(syntheticFrame(i, 160, 90, false)), expected: sha256(syntheticFrame(i, 160, 90, false)), match: true, ms: 0 })),
+      matched: 3,
+      mismatched: 0,
+    });
+    expect(j.encode).toBeUndefined();
+    expect(ok.message).toMatch(/inner check: all 3 MATCH the span \(frames 11, 13, 15\)/);
+
+    // the first frame of every call differs: each inner frame starts its call, so all differ
+    const bad = await runStills({ ...opts, adapter: warmUpBug(40), frames: [10, 11, 12, 13, 14, 15], span: true, inner: 2, label: 'inner' });
+    expect(bad.exit).toBe(EXIT.ERROR);
+    expect(bad.message).toMatch(/inner check: 2 of 2 MISMATCH the span \(frames 12, 14; inner-f00012\.png, inner-f00014\.png\): those frames depend on what the engine rendered before them/);
+    const jb = readStills(bad.dir);
+    expect(jb.inner).toMatchObject({ matched: 0, mismatched: 2 });
+    expect(jb.inner!.frames.map((f) => [f.i, f.match, f.file])).toEqual([
+      [12, false, 'inner-f00012.png'],
+      [14, false, 'inner-f00014.png'],
+    ]);
+    expect(existsSync(join(bad.dir, 'inner-f00012.png'))).toBe(true);
+
+    // refused before the engine opens: --inner without --span, or as many as the span has frames
+    const idle = fakeAdapter({ frames: 40 });
+    expect((await runStills({ ...opts, adapter: idle, frames: [3, 4, 5], inner: 1 })).message).toMatch(/--inner needs --span/);
+    expect((await runStills({ ...opts, adapter: idle, frames: [3, 4, 5], span: true, inner: 3 })).exit).toBe(EXIT.USAGE);
+    expect((await runStills({ ...opts, adapter: idle, frames: [3, 4, 5], encode: true })).exit).toBe(EXIT.USAGE);
+    expect((await runStills({ ...opts, adapter: idle, frames: [3, 4, 5], span: true, encode: true })).message).toMatch(/at least 12 frames/);
+    expect(idle.opened).toBe(0);
+  });
+
+  it('--encode writes the clip, the preview, the contact sheet and motion QA into the stills folder only', { timeout: 120_000 }, async () => {
+    const { opts } = base();
+    // full size (320x180) through the review preset (libx264): the draft preset may pick a hardware encoder
+    const review: Profile = { ...PROFILES.review, chunkFrames: 10 };
+    const adapter = fakeAdapter({ frames: 40 });
+    const span = Array.from({ length: MIN_ENCODE_FRAMES }, (_, k) => 8 + k);
+    const r = await runStills({ ...opts, profile: review, adapter, frames: span, span: true, encode: true, inner: 1, label: 'motion' });
+    expect(r.exit, r.message).toBe(EXIT.OK);
+    const names = readdirSync(r.dir);
+    for (const f of ['span.mkv', 'span.mp4', 'contact.png', 'motion.png', 'motion.json', 'stills.json', 'f00008.png', 'f00019.png']) expect(names, f).toContain(f);
+    expect(names.filter((f) => /\.part\.|\.tiles$|graph\.txt$/.test(f))).toEqual([]);
+    expect(existsSync(join(repo.root, 'out', 'demo', 'render'))).toBe(false);
+    expect(existsSync(join(repo.root, 'out', 'demo', 'qa'))).toBe(false);
+    const j = readStills(r.dir);
+    const e = j.encode!;
+    expect(e).toMatchObject({
+      firstFrame: 8,
+      frames: 12,
+      fps: 30,
+      files: { clip: 'span.mkv', preview: 'span.mp4', contact: 'contact.png', motionSheet: 'motion.png', motionJson: 'motion.json' },
+      clip: { decodedMatch: true },
+      preview: { preset: 'youtube', encoder: 'libx264', pixFmt: 'yuv420p', color: { space: 'bt709', primaries: 'bt709', transfer: 'bt709', range: 'tv' } },
+      motion: { source: 'out/demo/stills/motion/span.mkv' },
+    });
+    expect(e.motion.checks.map((c) => c.id)).toEqual(['motion.cadence', 'motion.flash', 'motion.pop', 'motion.boil', 'motion.watch']);
+    for (const s of e.files.strips) expect(existsSync(join(r.dir, s)), s).toBe(true);
+    expect(Object.values(e.timing).every((t) => typeof t === 'number' && t >= 0)).toBe(true);
+    expect(j.inner).toMatchObject({ matched: 1, mismatched: 0 });
+    expect(r.message).toMatch(/encoded in .* s: span\.mkv \(lossless, decodes to the span's hashes\), span\.mp4 \(youtube, libx264\), contact\.png, motion\.png/);
+    // the motion measure saw the clip's 12 frames
+    const motion = JSON.parse(readFileSync(join(r.dir, 'motion.json'), 'utf8')) as { series: { d: number[] }; lossy: boolean };
+    expect(motion.series.d).toHaveLength(12);
+    expect(motion.lossy).toBe(false);
+
+    // a later call with the same label leaves none of the encode files behind
+    const again = await runStills({ ...opts, profile: review, adapter, frames: [5], label: 'motion' });
+    expect(again.exit, again.message).toBe(EXIT.OK);
+    expect(readdirSync(again.dir).sort()).toEqual(['f00005.png', 'stills.json']);
   });
 
   it('refuses frames outside the composition and needs frames without --check', async () => {
