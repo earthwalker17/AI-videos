@@ -32,6 +32,11 @@ export const C = Object.fromEntries(Object.entries(PALETTE).map(([k, v]) => [k, 
 
 /** Opacity of an erased sketch line's ghost. */
 export const GHOST_OPACITY = 0.12;
+/**
+ * The rest's step-down (TREATMENT.md beat 8): everything on the map but your ring and the replies
+ * you stamped steps down to this opacity, so the one bright thing left is you and your sign-off.
+ */
+export const STEP_DOWN = 0.7;
 
 /** One text style: the face (resolved by look/fonts.ts), weight and size in px at 1080p. */
 export interface TypeStyle {
@@ -76,15 +81,28 @@ export const STROKE = {
   /** branch lines: 4 px, never thinner than 3 px on screen */
   branch: 4,
   branchMin: 3,
-  /** your ring: 40 px across, 2.5 px stroke */
-  you: 2.5,
+  /** your ring: 40 px across, 3 px stroke (lookdev: 2.5 rastered as 2 px in one still and 3 px in another) */
+  you: 3,
   youRadius: 20,
-  /** the Router: a 160 px interchange ring with a 6 px stroke and a 2 px thinking arc */
-  router: 6,
+  /**
+   * the Router: a 160 px interchange ring with an 8 px stroke (the heaviest line, the one focal
+   * node: lookdev showed a 6 px ring weighing the same as the trunk) and a 2 px thinking arc
+   */
+  router: 8,
   routerRadius: 80,
   thinkingArc: 2,
   /** the vermilion subscription hairline, the emphasis ring */
   hairline: 2,
+  /** a Worker platform's outline: lighter than its branch, so the Router outweighs the Workers */
+  platform: 3,
+  /**
+   * a cased line (the return route): two rails of this width with a ground-colour gap between. The
+   * rails are 3 px, as thin as any line may be on screen (lookdev: 2 px rails failed the 3 px test,
+   * and under deuteranopia only the casing tells the return from the ink); their ink, 6 px, is the
+   * trunk's
+   */
+  casedRail: 3,
+  casedGap: 2,
   /** proposed parts: 3 px dashed ink, 14 on / 10 off */
   proposed: 3,
   proposedDash: [14, 10] as const,
@@ -122,6 +140,12 @@ export const NOTES = {
 export const WORLD = { width: 3840, height: 2160 } as const;
 export const ZOOM = { min: 0.5, max: 1.7 } as const;
 export const DOT_GRID = { pitch: 96, diameter: 2.5, fadeBelow: 0.7 } as const;
+/**
+ * Level of detail: glyphs too small to read when the camera is far out (a Worker's tool row and
+ * step marker, your laptop, the beetle's legs) fade out between these scales, as the dot grid
+ * does; nothing else does. The map's far framings (beat 7 and the rest, 0.6x) keep them.
+ */
+export const DETAIL = { hideBelow: 0.6, fadeRange: 0.04 } as const;
 
 /** Motion grammar (TREATMENT.md): speeds in screen px per second, durations in frames. */
 export const MOTION = {

@@ -8,7 +8,7 @@
  * Outlines are in the units of the points (world units under the camera), so a sketch line zooms
  * with the world. Pure: tested in sketch.test.ts.
  */
-import { hash32, hashString, valueNoise } from '@aiv/core';
+import { hash32, hashString, rand, valueNoise } from '@aiv/core';
 
 export type Pt = readonly [number, number];
 
@@ -34,6 +34,8 @@ export interface SketchOptions {
   to?: number;
   /** where a line is cut short (`from` > 0 or `to` < 1), it tapers over this length (default 3 widths) */
   head?: number;
+  /** how loose sketchPasses' second, scribble pass is: 0 none, 1 the default; it scales how far it strays from the line */
+  scribble?: number;
 }
 
 export interface StrokeSample {
@@ -139,10 +141,120 @@ export function sketchStroke(points: readonly Pt[], o: SketchOptions): string {
 }
 
 /**
+ * Points round a rounded rectangle, as a hand draws it: clockwise from a point `start` of the way
+ * along its top edge, once round, and `overshoot` past where it began (the pen closes the shape by
+ * running over its first stroke). Arcs and edges alike are sampled every `step` units or closer:
+ * the smoothing through them (smoothThrough) then keeps the edges straight and meets each corner
+ * without a jog, which a long edge given only its two ends would bulge into. Feed it to sketchPasses.
+ */
+export function roundedRectLoop(x: number, y: number, w: number, h: number, r: number, start = 0.2, overshoot = 24, step = 6): Pt[] {
+  const q = Math.max(0, Math.min(r, w / 2, h / 2));
+  const arc = (cx: number, cy: number, a0: number): Pt[] => {
+    const n = Math.max(2, Math.ceil((Math.PI / 2) * q / step));
+    return Array.from({ length: n + 1 }, (_, k) => {
+      const a = a0 + (k / n) * (Math.PI / 2);
+      return [cx + q * Math.cos(a), cy + q * Math.sin(a)] as Pt;
+    });
+  };
+  // once round, clockwise on screen (y down) from the top-left corner's end
+  const ring: Pt[] = [
+    ...arc(x + w - q, y + q, -Math.PI / 2),
+    ...arc(x + w - q, y + h - q, 0),
+    ...arc(x + q, y + h - q, Math.PI / 2),
+    ...arc(x + q, y + q, Math.PI),
+  ];
+  const s = x + q + start * (w - 2 * q);
+  const out: Pt[] = [[s, y], ...ring, [s, y]];
+  // the overshoot runs on along the top edge, never past its straight part
+  const end = Math.min(x + w - q, s + overshoot);
+  if (end > s + 1e-6) out.push([end, y]);
+  // the straight edges, sampled as finely as the arcs
+  const dense: Pt[] = [out[0]];
+  for (let i = 1; i < out.length; i++) {
+    const [a, b] = [out[i - 1], out[i]];
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step));
+    for (let k = 1; k <= n; k++) dense.push(k === n ? b : [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+  }
+  return dense;
+}
+
+/**
+ * A polyline as a hand follows it: straight runs sampled every `step` units and each corner rounded
+ * over the tangent length a circle of `radius` would take (shorter where a run is too short), by a
+ * quadratic curve tangent to both runs, so that the smoothing of a sketch line keeps the runs
+ * straight and bends only at the corners. Feed it to sketchPasses.
+ */
+export function roundedPolyline(points: readonly Pt[], radius: number, step = 24): Pt[] {
+  if (points.length < 2) throw new Error('roundedPolyline: a line needs at least two points');
+  // where each corner's arc starts and ends: the corner pulled back along both runs
+  const cut: { a: Pt; b: Pt; c: Pt }[] = [];
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i - 1];
+    const c = points[i];
+    const n = points[i + 1];
+    const lin = Math.hypot(c[0] - p[0], c[1] - p[1]);
+    const lout = Math.hypot(n[0] - c[0], n[1] - c[1]);
+    const u: Pt = [(c[0] - p[0]) / lin, (c[1] - p[1]) / lin];
+    const v: Pt = [(n[0] - c[0]) / lout, (n[1] - c[1]) / lout];
+    const turn = Math.acos(Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1])));
+    const t = turn < 1e-6 ? 0 : Math.min(radius * Math.tan(turn / 2), lin / 2, lout / 2);
+    cut.push({ a: [c[0] - u[0] * t, c[1] - u[1] * t], b: [c[0] + v[0] * t, c[1] + v[1] * t], c });
+  }
+  const out: Pt[] = [];
+  const run = (from: Pt, to: Pt) => {
+    const len = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    const n = Math.max(1, Math.ceil(len / step));
+    for (let k = out.length ? 1 : 0; k <= n; k++) out.push([from[0] + ((to[0] - from[0]) * k) / n, from[1] + ((to[1] - from[1]) * k) / n]);
+  };
+  let from: Pt = points[0];
+  for (const { a, b, c } of cut) {
+    run(from, a);
+    // the arc from a to b, tangent to both runs: a quadratic through the corner, sampled
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const n = Math.max(2, Math.ceil(len / (step / 3)));
+    for (let k = 1; k <= n; k++) {
+      const s = k / n;
+      const q = (1 - s) * (1 - s);
+      const m = 2 * (1 - s) * s;
+      const r = s * s;
+      out.push([q * a[0] + m * c[0] + r * b[0], q * a[1] + m * c[1] + r * b[1]]);
+    }
+    from = b;
+  }
+  run(from, points[points.length - 1]);
+  return out;
+}
+
+/**
+ * A line broken into `n` dashes, as shares of its length: seeded lengths, the gaps taking `gap`
+ * of the whole, the first dash starting at 0 and the last ending at 1. With `n` = 1 the line is
+ * whole. Pure: the same seed and id give the same dashes.
+ */
+export function dashRuns(n: number, gap: number, seed: number, id: string | number): [number, number][] {
+  const count = Math.max(1, Math.floor(n));
+  if (count === 1) return [[0, 1]];
+  const g = Math.min(0.9, Math.max(0, gap)) / (count - 1);
+  const weights = Array.from({ length: count }, (_, k) => 0.55 + rand(seed, id, k));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const ink = 1 - g * (count - 1);
+  const out: [number, number][] = [];
+  let t = 0;
+  for (const wt of weights) {
+    const len = (ink * wt) / sum;
+    out.push([t, t + len]);
+    t += len + g;
+  }
+  out[out.length - 1][1] = 1;
+  return out;
+}
+
+/**
  * The two passes of a hand-drawn line: the main stroke, and a thinner, looser scribble over it
  * that starts a little later and ends a little sooner, as a pen going back over a line does.
  */
 export function sketchPasses(points: readonly Pt[], o: SketchOptions): [string, string] {
+  const loose = Math.max(0, o.scribble ?? 1);
+  if (loose === 0) return [sketchStroke(points, o), ''];
   const from = o.from ?? 0;
   const to = o.to ?? 1;
   const sFrom = Math.max(from, 0.06);
@@ -151,7 +263,7 @@ export function sketchPasses(points: readonly Pt[], o: SketchOptions): [string, 
     ...o,
     id: `${o.id}:scribble`,
     width: o.width * 0.45,
-    wobble: (o.wobble ?? 1.2) * 2.5 + o.width * 0.4,
+    wobble: loose * ((o.wobble ?? 1.2) * 2.5 + o.width * 0.4),
     wobbleScale: (o.wobbleScale ?? 140) * 0.55,
     from: sFrom,
     to: sTo,

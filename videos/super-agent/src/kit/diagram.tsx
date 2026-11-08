@@ -21,9 +21,11 @@ const pt = ([x, y]: Pt) => `${n3(x)} ${n3(y)}`;
 
 /**
  * A route through `points` (a transit line: runs at 0/45/90 degrees), its corners rounded with
- * circular arcs of `radius` (smaller where a run is too short to hold the full radius).
+ * circular arcs of `radius` (smaller where a run is too short to hold the full radius). `radius`
+ * may also be one radius per point (the corner at `points[i]` takes `radius[i]`; the ends' are
+ * ignored), as a parallel route from offsetRoute needs.
  */
-export function routePath(points: readonly Pt[], radius: number): string {
+export function routePath(points: readonly Pt[], radius: number | readonly number[]): string {
   if (points.length < 2) throw new Error('routePath: a route needs at least two points');
   let d = `M ${pt(points[0])}`;
   for (let i = 1; i < points.length - 1; i++) {
@@ -35,18 +37,74 @@ export function routePath(points: readonly Pt[], radius: number): string {
     const u = [(cx - px) / lenIn, (cy - py) / lenIn];
     const v = [(nx - cx) / lenOut, (ny - cy) / lenOut];
     const turn = Math.acos(clamp(u[0] * v[0] + u[1] * v[1], -1, 1));
-    if (radius <= 0 || turn < 1e-6) {
+    const radius_i = typeof radius === 'number' ? radius : (radius[i] ?? 0);
+    if (radius_i <= 0 || turn < 1e-6) {
       d += ` L ${pt(points[i])}`;
       continue;
     }
     const half = Math.tan(turn / 2);
-    const t = Math.min(radius * half, lenIn / 2, lenOut / 2);
+    const t = Math.min(radius_i * half, lenIn / 2, lenOut / 2);
     const r = t / half;
     // y points down: a positive cross product turns clockwise on screen, SVG's sweep-flag 1
     const sweep = u[0] * v[1] - u[1] * v[0] > 0 ? 1 : 0;
     d += ` L ${pt([cx - u[0] * t, cy - u[1] * t])} A ${n3(r)} ${n3(r)} 0 0 ${sweep} ${pt([cx + v[0] * t, cy + v[1] * t])}`;
   }
   return `${d} L ${pt(points[points.length - 1])}`;
+}
+
+/**
+ * A route parallel to `points`, `d` to its left as seen on screen (y down: heading east, left is
+ * north; a negative `d` is to the right), as transit maps draw two services side by side. Corners
+ * are mitred, and each gets the radius that keeps it concentric with the original corner of
+ * `radius`: `radius + d` on the outside of a turn, `radius - d` on the inside (never below 0).
+ * Pass both to routePath.
+ */
+export function offsetRoute(points: readonly Pt[], d: number, radius: number): { points: Pt[]; radii: number[] } {
+  if (points.length < 2) throw new Error('offsetRoute: a route needs at least two points');
+  const dirs = points.slice(1).map((p, i) => {
+    const q = points[i];
+    const len = Math.hypot(p[0] - q[0], p[1] - q[1]);
+    if (len <= 0) throw new Error('offsetRoute: two points of the route coincide');
+    return [(p[0] - q[0]) / len, (p[1] - q[1]) / len] as Pt;
+  });
+  const left = ([x, y]: Pt): Pt => [y, -x];
+  const out: Pt[] = [];
+  const radii: number[] = [];
+  points.forEach(([x, y], i) => {
+    const a = left(dirs[Math.max(0, i - 1)]);
+    const b = left(dirs[Math.min(dirs.length - 1, i)]);
+    const sx = a[0] + b[0];
+    const sy = a[1] + b[1];
+    const sl = Math.hypot(sx, sy);
+    // a reversal has no miter: keep the incoming side
+    const m: Pt = sl < 1e-9 ? a : [sx / sl, sy / sl];
+    const k = d / (m[0] * a[0] + m[1] * a[1]);
+    out.push([x + m[0] * k, y + m[1] * k]);
+    if (i === 0 || i === points.length - 1) radii.push(0);
+    else {
+      const u = dirs[i - 1];
+      const v = dirs[i];
+      // a clockwise turn on screen (a right turn) has its outside on the left
+      const cross = u[0] * v[1] - u[1] * v[0];
+      radii.push(Math.max(0, radius + (cross > 0 ? d : -d)));
+    }
+  });
+  return { points: out, radii };
+}
+
+/**
+ * The transit-map way from `a` to `b` in two runs, one at 45 degrees and one along an axis: the
+ * diagonal covers the shorter of the two offsets, the axis run the rest. `diagonalFirst` says which
+ * run leaves `a`. A straight or exactly diagonal offset is one run.
+ */
+export function octilinear(a: Pt, b: Pt, diagonalFirst: boolean): Pt[] {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const d = Math.min(Math.abs(dx), Math.abs(dy));
+  if (d < 1e-9 || Math.abs(Math.abs(dx) - Math.abs(dy)) < 1e-9) return [a, b];
+  const diag: Pt = [Math.sign(dx) * d, Math.sign(dy) * d];
+  const mid: Pt = diagonalFirst ? [a[0] + diag[0], a[1] + diag[1]] : [b[0] - diag[0], b[1] - diag[1]];
+  return [a, mid, b];
 }
 
 /**
@@ -225,6 +283,49 @@ export function PlatformBox({ x, y, w, h, r = 12, color, width, fill = 'none', d
       {children}
     </g>
   );
+}
+
+/**
+ * A dash pattern near `on`/`off` stretched so that a closed outline `length` long holds a whole
+ * number of periods, a multiple of `multiple` (4 for a square: every side alike). Units are the
+ * stroke's dash units: screen px for a non-scaling stroke, so pass the outline's length on screen.
+ */
+export function fittedDash(length: number, on: number, off: number, multiple = 4): [number, number] {
+  const period = on + off;
+  const n = Math.max(multiple, Math.round(length / period / multiple) * multiple);
+  const k = length / (n * period);
+  return [on * k, off * k];
+}
+
+/**
+ * A dash pattern near `on`/`off` stretched so that an open line `length` long starts and ends on a
+ * whole dash: n dashes and n - 1 gaps (with butt caps), n the count that stretches or squeezes the
+ * pattern least (by ratio), at least one (a single dash fills the line). Units as fittedDash:
+ * screen px for a non-scaling stroke, so pass the line's length on screen.
+ */
+export function fittedOpenDash(length: number, on: number, off: number): [number, number] {
+  if (!(length > 0)) return [0, 0];
+  const span = (n: number) => n * on + (n - 1) * off;
+  const strain = (n: number) => Math.abs(Math.log(length / span(n)));
+  const n0 = Math.max(1, Math.floor((length + off) / (on + off)));
+  const n = strain(n0 + 1) < strain(n0) ? n0 + 1 : n0;
+  if (n === 1) return [length, 0];
+  const k = length / span(n);
+  return [on * k, off * k];
+}
+
+/**
+ * A rounded square's outline as a path that starts at the middle of its top side and runs
+ * clockwise, and its length: with fittedDash(…, 4) and a dash offset of half a dash, a dash is
+ * centred on every side.
+ */
+export function squareFromTop(cx: number, cy: number, size: number, r: number): { d: string; length: number } {
+  const h = size / 2;
+  const q = Math.min(r, h);
+  const d =
+    `M ${n3(cx)} ${n3(cy - h)} H ${n3(cx + h - q)} A ${q} ${q} 0 0 1 ${n3(cx + h)} ${n3(cy - h + q)} V ${n3(cy + h - q)} A ${q} ${q} 0 0 1 ${n3(cx + h - q)} ${n3(cy + h)} ` +
+    `H ${n3(cx - h + q)} A ${q} ${q} 0 0 1 ${n3(cx - h)} ${n3(cy + h - q)} V ${n3(cy - h + q)} A ${q} ${q} 0 0 1 ${n3(cx - h + q)} ${n3(cy - h)} Z`;
+  return { d, length: 4 * (size - 2 * q) + 2 * Math.PI * q };
 }
 
 /** The path of a rounded rectangle (for clips and hatching). */

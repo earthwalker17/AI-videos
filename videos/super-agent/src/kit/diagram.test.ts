@@ -1,6 +1,36 @@
 import { getLength } from '@remotion/paths';
 import { describe, expect, it } from 'vitest';
-import { arcPath, hatchLines, penFrames, penLength, pointAt, routePath } from './diagram.tsx';
+import { arcPath, fittedDash, fittedOpenDash, hatchLines, octilinear, offsetRoute, penFrames, penLength, pointAt, routePath, squareFromTop } from './diagram.tsx';
+
+describe('octilinear', () => {
+  it('takes the diagonal for the shorter offset and an axis run for the rest, in the order asked', () => {
+    expect(octilinear([0, 0], [100, 40], true)).toEqual([
+      [0, 0],
+      [40, 40],
+      [100, 40],
+    ]);
+    expect(octilinear([0, 0], [100, 40], false)).toEqual([
+      [0, 0],
+      [60, 0],
+      [100, 40],
+    ]);
+    expect(octilinear([10, 10], [-20, -100], false)).toEqual([
+      [10, 10],
+      [10, -70],
+      [-20, -100],
+    ]);
+  });
+  it('is one run when the offset is straight or exactly diagonal', () => {
+    expect(octilinear([0, 0], [0, 50], true)).toEqual([
+      [0, 0],
+      [0, 50],
+    ]);
+    expect(octilinear([0, 0], [-30, 30], false)).toEqual([
+      [0, 0],
+      [-30, 30],
+    ]);
+  });
+});
 
 describe('routePath', () => {
   it('is a straight line between two points', () => {
@@ -99,5 +129,84 @@ describe('hatchLines', () => {
   it('draws vertical and horizontal hatching too', () => {
     expect(hatchLines(box, 10, 90).length).toBe(9);
     expect(hatchLines(box, 10, 0).length).toBe(5);
+  });
+});
+
+describe('routePath with a radius per corner', () => {
+  it('rounds each corner with its own radius', () => {
+    const d = routePath([[0, 0], [100, 0], [100, 100], [200, 100]], [0, 10, 30, 0]);
+    expect(d).toBe('M 0 0 L 90 0 A 10 10 0 0 1 100 10 L 100 70 A 30 30 0 0 0 130 100 L 200 100');
+  });
+});
+
+describe('offsetRoute', () => {
+  it('runs parallel, d to the left on screen, with mitred corners', () => {
+    const { points, radii } = offsetRoute([[0, 0], [100, 0], [100, 100]], 10, 24);
+    expect(points[0]).toEqual([0, -10]);
+    expect(points[1][0]).toBeCloseTo(110, 9);
+    expect(points[1][1]).toBeCloseTo(-10, 9);
+    expect(points[2]).toEqual([110, 100]);
+    // a right turn on screen: the left side is its outside
+    expect(radii).toEqual([0, 34, 0]);
+  });
+  it('keeps a 45 degree route the same distance away all along, corners concentric', () => {
+    const route = [[0, 0], [200, 0], [300, 100], [500, 100]] as const;
+    const r = 28;
+    const d = -12;
+    const o = offsetRoute(route, d, r);
+    // the original and the offset, sampled: every offset point is |d| from the original path
+    const a = routePath(route, r);
+    const b = routePath(o.points, o.radii);
+    const la = getLength(a);
+    const lb = getLength(b);
+    for (let k = 0; k <= 40; k++) {
+      const p = pointAt(b, (lb * k) / 40);
+      let best = Infinity;
+      for (let j = 0; j <= 2000; j++) {
+        const q = pointAt(a, (la * j) / 2000);
+        best = Math.min(best, Math.hypot(p.x - q.x, p.y - q.y));
+      }
+      expect(best).toBeCloseTo(Math.abs(d), 0);
+    }
+    // right turn then left turn: the right side (d < 0) is inside the first, outside the second
+    expect(o.radii).toEqual([0, r + d, r - d, 0]);
+  });
+  it('never gives a negative radius', () => {
+    expect(offsetRoute([[0, 0], [100, 0], [100, 100]], -40, 24).radii[1]).toBe(0);
+  });
+});
+
+describe('fittedDash and squareFromTop', () => {
+  it('stretch a dash so a closed outline holds a whole number of periods, a multiple of four', () => {
+    const [on, off] = fittedDash(300, 14, 10);
+    const periods = 300 / (on + off);
+    expect(periods).toBeCloseTo(Math.round(periods), 9);
+    expect(Math.round(periods) % 4).toBe(0);
+    expect(on / off).toBeCloseTo(14 / 10, 9);
+    // never fewer periods than the multiple, however short the outline
+    expect(30 / fittedDash(30, 14, 10).reduce((a, b) => a + b)).toBeCloseTo(4, 9);
+  });
+  it('stretch a dash so an open line starts and ends on a whole dash, as near the pattern as it can', () => {
+    const strain = (length: number, m: number) => Math.abs(Math.log(length / (m * 14 + (m - 1) * 10)));
+    for (const length of [30, 38, 48, 60, 62, 100, 173.5]) {
+      const [on, off] = fittedOpenDash(length, 14, 10);
+      const n = Math.round((length + off) / (on + off));
+      // n dashes and n - 1 gaps fill the line exactly
+      expect(n * on + (n - 1) * off).toBeCloseTo(length, 9);
+      expect(on / off).toBeCloseTo(14 / 10, 9);
+      // no other count of dashes would stretch or squeeze the pattern less
+      for (const m of [n - 1, n + 1].filter((m) => m >= 1)) expect(strain(length, n)).toBeLessThanOrEqual(strain(length, m) + 1e-9);
+    }
+    // at the pattern's own lengths it does not stretch: 3 dashes in 62, 2 in 38
+    expect(fittedOpenDash(62, 14, 10)).toEqual([14, 10]);
+    expect(fittedOpenDash(38, 14, 10)).toEqual([14, 10]);
+    // a line shorter than about a dash and a half is one dash
+    expect(fittedOpenDash(20, 14, 10)).toEqual([20, 0]);
+  });
+  it('trace a rounded square from the middle of its top side, its length the perimeter', () => {
+    const sq = squareFromTop(100, 100, 80, 10);
+    expect(sq.d.startsWith('M 100 60 ')).toBe(true);
+    expect(sq.length).toBeCloseTo(4 * 60 + 2 * Math.PI * 10, 9);
+    expect(getLength(sq.d)).toBeCloseTo(sq.length, 1);
   });
 });

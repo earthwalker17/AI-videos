@@ -39,6 +39,7 @@ describe('the notes block', () => {
 
 describe('stroke weights', () => {
   it('are never finer than the 2 px minimum at 1080p', () => {
-    for (const k of ['trunk', 'branch', 'branchMin', 'you', 'router', 'thinkingArc', 'hairline', 'proposed', 'hatch'] as const) expect(STROKE[k], k).toBeGreaterThanOrEqual(STROKE.min);
+    // the cased line's gap too: under 2 px it would close at draft size
+    for (const k of ['trunk', 'branch', 'branchMin', 'you', 'router', 'thinkingArc', 'hairline', 'platform', 'casedRail', 'casedGap', 'proposed', 'hatch'] as const) expect(STROKE[k], k).toBeGreaterThanOrEqual(STROKE.min);
   });
 });
