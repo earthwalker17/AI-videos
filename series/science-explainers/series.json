@@ -2,8 +2,11 @@
   "$schema": "../../schemas/series.v1.json",
   "schemaVersion": 1,
   "id": "science-explainers",
-  "title": "Science & Knowledge Explainers",
-  "summary": "Dense, honest explanations of hard ideas in mathematics and physics, from open problems to prize-winning work.",
+  "title": "Science & Technology Explainers",
+  "titles": {
+    "zh-Hans": "科学与技术讲解"
+  },
+  "summary": "Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.",
   "status": "active",
   "factsRequired": true,
   "defaults": {}

@@ -20,6 +20,32 @@ Decisions section of `docs/ARCHITECTURE.md`.
 - [x] Motion QA on the mezzanine (decision 27), lookdev stills with a reference compare
   (decision 28), the Remotion GPU program cache (`engines/remotion/ENGINE.md`).
 
+## Now: what *Who Routes the Agents?* (#4, `super-agent`) needs
+The first 2D, text-led, bilingual film, and the second scored one. Each item is built and
+verified in its own commit, in this order (the video's README has the session plan):
+- [ ] **Determinism lint for 2D DOM work:** ban CSS `transition`/`animation`/`@keyframes`,
+  `element.animate`/`getAnimations` and `ResizeObserver`/`IntersectionObserver` in frame code.
+  Today ESLint sees only JS clocks.
+- [ ] **Dependencies:** `@remotion/paths` and `@remotion/layout-utils` (4.0.539), plus
+  fontsource IBM Plex Sans, Noto Sans SC and JetBrains Mono (approved 2026-11-08).
+- [ ] **Score kit** (decision 21 triggers on the second scored film; a new decision 29).
+  - Copy the generic DSP, convolution, reverb, mastering, mixer and grid timeline from the
+    frozen `videos/halloween-gift/audio/` into `packages/pipeline/src/audio/runtime/kit/`.
+  - Then add the synthesis voices, envelopes, delay and ducking the film needs.
+- [ ] **2D measurements:**
+  - Remotion s/frame and MiB/frame for a DOM/SVG page;
+  - large-DOM-text determinism at chunk starts (`aiv still --check`, two fresh renders);
+  - whether a 2D import bundles the kit's 3D exports;
+  - a static dither for dark gradients.
+- [ ] **Two-user promotions:** the bilingual caption pattern → `@aiv/remotion-kit`; cue-text
+  helpers and `readingSeconds` → `@aiv/core`. The film's 2D motion kit starts in
+  `videos/super-agent/src/kit/` and is promoted with the next 2D explainer.
+- [ ] **Captions:** an SRT draft generator from cue-sheet text events and a per-language
+  subtitle linter (the limits in `references/subtitles.md`), in `@aiv/pipeline` and `aiv`.
+- [ ] **Bilibili publishing:** a `references/bilibili-publishing.md` (AI-content label,
+  自制 declaration, covers, CC subtitles, 合集). Decide whether `video.json` records a
+  Bilibili release.
+
 ## Next: built when a film needs it
 Built when a film needs them, not before:
 - **Large inputs** (`videos/<slug>/media/`, decision 17): the `media/manifest.json` schema,
@@ -61,6 +87,11 @@ Built when a film needs them, not before:
   - a few dark pixels can differ by one or two levels across a chunk start (GPU rounding, cause
     not traced).
 - `aiv check` does not lint STYLE.md headings; add it when the second style exists.
+- QA's black and freeze thresholds are hard-coded (`qa.ts`).
+  - A dark look must keep its ground above limited-range luma 38 (or declare `qa.allowBlack`).
+  - Still diagram holds over 3 s need `hold` cues or `qa.allowFreeze`.
+  - The cue-sheet intent checks (text hold, cuts on bars) run only inside `aiv audio`, so an
+    unscored video gets none of them.
 - Audio QA (found on *A Halloween Gift*):
   - the hit check proves timing, not audibility: its onset finder accepts any doubling of
     energy, so a hit buried in thunder passed; add a prominence measure (peak after the cue

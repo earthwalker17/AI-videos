@@ -12,13 +12,14 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 | 1 | [Journey Through Middle-Earth](../videos/journey-through-middle-earth/README.md) | standalone | published (record only) | [YouTube](https://youtu.be/kRuPq4GjhGc) |
 | 2 | [THE AI STACK](../videos/the-ai-stack/README.md) | [3D Concept Visualizations](../series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
 | 3 | [A Halloween Gift](../videos/halloween-gift/README.md) | [Festival & Celebration](../series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
+| 4 | [Who Routes the Agents?](../videos/super-agent/README.md) | [Science & Technology Explainers](../series/science-explainers/SERIES.md) | production | — |
 
 ## Series
 - [3D Concept Visualizations](../series/concept-viz/SERIES.md) (`concept-viz`, active, 1 video): Complex technical systems explained as physical, spatial machines you can see working.
 - [Festival & Celebration](../series/festivals/SERIES.md) (`festivals`, active, 1 video): Visual pieces for traditional and seasonal celebrations, built on workflows that return every year.
 - [Micro Films](../series/micro-films/SERIES.md) (`micro-films`, active, 0 videos): Short conceptual and philosophical films about consciousness, humanity, AI and the future.
 - [Product & Launch](../series/product-launch/SERIES.md) (`product-launch`, active, 0 videos): Polished code-generated motion graphics: product demos, launch films and UI animation.
-- [Science & Knowledge Explainers](../series/science-explainers/SERIES.md) (`science-explainers`, active, 0 videos): Dense, honest explanations of hard ideas in mathematics and physics, from open problems to prize-winning work.
+- [Science & Technology Explainers](../series/science-explainers/SERIES.md) (`science-explainers`, active, 1 video): Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.
 
 ## Docs
 - [AI-videos](../README.md): The source, workflows and shared tooling behind a YouTube channel of videos made with code and AI, and an open knowledge base for anyone making high-quality video the same way.

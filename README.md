@@ -21,10 +21,11 @@ records.
 | 1 | [Journey Through Middle-Earth](videos/journey-through-middle-earth/README.md) | standalone | published (record only) | [YouTube](https://youtu.be/kRuPq4GjhGc) |
 | 2 | [THE AI STACK](videos/the-ai-stack/README.md) | [3D Concept Visualizations](series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
 | 3 | [A Halloween Gift](videos/halloween-gift/README.md) | [Festival & Celebration](series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
+| 4 | [Who Routes the Agents?](videos/super-agent/README.md) | [Science & Technology Explainers](series/science-explainers/SERIES.md) | production | — |
 <!-- /aiv:generated -->
 
 Series: [3D Concept Visualizations](series/concept-viz/SERIES.md) ·
-[Science & Knowledge Explainers](series/science-explainers/SERIES.md) ·
+[Science & Technology Explainers](series/science-explainers/SERIES.md) ·
 [Micro Films](series/micro-films/SERIES.md) ·
 [Festival & Celebration](series/festivals/SERIES.md) ·
 [Product & Launch](series/product-launch/SERIES.md)

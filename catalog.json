@@ -116,6 +116,22 @@
           "what": "A hardcover book's parts as geometry: bevelled boards, a banded spine, a page block with leaf lines, a cover that hinges"
         }
       ]
+    },
+    {
+      "number": 4,
+      "slug": "super-agent",
+      "title": "Who Routes the Agents?",
+      "series": "science-explainers",
+      "status": "production",
+      "engine": "remotion",
+      "reproducibility": "full",
+      "languages": [
+        "en",
+        "zh-Hans"
+      ],
+      "path": "videos/super-agent",
+      "watch": null,
+      "reusable": []
     }
   ],
   "series": [
@@ -157,11 +173,13 @@
     },
     {
       "id": "science-explainers",
-      "title": "Science & Knowledge Explainers",
+      "title": "Science & Technology Explainers",
       "status": "active",
-      "summary": "Dense, honest explanations of hard ideas in mathematics and physics, from open problems to prize-winning work.",
+      "summary": "Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.",
       "path": "series/science-explainers",
-      "videos": []
+      "videos": [
+        "super-agent"
+      ]
     }
   ],
   "styles": [],
@@ -214,7 +232,8 @@
       "path": "engines/remotion/ENGINE.md",
       "template": "templates/remotion",
       "usedBy": [
-        "halloween-gift"
+        "halloween-gift",
+        "super-agent"
       ]
     },
     {
@@ -231,7 +250,8 @@
       "path": "packages/core",
       "description": "Isomorphic determinism helpers (seeded rng, easing, test swatches) and the shared zod contracts.",
       "usedBy": [
-        "halloween-gift"
+        "halloween-gift",
+        "super-agent"
       ]
     },
     {
@@ -245,7 +265,8 @@
       "path": "packages/remotion-kit",
       "description": "Deterministic React/Remotion building blocks: a Stage3D for R3F under Remotion, titles, test swatches.",
       "usedBy": [
-        "halloween-gift"
+        "halloween-gift",
+        "super-agent"
       ]
     },
     {

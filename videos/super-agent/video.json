@@ -1,0 +1,63 @@
+{
+  "$schema": "../../schemas/video.v1.json",
+  "schemaVersion": 1,
+  "number": 4,
+  "slug": "super-agent",
+  "title": "Who Routes the Agents?",
+  "titles": {
+    "zh-Hans": "谁来调度智能体？"
+  },
+  "series": "science-explainers",
+  "status": "production",
+  "approvals": [
+    {
+      "gate": "treatment",
+      "date": "2026-11-08",
+      "note": "The user selected \"Hybrid on B (Recommended)\" (Who Routes the Agents? / 谁来调度智能体？) from three candidates and the judged hybrid, chose the look \"Dark ink map (Recommended)\" and \"Text-led, no voice (Recommended)\", and approved the production plan (sessions 1-4 in README.md)."
+    }
+  ],
+  "next": "Session 2, foundations and lookdev: the determinism-lint rule, the approved dependencies, the score-kit promotion (ARCHITECTURE decision 29), a 2D determinism probe, kit v0, SCRIPT.md + STORYBOARD.md + src/cues.ts, then three lookdev stills for the user to sign off (README.md, Status).",
+  "languages": [
+    "en",
+    "zh-Hans"
+  ],
+  "styles": [],
+  "reproducibility": "full",
+  "engine": "remotion",
+  "entry": "src/index.ts",
+  "composition": "Main",
+  "format": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "audio": {
+    "tracks": [
+      {
+        "source": "lavfi:aevalsrc=0.10*sin(2*PI*146.83*t)+0.07*sin(2*PI*220*t)+0.05*sin(2*PI*293.66*t)|0.10*sin(2*PI*147.2*t)+0.07*sin(2*PI*220*t)+0.05*sin(2*PI*293.66*t):s=48000,afade=t=in:d=0.6,afade=t=out:st=4.0:d=1.0"
+      },
+      {
+        "source": "lavfi:anoisesrc=c=brown:r=48000:a=0.03:seed=2202,afade=t=in:d=1.0,afade=t=out:st=3.5:d=1.5",
+        "gainDb": -8
+      }
+    ]
+  },
+  "qa": {
+    "swatchFrames": [
+      0,
+      15
+    ],
+    "loudness": {
+      "integrated": -14,
+      "tolerance": 1,
+      "truePeakMax": -1
+    }
+  },
+  "reusable": [],
+  "license": {
+    "film": "CC-BY-4.0"
+  },
+  "youtube": null,
+  "release": null,
+  "source": null
+}
