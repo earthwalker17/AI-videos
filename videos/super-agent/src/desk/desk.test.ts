@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { PRINT_STRINGS } from '../print.ts';
+import { CELLS, NAMEPLATE, PRINT_STRINGS, REPLY, REPORT, SLIPS } from '../print.ts';
 import { D1, FRAMING_B, deskCamera, project, projectBox } from './camera.ts';
 import { footprintsAt, KIND, MAX_FOOTPRINTS, cullRadius, packFootprints, staticFootprints, type Footprint } from './footprints.ts';
 import { neutral, preToe } from './gl/post.ts';
-import { BAYS, CELLS_X, CORDS, DECK, KEY, REEL, SHADOW_DIR, SHADOW_K, TAPE, WINDOW, penumbra, rectC, shadowOffset, type BayId } from './layout.ts';
+import { BAYS, BENCH, CELLS_X, CORDS, DECK, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, TAPE, TOWER, WINDOW, penumbra, shadowOffset, towerTop, type BayId } from './layout.ts';
 import { MAX_POOLS, linearOf, packPools, poolsAt } from './pools.ts';
+import { ROUND2, MOTION_TESTS } from '../lookdev/frames.ts';
 import { cardArc, deskStateAt, DETENT, EVENTS_B, LAMP_STEPS } from './state.ts';
 
-const B = deskStateAt(2200);
+const B = deskStateAt(ROUND2.stillB);
 
 /** OKLCH chroma of a linear sRGB colour (Björn Ottosson's OKLab matrices). */
 function oklchChroma([r, g, b]: [number, number, number]): number {
@@ -37,14 +38,14 @@ describe('desk camera', () => {
       const [x, y] = project(pose, [FRAMING_B.x, FRAMING_B.y, 0]);
       expect(x).toBeCloseTo(960, 6);
       expect(y).toBeCloseTo(540, 6);
-      const [xr] = project(pose, [100, 0, 0]);
+      const [xr] = project(pose, [FRAMING_B.x + 100, FRAMING_B.y, 0]);
       expect(xr - 960).toBeCloseTo(85, 3);
     }
   });
   it('at 15° raises what is high and shows north foreshortened', () => {
     const pose = deskCamera(FRAMING_B, 15);
-    const [, yLow] = project(pose, [0, 200, 0]);
-    const [, yHigh] = project(pose, [0, 200, 120]);
+    const [, yLow] = project(pose, [FRAMING_B.x, FRAMING_B.y + 200, 0]);
+    const [, yHigh] = project(pose, [FRAMING_B.x, FRAMING_B.y + 200, 120]);
     expect(yLow - yHigh).toBeGreaterThan(20);
     expect(540 - yLow).toBeLessThan(0.85 * 200);
     expect(540 - yLow).toBeGreaterThan(0.85 * 200 * 0.9);
@@ -67,7 +68,9 @@ describe('desk camera', () => {
         expect(box.y1).toBeLessThan(868);
         expect(box.y0).toBeGreaterThan(deck.y0);
       }
-      for (const p of [...CORDS.vermilion, ...CORDS.graphite]) expect(project(pose, p)[1]).toBeGreaterThan(72);
+      for (const p of CORDS.vermilion) expect(project(pose, p)[1]).toBeGreaterThan(72);
+      // the docs nameplate stays inside title-safe
+      expect(projectBox(pose, [[BAYS.docs.box.x1, BAYS.docs.box.y0, BAYS.docs.wallH]]).x1).toBeLessThan(1824);
     }
   });
 });
@@ -82,7 +85,7 @@ describe('desk layout', () => {
     expect(penumbra(0)).toBe(4);
     expect(penumbra(100)).toBeCloseTo(39, 9);
   });
-  it('lays the five inline cells inside the window, over the tape, oldest west', () => {
+  it('lays the five inline cells inside the window, over the tape, newest west by the print head', () => {
     expect(CELLS_X).toHaveLength(5);
     for (let i = 0; i < 5; i++) {
       expect(CELLS_X[i][0]).toBeGreaterThan(WINDOW.frame.x0 + WINDOW.bar - 1);
@@ -94,6 +97,15 @@ describe('desk layout', () => {
     // the tape runs onto the reel's pack at its south side
     expect(REEL.y - REEL.packR).toBeGreaterThan(TAPE.y0);
     expect(REEL.y - REEL.packR).toBeLessThan(TAPE.y1);
+  });
+  it('keeps every bay clearly lower than the deck (at most 80 against 120) and under its shadow', () => {
+    expect(towerTop() + TOWER.dome).toBeLessThanOrEqual(80);
+    expect(BENCH.z[1] + PINS.h).toBeLessThanOrEqual(85);
+    for (const b of Object.values(BAYS)) expect(b.wallH).toBeLessThanOrEqual(40);
+    // the south rail's shadow on a 40 u wall top reaches past the tests and docs bays' north walls
+    const reach = DECK.y0 + shadowOffset(DECK.top - 40)[1];
+    expect(reach).toBeLessThan(BAYS.tests.box.y1);
+    expect(reach).toBeLessThan(BAYS.docs.box.y1);
   });
   it('gives each bay its own ground: no two bays overlap, every bay is below the deck', () => {
     const ids = Object.keys(BAYS) as BayId[];
@@ -117,10 +129,11 @@ describe('desk footprints', () => {
   it('fits the shaders at every frame of the lookdev span', () => {
     for (const f of [2100, 2190, 2200, 2210, 2340]) expect(footprintsAt(deskStateAt(f)).length).toBeLessThanOrEqual(MAX_FOOTPRINTS);
   });
-  it('adds the card and the slip only while they move', () => {
+  it('adds the card (flying or docked) and the slip while it rides', () => {
     const base = staticFootprints().length;
     expect(footprintsAt(B).length).toBe(base + 2);
-    expect(footprintsAt(deskStateAt(2240)).length).toBe(base);
+    expect(footprintsAt(deskStateAt(2240)).length).toBe(base + 1);
+    expect(footprintsAt(deskStateAt(2150)).length).toBe(base);
   });
   it('culls no farther than the shadow and contact reach', () => {
     const fp: Footprint = { kind: 'rect', c: [0, 0], h: [50, 20], r: 3, rot: 0, z0: 0, z1: 120, contact: 1 };
@@ -186,37 +199,62 @@ describe('desk pools and post', () => {
   });
 });
 
-describe('desk state at f2200 (style frame b)', () => {
-  it('has the index arm at its west detent, facing you', () => {
-    expect(B.arm).toBeCloseTo(DETENT.you, 2);
-    expect(deskStateAt(EVENTS_B.armTurn).arm).toBeCloseTo(DETENT.bug, 6);
+describe('desk state at still B (C12)', () => {
+  it('sits inside C12 and inside MT1', () => {
+    expect(ROUND2.stillB).toBeGreaterThan(MOTION_TESTS.mt1[0]);
+    expect(ROUND2.stillB).toBeLessThan(MOTION_TESTS.mt1[1]);
   });
-  it('has the reply slip 70% down the chute and your lamp still one step dimmer', () => {
-    expect(B.slip?.s).toBeCloseTo(0.7, 1);
+  it('runs the handshake in cause order inside MT1: card flies, docks, stamps in, arm turns, reply rides, lands, lamp steps up', () => {
+    const E = EVENTS_B;
+    const docked = E.cardEject + E.cardFly;
+    const landed = E.slipLeave + E.slipRide;
+    const order = [E.testsCap, E.cardEject, docked, E.stampIn, E.armTurn, E.slipLeave, landed, E.lampUp];
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
+    expect(E.testsCap).toBeGreaterThanOrEqual(MOTION_TESTS.mt1[0]);
+    expect(E.lampUp + 10).toBeLessThan(MOTION_TESTS.mt1[1]);
+    // nothing acts before its cause: no reply before the stamp, no lit cell before the dock
+    for (let f = MOTION_TESTS.mt1[0]; f < MOTION_TESTS.mt1[1]; f++) {
+      const s = deskStateAt(f);
+      if (s.slip) expect(s.cellLit).toBeGreaterThan(0.9);
+      if (s.cellLit > 0) expect(s.cardDocked).toBe(true);
+      // one carrier flies at a time, and only it wears the transit light
+      expect(s.card !== null && s.slip !== null && s.slip.s < 1).toBe(false);
+      if (s.transit.on === 'card') expect(s.card).not.toBeNull();
+      if (s.transit.on === 'slip') expect(s.slip!.s).toBeLessThan(1);
+    }
+  });
+  it('has the card docked with its cell lit, the arm at its west detent, the reply 25-40% down the chute under the transit light', () => {
+    expect(B.card).toBeNull();
+    expect(B.cardDocked).toBe(true);
+    expect(B.cellLit).toBeGreaterThan(0.95);
+    expect(B.arm).toBeCloseTo(DETENT.you, 1);
+    expect(deskStateAt(EVENTS_B.armTurn).arm).toBeCloseTo(DETENT.tests, 6);
+    expect(B.slip!.s).toBeGreaterThan(0.25);
+    expect(B.slip!.s).toBeLessThan(0.4);
+    expect(B.transit.on).toBe('slip');
+    expect(B.transit.level).toBe(1);
     expect(B.lamp).toBeCloseTo(LAMP_STEPS.dim, 6);
-    expect(deskStateAt(2230).lamp).toBeCloseTo(LAMP_STEPS.up, 2);
+    expect(deskStateAt(EVENTS_B.lampUp + 12).lamp).toBeCloseTo(LAMP_STEPS.up, 2);
   });
-  it('has the report card about 60% along its arc with its transit light on, the tower dimming', () => {
-    expect(B.card).not.toBeNull();
-    expect(B.card!.s).toBeGreaterThan(0.55);
-    expect(B.card!.s).toBeLessThan(0.65);
-    expect(B.card!.light).toBe(1);
-    expect(B.testsLight).toBeLessThan(0.5);
-    expect(B.testsLight).toBeGreaterThan(0);
-    // the arc rises above its chord
+  it('flies the card up from the tower: its arc rises above both ends', () => {
     const mid = cardArc(0.5).pos;
-    expect(mid[2]).toBeGreaterThan(cardArc(0).pos[2] + 40);
-    expect(deskStateAt(EVENTS_B.cardEject + EVENTS_B.cardFly).card).toBeNull();
+    expect(mid[2]).toBeGreaterThan(Math.max(cardArc(0).pos[2], cardArc(1).pos[2]) + 30);
   });
-  it('keeps the slip and the card once they land: the slip in your in-tray, the card in the hopper', () => {
-    const later = deskStateAt(2230);
+  it('steps down what C12 leaves out, fully during the line', () => {
+    expect(B.step.amount).toBe(1);
+    for (const id of ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'cord'] as const) expect(B.step.ids).toContain(id);
+    expect(B.step.ids).not.toContain('bugBay');
+    expect(deskStateAt(2100).step.amount).toBe(0);
+  });
+  it('keeps the slip and the card once they land: the slip in your in-tray, the card in the mouth', () => {
+    const later = deskStateAt(2240);
     expect(later.slip?.s).toBe(1);
     expect(later.card).toBeNull();
     expect(later.cardDocked).toBe(true);
-    expect(B.cardDocked).toBe(false);
+    expect(later.transit.on).toBeNull();
   });
   it('is a pure function of the frame', () => {
-    expect(deskStateAt(2200)).toEqual(B);
+    expect(deskStateAt(ROUND2.stillB)).toEqual(B);
     expect(deskStateAt(2217)).toEqual(deskStateAt(2217));
   });
 });
@@ -225,7 +263,11 @@ describe('micro-print', () => {
   it('is Latin, digits and ASCII punctuation only (the print face loads its latin file)', () => {
     for (const s of PRINT_STRINGS) expect(s).toMatch(/^[\x20-\x7E]+$/);
   });
-  it('keeps the bays apart from the request: only the bug bay holds #0405 work', () => {
-    expect(rectC(BAYS.bug.box)[0]).toBeLessThan(rectC(BAYS.tests.box)[0]);
+  it('cites: the reply answers the report it follows, and only the bug bay holds the request work', () => {
+    expect(REPLY[0]).toBe(REPORT[0]);
+    expect(CELLS[0].code).toBe(REPORT[0].slice(1));
+    expect(NAMEPLATE.bug).toContain(SLIPS.request);
+    expect(NAMEPLATE.tests).not.toContain(SLIPS.request);
+    expect(NAMEPLATE.docs).not.toContain(SLIPS.request);
   });
 });

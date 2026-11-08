@@ -84,7 +84,7 @@ export function DeskWorld({ s, pose, bloom, printFamily, sansFamily, children, f
       <hemisphereLight position={[0, 0, 1]} args={[LIGHTS.sky, LIGHTS.ground, LIGHTS.fill]} />
       <LightState s={s} footprints={footprints} />
       <Ground />
-      <DeskKit printFamily={printFamily} sansFamily={sansFamily}>
+      <DeskKit printFamily={printFamily} sansFamily={sansFamily} step={s.step.amount}>
         {children}
       </DeskKit>
       <PostChain effects={bloom ? effectsWithBloom : effectsNoBloom} afterToneMapping={afterToneMapping} toneMapping={ToneMappingMode.NEUTRAL} multisampling={4} />

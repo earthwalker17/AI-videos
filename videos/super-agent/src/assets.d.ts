@@ -9,7 +9,7 @@ declare module '@fontsource-variable/noto-sans-sc/files/*.woff2' {
   const url: string;
   export default url;
 }
-declare module '@fontsource-variable/jetbrains-mono/files/*.woff2' {
+declare module '@fontsource/ibm-plex-mono/files/*.woff2' {
   const url: string;
   export default url;
 }

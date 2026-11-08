@@ -8,6 +8,7 @@ describe('what the cue sheet shows at the round-2 lookdev frames', () => {
   });
   it('still (b) shows C12 alone, and the built tag has gone', () => {
     expect(narrationAt(ROUND2.stillB)).toEqual(['c12']);
+    expect(cueShown('c12', ROUND2.stillB - 6) && cueShown('c12', ROUND2.stillB + 6)).toBe(true);
     expect(cueShown('tag-built', ROUND2.stillB)).toBe(false);
     expect(cueShown('tag-built', ROUND2.tag)).toBe(true);
     expect(narrationAt(ROUND2.tag)).toEqual(['c11']);

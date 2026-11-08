@@ -9,7 +9,7 @@
  * Pure: the footprints are a function of the layout and the frame's state. The GPU gets them
  * packed as three vec4 each (`packFootprints`).
  */
-import { SHADOW_K, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_LAMP, GALLEY_TRAY, GATE, HOPPER, LAMP, LEG, LEGS, LOCK, MAST, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, SLIP, SPIKE, SPOOL, THROAT, TOWER, TRAIT_PLATE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
+import { SHADOW_K, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CHUTE_W, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, SLIP, SPIKE, SPOOL, THROAT, TOWER, TRAIT_PLATE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
 import { slipPose, type DeskState } from './state.ts';
 
 /** At most this many footprints reach the GPU (the uniform array's size). */
@@ -69,8 +69,11 @@ export function staticFootprints(): Footprint[] {
   const fp: Footprint[] = [];
   // under the deck the desk sees less sky: the deck's outline as a canopy
   fp.push({ kind: 'canopy', c: [(DECK.x0 + DECK.x1) / 2, (DECK.y0 + DECK.y1) / 2], h: [(DECK.x1 - DECK.x0) / 2 - 10, (DECK.y1 - DECK.y0) / 2 - 10], z: DECK.railZ0, strength: 0.6 });
-  // the Register: legs, rails, cross members, the plate, the reel and its frame, the head, the window, the lamp
-  for (const [x, y] of LEGS) fp.push(rectFp({ x0: x - LEG / 2, x1: x + LEG / 2, y0: y - LEG / 2, y1: y + LEG / 2 }, 0, DECK.railZ0, 1, 3));
+  // the Register: splayed legs, rails, cross members, the plate, the reel and its frame, the head, the window, the lamp
+  for (const l of LEG_STRUTS) {
+    fp.push(segFp(l.top, [l.foot[0], l.foot[1], 0], LEG_R));
+    fp.push(circleFp(l.foot, 14, 0, 4, 1));
+  }
   const r = DECK.rail;
   fp.push(rectFp({ x0: DECK.x0, x1: DECK.x1, y0: DECK.y0, y1: DECK.y0 + r }, DECK.railZ0, DECK.top, 0));
   fp.push(rectFp({ x0: DECK.x0, x1: DECK.x1, y0: DECK.y1 - r, y1: DECK.y1 }, DECK.railZ0, DECK.top, 0));
@@ -89,24 +92,29 @@ export function staticFootprints(): Footprint[] {
   fp.push(rectFp({ ...wf, y0: wf.y1 - bar }, WINDOW.z[0], WINDOW.z[1], 0.5, 2));
   fp.push(rectFp({ ...wf, x1: wf.x0 + bar }, WINDOW.z[0], WINDOW.z[1], 0.5, 2));
   fp.push(rectFp({ ...wf, x0: wf.x1 - bar }, WINDOW.z[0], WINDOW.z[1], 0.5, 2));
-  fp.push(rectFp({ x0: READ_LAMP.x0, x1: READ_LAMP.x1, y0: READ_LAMP.y - READ_LAMP.r, y1: READ_LAMP.y + READ_LAMP.r }, READ_LAMP.z - READ_LAMP.r, READ_LAMP.z + READ_LAMP.r, 0, READ_LAMP.r));
-  for (const x of READ_LAMP.posts) fp.push(segFp([x, READ_LAMP.postY, DECK.top], [x, READ_LAMP.y, READ_LAMP.z + 10], 4));
+  // the reading lamp: its hood and its bent arm
+  const H = READ_LAMP.hood;
+  fp.push(rectFp({ x0: H.x0, x1: H.x1, y0: H.y - H.r, y1: H.y + H.r }, H.z - H.r, H.z + H.r, 0, H.r));
+  fp.push(segFp([READ_LAMP.base[0], READ_LAMP.base[1], DECK.top], [READ_LAMP.base[0], READ_LAMP.base[1], H.z + 30], 4));
+  fp.push(segFp([READ_LAMP.base[0], READ_LAMP.base[1], H.z + 30], [H.x1, H.y, H.z + 6], 4));
   fp.push(rectFp(DRAWER.box, DRAWER.z[0], DRAWER.z[1], 0));
-  fp.push(rectFp(HOPPER.box, HOPPER.z[0], HOPPER.z[1], 0.5));
+  fp.push(rectFp(MOUTH.box, MOUTH.z[0], MOUTH.z[1], 0));
   fp.push(rectFp(LOCK.box, LOCK.z[0], LOCK.z[1], 0.6));
-  fp.push(segFp([LOCK.key.x0, LOCK.key.y, LOCK.key.z], [LOCK.key.x1 + LOCK.key.bowR, LOCK.key.y, LOCK.key.z], 5));
+  fp.push(segFp([LOCK.key.x0, LOCK.key.y, LOCK.key.z], [LOCK.key.x1 + 2 * LOCK.key.bowR, LOCK.key.y, LOCK.key.z], 6));
   fp.push(rectFp(FANFOLD.box, 0, FANFOLD.sheets * SHEET + 2, 1, 2));
-  fp.push(rectFp(TRAIT_PLATE.box, TRAIT_PLATE.z[0], TRAIT_PLATE.z[1], 0.5, 6));
-  // the ramp's curved sheet, as a sloped plate from the rail down to its foot
-  const rampX = (RAMP.x0 + RAMP.x1) / 2;
-  fp.push(segFp([rampX, DECK.y0, RAMP.top], [rampX, RAMP.foot + 16, 4], (RAMP.x1 - RAMP.x0) / 2));
-  // the bays
+  fp.push(rectFp(TRAIT_PLATE.box, TRAIT_PLATE.z[0], TRAIT_PLATE.z[1], 0, 4));
+  // the ramp's curved sheet, as a sloped plate from the east rail down to its foot
+  const rampY = (RAMP.y0 + RAMP.y1) / 2;
+  fp.push(segFp([RAMP.x, rampY, RAMP.top], [RAMP.foot - 14, rampY, 4], (RAMP.y1 - RAMP.y0) / 2));
+  // the pulley bracket off the east rail, which the Thread cord touches
+  fp.push(segFp([MAST.arm[0], MAST.arm[1], DECK.top - 4], [MAST.x, MAST.y, DECK.top - 4], 4));
+  fp.push(segFp([MAST.x, MAST.y, DECK.top - 4], [MAST.x, MAST.y, MAST.h], 5));
+  // the bays: every one under 80
   for (const b of Object.values(BAYS)) fp.push(...bayFootprints(b));
   fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1], 0.4));
   fp.push(rectFp(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 0.7));
-  fp.push(circleFp([TOWER.x, TOWER.y], TOWER.r, TOWER.base, towerTop(), 1));
+  fp.push(circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1));
   fp.push(rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1], 1, 4));
-  fp.push(rectFp({ x0: GALLEY_LAMP.x0, x1: GALLEY_LAMP.x1, y0: GALLEY_LAMP.y - 10, y1: GALLEY_LAMP.y + 10 }, GALLEY_LAMP.z - 8, GALLEY_LAMP.z + 8, 0));
   // you
   fp.push(rectFp(YOU.slab, 0, YOU.top, 1, 8));
   fp.push(circleFp([LAMP.base[0], LAMP.base[1]], LAMP.baseR, YOU.top, YOU.top + 8, 1));
@@ -114,37 +122,35 @@ export function staticFootprints(): Footprint[] {
   fp.push(segFp(LAMP.elbow, LAMP.head, 5));
   fp.push(circleFp([LAMP.head[0], LAMP.head[1]], LAMP.hoodR, LAMP.head[2] - 26, LAMP.head[2] + 14, 0));
   fp.push(rectFp(YOU.laptop, YOU.top, YOU.top + 8, 1, 6));
-  // the lid, a sloped plate from its hinge up and back
   const lid = YOU.laptop;
-  const hingeY = lid.y1;
   const lx = (lid.x0 + lid.x1) / 2;
-  fp.push(segFp([lx, hingeY, YOU.top + 8], [lx, hingeY + YOU.lidH * Math.sin(YOU.lidLean), YOU.top + 8 + YOU.lidH * Math.cos(YOU.lidLean)], (lid.x1 - lid.x0) / 2 - 4));
+  fp.push(segFp([lx, lid.y1, YOU.top + 8], [lx, lid.y1 + YOU.lidH * Math.sin(YOU.lidLean), YOU.top + 8 + YOU.lidH * Math.cos(YOU.lidLean)], (lid.x1 - lid.x0) / 2 - 4));
   fp.push(rectFp(YOU.tray, YOU.top, YOU.top + 12, 1, 6));
-  fp.push(rectFp(YOU.inTray, YOU.top, YOU.top + 20, 1, 4));
+  fp.push(rectFp(YOU.inTray, YOU.top, YOU.top + 18, 1, 4));
   // the chute and its posts
-  fp.push(...polySegs(CHUTE, 24));
+  fp.push(...polySegs(CHUTE, CHUTE_W / 2));
   for (const [x, y] of CHUTE_POSTS) fp.push(circleFp([x, y], 6, 0, 90, 1));
   // intake
-  fp.push(rectFp(FEEDERS.chat, 0, FEEDER_H.chat, 1, 8));
+  fp.push(circleFp(rectC(FEEDERS.chat), (FEEDERS.chat.y1 - FEEDERS.chat.y0) / 2, 0, FEEDER_H.chat, 1));
   fp.push(rectFp(FEEDERS.ci, 0, FEEDER_H.ci, 1, 8));
   fp.push(circleFp([SPOOL.x, SPOOL.y], SPOOL.r, 0, SPOOL.z[1], 1));
   fp.push(rectFp(GATE.bar, 0, GATE.h, 1, 3));
   fp.push(circleFp([SPIKE.x, SPIKE.y], 4, 0, SPIKE.h, 1));
   fp.push(circleFp([SPIKE.x, SPIKE.y], SPIKE.baseR, 0, 6, 1));
   fp.push(segFp(BELT.from, BELT.to, BELT.w / 2));
-  // the Thread cords and their mast
-  fp.push(circleFp([MAST.x, MAST.y], 7, 0, MAST.h, 1));
+  // the request's Thread cord
   fp.push(...polySegs(CORDS.vermilion, 4));
-  fp.push(...polySegs(CORDS.graphite, 4));
   return fp;
 }
 
-/** The footprints that move with the frame: the card in flight, the slip in the chute. */
+/** The footprints that move with the frame: the card in flight or docked, the slip in the chute. */
 export function movingFootprints(s: DeskState): Footprint[] {
   const fp: Footprint[] = [];
   if (s.card) {
     const [x, y, z] = s.card.pos;
-    fp.push({ kind: 'rect', c: [x, y], h: [CARD.w / 2, CARD.d / 2], r: 4, rot: Math.atan2(196 - y, 243 - x), z0: z - 1, z1: z + 1, contact: 0 });
+    fp.push({ kind: 'rect', c: [x, y], h: [CARD.w / 2, CARD.d / 2], r: 4, rot: 0, z0: z - 1, z1: z + 1, contact: 0 });
+  } else if (s.cardDocked) {
+    fp.push({ kind: 'rect', c: [MOUTH.land[0], MOUTH.land[1]], h: [CARD.w / 2, CARD.d / 2 - 10], r: 4, rot: 0, z0: MOUTH.land[2] - 6, z1: MOUTH.land[2] + 6, contact: 0 });
   }
   if (s.slip && s.slip.s < 1) {
     const pose = slipPose(s.slip.s);

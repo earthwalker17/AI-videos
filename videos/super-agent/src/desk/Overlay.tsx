@@ -14,10 +14,10 @@ import { GREY_TEXT, Label, NotesBlock, lineWidth, type TextLook } from '../kit/t
 import type { FilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
 import { project } from './camera.ts';
-import { BAYS, DECK, YOU, type P3 } from './layout.ts';
+import { BAYS, REEL_FRAME, REEL_FRAME_Z, YOU, rectC, type P3 } from './layout.ts';
 
 /** Text colours of the Register Desk (synthesis §2, Palette): EN and zh. */
-export const TEXT_HEX = { en: '#ECE9E2', zh: '#BAB7AF', leader: '#A7A49C' } as const;
+export const TEXT_HEX = { en: '#ECE9E2', zh: '#BAB7AF', leader: '#C9C6BE' } as const;
 
 export function notesLookDesk(fonts: FilmFonts): { en: TextLook; zh: TextLook; tick: string } {
   return {
@@ -38,10 +38,12 @@ export interface RoleLabel {
 }
 
 export const ROLE_LABELS: readonly RoleLabel[] = [
-  // under the deck's south rail, on clear ground between the deck and the bays (the cords hold the top band)
-  { text: WORDS.router.en, foot: [-150, DECK.y0 + 4, DECK.top], dx: 26, dy: 58, anchor: 'start' },
-  { text: WORDS.worker.en, foot: [(BAYS.bug.box.x0 + BAYS.bug.box.x1) / 2 - 30, BAYS.bug.box.y0 + 6, BAYS.bug.wallH], dx: -40, dy: 50, anchor: 'end' },
-  { text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [(YOU.slab.x0 + YOU.slab.x1) / 2 - 40, YOU.slab.y0 + 4, YOU.top], dx: -36, dy: 50, anchor: 'end' },
+  // on clear ground east of the deck, between its frame and the Thread cord's descent (>= 12 px from both)
+  { text: WORDS.router.en, foot: [REEL_FRAME[2].x1 - 8, 300, REEL_FRAME_Z[1]], dx: 40, dy: 26, anchor: 'start' },
+  // the reporting Worker: the leader ends on the test tower bay's nameplate
+  { text: WORDS.worker.en, foot: [rectC(BAYS.tests.box)[0], BAYS.tests.box.y0 + BAYS.tests.southWall / 2, BAYS.tests.wallH], dx: 30, dy: 50, anchor: 'start' },
+  // beside your desk, at its west edge (not a heading for the notes)
+  { text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [YOU.slab.x0 + 2, rectC(YOU.slab)[1] - 30, YOU.top], dx: -24, dy: 16, anchor: 'end' },
 ];
 
 /** The leader's ends (screen px): from the foot to the label's nearest corner, stopping short of the text. */
@@ -68,8 +70,8 @@ export function Overlay({ f, pose, fonts, ready }: { f: number; pose: CamPose; f
           const { a, b, x, y } = leaderOf(foot, l, w, size);
           return (
             <g key={l.text}>
-              <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={TEXT_HEX.leader} strokeWidth={2} strokeLinecap="round" />
-              <circle cx={a[0]} cy={a[1]} r={3.5} fill={TEXT_HEX.en} />
+              <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />
+              <circle cx={a[0]} cy={a[1]} r={4} fill={TEXT_HEX.en} />
               <Label x={x} y={y} text={l.text} family={fonts.sans} size={size} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={l.anchor} />
             </g>
           );

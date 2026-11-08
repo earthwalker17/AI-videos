@@ -6,12 +6,12 @@
  * - IBM Plex Sans (variable, wght 100-700): EN text, labels, the Latin of zh lines;
  * - Noto Sans SC (variable, wght 100-900): Han, CJK punctuation and what the Latin files lack;
  *   only the unicode-range slices the strings touch are registered;
- * - JetBrains Mono (variable, wght 100-800): numbers.
+ * - IBM Plex Mono (static, weight 500): numbers.
  * The families are listed without a generic fallback: a character no registered file covers would
  * render in the browser's default serif, which no frame can mistake for the film's type.
  */
-import monoLatinExt from '@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-ext-wght-normal.woff2';
-import monoLatin from '@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2';
+import monoLatinExt from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-ext-500-normal.woff2';
+import monoLatin from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2';
 import plexLatinExt from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-ext-wght-normal.woff2';
 import plexLatin from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2';
 import { useFont, type FontSource, type FontSpec } from '@aiv/remotion-kit';
@@ -33,7 +33,8 @@ function sources(plan: FacePlan, files: Readonly<Record<string, string>>, unicod
 if (FILM_TYPE.noto.missing.length > 0) throw new Error(`Noto Sans SC has no file for ${describeCodePoints(FILM_TYPE.noto.missing)}`);
 
 export const PLEX: FontSpec = { family: 'IBM Plex Sans', sources: sources(FILM_TYPE.plex, PLEX_FILES, PLEX_UNICODE, '100 700'), sample: FILM_TYPE.plex.sample };
-export const MONO: FontSpec = { family: 'JetBrains Mono', sources: sources(FILM_TYPE.mono, MONO_FILES, MONO_UNICODE, '100 800'), sample: FILM_TYPE.mono.sample };
+// IBM Plex Mono is static: one file per weight, and the film sets numbers at 500 only (TYPE.numbers)
+export const MONO: FontSpec = { family: 'IBM Plex Mono', sources: sources(FILM_TYPE.mono, MONO_FILES, MONO_UNICODE, '500'), sample: FILM_TYPE.mono.sample };
 export const NOTO_SC: FontSpec = { family: 'Noto Sans SC', sources: sources(FILM_TYPE.noto, NOTO_SC_FILES, NOTO_UNICODE, '100 900'), sample: FILM_TYPE.noto.sample };
 
 /** CSS font-family values: the sans stack (EN, zh, labels) and the mono stack (numbers). */

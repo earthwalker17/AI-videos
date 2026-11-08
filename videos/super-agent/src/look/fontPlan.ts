@@ -2,7 +2,7 @@
  * Which files of the three fonts the film's strings need, and what each font must prove it covers
  * (pure: tested in fontPlan.test.ts, used by look/fonts.ts).
  *
- * Text is set in two stacks: sans = IBM Plex Sans, then Noto Sans SC; mono = JetBrains Mono, then
+ * Text is set in two stacks: sans = IBM Plex Sans, then Noto Sans SC; mono = IBM Plex Mono, then
  * Noto Sans SC. The browser picks the face per character: a character whose code point lies in a
  * registered Plex (or Mono) file's unicode-range is drawn by Plex (Mono), everything else by Noto.
  * So the Latin of a zh line ("Router", "3–5", "23%") is drawn in Plex like the EN line, and an arrow
@@ -12,7 +12,7 @@
  * Which strings are set in mono is the picture's choice, so every Latin character goes into both
  * the Plex and the Mono sample, and Noto takes every character that either of them lacks.
  */
-import monoUnicode from '@fontsource-variable/jetbrains-mono/unicode.json';
+import monoUnicode from '@fontsource/ibm-plex-mono/unicode.json';
 import plexUnicode from '@fontsource-variable/ibm-plex-sans/unicode.json';
 import notoUnicode from '@fontsource-variable/noto-sans-sc/unicode.json';
 import { coversCodePoint, parseUnicodeRange, type CodeRange } from '@aiv/remotion-kit';

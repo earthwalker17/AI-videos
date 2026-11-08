@@ -22,8 +22,8 @@ const GROOVE_IDS = ['bug', 'tests', 'docs'] as const;
 
 /** The desk's colours (sRGB hex from the synthesis's palette). */
 export const DESK_HEX = { base: '#212322', tint: '#121312' } as const;
-/** Luma 38 (BT.709 limited) is sRGB code 25.6 on a neutral grey: the floor, in linear light. */
-export const DESK_FLOOR = ((25.8 / 255 + 0.055) / 1.055) ** 2.4;
+/** The ground never goes under luma 40 (BT.709 limited; QA's floor is 38): sRGB code 28 on a neutral grey, in linear light. */
+export const DESK_FLOOR = ((28.4 / 255 + 0.055) / 1.055) ** 2.4;
 
 /** Each groove as a polyline through its keys (centripetal Catmull-Rom, the kit's Curve). */
 export function groovePolylines(): P2[][] {

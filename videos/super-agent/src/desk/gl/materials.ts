@@ -49,6 +49,8 @@ uniform float uPeel;
 uniform float uFibre;
 uniform float uShadowAmt;
 uniform float uClampMax;
+uniform float uStep;
+uniform vec3 uStepTarget;
 ${NOISE_GLSL}
 ${LIGHT_GLSL}
 // the surface's albedo texture: graphite brushing along x, paper fibre
@@ -92,11 +94,31 @@ const FRAG_PATCH = {
   dskAo = sh.y * up;
 }`,
     lights_fragment_end: '#include <lights_fragment_end>\nreflectedLight.indirectDiffuse *= 1.0 - 0.55 * dskAo;\nreflectedLight.directDiffuse *= 1.0 - 0.25 * dskAo;',
-    opaque_fragment: '#include <opaque_fragment>\ngl_FragColor.rgb = min(gl_FragColor.rgb, vec3(uClampMax));',
+    // the focus step-down: 55% contrast against the desk and 30% chroma, in display values (never alpha)
+    opaque_fragment: /* glsl */ `#include <opaque_fragment>
+if (uStep > 0.0) {
+  vec3 dsp = pow(max(gl_FragColor.rgb, 0.0), vec3(1.0 / 2.2));
+  vec3 tgt = pow(uStepTarget, vec3(1.0 / 2.2));
+  dsp = mix(dsp, tgt, 0.45 * uStep);
+  float lum = dot(dsp, vec3(0.2126, 0.7152, 0.0722));
+  dsp = mix(dsp, vec3(lum), 0.7 * uStep);
+  gl_FragColor.rgb = pow(dsp, vec3(2.2));
+}
+gl_FragColor.rgb = min(gl_FragColor.rgb, vec3(uClampMax));`,
   },
 };
 
+/**
+ * The step-down's uniforms, shared by every material of a set: the full set's never moves; the
+ * stepped set's is the frame's step amount (state.ts stepAt), set once per frame.
+ */
+export const STEP = { full: { value: 0 }, stepped: { value: 0 } };
+/** What a stepped-down surface fades toward: the desk's colour (linear). */
+export const STEP_TARGET = { value: new Color('#212322') };
+
 export interface LitOptions {
+  /** in the stepped-down set */
+  stepped?: boolean;
   brush?: number;
   peel?: number;
   fibre?: number;
@@ -114,6 +136,8 @@ function patch<M extends MeshStandardMaterial>(m: M, key: string, o: LitOptions)
       uFibre: { value: o.fibre ?? 0 },
       uShadowAmt: { value: o.shadow ?? 0.75 },
       uClampMax: { value: 0.95 },
+      uStep: o.stepped ? STEP.stepped : STEP.full,
+      uStepTarget: STEP_TARGET,
     },
     vertex: VERT_PATCH,
     fragment: FRAG_PATCH,
@@ -129,27 +153,27 @@ export function whiteTexture(): Texture {
 }
 
 /** Graphite (standard, no map): structure. */
-export function graphite(hex: string = HEX.graphite, o: { roughness?: number; metalness?: number; brush?: number } = {}): MeshStandardMaterial {
-  return patch(new MeshStandardMaterial({ color: new Color(hex), metalness: o.metalness ?? 0.55, roughness: o.roughness ?? 0.42 }), 'std', { brush: o.brush ?? 0.04 });
+export function graphite(hex: string = HEX.graphite, o: { roughness?: number; metalness?: number; brush?: number; stepped?: boolean } = {}): MeshStandardMaterial {
+  return patch(new MeshStandardMaterial({ color: new Color(hex), metalness: o.metalness ?? 0.55, roughness: o.roughness ?? 0.42 }), 'std', { brush: o.brush ?? 0.04, stepped: o.stepped });
 }
 
 /** A non-metal standard surface without a map (cords, rubber, glass-like dark parts). */
-export function matte(hex: string, roughness = 0.6, metalness = 0): MeshStandardMaterial {
-  return patch(new MeshStandardMaterial({ color: new Color(hex), metalness, roughness }), 'std', {});
+export function matte(hex: string, roughness = 0.6, metalness = 0, stepped = false): MeshStandardMaterial {
+  return patch(new MeshStandardMaterial({ color: new Color(hex), metalness, roughness }), 'std', { stepped });
 }
 
 /** Paper (standard with a map): context. */
-export function paper(map: Texture, hex: string = HEX.paper, o: { roughness?: number; fibre?: number } = {}): MeshStandardMaterial {
-  return patch(new MeshStandardMaterial({ color: new Color(hex), map, metalness: 0, roughness: o.roughness ?? 0.9 }), 'std-map', { fibre: o.fibre ?? 0.015 });
+export function paper(map: Texture, hex: string = HEX.paper, o: { roughness?: number; fibre?: number; stepped?: boolean } = {}): MeshStandardMaterial {
+  return patch(new MeshStandardMaterial({ color: new Color(hex), map, metalness: 0, roughness: o.roughness ?? 0.9 }), 'std-map', { fibre: o.fibre ?? 0.015, stepped: o.stepped });
 }
 
 /** The room environment's strength on enamel (the synthesis's 0.25 clipped a lit top to white: RoomEnvironment is bright). */
 export const ENAMEL_ENV = 0.1;
 
 /** Enamel (physical with a map and the room environment): built parts. */
-export function enamel(map: Texture, env: Texture, hex: string = HEX.enamel, o: { roughness?: number; clearcoat?: number } = {}): MeshPhysicalMaterial {
+export function enamel(map: Texture, env: Texture, hex: string = HEX.enamel, o: { roughness?: number; clearcoat?: number; stepped?: boolean } = {}): MeshPhysicalMaterial {
   const m = new MeshPhysicalMaterial({ color: new Color(hex), map, metalness: 0, roughness: o.roughness ?? 0.3, clearcoat: o.clearcoat ?? 0.4, clearcoatRoughness: 0.25, envMap: env, envMapIntensity: ENAMEL_ENV });
-  return patch(m, 'phys-map', { peel: 0.005 });
+  return patch(m, 'phys-map', { peel: 0.005, stepped: o.stepped });
 }
 
 /** An emitter: unlit, HDR (intensity > 1 blooms; the bloom's threshold is 1.0). */
@@ -159,7 +183,21 @@ export function emitter(hex: string, intensity: number): MeshBasicMaterial {
   return m;
 }
 
+/** A colour (linear) stepped down as the patch does it: toward the desk in display values, then toward grey. */
+export function stepColour(c: Color, amount: number): Color {
+  const t = STEP_TARGET.value;
+  const enc = (v: number) => Math.pow(Math.max(v, 0), 1 / 2.2);
+  let r = enc(c.r) + (enc(t.r) - enc(c.r)) * 0.45 * amount;
+  let g = enc(c.g) + (enc(t.g) - enc(c.g)) * 0.45 * amount;
+  let b = enc(c.b) + (enc(t.b) - enc(c.b)) * 0.45 * amount;
+  const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  r += (l - r) * 0.7 * amount;
+  g += (l - g) * 0.7 * amount;
+  b += (l - b) * 0.7 * amount;
+  return new Color(r ** 2.2, g ** 2.2, b ** 2.2);
+}
+
 /** Vellum: an unlit flat drawing lying on the desk (proposed parts exist only as drawings). */
-export function vellum(map: Texture): MeshBasicMaterial {
-  return new MeshBasicMaterial({ map, transparent: true, depthWrite: false });
+export function vellum(map: Texture, opacity = 1): MeshBasicMaterial {
+  return new MeshBasicMaterial({ map, transparent: true, depthWrite: false, opacity });
 }

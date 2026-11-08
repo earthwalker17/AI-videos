@@ -1,8 +1,8 @@
 /**
  * You (synthesis §2, element sheet): no figure, a small desk with a bent-arm lamp (the film's only
  * Λ: its aim and pool are your attention, the bulb the only warm light), a laptop with its lid
- * propped open by the lid strut ("keep it running"), the chore tray (the starter key and the
- * sand-glass still yours; the notes loop's recess empty: handed over at the turn), and the in-tray
+ * open on its hinge (a dim screen: no transcript), the chore tray (the starter key, the sand-glass and the
+ * lid strut still yours; the notes loop's recess empty: handed over at the turn), and the in-tray
  * where the Router's replies land: the only path to you.
  */
 import { useLayoutEffect, useMemo } from 'react';
@@ -147,68 +147,68 @@ function useYouGeometry() {
     const lidW = L.x1 - L.x0;
     const lid = slab({ x0: -lidW / 2, x1: lidW / 2, y0: 0, y1: YOU.lidH }, -4, 0, 5, 1.2);
     const screen = plane(lidW - 10, YOU.lidH - 12, 0, YOU.lidH / 2 + 2, 0.25);
-    const hingeZ = YOU.top + 8;
-    const strutTop: P3 = [L.x1 - 4, L.y1 + 64 * Math.sin(YOU.lidLean) - 3, hingeZ + 64 * Math.cos(YOU.lidLean)];
-    const strut = merge([
-      tube([[L.x1 - 4, L.y1 - 26, hingeZ], strutTop], 1.8, 6, 8),
-      disc(4, hingeZ, hingeZ + 2.2, { cx: L.x1 - 4, cy: L.y1 - 26, bevel: 0.6 }),
-    ]);
 
-    // the chore tray: enamel, four places: the loop's (empty), the starter key, the sand-glass, the strut's (empty: in use)
+    // the chore tray: enamel, four places across it, each item lying along y and at least 66 u long
+    // (56 px): the notes loop's sunken recess (empty: handed over at the turn), the starter key,
+    // the sand-glass, the lid strut
     const T = YOU.tray;
-    const tray = merge([slab(T, YOU.top, YOU.top + 3, 5, 1), frame(T, 4, YOU.top, YOU.top + 12, 5, 1.2)]);
-    const dividers = merge([0.3, 0.55, 0.78].map((k) => slab({ x0: T.x0 + (T.x1 - T.x0) * k - 1.2, x1: T.x0 + (T.x1 - T.x0) * k + 1.2, y0: T.y0 + 4, y1: T.y1 - 4 }, YOU.top + 3, YOU.top + 8, 0.6, 0.3)));
-    const recess = ringFlat(11, 2, T.x0 + (T.x1 - T.x0) * 0.15, rectC(T)[1], YOU.top + 3.2);
-    const strutRecess = slab({ x0: T.x0 + (T.x1 - T.x0) * 0.86 - 2, x1: T.x0 + (T.x1 - T.x0) * 0.86 + 2, y0: T.y0 + 12, y1: T.y1 - 12 }, YOU.top + 3, YOU.top + 3.6, 1, 0.2);
-    // the starter key: a wind-up key with a butterfly bow, lying along y
-    const kx = T.x0 + (T.x1 - T.x0) * 0.425;
+    const tw = T.x1 - T.x0;
     const ky = rectC(T)[1];
+    const cell = (k: number) => T.x0 + tw * (0.125 + 0.25 * k);
+    const tray = merge([slab(T, YOU.top, YOU.top + 3, 5, 1), frame(T, 4, YOU.top, YOU.top + 12, 5, 1.2)]);
+    const dividers = merge([0.25, 0.5, 0.75].map((k) => slab({ x0: T.x0 + tw * k - 1.2, x1: T.x0 + tw * k + 1.2, y0: T.y0 + 4, y1: T.y1 - 4 }, YOU.top + 3, YOU.top + 8, 0.6, 0.3)));
+    // the empty recess: a ring-shaped well pressed into the tray floor, its lip catching the key
+    const recess = ringFlat(15, 2.4, cell(0), ky, YOU.top + 3.4);
+    const recessFloor = disc(17, YOU.top + 2.2, YOU.top + 3.05, { cx: cell(0), cy: ky, inner: 12.5, bevel: 0.2 });
+    // the starter key: a wind-up key, its butterfly bow and a long shaft
+    const kx = cell(1);
     const starter = (() => {
-      const s = new Shape();
-      s.absarc(kx - 8, ky + 14, 7.5, 0, Math.PI * 2, false);
-      const s2 = new Shape();
-      s2.absarc(kx + 8, ky + 14, 7.5, 0, Math.PI * 2, false);
+      const wing = (dx: number) => {
+        const s = new Shape();
+        s.absarc(kx + dx, ky + 22, 9, 0, Math.PI * 2, false);
+        return extrude(s, YOU.top + 3, YOU.top + 6.5, 0.9);
+      };
       return merge([
-        extrude(s, YOU.top + 3, YOU.top + 6, 0.8),
-        extrude(s2, YOU.top + 3, YOU.top + 6, 0.8),
-        slab({ x0: kx - 6, x1: kx + 6, y0: ky + 9, y1: ky + 15 }, YOU.top + 3, YOU.top + 6, 1, 0.5),
+        wing(-10),
+        wing(10),
+        slab({ x0: kx - 7, x1: kx + 7, y0: ky + 14, y1: ky + 22 }, YOU.top + 3, YOU.top + 6.5, 1, 0.5),
         tube(
           [
-            [kx, ky + 8, YOU.top + 5],
-            [kx, ky - 22, YOU.top + 5],
+            [kx, ky + 14, YOU.top + 5],
+            [kx, ky - 40, YOU.top + 5],
           ],
-          2.4,
+          2.8,
           6,
           8,
         ),
+        slab({ x0: kx, x1: kx + 8, y0: ky - 40, y1: ky - 32 }, YOU.top + 3, YOU.top + 7, 1, 0.4),
       ]);
     })();
-    // the sand-glass, lying on its side along x
-    const gx = T.x0 + (T.x1 - T.x0) * 0.665;
+    // the sand-glass, lying along y
+    const gx = cell(2);
     const glass = (() => {
       const g = latheZ(
         [
-          [0.01, -15],
-          [6.5, -13],
-          [7.5, -8],
-          [2, -1],
-          [2, 1],
-          [7.5, 8],
-          [6.5, 13],
-          [0.01, 15],
+          [0.01, -26],
+          [10, -24],
+          [11.5, -14],
+          [2.4, -1.5],
+          [2.4, 1.5],
+          [11.5, 14],
+          [10, 24],
+          [0.01, 26],
         ],
-        24,
+        28,
       );
-      g.rotateY(Math.PI / 2);
-      g.rotateZ(Math.PI / 2);
-      g.translate(gx, ky, YOU.top + 11);
+      g.rotateX(Math.PI / 2);
+      g.translate(gx, ky, YOU.top + 15);
       return g;
     })();
     const glassEnds = merge(
       [-1, 1].map((k) => {
-        const g = cylinderZ(9.5, -1.6, 1.6, 0, 0, 20);
+        const g = cylinderZ(13.5, -2, 2, 0, 0, 24);
         g.rotateX(Math.PI / 2);
-        g.translate(gx, ky + k * 16, YOU.top + 11);
+        g.translate(gx, ky + k * 28, YOU.top + 15);
         return g;
       }),
     );
@@ -216,15 +216,30 @@ function useYouGeometry() {
       [-1, 1].map((k) =>
         tube(
           [
-            [gx + k * 7.5, ky - 16, YOU.top + 18],
-            [gx + k * 7.5, ky + 16, YOU.top + 18],
+            [gx + k * 10.5, ky - 28, YOU.top + 25],
+            [gx + k * 10.5, ky + 28, YOU.top + 25],
           ],
-          1.2,
+          1.5,
           4,
           6,
         ),
       ),
     );
+    // the lid strut: a rod with a clip at each end
+    const sx = cell(3);
+    const strut = merge([
+      tube(
+        [
+          [sx, ky - 34, YOU.top + 5],
+          [sx, ky + 34, YOU.top + 5],
+        ],
+        2.6,
+        6,
+        8,
+      ),
+      slab({ x0: sx - 7, x1: sx + 7, y0: ky + 30, y1: ky + 38 }, YOU.top + 3, YOU.top + 8, 1, 0.5),
+      slab({ x0: sx - 7, x1: sx + 7, y0: ky - 38, y1: ky - 30 }, YOU.top + 3, YOU.top + 8, 1, 0.5),
+    ]);
 
     // the in-tray: a graphite tray with the replies already in it
     const I = YOU.inTray;
@@ -238,7 +253,7 @@ function useYouGeometry() {
     const slip1 = (() => {
       const g = plane(80, 52, 0, 0, 0);
       g.rotateZ(-0.1);
-      g.translate(rectC(I)[0] + 3, rectC(I)[1] + 14, YOU.top + 4.2);
+      g.translate(rectC(I)[0] + 2, rectC(I)[1] - 14, YOU.top + 4.2);
       return g;
     })();
     return {
@@ -259,15 +274,15 @@ function useYouGeometry() {
       pad,
       lid,
       screen,
-      strut,
       tray,
       dividers,
       recess,
-      strutRecess,
+      recessFloor,
       starter,
       glass,
       glassEnds,
       glassPosts,
+      strut,
       inTray,
       slip0,
       slip1,
@@ -312,21 +327,20 @@ export function YourDesk({ s }: { s: DeskState }) {
       <mesh geometry={g.pad} material={m.graphite} />
       <group position={[(L.x0 + L.x1) / 2, L.y1, YOU.top + 8]} rotation={[Math.PI / 2 - YOU.lidLean, 0, 0]}>
         <mesh geometry={g.lid} material={m.graphiteDark} />
-        <mesh geometry={g.screen} material={m.printed.laptop} />
+        <mesh geometry={g.screen} material={m.screen} />
       </group>
-      <mesh geometry={g.strut} material={m.steel} />
       {/* the chore tray */}
       <mesh geometry={g.tray} material={m.enamel} />
       <mesh geometry={g.dividers} material={m.enamelShade} />
+      <mesh geometry={g.recessFloor} material={m.graphiteDark} />
       <mesh geometry={g.recess} material={m.enamelShade} />
-      <mesh geometry={g.strutRecess} material={m.graphiteDark} />
+      <mesh geometry={g.strut} material={m.steel} />
       <mesh geometry={g.starter} material={m.steel} />
       <mesh geometry={g.glass} material={m.paperLit} />
       <mesh geometry={g.glassEnds} material={m.graphite} />
       <mesh geometry={g.glassPosts} material={m.graphite} />
       {/* the in-tray */}
       <mesh geometry={g.inTray} material={m.graphite} />
-      <mesh geometry={g.slip0} material={m.printed.inTray[1]} />
       <mesh geometry={g.slip1} material={m.printed.inTray[0]} />
     </group>
   );

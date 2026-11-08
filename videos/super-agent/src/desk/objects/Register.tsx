@@ -14,30 +14,27 @@
 import { useMemo } from 'react';
 import { CircleGeometry, Matrix4, Path, Shape, type BufferGeometry } from 'three';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
-import { useDeskMats } from '../kit.tsx';
-import { CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, GAUGE, HOPPER, INDEX, JEWEL, LEG, LEGS, LOCK, LOUPE, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type Rect } from '../layout.ts';
+import { Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
+import { CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, GAUGE, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
 import { PRINT_SIZE } from '../gl/text.ts';
 import { DETENT, type DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 
-/** The quarter-pipe's profile in (y, z): the lip down from the rail, then the curve to the desk. */
+/** The quarter-pipe's profile in (u, z), u outward from the rail: the lip down from the rail, then the curve to the desk (a 4 u sheet). */
 function rampProfile(): P2[] {
-  const pts: P2[] = [];
   const r = RAMP.lip;
-  const yc = RAMP.foot;
-  // outer (top) surface, from the foot up to the rail, then back down the underside (a 4 u sheet)
+  const top: P2[] = [[0, RAMP.top]];
   for (let i = 0; i <= 16; i++) {
-    const a = (Math.PI / 2) * (i / 16);
-    pts.push([yc + r * Math.sin(a), r - r * Math.cos(a)]);
+    const a = (Math.PI / 2) * (1 - i / 16);
+    top.push([r - r * Math.sin(a), r - r * Math.cos(a)]);
   }
-  pts.push([DECK.y0, RAMP.top]);
   const under: P2[] = [];
   for (let i = 16; i >= 0; i--) {
-    const a = (Math.PI / 2) * (i / 16);
-    under.push([yc + (r + 4) * Math.sin(a), r - (r + 4) * Math.cos(a)]);
+    const a = (Math.PI / 2) * (1 - i / 16);
+    under.push([r - (r + 4) * Math.sin(a), r - (r + 4) * Math.cos(a)]);
   }
-  return [...pts, [DECK.y0 + 4, RAMP.top], ...under];
+  return [...top, ...under, [-4, RAMP.top]];
 }
 
 /** A shape in the (y, z) plane extruded along x from x0 by `w`. */
@@ -48,20 +45,27 @@ function extrudeYZ(shape: Shape, x0: number, w: number, bevel = 1): BufferGeomet
   return g;
 }
 
-/** The ramp's two cheeks: the quarter-circle region between the curve and the deck's south face. */
-function rampCheek(x0: number): BufferGeometry {
+/** A shape in the ramp's (u, z) plane extruded across it (along -y from y1 by `w`): x = rail + u. */
+function extrudeRamp(shape: Shape, y1: number, w: number, bevel = 1): BufferGeometry {
+  const g = extrude(shape, 0, w, bevel);
+  // (sx, sy, ez) → (RAMP.x + sx, y1 - ez, sy): a proper rotation, so faces keep their winding
+  g.applyMatrix4(new Matrix4().set(1, 0, 0, RAMP.x, 0, 0, -1, y1, 0, 1, 0, 0, 0, 0, 0, 1));
+  return g;
+}
+
+/** The ramp's two cheeks: the region between its curve and the deck's east face. */
+function rampCheek(y1: number): BufferGeometry {
   const s = new Shape();
   const r = RAMP.lip;
-  const yc = RAMP.foot;
-  s.moveTo(yc, 0);
+  s.moveTo(r, 0);
   for (let i = 0; i <= 12; i++) {
     const a = (Math.PI / 2) * (i / 12);
-    s.lineTo(yc + r * Math.sin(a) - 0.5, r - r * Math.cos(a) + 3);
+    s.lineTo(r - r * Math.sin(a) + 0.5, r - r * Math.cos(a) + 3);
   }
-  s.lineTo(DECK.y0 + 2, RAMP.top + 4);
-  s.lineTo(DECK.y0 + 2, 0);
+  s.lineTo(-2, RAMP.top + 4);
+  s.lineTo(-2, 0);
   s.closePath();
-  return extrudeYZ(s, x0, 6, 1);
+  return extrudeRamp(s, y1, 6, 1);
 }
 
 /** The index arm's tapered bar, pointing along +x from its pivot (local coordinates). */
@@ -100,14 +104,14 @@ function detentPlate(): BufferGeometry {
 function useRegisterGeometry() {
   return useMemo(() => {
     const top = DECK.top;
-    const legRect = ([x, y]: P2): Rect => ({ x0: x - LEG / 2, x1: x + LEG / 2, y0: y - LEG / 2, y1: y + LEG / 2 });
-    const legs = merge(LEGS.map((p) => slab(legRect(p), 0, DECK.railZ0, 3, 2)));
-    const feet = merge(LEGS.map(([x, y]) => disc(13, 0, 3.5, { cx: x, cy: y, bevel: 1.2 })));
+    // splayed struts from under the rails' corners to their feet: they read as legs at 15° and in plan
+    const legs = merge(LEG_STRUTS.map((l) => tube([l.top, [l.foot[0], l.foot[1], 0] as P3], LEG_R, 2, 14)));
+    const feet = merge(LEG_STRUTS.map((l) => disc(16, 0, 4, { cx: l.foot[0], cy: l.foot[1], bevel: 1.4 })));
     const rails = frame({ x0: DECK.x0, x1: DECK.x1, y0: DECK.y0, y1: DECK.y1 }, DECK.rail, DECK.railZ0, top, 6, 3.2);
     const cross = merge(CROSS.map((c) => slab(c, DECK.railZ0 + 2, top, 2, 1.5)));
     const plate = slab(DECK_PLATE, top - 6, top, 2, 1);
     // gussets where the legs meet the rails: small enamel plates on the rail tops at the corners
-    const gussets = merge(LEGS.map(([x, y]) => slab(legRect([x, y]), top, top + 2.5, 3, 0.8)));
+    const gussets = merge(LEG_STRUTS.map((l) => slab({ x0: l.top[0] - 11, x1: l.top[0] + 11, y0: l.top[1] - 11, y1: l.top[1] + 11 }, top, top + 2.5, 3, 0.8)));
 
     // the reel: flange, wound pack, its top, hub, three spokes holding the pack
     const flange = disc(REEL.r, REEL.flangeZ[0], REEL.flangeZ[1], { cx: REEL.x, cy: REEL.y, bevel: 1.5 });
@@ -159,43 +163,51 @@ function useRegisterGeometry() {
     // the window: its frame, and enamel bars between the cells
     const win = frame(WINDOW.frame, WINDOW.bar, WINDOW.z[0], WINDOW.z[1], 5, 1.5);
     const bars = merge(CELLS_X.slice(0, 4).map(([, x1]) => slab({ x0: x1 + 0.5, x1: x1 + 3.5, y0: WINDOW.frame.y0 + WINDOW.bar - 1, y1: WINDOW.frame.y1 - WINDOW.bar + 1 }, TAPE.z, WINDOW.z[1] - 2, 1, 0.5)));
-    // the reading lamp: a bar hood on two bent arms
-    const hoodLen = READ_LAMP.x1 - READ_LAMP.x0;
+    // the hooded reading lamp: a base on the cross member, a bent arm, a half-round hood over the newest cells
+    const H = READ_LAMP.hood;
     const hood = (() => {
       const s = new Shape();
-      // a half-round hood opening to the south and down (profile in y, z about its axis)
-      s.absarc(0, 0, READ_LAMP.r, -0.6, 2.4, false);
-      s.absarc(0, 0, READ_LAMP.r - 3, 2.4, -0.6, true);
+      // the hood's section in (y, z) about its axis: closed over the north and the top, open to the south and down
+      s.absarc(0, 0, H.r, -0.5, 2.5, false);
+      s.absarc(0, 0, H.r - 3, 2.5, -0.5, true);
       s.closePath();
-      const g = extrudeYZ(s, READ_LAMP.x0, hoodLen, 0.8);
-      g.translate(0, READ_LAMP.y, READ_LAMP.z);
+      const g = extrudeYZ(s, H.x0, H.x1 - H.x0, 1);
+      g.translate(0, H.y, H.z);
+      return g;
+    })();
+    // its lit lining, seen under the open south edge
+    const hoodLining = (() => {
+      const s = new Shape();
+      s.absarc(0, 0, H.r - 3.2, 1.6, 2.5, false);
+      s.absarc(0, 0, H.r - 4.5, 2.5, 1.6, true);
+      s.closePath();
+      const g = extrudeYZ(s, H.x0 + 3, H.x1 - H.x0 - 6, 0.3);
+      g.translate(0, H.y, H.z);
       return g;
     })();
     const hoodCaps = merge(
-      [READ_LAMP.x0 - 3, READ_LAMP.x1].map((x) => {
+      [H.x0 - 3, H.x1].map((x) => {
         const s = new Shape();
-        s.absarc(0, 0, READ_LAMP.r + 1, 0, Math.PI * 2, false);
+        s.absarc(0, 0, H.r + 1, 0, Math.PI * 2, false);
         const g = extrudeYZ(s, x, 3, 0.6);
-        g.translate(0, READ_LAMP.y, READ_LAMP.z);
+        g.translate(0, H.y, H.z);
         return g;
       }),
     );
-    const lampArms = merge(
-      READ_LAMP.posts.map((x) =>
-        tube(
-          [
-            [x, READ_LAMP.postY, top],
-            [x, READ_LAMP.postY + 2, top + 30],
-            [x, READ_LAMP.postY + 10, READ_LAMP.z + 12],
-            [x, READ_LAMP.y, READ_LAMP.z + READ_LAMP.r - 2],
-          ],
-          3.2,
-          24,
-          8,
-        ),
-      ),
+    const [bx, by] = READ_LAMP.base;
+    const lampArms = tube(
+      [
+        [bx, by, top + 4],
+        [bx, by, H.z + 34],
+        [bx - 40, by - 6, H.z + 44],
+        [H.x1 + 20, H.y + 6, H.z + 26],
+        [H.x1 + 1, H.y, H.z + 2],
+      ],
+      3.4,
+      40,
+      8,
     );
-    const lampFeet = merge(READ_LAMP.posts.map((x) => disc(8, top, top + 3, { cx: x, cy: READ_LAMP.postY, bevel: 0.8 })));
+    const lampFeet = merge([disc(13, top, top + 4, { cx: bx, cy: by, bevel: 1 }), cylinderZ(6, top + 4, top + 12, bx, by, 16)]);
 
     // the print head and its cap; the throat with its cheeks and the neck collar; the gauge
     const head = slab(PRINT_HEAD.box, PRINT_HEAD.z[0], PRINT_HEAD.z[1], 5, 2.5);
@@ -290,8 +302,14 @@ function useRegisterGeometry() {
       }),
     );
 
-    // the hopper for report cards
-    const hopper = merge([slab(HOPPER.box, HOPPER.z[0], HOPPER.z[0] + 3, 4, 1), frame(HOPPER.box, 5, HOPPER.z[0], HOPPER.z[1], 4, 1)]);
+    // the mouth where report cards dock: a funnel off the south rail, under the newest cell
+    const M = MOUTH.box;
+    const hopper = merge([
+      slab(M, MOUTH.z[0], MOUTH.z[0] + 3, 4, 1),
+      slab({ x0: M.x0, x1: M.x0 + 5, y0: M.y0, y1: M.y1 }, MOUTH.z[0], MOUTH.z[1], 2, 1),
+      slab({ x0: M.x1 - 5, x1: M.x1, y0: M.y0, y1: M.y1 }, MOUTH.z[0], MOUTH.z[1], 2, 1),
+      slab({ x0: M.x0, x1: M.x1, y0: M.y0, y1: M.y0 + 4 }, MOUTH.z[0], MOUTH.z[0] + 9, 2, 1),
+    ]);
 
     // the sealed restricted-shell key in its lock plate on the north-east leg
     const lockBlock = slab(LOCK.box, LOCK.z[0], LOCK.z[1] - 3, 4, 2);
@@ -330,30 +348,28 @@ function useRegisterGeometry() {
       return g;
     })();
 
-    // the Continuous plate: enamel on a graphite backing, bolted at its corners
+    // the Continuous plate: a narrow enamel apron along the deck's front, on a graphite backing
     const T = TRAIT_PLATE.box;
-    const traitBack = slab(T, TRAIT_PLATE.z[0], TRAIT_PLATE.z[0] + 2, 6, 0.8);
-    const trait = slab(inset(T, 3), TRAIT_PLATE.z[0] + 2, TRAIT_PLATE.z[1], 5, 1.2);
+    const traitBack = slab(T, TRAIT_PLATE.z[0], TRAIT_PLATE.z[0] + 2, 4, 0.8);
+    const trait = slab(inset(T, 3), TRAIT_PLATE.z[0] + 2, TRAIT_PLATE.z[1], 3, 1);
     const traitFace = planeOn(inset(T, 5), TRAIT_PLATE.z[1] + 0.2);
     const bolts = merge(
       [
-        [T.x0 + 9, T.y0 + 9],
-        [T.x1 - 9, T.y0 + 9],
-        [T.x0 + 9, T.y1 - 9],
-        [T.x1 - 9, T.y1 - 9],
-      ].map(([x, y]) => dome(3, x, y, TRAIT_PLATE.z[1])),
+        [T.x0 + 6, rectC(T)[1]],
+        [T.x1 - 6, rectC(T)[1]],
+      ].map(([x, y]) => dome(2.6, x, y, TRAIT_PLATE.z[1])),
     );
 
-    // the dispatch ramp and its cheeks
+    // the dispatch ramp off the east rail, and its cheeks
     const rampSheet = (() => {
       const s = new Shape();
       const prof = rampProfile();
       s.moveTo(prof[0][0], prof[0][1]);
-      for (const [y, z] of prof.slice(1)) s.lineTo(y, z);
+      for (const [u, z] of prof.slice(1)) s.lineTo(u, z);
       s.closePath();
-      return extrudeYZ(s, RAMP.x0 + 6, RAMP.x1 - RAMP.x0 - 12, 0.6);
+      return extrudeRamp(s, RAMP.y1 - 6, RAMP.y1 - RAMP.y0 - 12, 0.6);
     })();
-    const rampCheeks = merge([rampCheek(RAMP.x0), rampCheek(RAMP.x1 - 6)]);
+    const rampCheeks = merge([rampCheek(RAMP.y1), rampCheek(RAMP.y0 + 6)]);
 
     return {
       legs,
@@ -376,6 +392,7 @@ function useRegisterGeometry() {
       win,
       bars,
       hood,
+      hoodLining,
       hoodCaps,
       lampArms,
       lampFeet,
@@ -451,14 +468,15 @@ export function Register({ s }: { s: DeskState }) {
       <mesh geometry={g.tapeRise} material={m.paper} />
       <mesh geometry={g.win} material={m.graphite} />
       <mesh geometry={g.bars} material={m.enamelShade} />
-      <mesh geometry={g.hood} material={m.enamelShade} />
+      <mesh geometry={g.hood} material={m.enamel} />
+      <mesh geometry={g.hoodLining} material={m.paperLit} />
       <mesh geometry={g.hoodCaps} material={m.enamelShade} />
       <mesh geometry={g.lampArms} material={m.graphite} />
       <mesh geometry={g.lampFeet} material={m.graphiteDark} />
       {/* the throat, the print head, the gauge */}
       <mesh geometry={g.head} material={m.graphite} />
       <mesh geometry={g.headCap} material={m.enamel} />
-      <mesh geometry={g.headHammer} material={m.steel} />
+      <mesh geometry={g.headHammer} material={m.steel} position={[0, 0, -9 * s.stamp]} />
       <mesh geometry={g.throat} material={m.graphiteDark} />
       <mesh geometry={g.cheeks} material={m.enamel} />
       <mesh geometry={g.collar} material={m.steel} />
@@ -466,13 +484,21 @@ export function Register({ s }: { s: DeskState }) {
       <mesh geometry={g.gaugeFace} material={m.printed.gauge} />
       <mesh geometry={g.needle} material={m.rubber} />
       <mesh geometry={g.gaugeHub} material={m.graphite} />
-      {/* the Slow Path: the loupe over the pinned policy card */}
-      <mesh geometry={g.policyBase} material={m.graphiteDark} />
-      <mesh geometry={g.policyCard} material={m.printed.policy} />
-      <mesh geometry={g.pin} material={m.enamel} />
-      <mesh geometry={g.loupeRing} material={m.steel} />
-      <mesh geometry={g.lens} material={m.printed.lens} />
-      <mesh geometry={g.loupeArm} material={m.graphite} />
+      {/* the Slow Path: the loupe over the pinned policy card (stepped down in C12) */}
+      <Step on={isStepped(s.step, 'policy')}>
+        <WithMats>
+          {(n) => (
+            <>
+              <mesh geometry={g.policyBase} material={n.graphiteDark} />
+              <mesh geometry={g.policyCard} material={n.printed.policy} />
+              <mesh geometry={g.pin} material={n.enamel} />
+              <mesh geometry={g.loupeRing} material={n.steel} />
+              <mesh geometry={g.lens} material={n.printed.lens} />
+              <mesh geometry={g.loupeArm} material={n.graphite} />
+            </>
+          )}
+        </WithMats>
+      </Step>
       {/* the index arm on its detent plate */}
       <mesh geometry={g.plateGeo} material={m.enamelShade} />
       <group position={[INDEX.pivot[0], INDEX.pivot[1], 0]} rotation={[0, 0, s.arm]}>
@@ -480,7 +506,7 @@ export function Register({ s }: { s: DeskState }) {
         <mesh geometry={g.armTip} material={m.enamel} />
       </group>
       <mesh geometry={g.boss} material={m.enamel} />
-      {/* the spill drawer, the hopper */}
+      {/* the spill drawer, the mouth */}
       <mesh geometry={g.drawerBox} material={m.graphiteDark} />
       <mesh geometry={g.drawerFront} material={m.enamel} />
       <mesh geometry={g.drawerHandle} material={m.steel} />
@@ -496,14 +522,30 @@ export function Register({ s }: { s: DeskState }) {
       <mesh geometry={g.jewel} material={m.jewel} />
       <mesh geometry={g.bezel} material={m.steel} />
       {/* the fanfold under the deck */}
-      <mesh geometry={g.fanfoldBody} material={m.paperShade} />
-      <mesh geometry={g.fanfoldTop} material={m.printed.fanfold} />
-      <mesh geometry={g.fanfoldSide} material={m.printed.fanfoldSide} />
-      {/* the Continuous plate */}
-      <mesh geometry={g.traitBack} material={m.graphiteDark} />
-      <mesh geometry={g.trait} material={m.enamel} />
-      <mesh geometry={g.traitFace} material={m.printed.trait} />
-      <mesh geometry={g.bolts} material={m.steel} />
+      <Step on={isStepped(s.step, 'fanfold')}>
+        <WithMats>
+          {(n) => (
+            <>
+              <mesh geometry={g.fanfoldBody} material={n.paperShade} />
+              <mesh geometry={g.fanfoldTop} material={n.printed.fanfold} />
+              <mesh geometry={g.fanfoldSide} material={n.printed.fanfoldSide} />
+            </>
+          )}
+        </WithMats>
+      </Step>
+      {/* the Continuous plate on the front apron */}
+      <Step on={isStepped(s.step, 'plate')}>
+        <WithMats>
+          {(n) => (
+            <>
+              <mesh geometry={g.traitBack} material={n.graphiteDark} />
+              <mesh geometry={g.trait} material={n.enamel} />
+              <mesh geometry={g.traitFace} material={n.printed.trait} />
+              <mesh geometry={g.bolts} material={n.steel} />
+            </>
+          )}
+        </WithMats>
+      </Step>
       {/* the dispatch ramp */}
       <mesh geometry={g.rampSheet} material={m.graphite} />
       <mesh geometry={g.rampCheeks} material={m.enamelShade} />

@@ -15,15 +15,15 @@ catalogs:
     '@fontsource-variable/inter':
       specifier: 5.3.0
       version: 5.3.0
-    '@fontsource-variable/jetbrains-mono':
-      specifier: 5.3.0
-      version: 5.3.0
     '@fontsource-variable/noto-sans-sc':
       specifier: 5.3.1
       version: 5.3.1
     '@fontsource-variable/noto-serif-sc':
       specifier: 5.3.1
       version: 5.3.1
+    '@fontsource/ibm-plex-mono':
+      specifier: 5.3.0
+      version: 5.3.0
     '@fontsource/im-fell-english':
       specifier: 5.3.0
       version: 5.3.0
@@ -122,15 +122,15 @@ importers:
       '@fontsource-variable/inter':
         specifier: 'catalog:'
         version: 5.3.0
-      '@fontsource-variable/jetbrains-mono':
-        specifier: 'catalog:'
-        version: 5.3.0
       '@fontsource-variable/noto-sans-sc':
         specifier: 'catalog:'
         version: 5.3.1
       '@fontsource-variable/noto-serif-sc':
         specifier: 'catalog:'
         version: 5.3.1
+      '@fontsource/ibm-plex-mono':
+        specifier: 'catalog:'
+        version: 5.3.0
       '@fontsource/im-fell-english':
         specifier: 'catalog:'
         version: 5.3.0
@@ -780,14 +780,14 @@ packages:
   '@fontsource-variable/inter@5.3.0':
     resolution: {integrity: sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==}
 
-  '@fontsource-variable/jetbrains-mono@5.3.0':
-    resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
-
   '@fontsource-variable/noto-sans-sc@5.3.1':
     resolution: {integrity: sha512-UB96JJ17HyD5ehEU7Em0hDdh7fvTMB4B4Hzmq5c4QaNwwSLqTrdM2S+coySeBqCkXwh0DxqXT0b0wMrmzorFpQ==}
 
   '@fontsource-variable/noto-serif-sc@5.3.1':
     resolution: {integrity: sha512-aIHcBaL13QctVaJFeT6wqfgO9Rq/cNtD5g2ob4ze59fYPYwacGthnIrHBe83kDpMEB/k6VGtGc6fS99RImcoSQ==}
+
+  '@fontsource/ibm-plex-mono@5.3.0':
+    resolution: {integrity: sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q==}
 
   '@fontsource/im-fell-english@5.3.0':
     resolution: {integrity: sha512-FcgdWfY9WeUM2gQkfmwhn4Ed9LVtlll8LSSZvHfbsUrnHK5tHHnGg6BgwAfHogp52adU3eE89J/3B52qV3b+Vw==}
@@ -3127,11 +3127,11 @@ snapshots:
 
   '@fontsource-variable/inter@5.3.0': {}
 
-  '@fontsource-variable/jetbrains-mono@5.3.0': {}
-
   '@fontsource-variable/noto-sans-sc@5.3.1': {}
 
   '@fontsource-variable/noto-serif-sc@5.3.1': {}
+
+  '@fontsource/ibm-plex-mono@5.3.0': {}
 
   '@fontsource/im-fell-english@5.3.0': {}
 

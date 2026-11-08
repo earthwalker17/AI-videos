@@ -6,8 +6,12 @@
 export const ROUND2 = {
   /** (a) act one, "You’ve quietly become their router": C4 alone, the hub just closed */
   stillA: 915,
-  /** (b) two levels, "Workers report up. Only the Router talks to you.": C12 alone, the built tag gone */
-  stillB: 2200,
+  /**
+   * (b) two levels, "Workers report up. Only the Router talks to you.": C12 alone, the built tag gone;
+   * the report card has docked in the Register's mouth with its cell lit, the index arm has turned
+   * west and the reply that cites it is about 30% down the chute (desk/state.ts EVENTS_B)
+   */
+  stillB: 2210,
   /** the built tag beside C11 */
   tag: 2050,
   /** (c) context as a cache at the Register's window: N5, with the cache tag */

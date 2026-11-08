@@ -1,24 +1,27 @@
 /**
- * What the Register Desk is doing at a film frame, around style frame (b) (film f2200, C12 "Workers
- * report up. Only the Router talks to you."): a pure function of the frame, so any frame renders
- * the same whichever frame its page started on.
+ * What the Register Desk is doing at a film frame: a pure function of the frame, so any frame
+ * renders the same whichever frame its page started on.
  *
- * This is lookdev's own small timeline (synthesis §4 (b) and §5 MT1), set so that f2200 is exactly
- * the still the spec describes:
- * - the index arm sits at its west detent: it turned to you at 2184 (6 f) and has just sent the reply;
- * - the reply slip left at 2186 and rides the chute for 22 f: 70% down at 2200; it lands in your
- *   in-tray at 2208 (3% squash), and your lamp brightens one step from 2210 (so at 2200 it is still
- *   one step dimmer);
- * - the test tower capped at 2187; its work light dims from 2192 (8 f into its dim at 2200); its
- *   report card ejected at 2190 and flies 18 f with its transit light: about 60% along at 2200;
- * - the bug bay computes (its work slot is lit) while its six test pins flip one per beat;
- * - the docs galley sets type under its clamped work light.
- * Easing uses the film's tokens (synthesis §2, Motion): springs from {stiffness, damping}, mass 1.
+ * Around style frame (b) (C12 "Workers report up. Only the Router talks to you.") the handshake runs
+ * in cause order (STORYBOARD 4.6, synthesis §5 MT1), all inside MT1 (f2140–2340):
+ * - 2156 the test tower caps; 2160 (downbeat) its work light dims;
+ * - 2163 its report card leaves the tower's dome and flies 18 f under the transit light, up into the
+ *   deck's mouth (docked 2181);
+ * - 2183 the print head drops: the report stamps in and its window cell (the newest, by the head)
+ *   lights from 2185;
+ * - 2200 (downbeat) the index arm turns west to you (spring-detent);
+ * - 2202 the reply leaves the print head, citing the report, and rides the chute 22 f under the
+ *   transit light; it lands in your in-tray at 2224 with a 3% squash; your lamp brightens a step at 2226.
+ * Still B (lookdev/frames.ts) is f2210: the card docked, its cell lit, the arm west, the reply about
+ * 30% down the chute. Only one carrier is in flight at a time, and it carries the one transit light.
+ *
+ * Focus (synthesis §2): during a beat, what is not part of its action steps down to 55% contrast and
+ * 30% chroma over 14 f (`stepAt`). Easing uses the film's spring tokens, mass 1.
  */
 import { clamp, easings } from '@aiv/core';
 import { spring } from 'remotion';
 import { BEAT, FPS } from '../cues.ts';
-import { CARD, CHUTE, HOPPER, INDEX, LAMP, PINS, TOWER, towerTop, type P2, type P3 } from './layout.ts';
+import { CARD, CHUTE, INDEX, LAMP, MOUTH, PINS, TOWER, towerTop, type P2, type P3 } from './layout.ts';
 
 /** Remotion spring configs from the synthesis's tokens (mass 1, c = 2ζ√k). Remotion's default spring is never used. */
 export const SPRING = {
@@ -33,16 +36,17 @@ export const SPRING = {
 export const springAt = (f: number, start: number, config: (typeof SPRING)[keyof typeof SPRING]): number =>
   f <= start ? 0 : spring({ frame: f - start, fps: FPS, config: { ...config, overshootClamping: false } });
 
-/** The lookdev events round f2200 (film frames). */
+/** The handshake round C12 (film frames). */
 export const EVENTS_B = {
-  armTurn: 2184,
-  slipLeave: 2186,
-  slipRide: 22,
-  lampUp: 2210,
-  testsCap: 2187,
-  testsDim: 2192,
-  cardEject: 2190,
+  testsCap: 2156,
+  testsDim: 2160,
+  cardEject: 2163,
   cardFly: 18,
+  stampIn: 2183,
+  armTurn: 2200,
+  slipLeave: 2202,
+  slipRide: 22,
+  lampUp: 2226,
   /** the bug bay's pins flip one per beat from here (4 f each), cycling through the six */
   pinsFrom: 2120,
   pinFlip: 4,
@@ -50,14 +54,23 @@ export const EVENTS_B = {
 
 /** The angle (radians, from +x) of the index arm's detents: toward each party it can address. */
 export const DETENT = {
-  you: Math.atan2(-150 - INDEX.pivot[1], -600 - INDEX.pivot[0]),
-  bug: Math.atan2(-30 - INDEX.pivot[1], 130 - INDEX.pivot[0]),
-  tests: Math.atan2(-40 - INDEX.pivot[1], 398 - INDEX.pivot[0]),
-  docs: Math.atan2(-104 - INDEX.pivot[1], 728 - INDEX.pivot[0]),
+  you: Math.atan2(-60 - INDEX.pivot[1], -520 - INDEX.pivot[0]),
+  tests: Math.atan2(92 - INDEX.pivot[1], -210 - INDEX.pivot[0]),
+  docs: Math.atan2(92 - INDEX.pivot[1], 230 - INDEX.pivot[0]),
+  bug: Math.atan2(90 - INDEX.pivot[1], 530 - INDEX.pivot[0]),
 } as const;
 
-/** Your lamp's attention steps: the bulb's level and its pool (synthesis: a step dimmer while you wait). */
-export const LAMP_STEPS = { dim: 0.55, up: 0.8 } as const;
+/** Your lamp's attention steps: the bulb's level and its pool (a step dimmer while you wait). */
+export const LAMP_STEPS = { dim: 0.6, up: 0.85 } as const;
+
+/** What steps down during a beat: everything not in its action. */
+export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'cord';
+/** Per-beat focus sets (film frames). C12's action is the handshake: tower, card, mouth, cell, arm, chute, slip, your desk. */
+export const FOCUS_BEATS: readonly { id: string; from: number; to: number; step: readonly FocusId[] }[] = [
+  { id: 'c12', from: 2130, to: 2266, step: ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'cord'] },
+];
+/** The step-down ramp, frames (synthesis: 12–16 f). */
+export const STEP_FRAMES = 14;
 
 export interface DeskState {
   f: number;
@@ -67,10 +80,16 @@ export interface DeskState {
   slip: { s: number; squash: number } | null;
   /** your lamp's level (0..1 scale of its pool and bulb) */
   lamp: number;
-  /** the report card: arc progress 0..1, its world position and pitch, its transit light 0..1 (null when docked or not out) */
-  card: { s: number; pos: P3; pitch: number; light: number } | null;
-  /** the card has landed in the Register's hopper (it stays there, its light off) */
+  /** the report card in flight: arc progress 0..1, world position, pitch (null when not flying) */
+  card: { s: number; pos: P3; pitch: number } | null;
+  /** the card has docked in the deck's mouth (it stays there) */
   cardDocked: boolean;
+  /** the print head's stamp 0..1 (down at 1) */
+  stamp: number;
+  /** the newest window cell, lit as the report stamps in (0..1) */
+  cellLit: number;
+  /** the one transit light: which carrier wears it, and how bright (0..1) */
+  transit: { on: 'card' | 'slip' | null; level: number };
   /** the test tower's work light, 1 working → 0 done */
   testsLight: number;
   /** the test tower's cap: 0 open → 1 closed */
@@ -81,6 +100,8 @@ export interface DeskState {
   pins: number[];
   /** the docs galley: how far the current line is set (0..1) */
   galley: number;
+  /** the focus step-down: how far it has gone (0..1) and what it applies to */
+  step: { amount: number; ids: readonly FocusId[] };
 }
 
 /** Arc length positions along a polyline (for the chute ride). */
@@ -101,43 +122,56 @@ export function polylineAt(pts: readonly P3[], s: number): { p: P3; dir: P3 } {
   return { p: pts[pts.length - 1], dir: [0, 0, 0] };
 }
 
-/** The card's flight: from the tower cap up to the hopper, a parabolic arc `apex` above the chord. */
-export const CARD_FROM: P3 = [TOWER.x, TOWER.y, towerTop() + 1];
-export const CARD_TO: P3 = HOPPER.land;
+/** The card's flight: from the tower's dome up into the mouth, a parabolic arc `apex` above the chord. */
+export const CARD_FROM: P3 = [TOWER.x, TOWER.y, towerTop() + TOWER.dome + 2];
+export const CARD_TO: P3 = MOUTH.land;
 export function cardArc(s: number): { pos: P3; pitch: number } {
   const u = clamp(s);
   const pos: P3 = [CARD_FROM[0] + (CARD_TO[0] - CARD_FROM[0]) * u, CARD_FROM[1] + (CARD_TO[1] - CARD_FROM[1]) * u, CARD_FROM[2] + (CARD_TO[2] - CARD_FROM[2]) * u + 4 * CARD.apex * u * (1 - u)];
   const run = Math.hypot(CARD_TO[0] - CARD_FROM[0], CARD_TO[1] - CARD_FROM[1]);
-  // the slope of the arc: dz/ds over the horizontal run
   const pitch = Math.atan2(4 * CARD.apex * (1 - 2 * u) + (CARD_TO[2] - CARD_FROM[2]), run);
   return { pos, pitch };
 }
 
+/** The focus step-down at film frame f: ramps in over STEP_FRAMES from a beat's start, out after its end. */
+export function stepAt(f: number): DeskState['step'] {
+  for (const b of FOCUS_BEATS) {
+    if (f < b.from || f >= b.to + STEP_FRAMES) continue;
+    const amount = Math.min(easings.inOutSine(clamp((f - b.from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - b.to) / STEP_FRAMES)));
+    return { amount, ids: b.step };
+  }
+  return { amount: 0, ids: [] };
+}
+
+/** A carrier's transit light over a ride from 0 to 1: up in the first sixth, down in the last. */
+const rideLight = (u: number): number => (u <= 0 || u >= 1 ? 0 : clamp(u * 6) * clamp((1 - u) * 6));
+
 /** The state of the desk at film frame `f` (pure). */
 export function deskStateAt(f: number): DeskState {
   const E = EVENTS_B;
-  // the index arm: from the bug bay's detent to yours (west) on spring-detent
-  const turn = springAt(f, E.armTurn, SPRING.detent);
-  const arm = DETENT.bug + (DETENT.you - DETENT.bug) * turn;
-
-  // the reply slip rides the chute (a gravity ride: in and out), then lands with a 3% squash
-  const ride = (f - E.slipLeave) / E.slipRide;
-  const land = E.slipLeave + E.slipRide;
-  const slip = f < E.slipLeave ? null : { s: easings.inOutSine(clamp(ride)), squash: f < land ? 0 : Math.max(0, 1 - (f - land) / 4) * (f - land < 2 ? (f - land) / 2 : 1) };
-
-  // your lamp: one step dimmer until the reply has landed, then up one step on spring-effects
-  const lamp = LAMP_STEPS.dim + (LAMP_STEPS.up - LAMP_STEPS.dim) * springAt(f, E.lampUp, SPRING.effects);
-
-  // the test tower: cap, dim, eject; the card flies 18 f (in-out), its transit light on while it flies
+  // the test tower finishes: cap, dim; its card flies up into the mouth and docks
   const testsCap = springAt(f, E.testsCap, SPRING.detent);
   const testsLight = 1 - springAt(f, E.testsDim, SPRING.effects);
   const fly = (f - E.cardEject) / E.cardFly;
   let card: DeskState['card'] = null;
   if (fly >= 0 && fly < 1) {
-    const s = easings.inOutSine(fly);
-    const arc = cardArc(s);
-    card = { s, pos: arc.pos, pitch: arc.pitch, light: clamp(fly * 6) * clamp((1 - fly) * 6) };
+    const arc = cardArc(easings.inOutSine(fly));
+    card = { s: easings.inOutSine(fly), pos: arc.pos, pitch: arc.pitch };
   }
+  const cardDocked = fly >= 1;
+  // stamp-in: the head drops 4 f, the newest cell lights (spring-effects)
+  const stamp = clamp((f - E.stampIn) / 2) * (1 - clamp((f - E.stampIn - 4) / 3));
+  const cellLit = springAt(f, E.stampIn + 2, SPRING.effects);
+  // the index arm: from the test tower's detent to yours (west) on spring-detent
+  const arm = DETENT.tests + (DETENT.you - DETENT.tests) * springAt(f, E.armTurn, SPRING.detent);
+  // the reply rides the chute (a gravity ride: in and out), then lands with a 3% squash
+  const ride = (f - E.slipLeave) / E.slipRide;
+  const land = E.slipLeave + E.slipRide;
+  const slip = f < E.slipLeave ? null : { s: easings.inOutSine(clamp(ride)), squash: f < land ? 0 : Math.max(0, 1 - (f - land) / 4) * (f - land < 2 ? (f - land) / 2 : 1) };
+  // the one transit light rides the one carrier in flight
+  const transit: DeskState['transit'] = card ? { on: 'card', level: rideLight(fly) } : slip && ride < 1 ? { on: 'slip', level: rideLight(ride) } : { on: null, level: 0 };
+  // your lamp: one step dimmer until the reply has landed, then up one step on spring-effects
+  const lamp = LAMP_STEPS.dim + (LAMP_STEPS.up - LAMP_STEPS.dim) * springAt(f, E.lampUp, SPRING.effects);
 
   // the bug bay's pins: one flips per beat, 4 f each, cycling round the six
   const pins = Array.from({ length: PINS.n }, (_, i) => {
@@ -145,16 +179,13 @@ export function deskStateAt(f: number): DeskState {
     if (sinceFrom < 0) return 0;
     const cycle = PINS.n * BEAT;
     const k = sinceFrom % cycle;
-    // passed after its flip, reset when the cycle comes round (all six face up at the end of a run)
     return Math.floor(sinceFrom / cycle) % 2 === 0 ? clamp(k / E.pinFlip) : 1 - clamp(k / E.pinFlip);
   });
 
   // the galley: a line of type takes two bars to set
-  const galley = (((f - 2000) % 160) + 160) % 160 / 160;
+  const galley = ((((f - 2000) % 160) + 160) % 160) / 160;
 
-  const cardDocked = fly >= 1;
-
-  return { f, arm, slip, lamp, card, cardDocked, testsLight, testsCap, bugLight: 1, pins, galley };
+  return { f, arm, slip, lamp, card, cardDocked, stamp, cellLit, transit, testsLight, testsCap, bugLight: 1, pins, galley, step: stepAt(f) };
 }
 
 /** The slip's pose on the chute at progress s (lying in the trough, along its slope). */
