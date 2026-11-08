@@ -40,22 +40,22 @@ line that changes there is checked again here before the script is locked. Sourc
 | The Router layer is long-lived and receives human interaction from every entry point (block 31), and it still sees every event (block 58). The authors run it as one long-lived LLM session (block 33) [V] | C9 "Above: one long-lived Router hears every channel." Label "Router" | x-article-super-agent | 2026-11-08 · A |
 | The Router layer is designed not to execute tasks: it only deals with people and dispatches (block 31), and it does not break down individual tasks (block 32) [V]. In the prototype the main Session has no file write or edit tools (cordis.patch.yml:163–167), and its prompt forbids adding plans or requirements to a request (prompts/dispatch.md:14, 38) [V] | C10 "It hands each task over whole and never does the work." The picture strikes out a split sketch | x-article-super-agent; dsh-superagent-prototype-8c32a9d | 2026-11-08 · A; P |
 | Each Worker has an isolated context and a full set of execution tools, and works on a single task (block 39) [V] | C11 "Below: each task gets its own Worker, context and tools." Label "Worker" | x-article-super-agent | 2026-11-08 · A |
-| At `8c32a9d` the two levels exist. There is one long-lived main Session in the Router role: it evaluates Triggers, dispatches Tickets and replies (docs/001-domain.md:80), under a single stored id (docs/007-architecture.md:475). Each Ticket gets one Executor Session, `worker-<ticket id>`, with its own directory (docs/003-execution.md:25) [V]. The README calls the code a research prototype that differs from the article and leaves some of its designs unimplemented (README.md:3, 5). Block 141 says it exists to validate the approach and is not an official DeepSeek product [V] | Tag "Two levels: built in the public research prototype / 两级结构：公开研究原型已实现", f1680–1940 | dsh-superagent-prototype-8c32a9d; x-article-super-agent | 2026-11-08 · P; A |
-| Design: Workers never deal with people directly. They report to the Router layer, which handles every reply (block 40) [V]. The prototype only partly follows this. Its Router delivers IM answers and results, but Workers write their own acknowledgements, which the host posts in the request's original thread, and they reply to GitHub review threads themselves (prompts/replies.md:13, 17, 25; prompts/work.md:18, 28) [V]. The line states the design, not what is built (open item 2) | C12 "Workers report up. Only the Router talks to you." The picture sends one reply to you on a cased line | x-article-super-agent; dsh-superagent-prototype-8c32a9d | 2026-11-08 · A; P |
+| At `8c32a9d` the two levels exist. There is one long-lived main Session in the Router role: it evaluates Triggers, dispatches Tickets and replies (docs/001-domain.md:80), under a single stored id (docs/007-architecture.md:475). Each Ticket gets one Executor Session, `worker-<ticket id>`, with its own directory (docs/003-execution.md:25) [V]. The README calls the code a research prototype that differs from the article and leaves some of its designs unimplemented (README.md:3, 5). Block 141 says it exists to validate the approach and is not an official DeepSeek product [V] | Tag "two levels: built in the public research prototype / 双层架构：公开研究原型已实现", f1680–1810: under C11 only, ending where C12 begins (open item 2) | dsh-superagent-prototype-8c32a9d; x-article-super-agent | 2026-11-08 · P; A |
+| Design: Workers never deal with people directly. They report to the Router layer, which handles every reply (block 40) [V]. The prototype only partly follows this. Its Router delivers IM answers and results, but Workers write their own acknowledgements, which the host posts in the request's original thread, and they reply to GitHub review threads themselves (prompts/replies.md:13, 17, 25; prompts/work.md:18, 28) [V]. The line states the design, not what is built, so the built tag has ended before it (open item 2, resolved) | C12 "Workers report up. Only the Router talks to you." The picture sends one reply to you on a cased line, solid because the prototype's Router does deliver IM answers and results | x-article-super-agent; dsh-superagent-prototype-8c32a9d | 2026-11-08 · A; P |
 | "Sessions should be an implementation detail of the system, not a mental burden on its users" (block 27) [V] | C13 "Sessions become an implementation detail, not your burden." | x-article-super-agent | 2026-11-08 · A |
 | Two-stage filtering. Code checks deterministic conditions and drops most irrelevant messages before any model is called (the Fast Path). The remaining candidates go to an LLM, which decides against policies written as prompts (the Slow Path) (blocks 47–50) [V]. The prototype builds it as a gate followed by a model assessment (docs/001-domain.md:33) [V] | C14 "By design: rules drop most noise; a model judges the rest." The picture has railway points and a gate | x-article-super-agent; dsh-superagent-prototype-8c32a9d | 2026-11-08 · A; P |
-| At `8c32a9d` the accept mode defaults to `observe` (src/policy.ts:84). A proactive ("inferred") candidate that the model approves is recorded as "would accept" and is not taken until an operator switches to `auto` (src/policy.ts:55; docs/002-authorization.md:98). "Explicit requests work in every mode" (docs/002-authorization.md:101) [V] | Gate tag "prototype: proactive pickup off by default / 原型中主动接单默认关闭" | dsh-superagent-prototype-8c32a9d | 2026-11-08 · P |
+| At `8c32a9d` the accept mode defaults to `observe` (src/policy.ts:84). A proactive ("inferred") candidate that the model approves is recorded as "would accept" and is not taken until an operator switches to `auto` (src/policy.ts:55; docs/002-authorization.md:98). "Explicit requests work in every mode" (docs/002-authorization.md:101) [V] | Gate tag "prototype: proactive pickup off by default / 原型：主动接单默认关闭" | dsh-superagent-prototype-8c32a9d | 2026-11-08 · P |
 | Triggers that arrive while the Router is mid-turn queue up and go into its next LLM call together. Time per request grows much more slowly than the batch size (blocks 33–35) [V]. The prototype batches in its own way: each Thread's queued Triggers become one Eval batch, and relays that reach the busy main Session are delivered together at its next step (docs/001-domain.md:43; docs/007-architecture.md:42, 93) [V] | C15 "Can one Router keep up? Waiting events go in together." The picture gathers one bundle per downbeat and shows no batch size | x-article-super-agent; dsh-superagent-prototype-8c32a9d | 2026-11-08 · A; P |
-| In the Router stress test the Router called a real model and the Workers used mock models (block 118). As the Triggers needing a decision rose from about 1 to about 40 a minute, the amortised inference time per decision fell from 6.4 s to 1.6 s (block 120; fig 27 is block 119) [V]. These are the authors' numbers: the public repository holds no experiment code (its 236-entry tree at `8c32a9d` has no benchmark or experiment files) [V] | C16 "Stress test: ~40× the load, less average time per decision." Plate "stress test · mock Workers / 压测 · 模拟 Worker" with "1 → 40 /min" and "6.4 s → 1.6 s avg" (open item 4) | x-article-super-agent; dsh-superagent-prototype-8c32a9d | 2026-11-08 · A; P (tree listing); calc |
+| In the Router stress test the Router called a real model and the Workers used mock models (block 118). As the Triggers needing a decision rose from about 1 to about 40 a minute, the amortised inference time per decision fell from 6.4 s to 1.6 s (block 120; fig 27 is block 119) [V]. These are the authors' numbers: the public repository holds no experiment code (its 236-entry tree at `8c32a9d` has no benchmark or experiment files) [V] | C16 "Stress test: ~40× the load, less average time per decision." Plate "stress test · mock Workers / 压测 · 模拟 Worker" with "~1 → ~40 /min" and "6.4 s → 1.6 s avg" (open item 4, resolved) | x-article-super-agent; dsh-superagent-prototype-8c32a9d | 2026-11-08 · A; P (tree listing); calc |
 | Code passes a Thread's follow-up events straight to the subscribed Worker. The Router handles only new tasks and cross-task coordination (blocks 53, 56–57) [V]. The prototype builds it as Subscription fan-out (docs/001-domain.md:37) [V] | C17 "Follow-ups in a Thread go straight to its Worker." The picture takes it over a flyover | x-article-super-agent; dsh-superagent-prototype-8c32a9d | 2026-11-08 · A; P |
-| Without pass-through, tasks finish in about the same time (p50/p95 12.6/15.5 min against 12.4/15.7, block 113). But the Router makes "about 30% more decisions per run", and cache-read tokens rise from 23.2M to 31.8M (block 116). Pass-through "does not make tasks finish faster or better" (block 116) [V]. 30% more without pass-through is about 23% fewer with it (open item 1, resolved) | C18 "Not faster tasks: about 23% fewer Router decisions." / 任务不会更快 但 Router 决策少约 23%. The picture draws the tally shorter than its ghost, which runs about 1.3× as long | x-article-super-agent | 2026-11-08 · A; calc |
+| Without pass-through, tasks finish in about the same time (p50/p95 12.6/15.5 min against 12.4/15.7, block 113). But the Router makes "about 30% more decisions per run", and cache-read tokens rise from 23.2M to 31.8M (block 116). Pass-through "does not make tasks finish faster or better" (block 116) [V]. 30% more without pass-through is about 23% fewer with it (open item 1, resolved) | C18 "Not faster tasks: about 23% fewer Router decisions." / 任务不会更快 但 Router 决策约少 23%. The picture draws the tally shorter than its ghost, which runs about 1.3× as long | x-article-super-agent | 2026-11-08 · A; calc |
 | The experiments use synthetic workloads and simplified environments, so the results are "indicative only" (block 106) [V]. "Re-plotted" is ours: the chart is drawn from the article's table (block 113) | Chart tag "synthetic test · re-plotted · indicative only / 模拟实验 · 本片重绘 · 仅供参考" | x-article-super-agent | 2026-11-08 · A |
 | Each run had about 300 messages, about 20 of them work requests. Coding was simulated by a tool that only consumes time. Four designs ran at the same time, each 5 times (block 108) [V] | C19 "Their test is synthetic: ~300 messages, ~20 work requests." The picture shows about 300 ticks with 20 inked | x-article-super-agent | 2026-11-08 · A |
-| The results table (block 113) [V] gives p50/p95 minutes and cache-read tokens per run. Super-agent: 12.4/15.7, 23.2M. Without pass-through: 12.6/15.5, 31.8M. Single session with a subagent tool and the neutral prompt: 20.4/29.5, 6.1M. The same with the delegation-first prompt: 13.8/29.0, 10.8M. The film draws three lanes on one unitless scale, a dot at p50 and a terminus bar at p95, and shows no minutes | Lanes "one session · 单 Session", "one session, told to delegate · 提示委派的单 Session" and "two levels · 两级"; legend "● typical ┃ slowest / ● 中位 ┃ 最慢" | x-article-super-agent | 2026-11-08 · A |
+| The results table (block 113) [V] gives p50/p95 minutes and cache-read tokens per run. Super-agent: 12.4/15.7, 23.2M. Without pass-through: 12.6/15.5, 31.8M. Single session with a subagent tool and the neutral prompt: 20.4/29.5, 6.1M. The same with the delegation-first prompt: 13.8/29.0, 10.8M. The film draws three lanes on one unitless scale, a dot at p50 and a terminus bar at p95, and shows no minutes | Lanes "one session · 单 Session", "one session, told to delegate · 被要求委派的单 Session" and "two levels · 双层架构"; legend "● typical ┃ slowest / ● 中位 ┃ 最慢" | x-article-super-agent | 2026-11-08 · A |
 | p95 is 15.7 against 29.5 (≈ 0.53) and against 29.0 (≈ 0.54) (block 113) [V] | C20 "Slowest tasks: about half the time of a single session." | x-article-super-agent | 2026-11-08 · A; calc |
 | p50 is 12.4 against 13.8 for the delegation-first baseline: (13.8 − 12.4)/13.8 ≈ 10%. That baseline is the stronger one at p50 (13.8 against 20.4) (block 113) [V] | C21 "Typical tasks: only ~10% faster than the stronger baseline." | x-article-super-agent | 2026-11-08 · A; calc |
-| With the neutral prompt the model called no subagent in any of the 5 runs. With the delegation-first prompt it delegated in 4 of 5; in the fifth it did the work itself, which made the long tail (block 115) [V]. The neutral prompt still mentions subagents: "Use a subagent for a piece of work when appropriate" (block 110) (open item 3) | C22 "Unprompted, the single session never delegated." The picture slides lane 2's terminus out for the run it did itself | x-article-super-agent | 2026-11-08 · A |
-| The two-level architecture handles delegation at the system level: the Router does not execute work, and each Worker receives only its Threads' messages (block 115). It uses more cache-read tokens, trading tokens for shorter, steadier completion times (block 116) [V]. 23.2/10.8 ≈ 2.1 and 23.2/6.1 ≈ 3.8, shown as "2–4×" | C23 "Two levels make delegation structural, at 2–4× the tokens." Token bars proportional to 6.1M, 10.8M and 23.2M, headed "cache-read tokens per run · 每轮缓存读取 token" | x-article-super-agent | 2026-11-08 · A; calc |
+| With the neutral prompt the model called no subagent in any of the 5 runs. With the delegation-first prompt it delegated in 4 of 5; in the fifth it did the work itself, which made the long tail (block 115) [V]. The neutral prompt still mentions subagents: "Use a subagent for a piece of work when appropriate" (block 110), so the choice was left to the model (open item 3, resolved) | C22 "Left to choose, the single session never delegated." / 自行决定时 单 Session 从未委派. The picture slides lane 2's terminus out for the run it did itself | x-article-super-agent | 2026-11-08 · A |
+| The two-level architecture handles delegation at the system level: the Router does not execute work, and each Worker receives only its Threads' messages (block 115). It uses more cache-read tokens, trading tokens for shorter, steadier completion times (block 116) [V]. 23.2/10.8 ≈ 2.1 and 23.2/6.1 ≈ 3.8, shown as "2–4×" | C23 "Two levels make delegation structural, at 2–4× the tokens." Token bars proportional to 6.1M, 10.8M and 23.2M, headed "cache-read tokens per run · 每次运行的缓存读取 token" | x-article-super-agent | 2026-11-08 · A; calc |
 | Design (§5): the Agent Loop runs in stateless cloud containers and keeps its state in a database, so a sleeping or offline local device no longer stops the agent (blocks 90, 92). Each endpoint runs a lightweight daemon that keeps no session state (block 96) [V]. The prototype has none of this: it runs as one local DeepSeek Harness process serving 127.0.0.1 (docs/006-deployment.md:7) with one SQLite state file (docs/007-architecture.md:452) and no endpoint daemon [V] | C24 "Proposed: a cloud loop that works while your laptop sleeps." Tag "proposed · not in the public prototype / 设想 · 公开原型未实现"; dashed machines, tethers and state depot | x-article-super-agent; dsh-superagent-prototype-8c32a9d | 2026-11-08 · A; P |
 | An open problem (§8.4): if a server-side intrusion or a prompt injection compromises the cloud Agent Loop, every endpoint device connected to it could be taken over (block 135) [V]. Security is one of four open areas (block 122) | C25 "Open risk: a hijacked loop could reach all connected machines." The picture runs hatching along every tether, and a sketched "?" stays | x-article-super-agent | 2026-11-08 · A |
 | Models need less and less human intervention on single tasks, so the bottleneck is shifting to human attention (blocks 4, 139) [V] | C26 "As models need less help, your attention becomes the limit." | x-article-super-agent | 2026-11-08 · A |
@@ -64,34 +64,44 @@ line that changes there is checked again here before the script is locked. Sourc
 | The English title [V] | End card: "Source: 'Exploring Super-agent Design: Towards a More Autonomous Agent System'" | x-article-super-agent | 2026-11-08 · A |
 | "Yujia Qiao implemented the system and wrote the article"; the article is "based on shared work by the DeepSeek Harness team" (block 143) [V] | End card: "DeepSeek Harness team · author Yujia Qiao" / "DeepSeek Harness 团队 作者 Yujia Qiao" | x-article-super-agent | 2026-11-08 · A |
 | The Chinese original appeared on 2026-10-31. At 21:36:35 Beijing time IT之家 reported that the DeepSeek Harness team had published it that day, and 量子位 reported it at 21:49:44. A post linking its WeChat address dates from 14:41:48 UTC that day, and Bloomberg (in syndication) dates the WeChat post to Saturday, 31 October [S]. The original itself was not read [U] | End card: "Chinese original 31 Oct 2026" / "中文原文 2026-10-31" | ithome-2026-10-31; qbitai-2026-10-31; x-post-shao-meng-2026-10-31; bloomberg-deccan-2026-11-01; wechat-original | 2026-11-08 · R; the linking post via the fxtwitter API; Bloomberg in the Deccan Chronicle syndication |
-| The X post carrying the article was created 2026-11-01T11:37:54Z (19:37 Beijing time). The article's first block says it is a machine translation of the Chinese original (block 1) [V] | End card: "English 1 Nov 2026" / "英译 2026-11-01" | x-post-super-agent; x-article-super-agent | 2026-11-08 · A |
+| The X post carrying the article was created 2026-11-01T11:37:54Z (19:37 Beijing time). The article's first block says it is a machine translation of the Chinese original (block 1) [V] | End card: "machine-translated 1 Nov 2026" / "英文机译 2026-11-01" | x-post-super-agent; x-article-super-agent | 2026-11-08 · A |
 | IT之家 gives the Chinese title as 《Super-agent 设计探索：迈向更自主的 Agent 系统》 [S]. 量子位 gives "Super-agent：迈向更自主的Agent系统", without 设计探索 [S]. The IT之家 form matches the English title; it stays [S] until the original is read | zh end card: 原文：《Super-agent 设计探索：迈向更自主的 Agent 系统》 | ithome-2026-10-31; qbitai-2026-10-31 | 2026-11-08 · R |
 | Our own statements: we drew the charts from the article's numbers (blocks 113, 120), and the film has no affiliation with DeepSeek | End card: "Charts re-plotted from the authors' synthetic tests · Not affiliated with DeepSeek" / "图表据作者模拟实验重绘 独立解读 与 DeepSeek 无关联" | x-article-super-agent | 2026-11-08 · A |
-| Solid lines are what the prototype has at `8c32a9d`. Dashed lines are what the article proposes and the prototype lacks. Sketched lines are what the article lists as open (§8). See "Built vs proposed" | End-card key "solid: built · dashed: proposed · sketch: open / 实线：已实现 · 虚线：设想 · 草图：未解", as TREATMENT.md adapts the synthesis's "pencil / 铅笔" to the dark look (open item 6) | dsh-superagent-prototype-8c32a9d; x-article-super-agent | 2026-11-08 · P; A |
+| Solid lines are what the prototype has at `8c32a9d`. Dashed lines are what the article proposes and the prototype lacks. Sketched lines are what the article lists as open (§8). See "Built vs proposed" | End-card key "solid: built · dashed: proposed · sketch: open / 实线：已实现 · 虚线：设想 · 手绘线：未解" (open item 6, resolved) | dsh-superagent-prototype-8c32a9d; x-article-super-agent | 2026-11-08 · P; A |
 
 ## Open before the script locks
 1. **C18 overstated the decision saving: resolved 2026-11-08.** The article says that without
    pass-through the Router makes about 30% more decisions (block 116), so with it the Router
    makes about 23% fewer (1 − 1/1.3 ≈ 0.23). The approved line said "about 30% fewer", the
    same slip as turning the article's "about 37% more" tokens into "37% fewer". It now reads
-   "Not faster tasks: about 23% fewer Router decisions." / 任务不会更快 但 Router 决策少约 23%,
-   with its holds re-checked (TREATMENT.md, beat 5). The ghost tally is drawn about 1.3× as
-   long as the real one, so the real tally is about 77% of the ghost.
-2. **C12 sits under the built tag.** The tag "Two levels: built in the public research
-   prototype" runs f1680–1940, and C12 runs f1810–1940. "Only the Router talks to you" is the
-   article's design. The prototype only partly follows it: Workers write their own
-   acknowledgements and reply on GitHub. Either end the tag before C12, or draw the reply line
-   in the design style.
-3. **"Unprompted" (C22, and 不加提示时 in zh).** The baseline had a neutral prompt that still
-   mentions subagents, not no prompt. "Left to choose, the single session never delegated"
-   would be closer.
-4. **The stress plate** reads "1 → 40 /min", while the article says about 1 to about 40.
-   "~1 → ~40 /min" would be exact.
-5. **The zh term for "two levels"** (两级) differs from the coverage's 双层架构 (see the
-   Chinese text check).
-6. **The end-card key's third entry.** The synthesis wrote "pencil / 铅笔" for its light look;
-   TREATMENT.md adapts it to "sketch / 草图" for the dark look. The final EN and zh wording is
-   set in SCRIPT.md, with the user's zh sign-off.
+   "Not faster tasks: about 23% fewer Router decisions." / 任务不会更快 但 Router 决策约少 23%
+   (the treatment's 决策少约 23% with 约 moved before 少, pending the zh sign-off), with its
+   holds re-checked (SCRIPT.md). The ghost tally is drawn about 1.3× as long as the real one,
+   so the real tally is about 77% of the ghost.
+2. **C12 sat under the built tag: resolved 2026-11-08.** "Only the Router talks to you" is the
+   article's design; the prototype only partly follows it, since its Workers write their own
+   acknowledgements and reply on GitHub. The tag now runs f1680–1810 and ends where C12
+   begins, so it sits only under C11 (a Worker per task, which is built). The Router's reply
+   line in C12 stays solid: the prototype's Router does deliver IM answers and results, and
+   only the word "only" is the design.
+3. **"Unprompted" (C22): resolved 2026-11-08.** The baseline had a neutral prompt that still
+   allowed a subagent "when appropriate" (block 110), not no prompt. C22 now reads "Left to
+   choose, the single session never delegated." / 自行决定时 单 Session 从未委派. The longer
+   EN line holds by moving C19–C21 20 frames earlier inside beat 6 (SCRIPT.md).
+4. **The stress plate: resolved 2026-11-08.** It reads "~1 → ~40 /min", as the article says
+   about 1 to about 40 (block 120).
+5. **双层 or 两级: resolved 2026-11-08.** The coverage calls the architecture 双层架构 and
+   uses 两级 for the two-stage filter (两级过滤). The architecture is 双层架构 everywhere it is
+   named (C8, the built tag, the third lane, C23). No line names the filter, so 两级 is not
+   used.
+6. **The end-card key's third entry: resolved 2026-11-08, pending the zh sign-off.** "sketch:
+   open" / 手绘线：未解. 手绘线 names a line type, as 实线 and 虚线 do; 草图 (TREATMENT.md's
+   adaptation) names a drawing, and the synthesis's 铅笔 belonged to its light look. Sketch
+   lines in the summary map are the act-one ghost and the "?", both outside what is built or
+   proposed.
+
+All the zh copy, including these choices, waits for the user's sign-off (SCRIPT.md, "zh
+sign-off").
 
 ## Built vs proposed
 At `8c32a9d` (the only commit on the prototype's default branch, MIT) the matrix is as
@@ -106,7 +116,7 @@ verify passes on 2026-11-08, with the cited lines re-read for this file.
 | Two-stage filtering | §3.1 | Built: a gate, then a model assessment. Proactive pickup is only recorded by default (`observe`); explicit requests work in every mode | Solid points and gate, with the off-by-default tag |
 | Threads, subscription and pass-through | §3.2 | Built as many-to-many Subscription fan-out (docs/001-domain.md:37) | Solid flyover |
 | Batching | Blocks 33–35; the stress test in §7.2 | Built in its own form: per-Thread Eval batches (docs/001-domain.md:43), and relays to a busy main Session delivered together at its next step (docs/007-architecture.md:42). The stress-test numbers are the authors' and cannot be reproduced from the repository | Solid bundle. The plate says "stress test · mock Workers" |
-| Only the Router replies to people | Block 40 | In part. The Router delivers IM answers and results; Workers write their own acknowledgements, posted in the original thread, and reply to GitHub review threads (prompts/replies.md:13, 17, 25; prompts/work.md:18, 28) | Design (open item 2) |
+| Only the Router replies to people | Block 40 | In part. The Router delivers IM answers and results; Workers write their own acknowledgements, posted in the original thread, and reply to GitHub review threads (prompts/replies.md:13, 17, 25; prompts/work.md:18, 28) | Design: C12 comes after the built tag has ended; the Router's reply line is solid (open item 2) |
 | Inline & Spill, Chain of Recall | §3.3 | In prototype form: cards with a preview and a read pointer, and reads by ID | Left out |
 | Acting ahead ("silently reproduce and fix") | §3.4 | Only a test fixture, not a default rule | Left out |
 | Asynchronous full-duplex loop | §4.1. Block 83: in DeepSeek Harness, not enabled by default | The presets move shell commands to background jobs after 5 s (docs/003-execution.md:27) | Left out |
@@ -195,8 +205,8 @@ SCRIPT.md fixes the copy. Until then every zh line in the treatment is a draft.
 | 据作者经验 … 3–5 个 | C3 | IT之家: 3 至 5 个活跃 Session; 量子位: 3到5个活跃Session, both as the team's observation [S] |
 | 人肉 Router | C4 | Our coinage [U]. Its register is for the user to judge |
 | 串行 / 串味 | C5 | Ours [U] |
-| 连续 / 高效 | C7 | IT之家's names for two of the four traits (连续、高效、主动和持久) [S] |
-| 两级 / 两级结构 / 两级架构 / 分成两层 | C8, built tag, lane, C23 | Ours [U]. The coverage and the reprint call it 双层架构 (IT之家's headline; 量子位; the reprint's §2) [S]. Both reports and the reprint use 两级 for the two-stage filter instead (IT之家 两级过滤, 量子位 两级事件过滤机制) [S]. Open item 5 |
+| 连续性 / 速度 | C7 | Ours [U]. IT之家 names the four traits 连续、高效、主动和持久 [S]; 速度 matches the EN "speed" |
+| 双层架构 | C8, built tag, third lane, C23 | The coverage and the reprint call the architecture 双层架构 (IT之家's headline; 量子位; the reprint's §2) [S]. Both reports and the reprint use 两级 for the two-stage filter (IT之家 两级过滤, 量子位 两级事件过滤机制) [S], which no line names, so 两级 is not used (open item 5, resolved) |
 | 渠道 | C9 | The prototype's glossary: Channel 渠道 [V]. IT之家: 不同渠道 [S]. The reprint's 多信道 is not used |
 | 实现细节 / 负担 | C13 | The reprint words the line as Session being 实现细节 rather than 认知负担 [S]; not in IT之家 or 量子位 |
 | 公开研究原型 / 原型 | Tags | IT之家: 原型实现 [S]. The README: "research prototype" [V] |
@@ -208,7 +218,7 @@ SCRIPT.md fixes the copy. Until then every zh line in the treatment is a draft.
 | 模拟实验 / 本片重绘 / 仅供参考 | Chart tag, C19 | Ours [U]. The reprint titles §7 初步实验 [S] |
 | 约 300 条消息 约 20 个工作请求 | C19 | IT之家: 约 300 条消息，其中约 20 条为工作请求 [S] |
 | 中位 / 中位数 / 最慢 | Legend, C21 | 量子位: 中位数 and 95分位数 [S]. 最慢 for p95 is ours [U] |
-| 基线 / 委派 / 提示委派 | C21, C22, lane | Ours [U] |
+| 基线 / 委派 / 被要求委派 / 自行决定 | C21, C22, lane | Ours [U] |
 | 缓存读取 token | Token header, C23 | 量子位: 读取缓存Token [S] |
 | 设想 · 公开原型未实现 | Tag, C24 | Ours [U] |
 | 云端 | C24 | IT之家 and 量子位: 云端 Agent [S] |
@@ -216,9 +226,9 @@ SCRIPT.md fixes the copy. Until then every zh line in the treatment is a draft.
 | 注意力 / 瓶颈 | C26 | IT之家: 限制生产力进一步提升的因素正逐渐转向人的注意力 [S]. 瓶颈 is ours [U] |
 | 决策 / 验收 | C27 | The reprint: 更高层的决策与验收 [S]; not in IT之家 or 量子位 |
 | 原文：《Super-agent 设计探索：迈向更自主的 Agent 系统》 | End card | IT之家 [S]; 量子位 drops 设计探索 [S] |
-| 英译 | End card | The English is a machine translation (block 1) [V]. The user may prefer a word that says so |
+| 英文机译 | End card | The English is a machine translation (block 1) [V], and 英文机译 says so; the treatment had 英译 |
 | 图表据作者模拟实验重绘 / 独立解读 与 DeepSeek 无关联 | End card | Ours |
-| 实线：已实现 · 虚线：设想 · 草图：未解 | End-card key | Ours [U]. 草图 replaces the synthesis's 铅笔 for the dark look (open item 6) |
+| 实线：已实现 · 虚线：设想 · 手绘线：未解 | End-card key | Ours [U]. 手绘线 is a line type like 实线 and 虚线; it replaces the treatment's 草图 and the synthesis's 铅笔 (open item 6, resolved) |
 
 ## Simplifications
 - **"Router" stands for "the Router layer".** The article lets that layer be more than one
@@ -231,8 +241,8 @@ SCRIPT.md fixes the copy. Until then every zh line in the treatment is a draft.
 - **"Slowest" and "typical".** "Slowest" means p95, the 95th percentile, and "typical" means
   p50, the median.
 - **Lane names.** Both single-session designs had a subagent tool. "One session" is the
-  neutral prompt and "told to delegate" the delegation-first prompt. "Unprompted" means the
-  neutral prompt (open item 3).
+  neutral prompt and "told to delegate" the delegation-first prompt. "Left to choose" (C22)
+  means the neutral prompt, which allowed a subagent "when appropriate" (open item 3).
 - **Rounded figures.** "~40× the load" means about 40 times the arrival rate of Triggers that
   need a decision. "2–4×" rounds 2.1× and 3.8×.
 - **The charts** are re-plotted as unitless lanes. The tick strip draws "about 300" and
