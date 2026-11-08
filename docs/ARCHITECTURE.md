@@ -161,7 +161,10 @@ edited to keep up.
 
 - A frame is a pure function of its index. Frame code (`packages/core`, `packages/remotion-kit`,
   `engines/web/src/page`, `templates/*/src`, `videos/*/src`) may not read clocks, timers or
-  unseeded randomness, nor use `useFrame` or clock-driven drei helpers. ESLint enforces this.
+  unseeded randomness, nor use `useFrame` or clock-driven drei helpers. A DOM page may not
+  animate on the compositor's clock either: no CSS `transition` or `animation`, no
+  `@keyframes`, no Web Animations API. It may not wait on `ResizeObserver` or
+  `IntersectionObserver` callbacks. ESLint enforces this.
 - Every frame's RGBA sha256 is recorded. On the same host, the same inputs give the same frame
   hashes and, verified, byte-identical mezzanines, delivery files and archive masters. Across
   hosts and GPUs, compare with SSIM, not bytes.

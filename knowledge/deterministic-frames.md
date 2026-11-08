@@ -37,6 +37,15 @@ template (150 frames, three.js WebGL scene, Canvas 2D text):
 - The lint ban list was tested against five bypasses (aliased `Math.random`,
   `crypto.getRandomValues`, bare `Date()`, `window.setTimeout`, `performance.timeOrigin`);
   all are caught.
+- 2026-11-08, for DOM pages: the ban list also catches the compositor's clock and late layout
+  callbacks. A probe file had ten violations, and all ten were flagged:
+  - `transition` and `animationName` style keys, and a `'transition-duration'` string key;
+  - `@keyframes` and `animation:` inside CSS strings and template literals;
+  - `element.animate`, `document.getAnimations`, `new KeyframeEffect`;
+  - `new ResizeObserver` and `new IntersectionObserver`.
+
+  Lines that only mention the words (a label reading "The transition…", a `title: 'animation
+  notes'`) and a frame-driven `transform` were not flagged.
 
 Not verified: determinism across machines or GPUs (compare with SSIM there, not bytes).
 

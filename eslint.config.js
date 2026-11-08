@@ -77,6 +77,26 @@ const NONDETERMINISM = [
   { selector: "MemberExpression[property.name=/^(getElapsedTime|getDelta|elapsedTime)$/]", message: FRAME_TIME },
 ];
 
+// The compositor's clocks and the browser's async layout callbacks (frame code only: a DOM page).
+// A CSS transition or animation, @keyframes and the Web Animations API advance on the
+// compositor's own clock, so a captured frame depends on how long the page took, not on its
+// index. Observers deliver layout a task later, so a chunk's first frame misses them.
+// ESLint cannot see .css files: frame code imports none.
+const COMPOSITOR_TIME = 'CSS transitions/animations and the Web Animations API run on the compositor clock, not the frame index: animate from useCurrentFrame() (interpolate, spring, @aiv/core progress).';
+const OBSERVER_TIME = 'Observers report layout asynchronously (a frame late at a chunk start): measure synchronously, after fonts are ready, in useLayoutEffect or behind delayRender.';
+const CSS_ANIMATION_KEY = '/^(transition|animation)(Property|Duration|Delay|TimingFunction|Behavior|Name|IterationCount|Direction|FillMode|PlayState|Composition|Timeline|Range|RangeStart|RangeEnd)?$/';
+const CSS_ANIMATION_TEXT = '/@keyframes|(^|[;{\\s"\'])(transition|animation)(-[a-z-]+)?\\s*:/';
+const COMPOSITOR_CLOCK = [
+  { selector: `Property[key.name=${CSS_ANIMATION_KEY}]`, message: COMPOSITOR_TIME },
+  { selector: `Property[key.value=/^(transition|animation)(-[a-z-]+)?$/]`, message: COMPOSITOR_TIME },
+  { selector: `Literal[value=${CSS_ANIMATION_TEXT}]`, message: COMPOSITOR_TIME },
+  { selector: `TemplateElement[value.raw=${CSS_ANIMATION_TEXT}]`, message: COMPOSITOR_TIME },
+  { selector: "CallExpression[callee.property.name='animate']", message: COMPOSITOR_TIME },
+  { selector: "MemberExpression[property.name='getAnimations']", message: COMPOSITOR_TIME },
+  { selector: "NewExpression[callee.name=/^(Animation|KeyframeEffect)$/]", message: COMPOSITOR_TIME },
+  { selector: "NewExpression[callee.name=/^(ResizeObserver|IntersectionObserver)$/]", message: OBSERVER_TIME },
+];
+
 export default tseslint.config(
   {
     ignores: ['**/node_modules/**', 'out/**', '.cache/**', '**/dist/**', '**/.remotion/**', '.claude/worktrees/**', ...FROZEN],
@@ -94,7 +114,7 @@ export default tseslint.config(
   {
     files: FRAME_CODE,
     rules: {
-      'no-restricted-syntax': ['error', ...NONDETERMINISM],
+      'no-restricted-syntax': ['error', ...NONDETERMINISM, ...COMPOSITOR_CLOCK],
       'no-restricted-imports': [
         'error',
         {
