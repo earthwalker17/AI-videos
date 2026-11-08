@@ -24,17 +24,18 @@ const ctx: ScoreContext = {
 const S = (frame: number) => ctx.frameToSample(frame);
 
 describe('the sketch on the cue sheet', () => {
-  it('finds its landmarks on the bars the treatment names, and ends well inside the film', () => {
+  it('finds its landmarks on the 3:45 cue sheet, and ends well inside the film', () => {
+    // re-anchored on the 84-bar sheet (session 3); the build session re-lays the sketch itself
     const m = marks(timeline(ctx));
-    expect(m.hub).toBe(S(at(10)));
-    expect(m.hush).toBe(S(at(10, 4)));
-    expect(m.split).toBe(S(at(11)));
-    expect(m.question).toBe(S(at(16)));
-    expect(m.breath).toBe(S(at(16, 3)));
-    expect(m.turn).toBe(S(at(17)));
-    expect(m.stepDown).toBe(S(at(26)));
-    expect(m.rest).toEqual([S(at(27)), S(at(28))]);
-    expect(m.end).toBe(S(at(29)));
+    expect(m.hub).toBe(S(at(12)));
+    expect(m.hush).toBe(S(at(12, 4)));
+    expect(m.split).toBe(S(at(13)));
+    expect(m.question).toBe(S(at(18)));
+    expect(m.breath).toBe(S(at(18, 3)));
+    expect(m.turn).toBe(S(at(19)));
+    expect(m.stepDown).toBe(S(at(28, 2)));
+    expect(m.rest).toEqual([S(at(29, 2)), S(at(30))]);
+    expect(m.end).toBe(S(at(31)));
     expect(m.end).toBeLessThan(ctx.filmSamples);
   });
 });

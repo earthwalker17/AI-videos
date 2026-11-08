@@ -21,25 +21,32 @@ const shownCues = cues.events.filter((e) => e.kind === 'text' || e.kind === 'car
 const narration = NARRATION.map((id) => cue(id));
 const overlaps = (a: readonly [number, number], b: readonly [number, number]): boolean => a[0] < b[1] && b[0] < a[1];
 
-/** The beat each narration line belongs to (TREATMENT.md, the chosen treatment). */
-const BEAT_OF: Record<string, number> = {
-  ...Object.fromEntries(['c1'].map((id) => [id, 1])),
-  ...Object.fromEntries(['c2', 'c3', 'c4'].map((id) => [id, 2])),
-  ...Object.fromEntries(['c5', 'c6', 'c7'].map((id) => [id, 3])),
-  ...Object.fromEntries(['c8', 'c9', 'c10', 'c11', 'c12', 'c13'].map((id) => [id, 4])),
-  ...Object.fromEntries(['c14', 'c15', 'c16', 'c17', 'c18'].map((id) => [id, 5])),
-  ...Object.fromEntries(['c19', 'c20', 'c21', 'c22', 'c23'].map((id) => [id, 6])),
-  ...Object.fromEntries(['c24', 'c25'].map((id) => [id, 7])),
-  ...Object.fromEntries(['c26', 'c27'].map((id) => [id, 8])),
-  ...Object.fromEntries(['c28'].map((id) => [id, 9])),
-};
+/** The beat each narration line belongs to (TREATMENT.md, revision 2: the 3:45 structure). */
+const BEAT_OF: Record<string, number> = Object.fromEntries(
+  (
+    [
+      [1, ['c1']],
+      [2, ['c2', 'c3', 'n1', 'c4']],
+      [3, ['c5', 'c6', 'c7']],
+      [4, ['c8', 'c9', 'c10', 'n2', 'c11', 'c12']],
+      [5, ['n3', 'c14']],
+      [6, ['c15', 'n4', 'n5', 'n6']],
+      [7, ['c17', 'c18', 'n7']],
+      [8, ['c20', 'c21', 'c22', 'c23']],
+      [9, ['c24', 'n8']],
+      [10, ['c25', 'n9', 'n10']],
+      [11, ['n11', 'c26', 'c27']],
+      [12, ['c28']],
+    ] as const
+  ).flatMap(([n, ids]) => ids.map((id) => [id, n])),
+);
 /** [start, end) frames of beat n (1-based). */
 const beatSpan = (n: number): [number, number] => [at(BEATS[n - 1]!.bar), n < BEATS.length ? at(BEATS[n]!.bar) : FILM_FRAMES];
 
 describe('the super-agent cue sheet', () => {
-  it('is 66 bars of 4/4 at 90 bpm: exactly 5280 frames at 30 fps', () => {
-    expect([FPS, BEAT, BAR, FILM_FRAMES]).toEqual([30, 20, 80, 5280]);
-    expect(cues.filmFrames).toBe(5280);
+  it('is 84 bars of 4/4 at 90 bpm: exactly 6720 frames (3:44.0) at 30 fps', () => {
+    expect([FPS, BEAT, BAR, FILM_FRAMES]).toEqual([30, 20, 80, 6720]);
+    expect(cues.filmFrames).toBe(6720);
     expect(cues.grid).toMatchObject({ bpm: 90, beatsPerBar: 4, offsetFrames: 0 });
   });
 
@@ -73,8 +80,9 @@ describe('the super-agent cue sheet', () => {
     }
   });
 
-  it('has 28 narration lines whose windows start on eighths and never overlap', () => {
-    expect(narration.map((e) => e.kind)).toEqual(Array(28).fill('text'));
+  it('has 36 narration lines whose windows start on eighths and never overlap', () => {
+    expect(narration.map((e) => e.kind)).toEqual(Array(36).fill('text'));
+    expect(Object.keys(BEAT_OF).sort()).toEqual([...NARRATION].sort());
     for (const e of narration) expect(textWindow(e)[0] % EIGHTH, e.id).toBe(0);
     const sorted = [...narration].sort((x, y) => x.frame - y.frame);
     expect(sorted.map((e) => e.id)).toEqual([...NARRATION]);
@@ -92,7 +100,7 @@ describe('the super-agent cue sheet', () => {
 
   it('marks every beat on its downbeat', () => {
     for (const b of BEATS) expect(cue(b.id)).toMatchObject({ kind: 'mark', frame: at(b.bar) });
-    expect(BEATS.map((b) => b.bar)).toEqual([1, 6, 11, 17, 28, 37, 46, 50, 57]);
+    expect(BEATS.map((b) => b.bar)).toEqual([1, 6, 13, 19, 30, 35, 44, 50, 58, 63, 69, 76, 78]);
   });
 
   it('sets every line within the notes block: EN at most 62 characters, zh-Hans at most 34 CJK widths', () => {
@@ -119,11 +127,11 @@ describe('the super-agent cue sheet', () => {
 
   it('keeps the rests free of text, and every sync hit on a beat', () => {
     const rests = cues.events.filter((e) => e.kind === 'rest');
-    expect(rests.map((e) => e.id)).toEqual(['rest-breath', 'rest-27', 'rest-signoff', 'rest-tail']);
+    expect(rests.map((e) => e.id)).toEqual(['rest-breath', 'rest-model', 'rest-signoff', 'rest-tail']);
     for (const r of rests) for (const e of shownCues) expect(overlaps([r.frame, r.end!], textWindow(e)), `${r.id} / ${e.id}`).toBe(false);
     const hits = cues.events.filter((e) => e.kind === 'hit');
-    // the sync points the sound design names (TREATMENT.md, Sound design)
-    for (const id of ['request', 'turn', 'batch', 'flyover', 'intrusion', 'stamp', 'bookend']) expect(cue(id).kind, id).toBe('hit');
+    // the sync points the sound design names (TREATMENT.md, Sound design; revision 2 adds the chores and the job)
+    for (const id of ['request', 'chore-switch', 'chore-prompt', 'chore-wait', 'chore-keep', 'hub', 'turn', 'batch', 'flyover', 'job-peel', 'job-dock', 'intrusion', 'stamp', 'bookend']) expect(cue(id).kind, id).toBe('hit');
     for (const h of hits) expect(h.frame % BEAT, h.id).toBe(0);
   });
 
@@ -133,14 +141,25 @@ describe('the super-agent cue sheet', () => {
   });
 
   it('declares the treatment’s fixed points: the silence before the intrusion, the end-card hold, the built tag ending before C12', () => {
-    expect(cue('silence-intrusion')).toMatchObject({ kind: 'silence', frame: at(48), end: at(48, 3) });
-    expect(cue('intrusion').frame).toBe(at(48, 3));
-    expect(cue('hold-end')).toMatchObject({ kind: 'hold', frame: at(60) });
+    expect(cue('silence-intrusion')).toMatchObject({ kind: 'silence', frame: at(63), end: at(63, 3) });
+    expect(cue('intrusion').frame).toBe(at(63, 3));
+    expect(cue('hold-end')).toMatchObject({ kind: 'hold', frame: at(78, 3) });
     expect(cue('hold-end').end! - cue('hold-end').frame).toBeGreaterThanOrEqual(3 * FPS);
     expect(textWindow(cue('tag-built'))[1]).toBeLessThanOrEqual(textWindow(cue('c12'))[0]);
     expect(cue('request').frame).toBe(20);
-    expect(cue('turn').frame).toBe(at(17));
-    expect(cue('stamp').frame).toBe(at(51));
+    expect(cue('turn').frame).toBe(at(19));
+    expect(cue('stamp').frame).toBe(at(69));
+    // a rest is QA-measured by its loudest 3 s, so the sign-off rest lasts at least that long
+    expect(cue('rest-signoff').end! - cue('rest-signoff').frame).toBeGreaterThanOrEqual(3 * FPS);
+    // the proactive claim (n3) and its trait plate are never on screen without the
+    // off-by-default gate tag beside them
+    const [n3From, n3To] = textWindow(cue('n3'));
+    const [gateFrom, gateTo] = textWindow(cue('tag-gate'));
+    expect(gateFrom).toBeLessThanOrEqual(n3From);
+    expect(gateTo).toBeGreaterThanOrEqual(n3To);
+    expect(gateFrom).toBeLessThanOrEqual(cue('trait-proactive').frame);
+    // the watchdog line (n8) stays under the proposed tag
+    expect(textWindow(cue('tag-proposed'))[1]).toBeGreaterThanOrEqual(textWindow(cue('n8'))[1]);
     expect([TEXT_IN, TEXT_OUT]).toEqual([6, 6]);
   });
 });

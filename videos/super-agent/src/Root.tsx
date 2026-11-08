@@ -1,6 +1,6 @@
 /**
  * The compositions of this video. 'Main' must match video.json `format` exactly (the engine
- * refuses otherwise): 1920x1080 at 30 fps, the test-card leader then the film (5280 frames, 66 bars
+ * refuses otherwise): 1920x1080 at 30 fps, the test-card leader then the film (6720 frames, 84 bars
  * at 90 bpm: src/cues.ts). `swatchFrames` declares the frames the test card shows the swatch strip
  * on; it must equal video.json qa.swatchFrames ([0, 15]).
  */

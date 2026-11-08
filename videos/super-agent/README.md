@@ -26,12 +26,40 @@ The film has been in production since 2026-11-08. Decisions with the user so far
 | 2026-11-08 | zh copy | "Correct as written" (every zh-Hans string, [SCRIPT.md](SCRIPT.md#zh-sign-off)) |
 | 2026-11-08 | Score sketch, bars 1–27 | "Right direction" |
 | 2026-11-08 | Lookdev, round 1 | **Not approved.** "everything except the look itself should be OK"; "the look is still too simple and crude to be something worth watching" |
+| 2026-11-08 | Chrome frame study of 比特新语 | "Connect Chrome (Recommended)" (the user logged in; 1080p, muted, view-only, nothing saved) |
+| 2026-11-08 | Length | "~3:45, full depth (Recommended)": 84 bars, the human router's chores handed over |
+| 2026-11-08 | Light | "Light where it means (Recommended)" |
+| 2026-11-09 | Concept | "Desk, render both angles (Recommended)": the Register Desk, shown at 15° and straight down |
+| 2026-11-09 | Micro-print | "Micro-print as texture (Recommended)" (≥ 18 px, texture only) |
+| 2026-11-09 | zh copy of the 3:45 cut | "Correct as written" (n1–n11, tags, plates, labels, stamps); C12: "Keep C12 as signed off" |
 
-**What this means.** The story, the script, the storyboard, the timing, the facts, the score's
-direction and the content and composition of the three stills stand. The rendering style of
-the dark ink map does not: flat ink lines and sketch strokes on a flat ground read as too
-simple and crude to watch. The user details the changes in the brief of the next session. No
-scene code is built until a second lookdev round is signed off.
+**What this means (session 3).** The session-3 brief named the faults:
+- basic flat geometry;
+- one shape language for parallel elements;
+- static connections.
+
+It set the bar as "at least competitive with 比特新语". It also asked whether the film was
+deep enough, and it was not: 41% of the 2:56 cut set up the problem and 14% explained how the
+design works.
+
+- **The story** is now 3:44 (84 bars, 36 lines). It keeps 25 of the signed-off lines verbatim,
+  cuts 3 and adds 11 new ones (n1–n11); the user signed off their zh on 2026-11-09. Every mechanism
+  answers "which of your chores did this take over?":
+  - the async loop;
+  - context as a cache and recall by ID;
+  - the 100-word chat cap;
+  - the Watchdog;
+  - sharding and stepping in mid-task.
+- **The look:** the transit map is retired, because its grammar (rings, boxes, 0/45/90° lines)
+  was the crudeness itself. The new world is **the Register Desk**:
+  - context is paper; light is attention or work; material is status;
+  - the Router is a raised register deck with a tape reel; the Workers are walled bays, one
+    per task; relationships are grooves, cords, flights, tape and a reply chute;
+  - it is drawn in WebGL under the DOM text (ARCHITECTURE decision 30).
+
+  [TREATMENT.md](TREATMENT.md) "Art direction v2" is the spec.
+- **No scene code is built** until lookdev round 2 (style frames, stills and motion tests) is
+  signed off.
 
 **Session 1 (2026-11-08): research and the foundation docs.**
 - **Research:** 22 research and design agents and a frame study, written back to:
@@ -51,7 +79,7 @@ scene code is built until a second lookdev round is signed off.
 - **Copy and timing:**
   - [SCRIPT.md](SCRIPT.md), with the zh copy signed off;
   - [STORYBOARD.md](STORYBOARD.md);
-  - `src/cues.ts`, the one timeline (66 bars at 90 bpm, 5,280 frames), with `src/cues.test.ts`
+  - `src/cues.ts`, the one timeline (66 bars at 90 bpm, 5,280 frames; 84 bars and 6,720 frames since session 3), with `src/cues.test.ts`
     proving every hold.
 - **Picture foundations:**
   - the 2D kit (`src/kit/`), the look tokens and fonts (`src/look/`), the determinism probe
@@ -65,22 +93,33 @@ scene code is built until a second lookdev round is signed off.
   - lessons in [knowledge/dom-text-determinism.md](../../knowledge/dom-text-determinism.md).
 - **Score sketch:** bars 1–27 in `audio/` (-14.0 LUFS, -2.6 dBTP, byte-identical rebuilds).
 
-**Sessions to come** (revised 2026-11-08 after the lookdev verdict). Each ends committed, with
-this status, `video.json` `next` and the project memory updated.
-3. **Look rework: lookdev round 2.**
-   - Start from the user's brief on what the look needs.
-   - Rework the rendering style on the same three stills (same frames, same content and
-     composition), keeping the determinism rules and the 136 px text bound.
-   - The frame-critic, then the user's sign-off.
-   - Shared code (`src/kit`, `src/look`) changes as the brief requires; `src/film` is the
-     place to restyle.
-4. **Build.**
-   - Every beat on draft renders in the signed-off look, each checked with its contact sheet
-     and motion QA.
+**Sessions to come** (revised 2026-11-09, session 3). Each ends committed, with this status,
+`video.json` `next` and the project memory updated.
+3. **Session 3 (now): story depth and lookdev round 2.**
+   - **Done:**
+     - the research write-back;
+     - the frame-critic calibrated on the rejected stills;
+     - the 84-bar cue sheet, SCRIPT, STORYBOARD, FACTS and TREATMENT revision 2;
+     - ARCHITECTURE decisions 30–31;
+     - the motion-test tooling (`aiv still --span --encode --inner`);
+     - the kit parts copied from the frozen film.
+   - **Then:**
+     - **User:** signs off the new zh strings (done 2026-11-09: "Correct as written").
+     - The Register Desk vertical slice: style frame (b) at both angles, with bloom on and off.
+     - **User:** picks the angle and the bloom.
+     - Stills (a) to (d) and motion tests MT1 and MT2; the critic; a refine pass.
+     - **User:** signs off lookdev round 2.
+4. **Build, part 1.**
+   - An animatic: the key poses timed on the cue sheet, with the score sketch re-laid on the
+     84-bar grid.
+   - Beats 1–6 on draft renders in the signed-off look, each checked with its contact sheet and
+     motion QA.
+   - The score for bars 1–43.
+5. **Build, part 2.**
+   - Beats 7–13 and the rest of the score.
    - Two adversarial frame-critic rounds.
-   - The full score (bars 28–66) in the sketch's direction, plus fixes.
    - **User:** listens to the full score.
-5. **Review cut, then release.**
+6. **Review cut, then release.**
    - The 1080p review cut through `aiv qa`.
    - Caption tooling (an SRT generator and a per-language linter).
    - `publish/` (EN and zh descriptions, chapters, AI disclosure, a short
@@ -88,7 +127,7 @@ this status, `video.json` `next` and the project memory updated.
    - The final and `aiv release`.
    - **User:** approves the review cut, then the final.
    - Push, tag and GitHub release only when the user asks.
-6. **Buffer.**
+7. **Buffer.**
 
 ## Handoff (for the next session)
 **Start here.** Read this section and `video.json` `next`, then the user's brief for the look.
@@ -175,11 +214,12 @@ The picture style is being reworked (see Status); the stack and the numbers belo
   - **Shared code:** the generic DSP, reverb, mastering and mixing come from the frozen
     [A Halloween Gift](../halloween-gift/README.md) score, copied into the shared audio kit
     in `packages/pipeline/src/audio/runtime/kit/`. The frozen film is untouched.
-- **Numbers:** 5,280 frames at 30 fps (2:56.0).
-  - At the measured 0.20–0.21 s per frame (the probe, round-1 look), a 1080p render takes
-    about 18 min, as 2–3 foreground calls with `--budget-min 9`. A richer look will cost more:
-    measure it on the round-2 stills.
-  - At 0.49 MiB per frame, a review mezzanine is about 2.6 GiB.
+- **Numbers:** 6,720 frames at 30 fps (3:44.0; the 2:56 cut had 5,280).
+  - The round-1 DOM look measured 0.20–0.21 s and 0.49 MiB per frame at 1080p.
+  - The round-2 WebGL world is estimated at 0.5–0.9 s per frame, so a 1080p pass takes about
+    56–100 min, as chunked foreground calls with `--budget-min 9` or overnight. The probe on
+    style frame (b) measures it before anything is built (gate: 0.8 s per frame or less).
+  - At about 1.2 MiB per frame, a review mezzanine is about 8 GiB.
 
 ## Reproduce it
 ```sh

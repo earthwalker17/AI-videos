@@ -1,5 +1,10 @@
 /**
- * The score sketch: bars 1-27 of the film (0:00-1:12), placed on the cue sheet's grid. Every
+ * The score sketch. It was written for bars 1-27 of the 2:56 cut (0:00-1:12) and approved as
+ * "Right direction" (2026-11-08). The 3:45 cut (session 3, 2026-11-09) moved its landmarks:
+ * hub to bar 12, the fixes to bars 13-18, the turn to bar 19, and the rest to `rest-model`
+ * (bar 29 beat 2, three beats). Because it follows those cues, it re-places itself; the
+ * bar numbers below are the old cut's. The build session re-lays it bar by bar: see
+ * STORYBOARD.md and the score note in SCRIPT.md. Every
  * position comes from ctx.cues through the kit's timeline: a cue (T.cue, T.span) where the sheet
  * has one, else the bar grid (T.beat), on which the picture also moves. TREATMENT.md "Sound
  * design" and STORYBOARD.md's sound column, in order:
@@ -124,7 +129,7 @@ export interface Marks {
   turn: number;
   /** bar 26 downbeat: the Workers step down */
   stepDown: number;
-  /** bar 27 (rest `rest-27`), [start, end) */
+  /** the model rest (rest `rest-model`; bar 27 in the 2:56 cut), [start, end) */
   rest: [number, number];
   /** bar 29 downbeat, after bar 28's decay: nothing sounds from here to the end of the film */
   end: number;
@@ -133,7 +138,7 @@ export interface Marks {
 export function marks(T: Timeline): Marks {
   const hub = T.cue('hub');
   const breath = T.span('rest-breath')[0];
-  const rest = T.span('rest-27');
+  const rest = T.span('rest-model');
   return {
     hub,
     hush: hub + T.beats(3),
