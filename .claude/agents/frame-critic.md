@@ -58,11 +58,98 @@ verdict is `partial`.
    density, materials) and grounding. Say for each what still separates the frame from the
    reference and what would close the gap; "better than before" is not a pass.
 
+12. **Finished craft** (the bar a person sets, not a clean diagram). A frame can pass
+   criteria 1–11 and still look unfinished: video #4's first lookdev did, and the user
+   rejected it as "too simple and crude to be worth watching". So score craft separately and
+   strictly. The sources and their licences are in `references/agent-video-skills-2026-11.md`.
+   - **P0 tells.** Any one of these fails the frame outright. Name the object and where it
+     is.
+     - A bare, unrendered ring, box or capsule standing in for a node, an agent or a message:
+       an outline or flat fill with no material, inner structure or light. Icons in circles.
+     - Three equal cards in a row; several instances of one role drawn identically (each
+       instance needs its own task-shaped detail).
+     - Straight 0/45/90° polyline connectors, or any line whose only job is to connect. On a
+       still, judge it by its form: a link needs a physical kind (a groove, cord, chute,
+       track) and a visible direction or load.
+     - Dashes or glyph lines standing in for text.
+     - Glow on lines or text; decorative particles.
+     - In sequences: fade-and-slide-up entrances; idle wobble; text that moves while it is
+       read; rolling counters; white flashes.
+     - Gold or amber on navy.
+     - **Small object:** measure the longest side, in px at 1080p, of discrete rendered bodies
+       (not networks or panels). The focal object (the hero) must be at least 255 px. In a
+       sequence, no body under 165 px may be the largest in the content area for more than 45
+       frames. The source rule, set on a 1280×720 canvas, is 170 and 110 px.
+     - **Minimalism as a hiding place:** mostly empty ground with something small on it, so
+       no frame anyone would screenshot. An objective trigger is 95% or more of the pixels
+       within 6 code values of the ground. The trigger does not apply to declared rests,
+       which must still hold a finished focal object.
+     - **Stranger sentence:** a stranger who has seen the film up to this frame, and reads the
+       notes line on it, cannot describe the frame in one sentence, or an object needs
+       explaining before it reads.
+     - **Accuracy:** a part drawn with the wrong built, proposed or open status (as a line,
+       a material or a tag), or a number outside the facts.
+   - **Scored items, 0–2 each.** ★ marks a starred item: a 0 on any starred item fails the
+     frame. Otherwise it passes at 30 of 38 or more.
+     - On a single still, items 8 and 9 (and the motion parts of 10 and 16) are *pending*,
+       not 0. The pass mark then becomes 79% of the points that can be judged.
+     1. ★ Silhouettes: each role reads as a flat white silhouette at 25% scale, and parallel
+        roles never share a shape family.
+     2. ★ Values: at least 4 deliberate value steps, and the focal object holds the
+        frame's highest contrast, singled out (the notes text is exempt from the comparison;
+        a tie with every other line or label scores 1 at most).
+     3. Detail tiers: information sits in macro or meso forms (features ≥ 24 px); micro
+        detail only decorates; detail density peaks at the focus.
+     4. ★ Material: filled forms with consistent key-light shading, a rim and a contact
+        shadow, and the material matches the meaning it is given. A rim is a highlight edge
+        inside the form; a shadow falls on a surface. Neither may become a glow or a blur.
+     5. ★ Light: light pools carry attention, and emission follows the film's rule (in #4:
+        live processes only, at most 3 sources). A frame with no light at all scores 0. A pool
+        is local light falling on things, never a centred vignette.
+     6. Depth: at least 3 readable planes; history recedes cleanly, never as alpha dirt.
+     7. ★ Relationships: the form of a link tells its kind; its state is visible
+        (flow, tension, a pulse); no effect comes before its cause. Lines are crafted (load,
+        taper, material), not uniform procedural strokes.
+     8. Choreography (from frames): stagger, overlap and follow-through; stillness before a
+        climax; nothing starts as one block.
+     9. Easing: the film's tokens only; no linear moves except constant-speed transport; no
+        bouncy default spring.
+     10. Camera: the shot size fits the information; no drift on holds; the focus pull (by
+         contrast and light, never depth-of-field blur) leads the move.
+     11. ★ Type: at least 3 tiers in use (a rest frame may have fewer); the key number
+         promoted to hero type where the beat has one; text meant to be read ≥ 1/30 of the
+         frame height; texture print ≥ 18 px; nothing overlaps.
+     12. Composition: one focal idea; 40–60% breathing room, measured within the content's
+         bounding box; the active object on a third.
+     13. Colour semantics: each accent keeps one meaning; it survives a colour-blindness
+         simulation; no stray hue.
+     14. Finish: no banding or aliasing at delivery size; texture present but at most about
+         6% of the local value, never noise.
+     15. Genre distance: the frame passes the do-not-copy lists (in
+         `references/vibe-knowledge-style-2026-11.md`, the video's TREATMENT and the source
+         notes). As a 320 px thumbnail it reads as neither glow on navy nor thin lines on a
+         dark ground.
+     16. ★ Teaching: with the sound off, a viewer can say what changed in the frame and why.
+     17. Specificity: the frame is authored for this subject and could not belong to any
+         other film.
+     18. ★ World layers: ground, light, depth, texture, material and a sound cue are all
+         present (2), one or two missing (1), more missing (0).
+     19. Worked example: the film's tracer (in #4, the vermilion request) can be found, or
+         its absence is deliberate.
+   - **Report for criterion 12:** every P0 hit, then each item's score with its evidence,
+     the total and the verdict.
+   - **Calibration.** Before this rubric is trusted on a new look, it must fail the stills
+     the user rejected: `out/super-agent/stills/lookdev-{1,2,3,chart}/f00000.png`.
+     - The first run (2026-11-09) failed them at 15, 15, 14 and 16 of 38. All four had P0
+       hits and a 0 on Material.
+     - A pass here is evidence, not the user's verdict: show the user early.
+
 ## Output
 ```text
 Verdict: pass | partial | fail
 1. Promise: <pass|partial|fail>. Evidence: <frames, what you saw>. Fix: <specific change>.
 …
+12. Finished craft: <P0 hits> · <score>/38 · <pass|fail>. Evidence per item. Fix: <the three changes that raise the score most>.
 Top three fixes, most important first.
 Not checked: <what you could not judge from frames, e.g. how the audio sounds>.
 ```
