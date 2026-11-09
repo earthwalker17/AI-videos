@@ -16,7 +16,7 @@
       "note": "The user selected \"Hybrid on B (Recommended)\" (Who Routes the Agents? / 谁来调度智能体？) from three candidates and the judged hybrid, chose the look \"Dark ink map (Recommended)\" and \"Text-led, no voice (Recommended)\", and approved the production plan (sessions 1-4 in README.md)."
     }
   ],
-  "next": "Session 3, the look rework: lookdev round 1 was not approved (2026-11-08: the look is too simple and crude to be worth watching; everything else stands). Start from the user’s brief for the look, rework the rendering style on the three stills (src/lookdev/stills.tsx), frame-critic, user sign-off; then session 4 builds the beats (README.md, Handoff).",
+  "next": "Session 4, build part 1. Lookdev round 2 (the Register Desk: stills (a)-(d), motion tests MT1 and MT2) was signed off by the user on 2026-11-10 (README.md, Status). Start from README.md, Handoff: first the final critic round's fixes that touch shared parts (the chat mark, the summary trace), then an animatic on the 84-bar cue sheet with the score sketch re-laid, beats 1-6 on draft renders, and the score for bars 1-43.",
   "languages": [
     "en",
     "zh-Hans"

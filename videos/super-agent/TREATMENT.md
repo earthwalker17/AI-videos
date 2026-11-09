@@ -1331,15 +1331,25 @@ f1440–1600.
 
 | Frames | What happens |
 |---|---|
-| 1400–1440 | Fix A (one long grey-stock tape through a single folder) and fix B (eight grey trays firing slips at you) lie on the desk; from 1420 everything stills, pens lifted |
-| **1440** (the turn) | The notes loop dips 2% over 4 f, then rises from h 0 to 160 by 1520 on spring-heavy, its shadow offsetting and softening analytically |
-| 1460–1560 | The desk slides south-west and the lamp narrows (1460–1540); the deck's legs telescope up (1480–1530, 3 f stagger); the throat and print head assemble (1530–1560) |
-| 1520–1600 | The loop glides north while A's tape winds onto it, turning from grey stock to paper along its length: it becomes the reel. B's trays grow walls (0 → 60 u, 3 f stagger) and nameplate bands, and stop firing slips at you (1520–1580) |
-| 1600–1624 | The reel descends and locks at 1616; the pilot jewel at 1618; the first chat slip enters the throat at 1620, and row "№ 0001" prints at 1624 |
-| 1640–1660 | The Continuous · 连续 plate docks at 1640 (`trait-continuous`) and settles. MT2's span, [1400, 1660) in `frames.ts`, runs 20 frames past the dock so the landing can be judged |
+| 1400–1436 | Fix A (one long grey-stock tape through a single folder) and fix B (eight grey trays firing slips at you) lie on the desk; from 1420 everything stills, pens lifted |
+| 1436–1470 | The focus pull leads the camera: the heap, the feeders and the request step down (1436), the camera starts (1441). On the hit the notes loop dips 2% and lifts on spring-heavy; the eight folders and Fix A's are pressed into the desk, each as one body (squashed with its pen, flag and clip, then sunk north edge first over 8 f), leaving embossed imprints |
+| 1452–1530 | The loop turns on edge (outer edge up) and rounds; its eight tabs fold in over the rim and the clip clamps on it; it coils into a pack and the hub telescopes out of its centre; Fix A's tape winds in under the clip, grey stock turning to paper as it leaves the desk |
+| 1514–1578 | Only once the tape has left its path: your desk slides south-west and the lamp narrows; the deck rolls in collapsed from the north and its legs telescope up (C9's "Above"); throat, head, index arm, loupe and ramp unfold, and the reply chute extends to your in-tray |
+| 1526–1597 | Fix B's replies fly home to their trays; five trays press flat into imprints, three wall up into (b)'s bays (the bug bench, the test tower, the docs galley): nameplates print with a wipe, the floor slides away under the slate and each bay's work rises from its hatch. The bug bay rises without the request, which docks there at 4.3 |
+| 1570–1618 | The reel glides over the deck, descends and locks at 1616, carrying its clip and tabs; the pilot jewel lights at 1618 |
+| 1588–1612 | Every channel into one intake, as the step-down lifts: the belt runs out of the throat carrying its gate, the spool slides in, mail and calendar press flat into vellum drawings (proposed channels) |
+| 1595–1660 | The first chat slip rides the belt into the throat (1620); the head drops and its row prints with a 3 f ink spread (1624); the Continuous · 连续 plate, face down on its brackets north of the reel, turns over on its cue (1640) and settles. MT2's span, [1400, 1660) in `frames.ts`, runs 20 frames past it so the landing can be judged |
 
-◆ **Gate:** the user's lookdev sign-off on the stills and both motion tests, recorded in
-`video.json` only when it is given.
+**As built (2026-11-09):** the deck arrives after the loop has coiled, not before: Fix A's tape
+must leave the desk before your desk slides over its path, and your desk must leave before the
+deck's south-west leg lands. Three bays stand at the turn's end (the three chores in flight),
+where STORYBOARD 4.3–4.5 has a bay rise per task; the build should hold them closed and idle
+until each is dispatched.
+
+◆ **Gate:** the user's lookdev sign-off on the stills and both motion tests. **Done 2026-11-10:**
+"I've checked the lookdev stills and they're OK, which can be carried on to the final render."
+It covers stills (a)–(d) and MT1 and MT2 after two polish passes. It is recorded in the README,
+because `video.json` approvals hold only the treatment, review and final gates.
 
 ### Round 1 (2026-11-08): the dark ink map, not approved
 Three stills at 1080p before any scene code, each reviewed by the frame-critic agent, compared

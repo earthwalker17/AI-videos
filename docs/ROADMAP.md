@@ -26,7 +26,8 @@ verified in its own commit, in this order (the video's README has the session pl
 
 Changed 2026-11-08: lookdev round 1 was not approved, because the look is too simple and crude
 to be worth watching. A look-rework session now comes before the build. The remaining items
-(captions, Bilibili publishing) move back one session.
+(captions, Bilibili publishing) move back one session. The reworked look (the Register Desk,
+lookdev round 2) was signed off on 2026-11-10; the build starts next.
 - [x] **Determinism lint for 2D DOM work** (2026-11-08): frame code may not use CSS
   `transition`/`animation`/`@keyframes`, the Web Animations API or `ResizeObserver`/
   `IntersectionObserver`.
