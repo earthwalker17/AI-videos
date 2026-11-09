@@ -14,7 +14,7 @@
  * F3, about four folders warm and four cold, flags up.
  */
 import { clamp, easings, rand } from '@aiv/core';
-import { BEAT, cue } from '../cues.ts';
+import { ARRIVE, BEAT, LAMP_VISITS, WARMTH, cue } from '../cues.ts';
 import { FOLDER_PRINT } from '../print.ts';
 import { circleFp, rectFp, segFp, youFootprints, type Footprint } from './footprints.ts';
 import { FEEDERS, FEEDER_H, LAMP, YOU, rectC, type P2, type P3, type Pool } from './layout.ts';
@@ -246,28 +246,12 @@ export const FLIGHT = { from: SPOUT, to: [-626, 112, 3] as P3, posted: 905, apex
 // ------------------------------------------------------------------------------------------------
 // The schedule (film frames)
 
-/** The lamp's visits: [frame the swing starts, folder n]. Quarters, then eighths and sixteenths among the four you can follow; it stops dead on F3. */
-export const LAMP_VISITS: readonly (readonly [number, number])[] = (() => {
-  const v: [number, number][] = [];
-  const cycleAll = [1, 3, 2, 5, 4, 1, 3, 5];
-  for (let f = 0, k = 0; f < 400; f += BEAT, k++) v.push([f, cycleAll[k % cycleAll.length]]);
-  const all8 = [6, 1, 7, 3, 8, 2, 5, 4];
-  for (let f = 400, k = 0; f < 560; f += BEAT, k++) v.push([f, all8[k % all8.length]]);
-  // from here only the four you can still follow
-  const four = [5, 1, 7, 3];
-  for (let f = 560, k = 0; f < 640; f += BEAT, k++) v.push([f, four[k % 4]]);
-  for (let f = 640, k = 0; f < 800; f += BEAT / 2, k++) v.push([f, four[k % 4]]);
-  for (let f = 800, k = 0; f < 870; f += BEAT / 4, k++) v.push([f, four[k % 4]]);
-  v.push([870, 3]);
-  return v;
-})();
-/** Warmth decays with this time constant once the lamp leaves (synthesis §2). */
-export const WARM_TAU = 120;
+/** The lamp's visits, the warmth constants and the arrivals live in the cue sheet (src/cues.ts), which the score reads too. */
+export { ARRIVE, LAMP_VISITS };
+export const WARM_TAU = WARMTH.tau;
 /** A pen works while its folder is warmer than this; under FLAG_UP its flag stands up. */
-export const PEN_ON = 0.35;
-export const FLAG_UP = 0.3;
-/** Folders F6–F8 arrive in beat 2 (5 → 8), each on a downbeat's beat. */
-export const ARRIVE: Readonly<Record<number, number>> = { 6: 420, 7: 460, 8: 500 };
+export const PEN_ON = WARMTH.penOn;
+export const FLAG_UP = WARMTH.flagUp;
 /** The lamp's bulb while it attends (HDR: above 1.0 it blooms) and how far it stands out of the hood. */
 export const BULB_A = { level: 3, out: 46 } as const;
 /**

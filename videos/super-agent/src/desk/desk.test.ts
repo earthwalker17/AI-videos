@@ -6,6 +6,7 @@ import { neutral, preToe } from './gl/post.ts';
 import { BAYS, BENCH, CARD, CELLS_X, CORDS, DECK, DISPATCH, FRESH, HATCH_DEPTH, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, SLIP, TAPE, TOWER, WINDOW, penumbra, PENUMBRA_K, shadowOffset, towerTop, type BayId, type P3 } from './layout.ts';
 import { MAX_POOLS, linearOf, packPools, poolsAt } from './pools.ts';
 import { ROUND2, MOTION_TESTS } from '../lookdev/frames.ts';
+import { BEAT_6, MT1 } from '../cues.ts';
 import { CAP_SLOT, CARD_STAND, REPLY_PATH, cardArc, cardRise, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, LAMP_STEPS, SLIP_LANDS, SLIP_RIDE_FROM, replyPose } from './state.ts';
 
 const B = deskStateAt(ROUND2.stillB);
@@ -421,5 +422,16 @@ describe('still C: context as a cache (state.ts EVENTS_C)', () => {
     const pose = cameraAt(ROUND2.stillC, 15);
     expect(pose).toEqual(deskCamera(FRAMING_C, 15));
     expect(cameraAt(ROUND2.stillB, 15)).toEqual(deskCamera(FRAMING_B, 15));
+  });
+});
+
+describe('the cue sheet’s schedule and the picture’s events', () => {
+  it('holds the cue sheet’s MT1 and cache frames equal to the handshake and the cache fold (the score reads the sheet, the picture its own tables)', () => {
+    expect(MT1.reportUp).toBe(EVENTS_B.cardEject);
+    expect(MT1.stampIn).toBe(EVENTS_B.stampIn);
+    expect(MT1.replyLands).toBe(SLIP_LANDS);
+    expect(MT1.dispatchFresh).toBe(EVENTS_D.rise);
+    expect(BEAT_6.cacheEject).toBe(EVENTS_C.cardEject);
+    expect(BEAT_6.cacheFold).toBe(EVENTS_C.fold);
   });
 });

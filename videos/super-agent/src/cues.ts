@@ -219,6 +219,140 @@ export const BEATS = [
   { id: 'beat-13', bar: 78, name: 'End card' },
 ] as const;
 
+// ------------------------------------------------------------------------------------------------
+// The event schedule (session 4, the build): plain data that the picture (src/desk) and the score
+// (audio/) both read, so a sound and the motion that causes it cannot drift apart (TREATMENT.md,
+// Rules of the medium 6: every effect is a sum over the cue sheet's event list). Film frames. The
+// larger moments are also cue events below (hits on beats, marks anywhere), which QA and the audio
+// stage see; the picture's own sub-steps (anticipation, flight, settle) hang off these frames.
+
+/**
+ * Act one: your lamp's visits, [frame the swing starts, folder n] (STORYBOARD 1.1-2.3). Quarters
+ * among the first five, then all eight as they arrive, then only the four you can still follow, in
+ * eighths and sixteenths; it stops dead on F3 at f870 and stays there through beat 3.
+ */
+export const LAMP_VISITS: readonly (readonly [number, number])[] = (() => {
+  const v: [number, number][] = [];
+  const cycleAll = [1, 3, 2, 5, 4, 1, 3, 5];
+  for (let f = 0, k = 0; f < 400; f += BEAT, k++) v.push([f, cycleAll[k % cycleAll.length]!]);
+  const all8 = [6, 1, 7, 3, 8, 2, 5, 4];
+  for (let f = 400, k = 0; f < 560; f += BEAT, k++) v.push([f, all8[k % all8.length]!]);
+  const four = [5, 1, 7, 3];
+  for (let f = 560, k = 0; f < 640; f += BEAT, k++) v.push([f, four[k % 4]!]);
+  for (let f = 640, k = 0; f < 800; f += BEAT / 2, k++) v.push([f, four[k % 4]!]);
+  for (let f = 800, k = 0; f < 870; f += BEAT / 4, k++) v.push([f, four[k % 4]!]);
+  v.push([870, 3]);
+  return v;
+})();
+/** Folders F6-F8 land in beat 2 (5 → 8), on beats. */
+export const ARRIVE: Readonly<Record<number, number>> = { 6: 420, 7: 460, 8: 500 };
+/** A folder's warmth decays with this time constant (frames) once the lamp leaves; its pen works above `penOn`, its flag snaps up under `flagUp`. */
+export const WARMTH = { tau: 120, penOn: 0.35, flagUp: 0.3 } as const;
+
+/**
+ * Beat 3, Fix A (STORYBOARD 3.1): one grey-stock folder with every feeder pouring onto its one
+ * tape. It emerges on bar 13's downbeat; its queue advances one station on every beat from the
+ * next one through the turn's last advance (src/desk/turn.ts TURN.advance, f1400).
+ */
+export const FIX_A = { in: at(13), steps: Array.from({ length: (at(18, 3) - at(13, 2)) / BEAT + 1 }, (_, i) => at(13, 2) + i * BEAT) } as const;
+/**
+ * Fix B (3.2): eight trays, one per event. They emerge on bar 15's downbeat and tick in parallel;
+ * replies 0-6 leave their trays for your in-tray on these frames (reply 7 is the turn's, posted at
+ * f1394). A follow-up lands in tray 6, away from its task's tray 2, and the break mark between the
+ * two draws in.
+ */
+export const FIX_B = { in: at(15), replies: [1150, 1160, 1180, 1200, 1230, 1250, 1270], followUp: 1210, breakMark: 1220 } as const;
+/** Both fixes stand at full contrast from here (3.3). */
+export const BOTH_FIXES = at(17);
+
+/**
+ * Beat 4 after the turn (STORYBOARD 4.2-4.5), in cause order. The request rises out of the old heap
+ * and is stamped in; a counterfactual card (the request torn three ways) rises 12 f, is struck 6 f
+ * and exits 8 f; the index arm detents toward the bay floor, a hatch opens, the bug bay's bench rises
+ * and the request's folder slides its groove whole; the Thread's subscription prints as a tape row
+ * (its cord waits for C17, design D1). Under N2 the neck-collar gauge shows, arrivals take the next
+ * rows on beats 2 and 4, and a ghost card (a Router with a bench, its backlog piling for a bar) is
+ * struck. Under C11 two more tasks are dispatched and their bays rise; the Worker label enters.
+ */
+export const BEAT_4 = {
+  requestRise: 1648,
+  requestIn: at(22),
+  splitCard: 1700,
+  splitStrike: at(22, 3),
+  armBug: at(22, 4),
+  dispatchBug: at(23),
+  threadRow: 1800,
+  gauge: 1826,
+  ghostCard: at(24),
+  ghostStrike: at(25),
+  rows: [at(24, 2), at(24, 4), at(25, 2)],
+  armTests: 1990,
+  dispatchTests: at(26),
+  armDocs: 2030,
+  dispatchDocs: at(26, 3),
+  workerLabel: 2070,
+} as const;
+/** MT1's handshake and next dispatch (src/desk/state.ts EVENTS_B and EVENTS_D, which desk.test.ts holds equal to these): the card ejects, the record stamps in, the reply lands in your in-tray, the fresh bay rises. */
+export const MT1 = { reportUp: 2164, stampIn: 2190, replyLands: 2234, dispatchFresh: 2289 } as const;
+
+/**
+ * Beat 5 (STORYBOARD 5.1-5.3): the starter key lifts off your tray on `trait-proactive` (f2340),
+ * arcs to the intake and docks as its trip; the Proactive plate docks on the beat after. Then the
+ * two-stage filter: each slip reaches the gate's fingers at `f`. Code flips most of them onto the
+ * spike (the finger 4 f, impaled at +12 f, the pile grows at +13 f); a kept one rides on to the loupe
+ * on the Register's throat, which scans 12 f over the policy card and notches it `notchAfter` frames
+ * after the gate (the model). The spike enters at f2470.
+ */
+export const BEAT_5 = {
+  keyDock: 2356,
+  plateDock: at(30, 3),
+  spikeIn: 2470,
+  flip: 4,
+  impale: 12,
+  notchAfter: 26,
+  slips: [
+    { f: 2480, keep: false },
+    { f: 2490, keep: false },
+    { f: 2500, keep: false },
+    { f: 2520, keep: true },
+    { f: 2530, keep: false },
+    { f: 2550, keep: false },
+    { f: 2560, keep: false },
+    { f: 2580, keep: true },
+    { f: 2590, keep: false },
+    { f: 2610, keep: false },
+    { f: 2620, keep: false },
+    { f: 2650, keep: true },
+    { f: 2660, keep: false },
+    { f: 2680, keep: false },
+    { f: 2690, keep: false },
+  ],
+} as const;
+
+/**
+ * Beat 6 (STORYBOARD 6.1-6.4). Batching: waiting slips butt into one strip at the throat, landing
+ * on these frames; on the next downbeat a reading bar sweeps the whole strip (14 f + 1 f a slip) and
+ * every cell lights within 6 f (prefill); then a short slip punches out one cell per 2 f (decode) and
+ * leaves as dispatches. The second strip is longer, its sweep barely so. The cache fold is state.ts
+ * EVENTS_C (the card ejects at f3080, folds at f3120). Recall (6.4): a review card from the card
+ * feeder enters the throat and is stamped in as a new row; on bar 42's downbeat the reel rewinds over
+ * 24 f, then a reading-thread hops to the request's stub, its Thread's row and its bay's last report
+ * (10 f a hop, 4 f dwell), and a short answer goes back.
+ */
+export const BEAT_6 = {
+  batches: [
+    { sweep: at(36), slips: [2730, 2744, 2756, 2770, 2782] },
+    { sweep: at(38), slips: [2820, 2836, 2850, 2866, 2896, 2910, 2924, 2938] },
+  ],
+  /** a sweep takes sweepBase + sweepPerSlip × slips frames */
+  sweepBase: 14,
+  sweepPerSlip: 1,
+  decodeCell: 2,
+  cacheEject: 3080,
+  cacheFold: at(40),
+  recall: { card: 3232, stampIn: 3260, rewind: at(42), rewindFrames: 24, hops: [3304, 3318, 3332], answer: 3350 },
+} as const;
+
 /** The on-screen window of a text or card cue: its span plus the wipe in and the fade out. */
 export const textWindow = (e: CueEvent): [number, number] => [e.frame - TEXT_IN, (e.end ?? e.frame) + TEXT_OUT];
 
@@ -262,6 +396,10 @@ const events: CueEvent[] = [
   span('silence', 'silence-hub', at(12, 4), at(13), 'one beat of silence after the hub'),
 
   // 3 · Two easy fixes (bars 13-18)
+  mark('fix-a', FIX_A.in, 'Fix A rises in grey stock west of your lamp: every feeder pours onto its one tape (hard left)'),
+  mark('fix-b', FIX_B.in, 'Fix B’s eight trays rise east of your lamp and tick in parallel (hard right)'),
+  mark('fix-b-break', FIX_B.breakMark, 'a follow-up lands in a different tray from its task: the break mark'),
+  mark('both-fixes', BOTH_FIXES, 'both fixes at full contrast, either side of your desk'),
   line('c5', at(13, 2), at(15, 1.5)),
   line('c6', at(15, 1.5), at(17)),
   line('c7', at(17), at(18, 2.5)),
@@ -272,17 +410,40 @@ const events: CueEvent[] = [
   line('c8', at(19), at(20, 3)),
   line('c9', at(20, 3), at(22, 1.5)),
   mark('trait-continuous', at(21, 3), 'the notes loop is now the Register’s tape: the Continuous plate docks'),
+  mark('request-rise', BEAT_4.requestRise, 'the request rises out of the old heap toward the throat'),
+  hit('request-in', BEAT_4.requestIn, 'the request is stamped in, its stub on the tape: the motif’s first station'),
   line('c10', at(22, 1.5), at(23, 4)),
+  mark('split-card', BEAT_4.splitCard, 'a grey-stock card rises: the request torn three ways'),
+  hit('strike-split', BEAT_4.splitStrike, 'an ink rule strikes the split card: a dry scratch'),
+  mark('arm-bug', BEAT_4.armBug, 'the index arm detents toward the bay floor'),
+  hit('dispatch-bug', BEAT_4.dispatchBug, 'a hatch opens and the bug bay’s bench rises; the request’s folder slides its groove: a knock, then its marimba voice'),
+  mark('thread-row', BEAT_4.threadRow, 'the request’s Thread subscription prints as a row on the tape (no cord until C17)'),
   line('n2', at(23, 4), at(25, 3.5)),
+  mark('gauge', BEAT_4.gauge, 'the neck-collar gauge on the throat shows, its needle low'),
+  mark('ghost-router', BEAT_4.ghostCard, 'a grey-stock card rises: a Router with a bench, its backlog piling at the door for a bar'),
+  ...BEAT_4.rows.map((f, i) => mark(`row-${i + 1}`, f, 'an arrival takes the next row on the tape (beats 2 and 4)')),
+  hit('strike-ghost', BEAT_4.ghostStrike, 'the ghost Router is struck: the smeared cluster fades'),
   line('c11', at(25, 4), at(27, 3.5)),
+  mark('arm-tests', BEAT_4.armTests, 'the index arm detents toward the test tower’s hatch'),
+  hit('dispatch-tests', BEAT_4.dispatchTests, 'the test tower rises from its hatch: a knock, then its marimba voice'),
   shown('text', 'tag-built', at(26), at(27, 3.5), WORDS.tagBuilt),
+  mark('arm-docs', BEAT_4.armDocs, 'the index arm detents toward the docs galley’s hatch'),
+  hit('dispatch-docs', BEAT_4.dispatchDocs, 'the docs galley rises from its hatch: a knock, then its marimba voice (three voices at most)'),
+  mark('worker-label', BEAT_4.workerLabel, 'the Worker label enters on the bug bay'),
+  mark('report-up', MT1.reportUp, 'the test tower’s report card ejects and flies up under the transit light'),
+  mark('stamp-in', MT1.stampIn, 'the report stamps in on the tape'),
+  mark('reply-lands', MT1.replyLands, 'the reply lands in your in-tray: one felt-piano note'),
+  mark('dispatch-fresh', MT1.dispatchFresh, 'the fresh bay rises from its hatch, inside the rest: no knock'),
   line('c12', at(27, 3.5), at(29, 2)),
   span('rest', 'rest-model', at(29, 2), at(30), 'three beats: the system runs on the beat, the bays step down; the pad and one pluck'),
 
   // 5 · Prompting each run, handed over (bars 30-34), by design
   line('n3', at(30), at(31, 4)),
   mark('trait-proactive', at(30, 2), 'the starter key lifts off your tray into the intake: the Proactive plate docks'),
+  mark('key-dock', BEAT_5.keyDock, 'the starter key docks on the intake as its trip'),
+  mark('plate-proactive', BEAT_5.plateDock, 'the Proactive plate docks on the intake; your lamp has dimmed a step'),
   shown('text', 'tag-gate', at(30), at(33, 4.5), WORDS.tagGate),
+  mark('spike-in', BEAT_5.spikeIn, 'the spike stands up beside the gate: the filter starts'),
   line('c14', at(31, 4.5), at(33, 4.5)),
 
   // 6 · How one Router keeps up (bars 35-43): batching, context as a cache, recall
@@ -291,9 +452,17 @@ const events: CueEvent[] = [
   line('n4', at(36, 4.5), at(38, 4)),
   hit('plate-detent', at(37), 'the stress plate sets: a soft mechanical detent'),
   shown('text', 'plate', at(37), at(39), read(WORDS.plateHead, WORDS.plateArrivals, WORDS.plateDecision)),
+  hit('batch-2', BEAT_6.batches[1].sweep, 'the longer strip is swept, barely longer: a thicker chord'),
   line('n5', at(39, 2), at(41, 1.5)),
+  mark('cache-eject', BEAT_6.cacheEject, 'the request bay’s report card ejects toward the reading window'),
+  hit('cache-fold', BEAT_6.cacheFold, 'the body folds into a pointer tab: paper, then a pointer tick as it lands in the drawer'),
   shown('text', 'tag-cache', at(39, 3), at(43, 3), WORDS.tagCache),
+  mark('review-card', BEAT_6.recall.card, 'a GitHub review comment, a punched card, enters the throat'),
+  mark('review-in', BEAT_6.recall.stampIn, 'nothing subscribes to it: it is stamped in as a new row'),
   line('n6', at(41, 3.5), at(43, 3)),
+  hit('recall', BEAT_6.recall.rewind, 'the reel rewinds over 24 f as the camera eases out'),
+  ...BEAT_6.recall.hops.map((f, i) => mark(`hop-${i + 1}`, f, ['the thread hops to the request’s stub: A4', 'to its Thread’s row: D5', 'to its bay’s last report: A4 (F♯5 is kept for the stamp)'][i]!)),
+  mark('recall-answer', BEAT_6.recall.answer, 'a short answer goes back'),
 
   // 7 · Waiting, handed over (bars 44-49)
   line('c17', at(44), at(45, 3)),
