@@ -208,9 +208,10 @@ export function Cargo({ s }: { s: DeskState }) {
   const m = useDeskMats();
   useLayoutEffect(() => {
     // the one transit light, on the carrier in flight: ramped in and out (state.ts transitRamp), dark in its dock frame
-    // (one carrier at a time: the report card, MT1's dispatch folder, or still (c)'s report)
-    m.transit.color.set(LIGHT_HEX.work).multiplyScalar(EMIT.transit * Math.max(s.transit, s.next.folderTransit, s.cache?.transit ?? 0));
-  }, [m, s.transit, s.next.folderTransit, s.cache?.transit]);
+    // (one carrier at a time: the request on its ride in beat 4, the report card, MT1's dispatch folder, or still (c)'s report)
+    const request = s.b4.request.pose?.transit ?? 0;
+    m.transit.color.set(LIGHT_HEX.work).multiplyScalar(EMIT.transit * Math.max(s.transit, s.next.folderTransit, s.cache?.transit ?? 0, request));
+  }, [m, s.transit, s.next.folderTransit, s.cache?.transit, s.b4.request.pose?.transit]);
   // the report card and the reply, each a sheet of its own form (objects/Handshake.tsx)
   return (
     <group>

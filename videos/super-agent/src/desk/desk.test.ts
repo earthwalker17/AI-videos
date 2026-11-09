@@ -7,7 +7,7 @@ import { BAYS, BENCH, CARD, CELLS_X, CORDS, DECK, DISPATCH, FRESH, HATCH_DEPTH, 
 import { MAX_POOLS, linearOf, packPools, poolsAt } from './pools.ts';
 import { ROUND2, MOTION_TESTS } from '../lookdev/frames.ts';
 import { BEAT_6, MT1 } from '../cues.ts';
-import { CAP_SLOT, CARD_STAND, REPLY_PATH, cardArc, cardRise, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, LAMP_STEPS, SLIP_LANDS, SLIP_RIDE_FROM, replyPose } from './state.ts';
+import { CAP_SLOT, CARD_STAND, REPLY_ARC, REPLY_PATH, SLIP_LIP, cardArc, cardRise, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, LAMP_STEPS, SLIP_LANDS, SLIP_RIDE_FROM, replyPose } from './state.ts';
 
 const B = deskStateAt(ROUND2.stillB);
 
@@ -250,7 +250,7 @@ describe('desk state at still B (C12)', () => {
     expect(B.cellLit).toBeGreaterThan(0.99);
     expect(B.reel).toBeGreaterThan(0.95);
     expect(B.arm).toBeCloseTo(DETENT.you, 2);
-    expect(deskStateAt(EVENTS_B.armTurn).arm).toBeCloseTo(DETENT.tests, 6);
+    expect(deskStateAt(EVENTS_B.armTurn).arm).toBeCloseTo(DETENT.docs, 6);
     expect(B.slip!.emerge).toBe(1);
     expect(B.slip!.s).toBeGreaterThan(0.6);
     expect(B.slip!.s).toBeLessThan(0.7);
@@ -267,6 +267,24 @@ describe('desk state at still B (C12)', () => {
     for (const id of ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'cord', 'reel', 'lock'] as const) expect(B.step.ids).toContain(id);
     expect(deskStateAt(2100).step.amount).toBe(0);
   });
+  it('runs the reply at a constant pace down the chute, along the chute until its lip, then a short arc into the tray (the MT1 critic: no hold under the lip)', () => {
+    const at = (f: number) => replyPose(deskStateAt(f).slip!).p;
+    const step = (f: number) => Math.hypot(...([0, 1, 2] as const).map((i) => at(f + 1)[i] - at(f)[i]));
+    // once out from under the deck it never slows before the lip
+    const chute = Array.from({ length: SLIP_LIP - EVENTS_B.slipLeave - 8 }, (_, i) => EVENTS_B.slipLeave + 7 + i);
+    for (const f of chute) expect(step(f), `f${f}`).toBeGreaterThan(10);
+    // along the chute's line while inside it: its heading the chute's (never broadside to the trough)
+    for (let f = EVENTS_B.slipLeave; f < SLIP_LIP; f++) {
+      const s = deskStateAt(f).slip!;
+      expect(s.arc).toBe(0);
+      if (s.s > 0.05 && s.s < 0.95) expect(Math.abs(replyPose(s).slope)).toBeGreaterThan(0.05);
+    }
+    // off the lip in REPLY_ARC frames, landing on its frame, then dead still after its settle
+    expect(SLIP_LIP + REPLY_ARC).toBe(SLIP_LANDS);
+    expect(deskStateAt(SLIP_LANDS).slip!.arc).toBe(1);
+    for (let f = SLIP_LIP; f < SLIP_LANDS; f++) expect(step(f), `f${f}`).toBeGreaterThan(2);
+  });
+
   it('keeps the reply once it lands: in your in-tray, settled on spring-dock', () => {
     const later = deskStateAt(SLIP_LANDS + 12);
     expect(later.slip?.s).toBe(1);

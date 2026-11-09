@@ -8,7 +8,7 @@ import { clamp, easings } from '@aiv/core';
 import { Curve, type CamPose } from '@aiv/remotion-kit';
 import { cue } from '../cues.ts';
 import { FRAMING_B, moveCameraAt, type Angle, type CameraMove, type Framing } from './camera.ts';
-import { BAYS, BELT, BENCH, CARD_C, CHUTE, DECK, FEEDERS, FRESH, GATE, GROOVES, INDEX, PRINT_HEAD, RAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SPIKE, TAPE, TAPE_FLAT_X1, THROAT, WINDOW, YOU, rectC, type P2, type P3 } from './layout.ts';
+import { BAYS, BELT, BENCH, CHUTE, DECK, FEEDERS, FOLDER, FRESH, GATE, GROOVES, INDEX, RAMP, REEL, SPIKE, TAPE, TAPE_FLAT_X1, THROAT, WINDOW, YOU, rectC, type P2, type P3, type Pool } from './layout.ts';
 import { DETENT, STEP_FRAMES, deskStateAt, type DeskState, type FocusId } from './state.ts';
 
 /** The frames the summary's world is posed for (the sign-off, the rest, the idea labels). */
@@ -92,34 +92,60 @@ export function summaryDeskState(f: number): DeskState {
 
 // ------------------------------------------------------------------------------------------------
 // The route, as the request took it: inked into the beds of the channels it used (world points just
-// above each bed), never across print. Out (vermilion): the feed, the gate, the intake conveyor, through
-// the print head, along the window's north bar and the tape onto the reel to the request's stub, over
-// the frame and down the ramp's north lane and the groove's east lane into the bug bay. Home (green):
-// from the bay's report port up the groove's west lane and the ramp's south lane, along the deck's
-// rails to the window's south bar, through the print head, over the index arm's boss and out along the
-// arm into the reply chute, down to your in-tray. The two share the groove and the ramp as two lanes.
+// above each bed), never across print, each leg one continuous path. Out (vermilion): the feed, under
+// the gate's fingers and up the intake belt, across the throat's floor into the print head (hidden in
+// it), out along the window's north bar, round the reel's rim where the tape winds on, over the dispatch
+// housing, down the ramp's north lane and the groove's east lane, over the bay's door and the bench to
+// the request's folder. Home (green): from the folder over the bench and the door, up the groove's west
+// lane and the ramp's south lane, along the deck's east and south rails, across the deck plate onto the
+// window's south bar, through the print head, over the index arm's boss and out along the arm into the
+// reply chute, down onto the slip your stamp signed. The two run side by side down the ramp, the groove
+// and through the door, red on the outside of every turn they share, so they never cross.
+//
+// Each leg is one kit Curve (centripetal Catmull-Rom: no overshoot between unevenly spaced points)
+// through its waypoints, drawn by arc length (objects/Trace.tsx). No two consecutive 16 u steps of it turn
+// more than 60° (in plan, and on screen as still (d) sees it), every drop off a wall or an edge is ramped
+// (DROP_SLOPE), and it never runs under a leg strut, so it has no right-angle steps, Z-jogs or dark wedges
+// (summary.test.ts).
+
+/** Every drop (or climb) off a wall or an edge is ramped: at least 12 u of plan per 35 u of fall. */
+export const DROP_SLOPE = 35 / 12;
+/** The trace's width, thick where the leg set out to thin where it arrived (u; about 7.5 to 3 px at 0.64×). */
+export const TRACE_W = [12, 4.6] as const;
+/** The width at arc fraction t of a leg. */
+export const traceWidthAt = (t: number): number => TRACE_W[0] + (TRACE_W[1] - TRACE_W[0]) * t;
 
 const along = (a: P3, b: P3, n: number, lift = 0): P3[] =>
   Array.from({ length: n }, (_, i) => {
     const t = (i + 1) / n;
     return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t + lift];
   });
-const spout: P3 = [rectC(FEEDERS.chat)[0] + 70, rectC(FEEDERS.chat)[1] - 6, 4];
+/** A point on a circle round c at radius r and angle deg (degrees from +x), at height z. */
+const onArc = (c: P2, r: number, deg: number, z: number): P3 => [c[0] + r * Math.cos((deg * Math.PI) / 180), c[1] + r * Math.sin((deg * Math.PI) / 180), z];
 const req = BAYS.bug;
-/** The window's north and south bars (their tops) and where the print head's faces are. */
+/** The window's north and south bars (their tops). */
 const BAR_N_Y = WINDOW.frame.y1 - WINDOW.bar / 2;
 const BAR_S_Y = WINDOW.frame.y0 + WINDOW.bar / 2;
 const BAR_Z = WINDOW.z[1] + 1;
-const HEAD = PRINT_HEAD.box;
 const RAIL_Z = DECK.top + 1.5;
 /** The east rail's middle and the south rail's. */
 const RAIL_E_X = DECK.x1 - DECK.rail / 2;
 const RAIL_S_Y = DECK.y0 + DECK.rail / 2;
-/** The ramp's two lanes (north: out, south: home) and the groove's half-spacing between them. */
-const LANE = { out: (RAMP.y0 + RAMP.y1) / 2 + 13, home: (RAMP.y0 + RAMP.y1) / 2 - 13, groove: 5 } as const;
 /** Down the ramp's quarter pipe at lane y (centre (lip, lip), radius lip: surface z at u out from the rail). */
 const rampAt = (u: number, y: number): P3 => [RAMP.x + u, y, RAMP.lip - Math.sqrt(Math.max(0, RAMP.lip ** 2 - (u - RAMP.lip) ** 2)) + 1.5];
-const RAMP_U = [0.5, 6, 14, 24, 36, 50, 64] as const;
+/**
+ * The ramp's two lanes, 24 u apart: red down its north part (clear of the reel frame's corner boss),
+ * green up its south part, then climbing it diagonally south-west so that it meets the east rail already
+ * turning south. And the groove's (offsets from its engraved line, + east of the way down): red outside.
+ */
+const LANE = { out: (RAMP.y0 + RAMP.y1) / 2 + 22, home: (RAMP.y0 + RAMP.y1) / 2 - 2, grooveOut: 6, grooveHome: -5.5 } as const;
+/**
+ * Where a lane leaves the ramp's top: its rail's outer edge, over a 50 u face and then the quarter pipe
+ * (vertical at its top), so the drop is one straight ramped run between the edge and the pipe where it is
+ * gentle (`chord`: points along it, so the curve stays straight and never steeper than the run).
+ */
+const RAMP_EDGE_X = RAMP.x + 1;
+const chord = (a: P3, b: P3): P3[] => along(a, b, 3).slice(0, 2);
 /** The bug bay's groove (as the desk engraves it, ramp foot to door) offset to one side: + is east of the way down. */
 function grooveLane(off: number): P3[] {
   const line = new Curve(GROOVES.bug.map((p) => [p[0], p[1]])).polyline(12);
@@ -133,90 +159,232 @@ function grooveLane(off: number): P3[] {
     return [p[0] + nx * off, p[1] + ny * off, 1.4] as P3;
   });
 }
-/** The reel's pack top, a point at radius r and angle a (world, from +x). */
-const onPack = (r: number, a: number): P3 => [REEL.x + r * Math.cos(a), REEL.y + r * Math.sin(a), REEL.packZ[1] + 0.9];
-/** The request's stub on the reel's outer turns, where the reel has turned it to by the sign-off (gl/text.ts reelTop: canvas -0.45 rad, two detents of 0.26). */
-export const STUB_A = 0.45 - 2 * 0.26;
-const FRAME_E_X = (REEL_FRAME[2].x0 + REEL_FRAME[2].x1) / 2;
-const FRAME_Z = REEL_FRAME_Z[1] + 2;
+/**
+ * Over the bay's shut door. The deck's south-east leg strut lands on the door (layout.ts LEG_STRUTS: its
+ * foot at (320, 86)), so the groove's last stretch passes under its slanted run: a lane low there is
+ * hidden by it (the dark wedge the critic saw on (d)). Both lanes climb over it instead, cross the door at
+ * that height (well above its wall) and ease down from there to the bench, never dipping.
+ */
+const OVER_DOOR_Z = 64;
+/** A groove lane from below y `from` to its door end, ramped up over its last 50 u (in plan) to OVER_DOOR_Z, held over its last 10. */
+function laneToDoor(off: number, from: number): P3[] {
+  const pts = grooveLane(off).filter((p) => p[1] < from);
+  const CLIMB = 40;
+  const HOLD = 10;
+  let d = 0;
+  const left = pts.map((_, i) => {
+    if (i > 0) d += Math.hypot(pts[pts.length - i][0] - pts[pts.length - 1 - i][0], pts[pts.length - i][1] - pts[pts.length - 1 - i][1]);
+    return d;
+  });
+  return pts.map((p, i) => {
+    const k = clamp(1 - (left[pts.length - 1 - i] - HOLD) / CLIMB);
+    return [p[0], p[1], p[2] + (OVER_DOOR_Z - p[2]) * k * k * (3 - 2 * k)];
+  });
+}
+/** The bench's top and the folder's, where the trace lies on them. */
+const BENCH_Z = BENCH.z[1] + 0.9;
+const FOLDER_Z = FOLDER.z[1] + 0.9;
 
-const beltIn: P3 = [BELT.from[0], BELT.from[1], BELT.from[2] + 2];
-const beltOut: P3 = [BELT.to[0], BELT.to[1], BELT.to[2] + 2];
-const groove = grooveLane(LANE.groove);
+/** The belt's line 8 u north of its middle: between the gate's fingers, and into the throat clear of its south cheek. */
+const BELT_L = Math.hypot(BELT.to[0] - BELT.from[0], BELT.to[1] - BELT.from[1]);
+const BELT_D: P2 = [(BELT.to[0] - BELT.from[0]) / BELT_L, (BELT.to[1] - BELT.from[1]) / BELT_L];
+const beltLine = (s: number, z: number): P3 => [BELT.from[0] + BELT_D[0] * s - BELT_D[1] * 8, BELT.from[1] + BELT_D[1] * s + BELT_D[0] * 8, z];
+/** The throat's floor between its cheeks (objects/Register.tsx: its block's top, 8 under the throat's top), a hair above. */
+const THROAT_FLOOR_Z = THROAT.z[1] - 8 + 1.2;
+/**
+ * The reel's rim (its flange outside the pack, r 112 to 125) at radius 118, and the tape's rise onto the
+ * pack across it (objects/Register.tsx tapeRise: the trace rides over the rise where it covers the rim).
+ */
+const RIM_R = 118;
+const RIM_Z = REEL.flangeZ[1] + 0.6;
+const TAPE_RISE = new Curve<P3>([
+  [TAPE_FLAT_X1 - 2, (TAPE.y0 + TAPE.y1) / 2, TAPE.z],
+  [TAPE.x1 - 6, (TAPE.y0 + TAPE.y1) / 2, TAPE.z + 6],
+  [TAPE.x1 + 8, (TAPE.y0 + TAPE.y1) / 2 + 3, REEL.packZ[1] - 8],
+]).polyline(24);
+const rimAt = (deg: number): P3 => {
+  const p = onArc([REEL.x, REEL.y], RIM_R, deg, RIM_Z);
+  const x0 = TAPE_RISE[0][0];
+  const x1 = TAPE_RISE[TAPE_RISE.length - 1][0];
+  if (p[0] < x0 || p[0] > x1) return p;
+  const i = TAPE_RISE.findIndex((q) => q[0] >= p[0]);
+  const a = TAPE_RISE[Math.max(0, i - 1)];
+  const b = TAPE_RISE[i];
+  const z = a[2] + ((b[2] - a[2]) * (p[0] - a[0])) / Math.max(1e-6, b[0] - a[0]);
+  // (the rise is swept in 8 straight steps: its chords sit a hair above the curve)
+  return [p[0], p[1], Math.max(RIM_Z, z + 1.5)];
+};
+/** Off the north bar onto the rim: a right-hand arc of radius 30 tangent to the bar and to the rim. */
+const BAR_TO_RIM = (() => {
+  const r = 30;
+  const c: P2 = [REEL.x - Math.sqrt((RIM_R + r) ** 2 - (REEL.y - (BAR_N_Y - r)) ** 2), BAR_N_Y - r];
+  const meet = (Math.atan2(REEL.y - c[1], REEL.x - c[0]) * 180) / Math.PI;
+  return { c, r, meet, rim: meet - 180 };
+})();
+/** Where the red's nib comes to rest: on the folder's north margin, just north of the request (never across its print). */
+const NIB_OUT: P3 = [336, 1.5, FOLDER_Z];
 
 export const ROUTE_OUT: readonly P3[] = [
-  spout,
-  // along the feed, over the gate's fingers and up the intake conveyor's bed
-  [-760, 384, 3],
-  [-650, 334, 3],
-  [GATE.bar.x0 - 4, (GATE.bar.y0 + GATE.bar.y1) / 2 - 12, 2],
-  beltIn,
-  ...along(beltIn, beltOut, 4),
-  // through the throat into the print head (hidden in it), out of its east face onto the window's north bar
-  [THROAT.box.x0 + 10, rectC(THROAT.box)[1], THROAT.z[1] + 2],
-  [HEAD.x0 + 2, rectC(THROAT.box)[1] + 8, THROAT.z[1] + 2],
-  [HEAD.x1 - 6, BAR_N_Y, BAR_Z],
-  [HEAD.x1 + 4, BAR_N_Y, BAR_Z],
-  ...along([HEAD.x1 + 4, BAR_N_Y, BAR_Z], [WINDOW.frame.x1 - 4, BAR_N_Y, BAR_Z], 4),
-  // down onto the bare tape east of the window, along it to the reel, up its rise onto the pack
-  [WINDOW.frame.x1 + 10, TAPE.y1 - 12, TAPE.z + 1],
-  [TAPE_FLAT_X1 - 30, (TAPE.y0 + TAPE.y1) / 2 + 2, TAPE.z + 1],
-  [TAPE_FLAT_X1 - 2, (TAPE.y0 + TAPE.y1) / 2, TAPE.z + 1.2],
-  [REEL.x - 4, REEL.y - REEL.packR + 2, REEL.packZ[1] - 6],
-  // along the pack's outer turn to the request's stub
-  ...[-1.5, -1.2, -0.9, -0.6, -0.35].map((a) => onPack(REEL.packR - 4, a)),
-  onPack(REEL.packR - 6, STUB_A),
-  // over the flange onto the frame's east member, south along its cap, down onto the east rail and the ramp's lip
-  [REEL.x + REEL.r + 2, REEL.y + (REEL.r + 2) * Math.sin(STUB_A) - 4, REEL.flangeZ[1] + 2],
-  [FRAME_E_X, REEL.y - 18, FRAME_Z],
-  [FRAME_E_X, REEL_FRAME[2].y0 + 6, FRAME_Z],
-  [RAIL_E_X, LANE.out + 6, RAIL_Z],
-  [RAMP.x + 0.2, LANE.out, RAIL_Z - 0.5],
-  // down the ramp's north lane, into the groove's east lane, through the bay's door onto the bench and the request's folder
-  ...RAMP_U.map((u) => rampAt(u, LANE.out)),
-  ...groove,
-  [req.door[0] + 22, req.box.y1 - 4, req.wallH + 1],
-  [req.box.x0 + 40, req.box.y1 - 40, BENCH.z[1] - 2],
-  [BENCH.top.x0 + 6, BENCH.top.y1 - 18, BENCH.z[1] + 1.5],
-  [BENCH.top.x0 + 34, BENCH.top.y1 - 52, BENCH.z[1] + 8.5],
+  // from the chat spout along the feed, south of the spike's dropped noise, onto the belt's line
+  [rectC(FEEDERS.chat)[0] + 70, rectC(FEEDERS.chat)[1] - 6, 4],
+  [-795, 395, 3],
+  [-712, 368, 3],
+  [-645, 343, 3],
+  // under the gate's fingers, through its bar, up the belt's bed
+  beltLine(-36, 3),
+  beltLine(0, BELT.from[2] + 2),
+  beltLine(BELT_L / 2, (BELT.from[2] + BELT.to[2]) / 2 + 4),
+  beltLine(BELT_L - 16, BELT.to[2] + 2 - (16 * (BELT.to[2] - BELT.from[2])) / BELT_L),
+  // lifting off the belt's top into the throat's mouth at its floor's height (the belt runs on under it), across the
+  // floor (under the neck collar), into the print head (hidden in it), out onto the north bar
+  beltLine(BELT_L, THROAT_FLOOR_Z),
+  [-374, 212.5, THROAT_FLOOR_Z + 0.4],
+  [-358, 213, THROAT_FLOOR_Z + 1],
+  [-343, 218, 121.8],
+  [-330, 228, 126],
+  [-319, 242, 130],
+  [-309, 254, 133],
+  [-299, 261, 134],
+  [-285, BAR_N_Y + 0.2, BAR_Z],
+  [-262, BAR_N_Y, BAR_Z],
+  [-150, BAR_N_Y, BAR_Z],
+  [-40, BAR_N_Y, BAR_Z],
+  // off the window's corner onto the reel's rim (north of the stub on the tape), round it where the tape winds on
+  onArc(BAR_TO_RIM.c, BAR_TO_RIM.r, 90, BAR_Z - 1),
+  onArc(BAR_TO_RIM.c, BAR_TO_RIM.r, 67.5, (BAR_Z - 1 + RIM_Z) / 2),
+  rimAt(BAR_TO_RIM.rim),
+  ...[-120, -105, -97, -90, -87, -75].map(rimAt),
+  // off the rim onto the dispatch housing's top (south of the flange, then north once the flange has curved away), over the east rail
+  [185, 225.5, RIM_Z],
+  [205, 226, 120.8],
+  [230, 228.5, 120.8],
+  [256, LANE.out - 0.5, 121],
+  [RAIL_E_X, LANE.out, RAIL_Z],
+  // down the ramp's face and its pipe in one straight run onto its north lane near the foot, then right off
+  // the foot into the groove's east lane (the outside of the turn)
+  [RAMP_EDGE_X, LANE.out, RAIL_Z - 2],
+  ...chord([RAMP_EDGE_X, LANE.out, RAIL_Z - 2], rampAt(RAMP.lip - 15.7, LANE.out)),
+  ...[90, 60, 30, 0].map((a) => {
+    const p = onArc([RAMP.foot - 15.7, LANE.out - 25], 25, a, 0);
+    return [p[0], p[1], p[0] < RAMP.foot ? rampAt(p[0] - RAMP.x, 0)[2] : 1.4] as P3;
+  }),
+  // down the groove's east lane, up over the leg strut's foot, bearing left over the door's east half, easing
+  // down over the floor to the bench, between pins 2 and 3, onto the folder
+  ...laneToDoor(LANE.grooveOut, 200).slice(0, -1),
+  [305.5, 90, OVER_DOOR_Z],
+  [307.5, 82, OVER_DOOR_Z - 0.2],
+  [311, 72, OVER_DOOR_Z - 1],
+  [316, 58, OVER_DOOR_Z - 2.4],
+  [322.5, 38, BENCH_Z + 1.2],
+  [325.5, 30, BENCH_Z],
+  [329, 20, BENCH_Z],
+  [332, 10.5, BENCH_Z + 0.3],
+  [334, 5, FOLDER_Z],
+  NIB_OUT,
 ];
-/** The report port: the bay's work slot, where its report card leaves (state.ts CARD_C.from). */
-export const REPORT_PORT: P3 = [CARD_C.from[0], CARD_C.from[1], 32];
+/**
+ * Where the report sets out home (the green's tail): the request's folder, on its north margin west of
+ * the red's nib and clear of the request's print. (Not the work slot: it is east of the door, so a green
+ * from there would have to cross the red to leave through the door's west half.)
+ */
+export const REPORT_PORT: P3 = [FOLDER.box.x0 + 7.5, FOLDER.box.y1 - 4.5, FOLDER_Z];
 /** The index arm's tip at your detent (the arm's top). */
 const ARM_TIP: P3 = [INDEX.pivot[0] + (INDEX.length - 6) * Math.cos(DETENT.you), INDEX.pivot[1] + (INDEX.length - 6) * Math.sin(DETENT.you), INDEX.z + 6.5];
-const tray = YOU.inTray;
+/** A point on the index arm's axis at your detent, t out from the pivot, on its top. */
+const onArm = (t: number, z = INDEX.z + 6.6): P3 => [INDEX.pivot[0] + t * Math.cos(DETENT.you), INDEX.pivot[1] + t * Math.sin(DETENT.you), z];
+/** The reply chute's bed under the trace (its trough's floor is 3 u above the path). */
+const CHUTE_BED = 7;
+/**
+ * The signed slip in your in-tray (objects/Trace.tsx: 104 x 72 at (-520, -64)): the reply ends on its north
+ * margin (between the slip's edge at y about -28 and its ID's cap line at about -39), clear of the ID.
+ */
+export const REPLY_END: P3 = [-522, -32, YOU.top + 7.95];
 export const ROUTE_HOME: readonly P3[] = [
   REPORT_PORT,
-  // west along the slot block's top, over the door, into the groove's west lane
-  [req.slot.x0 + 2, REPORT_PORT[1], 31],
-  [req.door[1] - 14, req.box.y1 - 4, req.wallH + 1],
-  ...grooveLane(-LANE.groove).reverse(),
-  // up the ramp's south lane onto the east rail
-  ...[...RAMP_U].reverse().map((u) => rampAt(u, LANE.home)),
-  [RAMP.x + 0.2, LANE.home, RAIL_Z - 0.5],
-  [RAIL_E_X, LANE.home - 4, RAIL_Z],
-  // south along the east rail, west along the south rail
-  [RAIL_E_X, RAIL_S_Y + 8, RAIL_Z],
-  [RAIL_E_X - 10, RAIL_S_Y, RAIL_Z],
-  ...along([RAIL_E_X - 10, RAIL_S_Y, RAIL_Z], [-104, RAIL_S_Y, RAIL_Z], 6),
-  // north across the deck plate, east of the Continuous plate, up onto the window's south bar
-  [-112, RAIL_S_Y + 14, DECK.top + 0.8],
-  [-112, WINDOW.frame.y0 - 6, DECK.top + 0.8],
-  [-120, BAR_S_Y, BAR_Z],
-  // west along the south bar into the print head (hidden in it), out of its south face to the index arm's boss
-  ...along([-120, BAR_S_Y, BAR_Z], [HEAD.x1 + 4, BAR_S_Y, BAR_Z], 4),
-  [HEAD.x1 - 8, BAR_S_Y - 2, BAR_Z - 3],
-  [INDEX.pivot[0], HEAD.y0 - 4, DECK.top + 1],
-  [INDEX.pivot[0], INDEX.pivot[1] + 8, INDEX.z + 16],
-  [INDEX.pivot[0] + 6 * Math.cos(DETENT.you), INDEX.pivot[1] + 6 * Math.sin(DETENT.you), INDEX.z + 16],
-  // out along the arm to its tip, off it into the reply chute
-  [INDEX.pivot[0] + 18 * Math.cos(DETENT.you), INDEX.pivot[1] + 18 * Math.sin(DETENT.you), INDEX.z + 7],
+  // north off the folder and the bench between pins 1 and 2, rising gently over the floor and the door's west half
+  [299.3, 8.5, (FOLDER_Z + BENCH_Z) / 2],
+  [299, 15, BENCH_Z],
+  [299, 24, BENCH_Z],
+  [298.5, 33, BENCH_Z],
+  [297, 52, BENCH_Z + 1.5],
+  [295, 72, OVER_DOOR_Z - 1],
+  [293.6, 80, OVER_DOOR_Z - 0.2],
+  [293, 88, OVER_DOOR_Z],
+  // over the leg strut's foot, down into the groove's west lane, up it, then left off its top onto the ramp (the inside of the turn)
+  ...laneToDoor(LANE.grooveHome, 178).reverse(),
+  ...[-9, 25, 60, 90].map((a) => {
+    const p = onArc([RAMP.foot - 24.5, LANE.home - 20], 20, a, 0);
+    return [p[0], p[1], rampAt(p[0] - RAMP.x, 0)[2]] as P3;
+  }),
+  // up the ramp's pipe and its face, bearing south as it climbs (the climb reads as up the screen, the
+  // rail as down it: the turn is spread over the whole climb), onto the east rail and south along it
+  [308, LANE.home - 5, 30],
+  [294, LANE.home - 13, 68],
+  [283.5, LANE.home - 22, 104],
+  [RAIL_E_X + 6.5, LANE.home - 31, RAIL_Z - 1.5],
+  [RAIL_E_X + 2, LANE.home - 41.5, RAIL_Z],
+  [RAIL_E_X, LANE.home - 54, RAIL_Z],
+  // round the deck's south-east corner (an arc of r 20 that stays on the rails) and west along the south rail
+  ...[0, -30, -60, -90].map((a) => onArc([RAIL_E_X - 20, RAIL_S_Y + 20], 20, a, RAIL_Z)),
+  [150, RAIL_S_Y, RAIL_Z],
+  [40, RAIL_S_Y, RAIL_Z],
+  // one shallow S across the deck plate, up onto the window's south bar
+  [-12, RAIL_S_Y + 2.5, RAIL_Z],
+  [-45, 150, DECK.top + 2],
+  [-82, 176, BAR_Z - 3.5],
+  [-118, BAR_S_Y, BAR_Z],
+  // west along the south bar into the print head (hidden in it), out of its south face over the index arm's boss
+  [-200, BAR_S_Y, BAR_Z],
+  [-282, BAR_S_Y, BAR_Z],
+  [-298, BAR_S_Y - 0.5, BAR_Z],
+  [-307, BAR_S_Y - 3.5, BAR_Z + 0.5],
+  [-313.5, 176, BAR_Z + 2],
+  [-325, 158, INDEX.z + 11.5],
+  // out along the arm to its tip, off it over the chute's north lip into its bed
+  onArm(18.2, INDEX.z + 7),
+  onArm(33),
+  onArm(48.5),
   ARM_TIP,
-  [ARM_TIP[0] - 8, ARM_TIP[1] - 18, CHUTE[1][2] + 18],
-  // down the reply chute's bed and into your in-tray, stopping at its north edge beside the slip, never across its ID
-  ...CHUTE.slice(1).map((p): P3 => [p[0], p[1], p[2] + 7]),
-  [tray.x0 + 22, tray.y1 + 2, YOU.top + 9],
+  [-403, 120, 122],
+  [-427, 95, 108],
+  // down the chute's bed, off its mouth onto the signed slip's north margin
+  ...CHUTE.slice(2).map((p): P3 => [p[0], p[1], p[2] + CHUTE_BED]),
+  REPLY_END,
 ];
+
+/** Each leg as one curve, drawn by arc length (objects/Trace.tsx). */
+export const LEGS = { out: new Curve<P3>(ROUTE_OUT), home: new Curve<P3>(ROUTE_HOME) } as const;
+/** The point of a leg at arc fraction t (0..1). */
+export const legAt = (leg: Curve<P3>, t: number): P3 => {
+  const p = leg.pointAt(clamp(t) * leg.length);
+  return [p[0], p[1], p[2]];
+};
+
+/** The inks' albedos: lit on the desk they land on the palette's vermilion base (Y 121) and between the green's base and light (Y 182-205). */
+export const TRACE_INK = { out: '#F26D4D', home: '#B6ECCB' } as const;
+/**
+ * The light an up-facing bed takes from the key (intensity `key` along `dir`) and the hemisphere fill
+ * alone, as three's Lambert lights it (irradiance over π): about 0.74 with DeskWorld's LIGHTS.
+ */
+export const inkLight = (key: number, fill: number, dir: P3): number => ((key * dir[2]) / Math.hypot(dir[0], dir[1], dir[2]) + fill) / Math.PI;
+/**
+ * How much of its albedo the ink keeps at a point, so that a light pool lifts it at most INK_HOLD over its
+ * value lit by the key and fill alone (your lamp would otherwise wash the green home to white where it
+ * lands). `k`: that key-and-fill light (inkLight); the pools add on top, as the lit materials add them
+ * (gl/light.ts dskPool, gl/materials.ts), by luminance.
+ */
+export const INK_HOLD = 1.2;
+export function poolLift(p: P3, pools: readonly Pool[]): number {
+  let s = 0;
+  for (const q of pools) {
+    if (p[2] < q.z[0] || p[2] > q.z[1]) continue;
+    const dx = (p[0] - q.c[0]) / q.sigma[0];
+    const dy = (p[1] - q.c[1]) / q.sigma[1];
+    s += (0.2126 * q.rgb[0] + 0.7152 * q.rgb[1] + 0.0722 * q.rgb[2]) * Math.exp(-0.5 * (dx * dx + dy * dy));
+  }
+  return s;
+}
+export const inkHold = (p: P3, pools: readonly Pool[], k: number): number => Math.min(1, (INK_HOLD * k) / (k + poolLift(p, pools)));
 
 // ------------------------------------------------------------------------------------------------
 // East of the system, in vellum (proposed: STORYBOARD 9.1, 9.2) beside built graphite machines

@@ -4,6 +4,10 @@
  * (camera.ts cameraAt: bar 19's downbeat, 1.2x to 0.85x over two bars), so the DOM labels and the
  * notes ride the same pose; the narration is the cue sheet's (C8, then C9). History marks: no
  * grooves yet (no task has been handed over), the imprints as they are pressed in.
+ *
+ * Its last frame (f1660) is the world act two takes over (desk/film.ts, FilmFrame): the same print mode as act two
+ * (film.ts keepFilm), the bays closed and idle, the reel at the angle beat 4 turns on from, the request rising out of
+ * the old heap (desk/beat4.ts, drawn by the same components), your lamp at act two's level.
  */
 import { Stage3D, useFont } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
@@ -12,17 +16,18 @@ import { AbsoluteFill } from 'remotion';
 import { useFilmFonts } from '../look/fonts.ts';
 import { cameraAt, FAR, FOV, NEAR, type Angle } from './camera.ts';
 import { DeskWorld } from './DeskWorld.tsx';
-import { DESK_HEX, DESK_HOLES, HOLE_SHUT } from './gl/desk.ts';
+import { DESK_GROOVE_CUT, DESK_HEX, DESK_HOLES, HOLE_SHUT } from './gl/desk.ts';
 import { PRINT_FONT } from './gl/text.ts';
-import { useTurnTape } from './gl/textTurn.ts';
-import { useDeskMats, useDeskSets } from './kit.tsx';
+import { B4 } from './beat4.ts';
+import { keepFilm } from './film.ts';
+import { useDeskSets } from './kit.tsx';
 import type { Rect } from './layout.ts';
 import { ACT_ONE_LABELS } from './ActOneFrame.tsx';
 import { ActOneObjects } from './objects/ActOne.tsx';
 import { TurnChute } from './objects/Links.tsx';
 import { Feeders, Gate } from './objects/Intake.tsx';
 import { Register } from './objects/Register.tsx';
-import { TurnObjects } from './objects/Turn.tsx';
+import { Backlog, TurnObjects } from './objects/Turn.tsx';
 import { YourDesk } from './objects/YourDesk.tsx';
 import { Overlay, ROLE_LABELS, type RoleLabel } from './Overlay.tsx';
 import { TURN, TURN_SPAN, chutePath, imprintsAt, turnAt, turnDeskState, turnFootprints, turnHoles, turnPools, type TurnState } from './turn.ts';
@@ -40,12 +45,9 @@ function turnLabels(t: TurnState): RoleLabel[] {
   return out;
 }
 
-/** The Register posed by the turn: its tape's run (the leader the turn lays, then the first row's ink spreading), its head, its jewel. */
-function TurnRegister({ s, t, printFamily }: { s: DeskState; t: TurnState; printFamily: string }) {
-  const m = useDeskMats();
-  const row = useTurnTape(printFamily);
-  const tape = t.tape.leader < 1 ? null : t.tape.ink < 0 ? m.printed.tapeBlank : row[t.tape.ink];
-  return <Register s={s} turn={{ deck: t.deck, parts: t.parts, tape, hammer: t.tape.hammer, jewel: t.tape.jewel }} />;
+/** The Register posed by the turn: its tape's run (the leader the turn lays, then its rows as beat 4 prints them: desk/beat4.ts), its head, its jewel. */
+function TurnRegister({ s, t }: { s: DeskState; t: TurnState }) {
+  return <Register s={s} turn={{ deck: t.deck, parts: t.parts, tape: t.tape.leader >= 1, hammer: t.tape.hammer, jewel: t.tape.jewel }} />;
 }
 
 /** A hatch in the desk over a bay's box (with its seam). */
@@ -61,6 +63,8 @@ function TurnUniforms({ t }: { t: TurnState }) {
   const step = t.step;
   useLayoutEffect(() => {
     for (let i = 0; i < DESK_HOLES.value.length; i++) DESK_HOLES.value[i] = holes[i] ? holeOf(holes[i]) : HOLE_SHUT();
+    // no groove is cut before a task is handed over (beat 4)
+    DESK_GROOVE_CUT.value.splice(0, DESK_GROOVE_CUT.value.length, 0, 0, 0, 0);
     // the vellum drawings are laid down as the generic feeders press flat (a stepped drawing a step fainter, as DeskUniforms does)
     for (const [set, k] of [
       [sets.full, 0],
@@ -99,7 +103,7 @@ export function TurnFrame({ f, angle, bloom, objects = true }: TurnFrameProps) {
     <AbsoluteFill style={{ background: DESK_HEX.base }}>
       {all && (
         <Stage3D shadows={false} antialias={false} camera={{ fov: FOV, near: NEAR, far: FAR, position: [pose.pos[0], pose.pos[1], pose.pos[2]] }}>
-          <DeskWorld s={s} pose={pose} bloom={bloom} printFamily={print.family} sansFamily={fonts.sans} footprints={footprints} pools={pools} marks={{ grooves: false, imprints }}>
+          <DeskWorld s={s} pose={pose} bloom={bloom} printFamily={print.family} sansFamily={fonts.sans} footprints={footprints} pools={pools} marks={{ grooves: false, imprints }} printKeep={keepFilm}>
             <TurnUniforms t={t} />
             {objects && (
               <>
@@ -107,8 +111,9 @@ export function TurnFrame({ f, angle, bloom, objects = true }: TurnFrameProps) {
                 <Feeders s={s} turn={{ spool: t.intake.spool, mail: t.intake.mail, calendar: t.intake.calendar }} />
                 <Gate s={s} belt={t.intake.belt} />
                 {chute && <TurnChute path={chute} posts={t.parts.posts} />}
-                <ActOneObjects a={t.act} printFamily={print.family} press={t.press} loop={false} stepRequest={t.step > 0} />
-                {wf >= TURN.deckIn && <TurnRegister s={s} t={t} printFamily={print.family} />}
+                {/* act one's folders and heap until the request starts to rise out of the heap; then the heap and the request as beat 4 moves them (act two draws the same) */}
+                {wf < B4.requestRise ? <ActOneObjects a={t.act} printFamily={print.family} press={t.press} loop={false} stepRequest={t.step > 0} /> : <Backlog a={t.act} heap={s.b4.heap} request={s.b4.request} f={wf} stepRequest={t.step > 0} />}
+                {wf >= TURN.deckIn && <TurnRegister s={s} t={t} />}
                 <TurnObjects t={t} printFamily={print.family} />
               </>
             )}

@@ -209,3 +209,50 @@ export function merge(list: BufferGeometry[]): BufferGeometry {
   if (!m) throw new Error('desk geom: geometries could not be merged');
   return m;
 }
+
+// ------------------------------------------------------------------------------------------------
+// Paper pieces: the message family's slips and cards (act one's heap and folders, the feeders, the turn)
+
+/** The two message cuts every slip and card is made from: a chat slip, a punched CI card. */
+export type SlipKind = 'chat' | 'ci';
+
+/**
+ * A slip's outline centred on the origin: a chat slip's notched east (leading) end, a CI card's clipped
+ * north-west corner. The cut is the mark: a chat slip carries no printed sign (BANNED: glyph-line "text").
+ */
+export function slipShape(kind: SlipKind, w: number, d: number): Shape {
+  const s = new Shape();
+  const x = w / 2;
+  const y = d / 2;
+  if (kind === 'chat') {
+    s.moveTo(-x, -y);
+    s.lineTo(x, -y);
+    s.lineTo(x - d * 0.28, 0);
+    s.lineTo(x, y);
+    s.lineTo(-x, y);
+  } else {
+    const k = Math.min(w, d) * 0.22;
+    s.moveTo(-x, -y);
+    s.lineTo(x, -y);
+    s.lineTo(x, y);
+    s.lineTo(-x + k, y);
+    s.lineTo(-x, y - k);
+  }
+  s.closePath();
+  return s;
+}
+
+/** Map a flat piece's UVs to its own bounds (the print lies on its top face). */
+export function fitUv(g: BufferGeometry, w: number, d: number): BufferGeometry {
+  const pos = g.getAttribute('position');
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    uv[2 * i] = pos.getX(i) / w + 0.5;
+    uv[2 * i + 1] = pos.getY(i) / d + 0.5;
+  }
+  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  return g;
+}
+
+/** A thin paper piece of a kind, its print on top. */
+export const piece = (kind: SlipKind, w: number, d: number, t = 0.8): BufferGeometry => fitUv(extrude(slipShape(kind, w, d), 0, t, 0.25), w, d);

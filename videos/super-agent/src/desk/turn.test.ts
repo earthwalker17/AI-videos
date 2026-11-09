@@ -5,11 +5,14 @@ import { ACT_ONE_LABELS } from './ActOneFrame.tsx';
 import { FOLDERS, LOOP_A, actOneAt, actOnePools, youPoseA } from './actOne.ts';
 import { A_ITEMS, BAY_TRAYS, IMPRINTS, PRESS_TRAYS, TRAYS } from './beat3.ts';
 import { FRAMING_B, cameraAt, deskCamera, project } from './camera.ts';
-import { MAX_FOOTPRINTS } from './footprints.ts';
+import { B4 } from './beat4.ts';
+import { MAX_FOOTPRINTS, footprintsAt, type Footprint } from './footprints.ts';
 import { BAYS, DECK, REEL, SPOOL, YOU, type P3 } from './layout.ts';
-import { EMIT, MAX_POOLS } from './pools.ts';
+import { EMIT, MAX_POOLS, poolsAt } from './pools.ts';
+import { LAMP_STEPS, deskStateAt } from './state.ts';
 import {
   A_TAPE_LEN,
+  BAY_ORDER,
   COIL_R0,
   SPOOL_NORTH,
   TURN,
@@ -21,6 +24,7 @@ import {
   shiftAt,
   trayStarts,
   turnAt,
+  turnDeskState,
   turnFootprints,
   turnHoles,
   turnPools,
@@ -65,7 +69,7 @@ describe('the turn (MT2)', () => {
     const L = t.loop.ribbon!.L;
     expect([L.c, L.a, L.b, L.n]).toEqual([LOOP_A.c, LOOP_A.a, LOOP_A.b, LOOP_A.n]);
     expect(t.press.every((p) => p.k === 0) && t.pressA.k === 0).toBe(true);
-    expect(t.fixB.bays.every((b) => b.grow === 0 && b.rise === 0)).toBe(true);
+    expect(t.fixB.bays.every((b) => b.grow === 0 && !b.hole && !b.done)).toBe(true);
     expect(t.fixA.items.every((it) => it !== null)).toBe(true);
     // your act-one label is still there (it leaves as the camera moves), the act-two labels are not yet
     expect(t.labels.youA).toEqual({ leader: 1, wipe: 1 });
@@ -103,12 +107,23 @@ describe('the turn (MT2)', () => {
     for (const k of PRESS_TRAYS) expect(t.fixB.press[k]!.k).toBe(1);
     for (const b of t.fixB.bays) {
       expect(b.grow).toBeGreaterThan(0.999);
-      expect(b.rise).toBeGreaterThan(0.999);
       expect(b.print).toBe(1);
       expect(b.slide).toBe(1);
+      // closed and idle: its hatch shut, its hole closed, nothing of its work up (beat 4 dispatches it)
+      expect(b.leaves).toBe(0);
+      expect(b.hole).toBe(false);
+      expect(b.done).toBe(true);
     }
-    // every bay is up before the reel descends, so the reel's lock is the only motion then
-    for (const { k } of BAY_TRAYS) expect(bayTimes(k).risen).toBeLessThanOrEqual(TURN.descend);
+    const s = turnDeskState(1660);
+    for (const id of ['bug', 'tests', 'docs'] as const) {
+      expect(s.b4.bays[id].rise).toBe(0);
+      expect(s.b4.bays[id].light).toBe(0);
+      expect(s.b4.bays[id].hole).toBe(false);
+    }
+    // every bay is closed before the reel descends, so the reel's lock is the only big motion then; and one at a time
+    for (const { k } of BAY_TRAYS) expect(bayTimes(k).closed).toBeLessThanOrEqual(TURN.descend);
+    const starts = BAY_ORDER.map((id) => bayTimes(BAY_TRAYS.find((b) => b.id === id)!.k));
+    for (let i = 1; i < starts.length; i++) expect(starts[i].grow).toBeGreaterThanOrEqual(starts[i - 1].grow + TURN.bayGap);
   });
 
   it('presses every folder, act one’s and Fix A’s, and five trays into their imprints', () => {
@@ -158,12 +173,17 @@ describe('the turn (MT2)', () => {
     // the chute extends from the deck's corner; its posts drop only once it is out
     expect(turnAt(TURN.chute + 1).parts.chute).toBeLessThan(0.2);
     expect(turnAt(TURN.posts).parts.chute).toBeGreaterThan(0.95);
-    // a bay's hatch opens only under its tray's floor, and its work rises only once the floor is sliding away
+    // a bay's hatch opens only under its tray's floor; its leaves shut only once the floor has slid away; its hole closes once they are shut
     for (const { k } of BAY_TRAYS) {
       const T = bayTimes(k);
-      expect(turnAt(T.drop - 1).fixB.bays.find((_, i) => BAY_TRAYS[i].k === k)!.hatch).toBe(false);
-      expect(T.rise).toBeGreaterThan(T.slide);
-      expect(turnAt(T.rise).fixB.bays.find((_, i) => BAY_TRAYS[i].k === k)!.rise).toBe(0);
+      const at = (f: number) => turnAt(f).fixB.bays.find((_, i) => BAY_TRAYS[i].k === k)!;
+      expect(at(T.drop - 1).hole).toBe(false);
+      expect(at(T.drop).hole).toBe(true);
+      expect(T.shut).toBeGreaterThanOrEqual(T.slide + 8);
+      expect(at(T.shut).leaves).toBe(1);
+      expect(at(T.closed - 1).hole).toBe(true);
+      expect(at(T.closed).leaves).toBe(0);
+      expect(at(T.closed).hole).toBe(false);
     }
     // the row prints with a 3 f ink spread after the head has dropped over 4 f
     expect(turnAt(TURN.print - 1).tape.ink).toBe(-1);
@@ -213,18 +233,54 @@ describe('the turn (MT2)', () => {
     expect(A_TAPE_LEN).toBeGreaterThan(900);
   });
 
-  it('keeps one idea at a time: at most three of the turn’s motions overlap in any frame', () => {
-    const windows: [number, number][] = [
-      [TURN.rise, TURN.coilEnd], // the loop becomes a coil
-      [TURN.press, TURN.press + TURN.pressStagger * FOLDERS.length + TURN.pressFrames], // the folders pressed
-      [TURN.wind, TURN.windEnd], // Fix A winds on
-      [TURN.slide, TURN.slideEnd - 10], // your desk slides
-      [TURN.deckIn, TURN.legs + 3 * TURN.legStagger + TURN.legFrames - 6], // the deck arrives and stands up
-      [replyLands(7) - TURN.replyArc, bayTimes(BAY_TRAYS[BAY_TRAYS.length - 1].k).risen], // Fix B
-      [TURN.glide, TURN.lock], // the reel glides, descends, locks
-      [TURN.belt, TURN.calendar + TURN.flattenFrames], // the intake
+  it('keeps one idea at a time: at most three of the turn’s motions run in any frame (MT2 critic: 5-7 ran at f1530-1610)', () => {
+    const last = bayTimes(BAY_TRAYS.find((b) => b.id === BAY_ORDER[BAY_ORDER.length - 1])!.k);
+    // each window is one visible motion (its own sub-steps following one another); its end is when it has settled
+    const windows: [string, number, number][] = [
+      ['the loop lifts, turns on edge, coils', TURN.rise, TURN.coilEnd],
+      ['the folders are pressed in', TURN.press, TURN.press + TURN.pressStagger * FOLDERS.length + TURN.pressFrames],
+      ['Fix A winds on, the coil turning', TURN.wind, TURN.windEnd],
+      ['Fix B: the flock home, the trays pressed, the bays walled up one at a time', TURN.replies, last.closed],
+      ['your desk slides', TURN.slide, TURN.slideEnd - 4],
+      ['the deck rolls in, stands up and unfolds', TURN.deckIn, TURN.parts + 9 + TURN.partFrames - 4],
+      ['the reel glides, descends, locks; its leader laid', TURN.glide, TURN.lock + 6],
+      ['the belt runs out, the first slip rides it in, its row prints', TURN.belt, TURN.print + TURN.inkFrames],
+      ['every other channel joins the intake', TURN.spool, TURN.spool + TURN.spoolFrames],
+      ['the chute extends, its posts drop', TURN.chute, TURN.posts + TURN.postFrames],
+      ['the Continuous plate turns over', TURN.plate - 6, TURN.plate + 8],
+      ['the request rises out of the heap', B4.requestRise, TURN_SPAN[1] + 1],
     ];
-    for (const f of ALL) expect(windows.filter(([a, b]) => f >= a && f < b).length).toBeLessThanOrEqual(3);
+    for (const f of ALL) {
+      const on = windows.filter(([, a, b]) => f >= a && f < b).map(([n]) => n);
+      expect(on.length, `f${f}: ${on.join('; ')}`).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('hands act two the world it draws at f1660: the same shadows and pools, your lamp at act two’s level', () => {
+    const f = TURN_SPAN[1];
+    const t = turnAt(f);
+    const s = deskStateAt(f);
+    // footprints as a multiset (a capsule either way round, rounded to 0.05 u); act two casts them through footprintsAt
+    const key = (fp: Footprint): string => {
+      const r = (x: number) => (Math.round(x * 20) / 20).toFixed(2);
+      if (fp.kind === 'seg') {
+        const [a, b] = [`${r(fp.a[0])},${r(fp.a[1])},${r(fp.ha)}`, `${r(fp.b[0])},${r(fp.b[1])},${r(fp.hb)}`].sort();
+        return `seg ${a} ${b} ${r(fp.r)}`;
+      }
+      if (fp.kind === 'canopy') return `canopy ${r(fp.c[0])},${r(fp.c[1])} ${r(fp.h[0])},${r(fp.h[1])} ${r(fp.z)} ${r(fp.strength)}`;
+      if (fp.kind === 'circle') return `circle ${r(fp.c[0])},${r(fp.c[1])} ${r(fp.r)} ${r(fp.z0)}-${r(fp.z1)} ${r(fp.contact)}`;
+      return `rect ${r(fp.c[0])},${r(fp.c[1])} ${r(fp.h[0])},${r(fp.h[1])} ${r(fp.r)} ${r(fp.rot)} ${r(fp.z0)}-${r(fp.z1)} ${r(fp.contact)}`;
+    };
+    const turnSet = turnFootprints(t).map(key).sort();
+    const act2Set = footprintsAt(s).map(key).sort();
+    expect(turnSet).toEqual(act2Set);
+    // the pools that light anything, as a set
+    const lit = (ps: { c: readonly number[]; z: readonly number[]; sigma: readonly number[]; rgb: readonly number[] }[]) =>
+      ps.filter((p) => Math.max(...p.rgb) > 1e-6).map((p) => [...p.c, ...p.z, ...p.sigma, ...p.rgb].map((x) => x.toFixed(4)).join(',')).sort();
+    expect(lit(turnPools(t))).toEqual(lit(poolsAt(s)));
+    expect(t.you.bulb).toBeCloseTo(EMIT.bulbMax * LAMP_STEPS.dim, 3);
+    expect(t.you.bulbOut ?? 0).toBeLessThan(0.01);
+    expect(s.lamp).toBe(LAMP_STEPS.dim);
   });
 
   it('keeps your desk clear of the notes band while C8 is up', () => {
@@ -251,10 +307,12 @@ describe('the turn (MT2)', () => {
     }
   });
 
-  it('keeps the light rule: your bulb pulls in below the bloom threshold once F3 is pressed, at most 8 pools and 128 footprints', () => {
-    expect(youPoseTurn(1400).bulb!).toBeGreaterThan(1);
-    expect(youPoseTurn(TURN.lampDim + 12).bulb!).toBeLessThan(1);
-    expect(youPoseTurn(TURN.slideEnd).bulb ?? EMIT.bulbMax).toBeLessThan(1);
+  it('keeps your lamp on over the rising loop, dims it one step once the loop is handed over, at most 8 pools and 128 footprints', () => {
+    // attending (its bulb blooming) from the turn's start through the loop's rise, the coil and the glide
+    for (let f = 1400; f < TURN.lampHandOver; f++) expect(youPoseTurn(f).bulb!, `f${f}`).toBeGreaterThan(1);
+    // the loop's hand-over is the Continuous plate docking: then one step dimmer, under the bloom's threshold
+    expect(TURN.lampHandOver).toBeGreaterThanOrEqual(TURN.plate);
+    expect(youPoseTurn(TURN.lampHandOver + 12).bulb!).toBeLessThan(1);
     for (let f = 1400; f <= 1660; f += 2) {
       const t = turnAt(f);
       expect(turnPools(t).length).toBeLessThanOrEqual(MAX_POOLS);

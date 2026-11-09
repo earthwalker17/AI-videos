@@ -1,10 +1,57 @@
 import { describe, expect, it } from 'vitest';
 import { ROUND2 } from '../lookdev/frames.ts';
 import { FOLDER_PRINT } from '../print.ts';
-import { ACT_ONE_END, FLAG, FLAG_UP, FOLDERS, flagTop, HEAP, LOOP_A, PEN_ON, REQUEST_A, YOU_SHIFT_A, actOneAt, actOneFootprints, actOnePools, aimOf, loopNormal, loopPoint, stackTop, tabAt, youPoseA, youPoseAt } from './actOne.ts';
-import { FRAMING_A, deskCamera, project } from './camera.ts';
+import { TEXT_IN, TEXT_OUT, WORDS, cue } from '../cues.ts';
+import { TYPE } from '../look/tokens.ts';
+import { TITLE_CARD } from './ActOneFrame.tsx';
+import {
+  ACT_ONE_END,
+  ARRIVE,
+  CHORE_ARC,
+  CHORE_POSTS,
+  EVENT_LEAD,
+  FEEDER_OF,
+  FLAG,
+  FLAG_UP,
+  FLIGHT,
+  FOLDERS,
+  HEAP,
+  LOOP_A,
+  MOUTH,
+  PEN_ON,
+  PIECE,
+  REQUEST_A,
+  REQUEST_INK,
+  TAB_SHARE,
+  YOU_LABEL_FROM,
+  YOU_SHIFT_A,
+  actOneAt,
+  actOneFootprints,
+  actOnePools,
+  aimOf,
+  cardWorld,
+  choreFlightAt,
+  eventSlipAt,
+  flagTop,
+  folderPoint,
+  loopNormal,
+  loopPoint,
+  penWorld,
+  postPose,
+  postedAt,
+  requestZ,
+  stackTop,
+  tabAt,
+  trayNudgeAt,
+  youLabelAt,
+  youPoseA,
+  youPoseAt,
+} from './actOne.ts';
+import { ACT_ONE_MOVE, FRAMING_A, FRAMING_HOOK, cameraAt, deskCamera, framingAt, project, screenToDesk } from './camera.ts';
+import { loopNotes } from './objects/ActOne.tsx';
+import { CARD_HEX, cardAt } from './objects/TitleCard.tsx';
 import { MAX_FOOTPRINTS } from './footprints.ts';
-import { YOU, type P3 } from './layout.ts';
+import { YOU, type P2, type P3 } from './layout.ts';
 import { LAMP_ARMS, LAMP_FOOT_Z, YOU_POSE_B } from './you.ts';
 
 const A = actOneAt(ROUND2.stillA);
@@ -103,7 +150,7 @@ describe('act one layout (FRAMING_A, 15°)', () => {
   });
   it('leaves the request a creased corner clear of every later piece of the heap', () => {
     const flap = [REQUEST_A.c[0] + Math.cos(REQUEST_A.rot) * (REQUEST_A.l / 2 - REQUEST_A.crease / 2), REQUEST_A.c[1] + Math.sin(REQUEST_A.rot) * (REQUEST_A.l / 2 - REQUEST_A.crease / 2)];
-    const over = HEAP.filter((p) => p.z > REQUEST_A.z);
+    const over = HEAP.filter((p) => p.z > requestZ());
     expect(over.length).toBeGreaterThanOrEqual(3);
     for (const p of over) expect(dist(p.c, flap)).toBeGreaterThan(55);
   });
@@ -134,17 +181,222 @@ describe('your desk in act one', () => {
     expect(aim[2]).toBeLessThan(head[2]);
     // the hood aims north at F3
     expect(aim[1]).toBeGreaterThan(head[1]);
-    // every joint, seen through the camera, lies inside the loop's tape (no arm reaches toward a folder)
+    // every joint, seen through the camera, lies inside the loop's outer edge (no arm reaches past the tape toward a folder)
     const L = LOOP_A;
     for (const p of [foot, elbow, head]) {
       const w: P3 = [p[0] + y.shift[0], p[1] + y.shift[1], p[2]];
       // the point on the desk the camera sees it over (its height pushes it north on screen by z·tan 15°)
       const seen: [number, number] = [w[0], w[1] + w[2] * Math.tan((15 * Math.PI) / 180)];
-      const q = ((seen[0] - L.c[0]) / (L.a - L.w)) ** 2 + ((seen[1] - L.c[1]) / (L.b - L.w)) ** 2;
+      const q = ((seen[0] - L.c[0]) / (L.a + L.w / 2)) ** 2 + ((seen[1] - L.c[1]) / (L.b + L.w / 2)) ** 2;
       expect(q).toBeLessThan(1);
     }
   });
   it('fits its footprints in the shaders', () => {
     expect(actOneFootprints(A).length).toBeLessThanOrEqual(MAX_FOOTPRINTS);
+  });
+});
+
+describe('act one over time (beats 1–2)', () => {
+  const at = (f: number) => actOneAt(f);
+  it('opens on a working intake: frame 0 already has a piece in the air and the lamp swinging', () => {
+    expect(at(0).posts.length).toBeGreaterThan(0);
+    expect(dist(at(0).lamp.aim, at(3).lamp.aim)).toBeGreaterThan(0.5);
+  });
+  it('turns the request vermilion on its cue (f20), over a few frames, never in one', () => {
+    expect(at(REQUEST_INK).request.ink).toBe(0);
+    expect(at(REQUEST_INK + 1).request.ink).toBeLessThan(0.6);
+    expect(at(REQUEST_INK + 12).request.ink).toBeGreaterThan(0.95);
+  });
+  it('buries and creases the request from f100: half buried by f150, its east corner clear', () => {
+    expect(at(99).request.lift).toBe(0);
+    expect(at(160).request.lift).toBeGreaterThan(REQUEST_A.lift * 0.9);
+    const R = REQUEST_A;
+    const over = HEAP.filter((p) => p.z > requestZ() && p.lands >= 100 && p.lands <= 150);
+    expect(over.length).toBeGreaterThanOrEqual(3);
+    // nothing lies on the request at f0: it is the newest of the old heap there
+    expect(HEAP.filter((p) => p.lands === -Infinity && p.z > requestZ() && dist(p.c, R.c) < (R.l + Math.max(...PIECE[p.kind])) / 2 * 0.8)).toHaveLength(0);
+  });
+  it('posts every new piece out of its feeder’s mouth, on its rhythm, and keeps it on the heap once it lands', () => {
+    for (const [i, h] of HEAP.entries()) {
+      if (h.lands === -Infinity) continue;
+      const first = postPose(h, i, postedAt(h))!;
+      expect(first).not.toBeNull();
+      expect(dist(first.p, MOUTH[FEEDER_OF[h.kind]].in)).toBeLessThan(1e-6);
+      expect(postPose(h, i, postedAt(h) - 1)).toBeNull();
+      expect(at(h.lands).landed).toBeGreaterThan(i);
+      expect(at(1399).landed).toBeGreaterThan(i);
+    }
+    // still (a)'s slip lands and stays (it used to vanish at f920)
+    const k = HEAP.findIndex((h) => h.lands === FLIGHT.posted + 15);
+    expect(k).toBeGreaterThan(0);
+    expect(at(921).landed).toBeGreaterThan(k);
+  });
+  it('spawns F6–F8 from event slips: the slip lands, then the folder unfolds under it, then its tab and note arrive', () => {
+    for (const n of [6, 7, 8]) {
+      const arrive = ARRIVE[n];
+      const fl = FOLDERS[n - 1];
+      const slip = eventSlipAt(n, arrive - EVENT_LEAD)!;
+      expect(slip).not.toBeNull();
+      expect(dist([slip.p[0], slip.p[1]], cardWorld(fl).c)).toBeLessThan(1e-6);
+      expect(eventSlipAt(n, arrive)).toBeNull();
+      const i = n - 1;
+      expect(at(arrive).folders[i].present).toBe(0);
+      expect(at(arrive + 1).folders[i].present).toBeGreaterThan(0);
+      expect(at(arrive + 1).folders[i].present).toBeLessThan(0.3);
+      expect(at(arrive + 2).folders[i].tab).toBe(0);
+      expect(at(arrive + 10).folders[i].note).toBe(0);
+      expect(at(arrive + 40).folders[i].tab).toBeGreaterThan(0.99);
+      expect(at(arrive + 40).folders[i].note).toBe(1);
+    }
+  });
+  it('lands the chores as posts on their cues: off the frame’s top edge when thrown, the tray nudging 2 f after', () => {
+    for (const id of ['key', 'glass', 'strut'] as const) {
+      const P = CHORE_POSTS[id];
+      expect(at(P.lands - 1).chores[id]).toBe(0);
+      expect(at(P.lands).chores[id]).toBe(1);
+      const start = choreFlightAt(id, P.lands - CHORE_ARC.arc - 3)!;
+      expect(start).not.toBeNull();
+      expect(choreFlightAt(id, P.lands - CHORE_ARC.arc - 4)).toBeNull();
+      const from = youPoseA(at(P.lands - 15));
+      const w: P3 = [P.from[0] + from.shift[0], P.from[1] + from.shift[1], P.from[2]];
+      expect(project(pose, w)[1]).toBeLessThan(0);
+    }
+    expect(trayNudgeAt(CHORE_POSTS.key.lands + 1)).toBe(0);
+    expect(trayNudgeAt(CHORE_POSTS.key.lands + 5)).toBeGreaterThan(0);
+    expect(trayNudgeAt(CHORE_POSTS.key.lands + 20)).toBe(0);
+  });
+  it('never lifts or lowers a pen or a flag in one frame (they move over 4 f, both ways)', () => {
+    for (let f = 0; f < 1419; f++) {
+      const a0 = at(f).folders;
+      const a1 = at(f + 1).folders;
+      a0.forEach((s, i) => {
+        expect(Math.abs(a1[i].pen - s.pen), `F${i + 1} pen f${f}`).toBeLessThanOrEqual(0.26);
+        expect(Math.abs(a1[i].flag - s.flag), `F${i + 1} flag f${f}`).toBeLessThanOrEqual(0.26);
+      });
+    }
+  });
+  it('closes the loop’s clip on the hub without a pop: the clip rides the tape from the start and snaps down', () => {
+    expect(at(0).loop.closed).toBe(0);
+    expect(at(881).loop.closed).toBeGreaterThan(0);
+    expect(at(881).loop.closed).toBeLessThan(0.5);
+  });
+  it('brings your label in only once the camera has settled (beat 2), leader first', () => {
+    expect(youLabelAt(399)).toBeNull();
+    expect(youLabelAt(YOU_LABEL_FROM + 3)!.wipe).toBe(0);
+    expect(youLabelAt(YOU_LABEL_FROM + 20)).toEqual({ leader: 1, wipe: 1 });
+    expect(YOU_LABEL_FROM).toBeGreaterThan(ACT_ONE_MOVE.to);
+  });
+});
+
+describe('act one’s camera', () => {
+  it('holds the hook at 1.6x, eases out on bar 3’s downbeat to FRAMING_A and leaves the later moves as they were', () => {
+    expect(FRAMING_HOOK.zoom).toBe(1.6);
+    expect(ACT_ONE_MOVE).toMatchObject({ from: 160, to: 320, a: FRAMING_HOOK, b: FRAMING_A });
+    expect(cameraAt(0, 15)).toEqual(deskCamera(FRAMING_HOOK, 15));
+    expect(cameraAt(160, 15)).toEqual(deskCamera(FRAMING_HOOK, 15));
+    expect(cameraAt(320, 15)).toEqual(deskCamera(FRAMING_A, 15));
+    expect(cameraAt(1400, 15)).toEqual(deskCamera(FRAMING_A, 15));
+    expect(framingAt(1500)).toEqual(FRAMING_A);
+  });
+  it('frames the west end in the hook: the four feeders and the lamp in, the calendar clear of the notes band', () => {
+    const p = deskCamera(FRAMING_HOOK, 15);
+    const chatTop = project(p, [-942, 470, 60]);
+    expect(chatTop[1]).toBeGreaterThan(20);
+    expect(project(p, [-1004, -60, 0])[1]).toBeLessThan(900);
+    expect(project(p, [-1004, -60, 0])[0]).toBeGreaterThan(96);
+    const lamp = youPoseA(actOneAt(0)).lamp.head;
+    expect(project(p, [lamp[0] + YOU_SHIFT_A[0], lamp[1] + YOU_SHIFT_A[1], lamp[2]])[0]).toBeGreaterThan(1300);
+  });
+  it('maps a screen point to the desk and back (the title card holds still on screen through the move)', () => {
+    for (const f of [160, 200, 240, 300, 320]) {
+      const q = cameraAt(f, 15);
+      for (const s of [[112, 446], [768, 1026], [960, 540]] as const) {
+        const w = screenToDesk(q, s, 52);
+        const back = project(q, w);
+        expect(Math.abs(back[0] - s[0]) + Math.abs(back[1] - s[1])).toBeLessThan(0.05);
+      }
+    }
+  });
+});
+
+describe('the title card (1.2)', () => {
+  it('lands on the thump and is gone by beat 2, inside title-safe, clear of the notes in C1 and C2', () => {
+    const { rect, frames } = TITLE_CARD;
+    expect(frames.land).toBe(cue('title-thump').frame);
+    // it may start to slide in as C1 fades, but stays off the frame until the line has gone
+    for (let f = frames.enter; f < cue('c1').end! + TEXT_OUT; f++) expect(cardAt(TITLE_CARD, f).dx + rect.x + rect.w).toBeLessThan(0);
+    expect(frames.gone).toBeLessThanOrEqual(cue('c2').frame - TEXT_IN);
+    expect(frames.leave).toBeGreaterThanOrEqual(cue('title').end! + TEXT_OUT);
+    expect(rect.x).toBeGreaterThanOrEqual(96);
+    expect(rect.y + rect.h).toBeLessThanOrEqual(1026);
+    expect(cardAt(TITLE_CARD, frames.enter - 1).present).toBe(false);
+    expect(cardAt(TITLE_CARD, frames.land).dx).toBe(0);
+    expect(cardAt(TITLE_CARD, frames.gone).present).toBe(false);
+    // it slides in and out from off the frame's west edge (the paper never fades)
+    expect(cardAt(TITLE_CARD, frames.enter).dx + rect.x + rect.w).toBeLessThan(0);
+    for (let f = frames.leave; f < frames.gone - 1; f++) expect(cardAt(TITLE_CARD, f + 1).dx).toBeLessThanOrEqual(cardAt(TITLE_CARD, f).dx);
+    expect(cardAt(TITLE_CARD, frames.gone - 1).dx + rect.x + rect.w).toBeLessThan(rect.w * 0.4);
+  });
+  it('sets the cue sheet’s words exactly, at the film’s title sizes, on the cues’ windows', () => {
+    const lines = TITLE_CARD.lines;
+    expect(lines.filter((l) => l.cue === 'title' && l.size === TYPE.titleEn.size).map((l) => l.text).join(' ')).toBe(WORDS.title.en);
+    expect(lines.filter((l) => l.cue === 'title' && l.size === TYPE.titleZh.size).map((l) => l.text).join('')).toBe(WORDS.title['zh-Hans']);
+    expect(lines.filter((l) => l.cue === 'credit' && l.color === CARD_HEX.ink).map((l) => l.text).join(' ')).toBe(WORDS.credit.en);
+    expect(lines.filter((l) => l.cue === 'credit' && l.color === CARD_HEX.zh).map((l) => l.text).join(' ')).toBe(WORDS.credit['zh-Hans']);
+    for (const l of lines) {
+      expect(l.size).toBeGreaterThanOrEqual(36);
+      expect(l.size).toBeLessThanOrEqual(136);
+      expect(TITLE_CARD.rect.y + l.y).toBeLessThanOrEqual(1026);
+    }
+  });
+  it('hovers clear of everything under it, and holds still on screen while the camera moves', () => {
+    for (const f of [170, 240, 320, 370]) expect(cardAt(TITLE_CARD, f).z).toBeGreaterThan(40);
+    expect(cardAt(TITLE_CARD, 240).dx).toBe(0);
+    expect(cardAt(TITLE_CARD, 300).dx).toBe(0);
+    expect(cardAt(TITLE_CARD, 240).z).toBeCloseTo(cardAt(TITLE_CARD, 300).z, 1);
+  });
+});
+
+describe('still (a)’s critic fixes', () => {
+  it('keeps the lamp’s arm off the laptop’s screen on every frame (seen from the camera)', () => {
+    const L = YOU.laptop;
+    const lidTop = YOU.top + 8 + YOU.lidH * Math.cos(YOU.lidLean);
+    const lidY = L.y1 + YOU.lidH * Math.sin(YOU.lidLean);
+    const w = (q: readonly number[]): P3 => [q[0] + YOU_SHIFT_A[0], q[1] + YOU_SHIFT_A[1], q[2]];
+    const p = deskCamera(FRAMING_A, 15);
+    const a0 = project(p, w([L.x0 + 14, L.y1, YOU.top + 8]));
+    const a1 = project(p, w([L.x1, lidY, lidTop]));
+    for (let f = 320; f < 1400; f += 4) {
+      const y = youPoseA(actOneAt(f));
+      const el = project(p, w(y.lamp.elbow));
+      expect(el[0] > a0[0] && el[0] < a1[0] && el[1] < a0[1] && el[1] > a1[1]).toBe(false);
+    }
+  });
+  it('sets each tape note at its own folder’s tab, the notes not overlapping', () => {
+    const len = 1519;
+    const notes = loopNotes(len);
+    for (let i = 1; i < notes.length; i++) expect(Math.abs(notes[i] - notes[i - 1])).toBeGreaterThan(80);
+    FOLDERS.forEach((fl) => expect(tabAt(LOOP_A, fl)).toBeGreaterThan(0));
+    expect(TAB_SHARE).toHaveLength(FOLDERS.length);
+  });
+  it('keeps every folder’s outline, lifted pen and flag clear of its neighbours (F7 and F8 collided)', () => {
+    const outline = (i: number) => {
+      const fl = FOLDERS[i];
+      const pts: P2[] = [];
+      for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) pts.push(folderPoint(fl, [(x * fl.w) / 2, (y * fl.d) / 2]));
+      const pen = penWorld(fl, { warmth: 0, pen: 1, stroke: 1, flag: 1, present: 1, tab: 1, note: 1 });
+      pts.push([pen[0], pen[1]]);
+      return pts;
+    };
+    const inside = (p: P2, i: number) => {
+      const fl = FOLDERS[i];
+      const d = [p[0] - fl.c[0], p[1] - fl.c[1]];
+      const c = Math.cos(-fl.rot);
+      const s = Math.sin(-fl.rot);
+      const lx = c * d[0] - s * d[1];
+      const ly = s * d[0] + c * d[1];
+      return Math.abs(lx) < fl.w / 2 + 2 && Math.abs(ly) < fl.d / 2 + 2;
+    };
+    for (let i = 0; i < FOLDERS.length; i++) for (let j = 0; j < FOLDERS.length; j++) if (i !== j) for (const p of outline(i)) expect(inside(p, j), `F${i + 1} into F${j + 1}`).toBe(false);
   });
 });

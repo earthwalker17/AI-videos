@@ -39,6 +39,18 @@ export interface YouPose {
   inTraySlip?: boolean;
   /** the laptop's lid shut for the night (0 open … 1 shut; default open: STORYBOARD 9.1, f4560) */
   lidShut?: number;
+  /** act one: a chore in the air on its post, or squashing as it lands (absent: at rest, or not there yet: `held`) */
+  post?: { key?: ChoreFlight | null; glass?: ChoreFlight | null; strut?: ChoreFlight | null };
+  /** act one: the chore tray nudged south (u) 2 f after a chore lands in it */
+  trayNudge?: number;
+}
+
+/** A chore on its post (act one, STORYBOARD 2.2): its offset from where it rests (desk coordinates), its turn and tilt in the air, its landing squash (0..0.03). */
+export interface ChoreFlight {
+  off: P3;
+  yaw: number;
+  tilt: number;
+  squash: number;
 }
 
 

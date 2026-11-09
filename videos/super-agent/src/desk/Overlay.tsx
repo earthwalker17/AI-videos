@@ -14,7 +14,7 @@ import { GREY_TEXT, Label, NotesBlock, lineWidth, type TextLook } from '../kit/t
 import type { FilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
 import { project } from './camera.ts';
-import { BAYS, REEL_FRAME, REEL_FRAME_Z, YOU, rectC, type P3 } from './layout.ts';
+import { BAYS, REEL, YOU, rectC, type P3 } from './layout.ts';
 
 /** Text colours of the Register Desk (synthesis §2, Palette): EN and zh. */
 export const TEXT_HEX = { en: '#ECE9E2', zh: '#BAB7AF', leader: '#C9C6BE' } as const;
@@ -43,8 +43,8 @@ export interface RoleLabel {
 }
 
 export const ROLE_LABELS: readonly RoleLabel[] = [
-  // its leader ends on the gantry's frame (the reel frame's east member), naming the whole machine; the label sits on clear ground east of the deck
-  { text: WORDS.router.en, foot: [(REEL_FRAME[2].x0 + REEL_FRAME[2].x1) / 2, 300, REEL_FRAME_Z[1] + 1], dx: 108, dy: 18, anchor: 'start' },
+  // its leader ends on the reel's pack (a body, never a rail: the strangers could not tell which object a rail named); the label sits on clear ground east of the deck
+  { text: WORDS.router.en, foot: [227, 377, REEL.packZ[1] + 1], dx: 136, dy: 18, anchor: 'start' },
   // the reporting Worker: the leader ends on the test bay's south wall, below its nameplate
   { text: WORDS.worker.en, foot: [rectC(BAYS.tests.box)[0] + 70, BAYS.tests.box.y0 + 3, 20], dx: 52, dy: 58, anchor: 'start' },
   // beside your desk: a clear hairline from the slab's west edge out to the label (design D3)

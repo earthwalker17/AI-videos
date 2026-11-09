@@ -49,7 +49,7 @@ export function poolsAt(s: DeskState): Pool[] {
     // gathers on the inline record (the hood is over the newest cells), so the stubs east of it sit a step below
     s.cache ? { c: [CACHE_POOL_X, cellY], z: [118, 170], sigma: [96, 40], rgb: tint(LIGHT_HEX.reading, CACHE_POOL_K * s.cache.lamp) } : { c: [newest + 70, cellY], z: [118, 170], sigma: [130, 40], rgb: tint(LIGHT_HEX.reading, 2.4) },
     // the stamp-in: the newest cell lights as the report's header prints into it
-    { c: [newest, cellY], z: [118, 140], sigma: [40, 30], rgb: tint(LIGHT_HEX.reading, s.cache ? 0 : 1.05 * s.cellLit) },
+    { c: [newest, cellY], z: [118, 140], sigma: [40, 30], rgb: tint(LIGHT_HEX.reading, s.cache ? 0 : 1.05 * Math.max(s.cellLit, s.b4.cellLit)) },
     // your lamp on your in-tray, where the reply lands: its maximum on the tray, a step brighter once it has
     { c: LAMP_AIM, z: [0, 140], sigma: [74, 66], rgb: tint(LIGHT_HEX.yours, 3.6 * s.lamp) },
     // the bug bay's work slot: cast forward (south) from the slot onto its bench, no halo round the walls

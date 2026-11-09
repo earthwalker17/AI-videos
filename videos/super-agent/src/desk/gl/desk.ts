@@ -146,9 +146,9 @@ float imprintShade(vec2 p) {
     float face = dot(-gr, uLight);
     // an embossed outline that reads at delivery size (8-10 codes off the slate on its lit wall)
     float edge = 1.0 - smoothstep(0.0, 2.8, abs(d + 1.5));
-    float inside = 1.0 - smoothstep(-1.0, 1.0, d);
-    // how deep it is pressed (the turn presses the folders in; 1 once they are history)
-    s += uImpRot[i].w * (inside * -0.06 + edge * (face > 0.0 ? 0.62 * face : 0.34 * face));
+    // how deep it is pressed (the turn presses the folders in; 1 once they are history): only the embossed edge, its
+    // floor the slate's own (a darker floor read as a ghost card under a lifted shadow)
+    s += uImpRot[i].w * edge * (face > 0.0 ? 0.62 * face : 0.34 * face);
   }
   return s;
 }

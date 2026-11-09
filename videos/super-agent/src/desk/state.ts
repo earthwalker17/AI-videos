@@ -27,6 +27,7 @@ import { clamp, easings } from '@aiv/core';
 import { Curve } from '@aiv/remotion-kit';
 import { Easing, spring } from 'remotion';
 import { BEAT, FPS } from '../cues.ts';
+import { armRest, beat4At, hatchRiseAt, type Beat4State } from './beat4.ts';
 import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, DRAWER_OPEN_C, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, YOU, rectC, towerTop, type P2, type P3 } from './layout.ts';
 
 /** Remotion spring configs from the synthesis's tokens (mass 1, c = 2ζ√k). Remotion's default spring is never used. */
@@ -100,7 +101,7 @@ export const LAMP_DIMS = 2340;
 export const LAMP_STEPS = { dim: 0.62, up: 0.9 } as const;
 
 /** What steps down during a beat: everything not in its action. */
-export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge' | 'head' | 'index' | 'mouth';
+export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge' | 'head' | 'index' | 'mouth' | 'folders' | 'loop' | 'you' | 'fixA' | 'fixB';
 /** No Thread cord before C17's beat: it first pays out at 7.1 (f3440); before that a Thread is a row on the tape (design D1). */
 export const CORD_FROM = 3440;
 /**
@@ -121,7 +122,7 @@ export interface DeskState {
   /** the index arm's angle (radians) */
   arm: number;
   /** the reply: emerging from the slot (0..1), then progress down the chute 0..1, its landing squash and settle; null before it leaves */
-  slip: { emerge: number; s: number; squash: number; settle: number } | null;
+  slip: { emerge: number; s: number; arc: number; squash: number; settle: number } | null;
   /** your lamp's level (0..1 scale of its pool and bulb) */
   lamp: number;
   /** the report card in flight: arc progress 0..1, world position (null when not flying) */
@@ -164,6 +165,8 @@ export interface DeskState {
   cache: CacheState | null;
   /** the finished test bay sinking into its hatch (0..1, spring-heavy) */
   testsSink: number;
+  /** beat 4 (desk/beat4.ts): the bays' dispatches, the tape's rows, the reel, the request, the heap, the counterfactual cards; still (b)'s from f2140 */
+  b4: Beat4State;
 }
 
 /** The print head's hammer at its stroke h (0 raised clear of the tape, 1 down on the newest cell): it rocks east as it falls, so its drop reads from above. */
@@ -241,10 +244,12 @@ export function stepAt(f: number): DeskState['step'] {
 /** The state of the desk at film frame `f` (pure). */
 export function deskStateAt(f: number): DeskState {
   const E = EVENTS_B;
+  // beat 4: the bays dispatched one by one (their lights, the test tower's lamps lit as its tests start), the arm's detents, the rows' stamps
+  const b4 = beat4At(f);
   // the test tower finishes: its lamps go out one by one, its cap swings shut onto the downbeat, its light dims; its card flies up into the mouth
-  const lamps = [0, 1, 2].map((i) => 1 - sine((f - E.lampsOut - i * E.lampStagger) / E.lampFrames));
+  const lamps = [0, 1, 2].map((i) => (1 - sine((f - E.lampsOut - i * E.lampStagger) / E.lampFrames)) * b4.lamps[i]);
   const testsCap = easings.inCubic(clamp((f - E.testsCap) / E.capFrames));
-  const testsLight = 1 - springAt(f, E.testsDim, SPRING.effects);
+  const testsLight = (1 - springAt(f, E.testsDim, SPRING.effects)) * b4.bays.tests.light;
   const fly = (f - E.cardEject) / E.cardFly;
   const card = fly >= 0 && fly < 1 ? { s: easings.inOutSine(fly), pos: cardArc(easings.inOutSine(fly)).pos } : null;
   // the transit light ramps in over 4 f after the card leaves and out over the 6 f before it docks (spring-effects-like, under the bloom by its last frame; dark in the dock frame)
@@ -262,24 +267,27 @@ export function deskStateAt(f: number): DeskState {
         squash: f < landAt ? 0 : Math.max(0, 1 - (f - landAt) / 4) * Math.min(1, (f - landAt + 1) / 1.5),
       }
     : null;
-  const stamp = clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2));
+  const stamp = Math.max(b4.hammer, clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2)));
   const cellLit = springAt(f, E.stampIn + 1, SPRING.effects);
   const reel = springAt(f, E.reelDetent, SPRING.detent);
   const tape = easings.inOutSine(clamp((f - E.reelDetent) / E.tapeFrames));
   const ink = clamp((f - E.stampIn - 1) / 3);
   const cardOut = f >= E.cardEmerge && f < E.cardEject ? easings.outCubic((f - E.cardEmerge) / (E.cardEject - E.cardEmerge)) : null;
   const testsStep = easings.inOutSine(clamp((f - E.testsStep) / STEP_FRAMES));
-  // the index arm: from the test bay's detent to yours (west), settled before the reply moves
-  const arm = DETENT.tests + (DETENT.you - DETENT.tests) * springAt(f, E.armTurn, SPRING.detent);
-  // the reply: one motion from under the deck along the chute's line and down the chute (in and out), landing on spring-dock with a 3% squash
+  // the index arm: beat 4's detents (it rests at the docs galley's), then to yours (west), settled before the reply moves
+  const arm = (f <= E.armTurn ? b4.arm : armRest()) + (DETENT.you - armRest()) * springAt(f, E.armTurn, SPRING.detent);
+  // the reply: one motion from under the deck along the chute's line and down the chute, gathering speed as it comes
+  // out from under the deck and then at a constant pace to the chute's lip (it never slows in the trough), off the lip
+  // in a short arc into your in-tray, landing on spring-dock with a 3% squash
   let slip: DeskState['slip'] = null;
   if (f >= E.slipLeave) {
-    const d = easings.inOutSine(clamp((f - E.slipLeave) / (SLIP_LANDS - E.slipLeave))) * (REPLY_LEAD + REPLY_CHUTE);
+    const d = replyRun((f - E.slipLeave) / (SLIP_LIP - E.slipLeave)) * (REPLY_LEAD + REPLY_CHUTE);
     const emerge = clamp(d / REPLY_LEAD);
     const s = clamp((d - REPLY_LEAD) / REPLY_CHUTE);
+    const arc = clamp((f - SLIP_LIP) / REPLY_ARC);
     const settle = springAt(f, SLIP_LANDS, SPRING.dock);
     const squash = f < SLIP_LANDS ? 0 : Math.max(0, 1 - (f - SLIP_LANDS) / 4) * Math.min(1, (f - SLIP_LANDS) / 1.5);
-    slip = { emerge, s, squash, settle };
+    slip = { emerge, s, arc, squash, settle };
   }
   // beat 5 (f2340, STORYBOARD 5.1): events trip the intake by themselves, and your lamp dims a step again
   const lamp = LAMP_STEPS.dim + (LAMP_STEPS.up - LAMP_STEPS.dim) * (springAt(f, E.lampUp, SPRING.effects) - springAt(f, LAMP_DIMS, SPRING.effects));
@@ -298,7 +306,7 @@ export function deskStateAt(f: number): DeskState {
   // MT1: once the slip is stamped in, the arm turns from you to the fresh bay's detent
   const armNow = f > EVENTS_D.armTurn ? DETENT.you + (DETENT.fresh - DETENT.you) * springAt(f, EVENTS_D.armTurn, SPRING.detent) : arm;
   const testsSink = springAt(f, EVENTS_D.rest, SPRING.heavy);
-  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: 1, pins, galley, step: withOwnRamp(f, stepAt(f)), next, cache: cacheAt(f), testsSink };
+  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withOwnRamp(f, stepAt(f)), next, cache: cacheAt(f), testsSink, b4 };
 }
 
 /** The reply's lead-in: hidden under the deck's plate and south rail, on the chute's line produced back north-east, so it slides out of the deck straight into the chute. */
@@ -311,6 +319,17 @@ const CHUTE_DIR: P3 = (() => {
 /** Its path: from under the deck (a little low, under the plate) to the chute's head, then the chute's bed. */
 export const REPLY_PATH: readonly P3[] = [[CHUTE[0][0] - CHUTE_DIR[0] * REPLY_LEAD, CHUTE[0][1] - CHUTE_DIR[1] * REPLY_LEAD, CHUTE[0][2] + 3], ...CHUTE.map((p): P3 => [p[0], p[1], p[2] + 6])];
 const REPLY_CHUTE = CHUTE.slice(1).reduce((a, q, i) => a + Math.hypot(q[0] - CHUTE[i][0], q[1] - CHUTE[i][1], q[2] - CHUTE[i][2]), 0);
+/** The reply leaves the chute's lip this many frames before it lands: a short arc off the lip into the tray (the MT1 critic: no hold under the lip). */
+export const REPLY_ARC = 5;
+/** How high the reply hops off the chute's lip (u): clear of the trough's walls while it turns to lie in the tray. */
+export const REPLY_HOP = 20;
+export const SLIP_LIP = SLIP_LANDS - REPLY_ARC;
+/** The reply's run to the lip (0..1 of its path): it gathers speed over the first quarter (out from under the deck), then runs at a constant pace (linear transport) to the lip. */
+export function replyRun(t: number): number {
+  const x = clamp(t);
+  const a = 0.25;
+  return x < a ? (x * x) / (2 * a) / (1 - a / 2) : (x - a / 2) / (1 - a / 2);
+}
 /** Where the landed reply rests: in the in-tray's north part, clear of the chute's mouth and of the older slip's print. */
 export const IN_TRAY_REST: P3 = [rectC(YOU.inTray)[0] + 4, YOU.inTray.y1 - 23, 33];
 
@@ -319,20 +338,28 @@ export const IN_TRAY_REST: P3 = [rectC(YOU.inTray)[0] + 4, YOU.inTray.y1 - 23, 3
  * as it will in the tray, then settling into the tray on spring-dock.
  */
 export function replyPose(slip: NonNullable<DeskState['slip']>): { p: P3; heading: number; slope: number } {
-  const { emerge, s, settle } = slip;
+  const { emerge, s, arc, settle } = slip;
   if (s >= 1) {
+    // off the lip: an arc that leaves at the chute's own heading and slope, then turns and levels to lie in the tray
     const end = REPLY_PATH[REPLY_PATH.length - 1];
-    const k = settle;
-    return { p: [end[0] + (IN_TRAY_REST[0] - end[0]) * k, end[1] + (IN_TRAY_REST[1] - end[1]) * k, end[2] + (IN_TRAY_REST[2] - end[2]) * k], heading: 0.05, slope: 0 };
+    const { dir } = polylineAt(REPLY_PATH, 1);
+    const h0 = Math.atan2(dir[1], dir[0]) + Math.PI;
+    const s0 = Math.atan2(dir[2], Math.hypot(dir[0], dir[1]));
+    const u = clamp(arc);
+    const e = easings.inOutSine(u);
+    // landed: it settles the last hair onto the tray on spring-dock
+    // it hops off the lip (over the trough's walls, so nothing of it passes under them as it turns), then drops into the tray
+    const z = end[2] + (IN_TRAY_REST[2] - end[2]) * u * u + 4 * REPLY_HOP * u * (1 - u) + (u >= 1 ? 1.2 * (1 - settle) : 0);
+    const p: P3 = [end[0] + (IN_TRAY_REST[0] - end[0]) * u, end[1] + (IN_TRAY_REST[1] - end[1]) * u, z];
+    return { p, heading: h0 + (0.05 - h0) * e, slope: s0 * (1 - e) };
   }
   const lead = REPLY_LEAD / (REPLY_LEAD + REPLY_CHUTE);
   const u = s > 0 ? lead + (1 - lead) * s : lead * emerge;
   // the path's own arc length, mapped so the lead-in and the chute keep their shares
   const { p, dir } = polylineAt(REPLY_PATH, u);
   const h = Math.hypot(dir[0], dir[1]);
-  const heading = Math.atan2(dir[1], dir[0]) + Math.PI;
-  const turn = clamp((s - 0.7) / 0.3);
-  return { p, heading: heading + (0.05 - heading) * easings.inOutSine(turn), slope: Math.atan2(dir[2], h) * (1 - turn) };
+  // along the chute to its lip: the chute's own heading and slope (it never turns broadside inside the trough)
+  return { p, heading: Math.atan2(dir[1], dir[0]) + Math.PI, slope: Math.atan2(dir[2], h) };
 }
 
 /** The reply's pose: under the index sector while it emerges, then on the chute, turning along its exit curve. */
@@ -378,11 +405,11 @@ export const EVENTS_D = {
   stampIn: 2277,
   /** dispatch: the index arm detents toward the bay floor */
   armTurn: 2280,
-  /** the fresh groove is cut from the ramp's foot (10 f), the hatch's leaves part (3 f), the bay rises out of its pit on spring-heavy */
+  /** the fresh groove is cut from the ramp's foot (10 f), the hatch's leaves slide open (4 f), the bay rises out of its pit on spring-heavy only once they are open (beat4.ts hatchRiseAt) */
   cut: 2283,
   cutFrames: 10,
-  hatch: 2286,
-  hatchFrames: 3,
+  hatch: 2285,
+  hatchFrames: 4,
   rise: 2289,
   /** the folder is pushed out of the dispatch housing's slit (6 f), runs down the ramp (4 f), along the groove (14 f) */
   folderOut: 2290,
@@ -435,10 +462,12 @@ export interface NextState {
   tape: number;
   reel: number;
   ink: number;
-  /** the fresh groove's cut (fraction of its length), the hatch open, the bay risen (0..1) */
+  /** the fresh groove's cut (fraction of its length), the hatch's leaves open, the bay risen (0..1); its hole in the slate open; its contact shadow tightening as it settles */
   cut: number;
   hatch: number;
   rise: number;
+  hole: boolean;
+  contact: number;
   /** the fresh bay's door (0 shut, 1 lifted) and its work light (0..1) */
   door: number;
   light: number;
@@ -515,10 +544,8 @@ export function nextAt(f: number): NextState {
   const reel = springAt(f, E.reelDetent, SPRING.detent);
   const stamp = clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2));
   const ink = clamp((f - E.stampIn - 1) / 3);
-  // the fresh bay
-  const cut = easings.outCubic(clamp((f - E.cut) / E.cutFrames));
-  const hatch = sine((f - E.hatch) / E.hatchFrames);
-  const rise = springAt(f, E.rise, SPRING.heavy);
+  // the fresh bay: the one dispatch move every Worker shares
+  const { cut, hatch, rise, hole, contact } = hatchRiseAt(f, { cut: E.cut, cutFrames: E.cutFrames, rise: E.rise });
   const door = sine((f - E.doorUp) / 4) * (1 - sine((f - E.doorDown) / 4));
   const light = springAt(f, E.light, SPRING.effects);
   // the folder: pushed out of the slot, down the ramp, along the groove, in through the door
@@ -549,7 +576,7 @@ export function nextAt(f: number): NextState {
       folderTransit = transitRamp(f - E.folderOut, E.dock - E.folderOut);
     }
   }
-  return { slip, loupe, punch, stamp, tape, reel, ink, cut, hatch, rise, door, light, folder, folderTransit };
+  return { slip, loupe, punch, stamp, tape, reel, ink, cut, hatch, rise, hole, contact, door, light, folder, folderTransit };
 }
 
 /** The loupe's reading swing (radians about its pivot): onto the card's lower rule line, then across both. */

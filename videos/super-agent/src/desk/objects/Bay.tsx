@@ -15,11 +15,12 @@
  * Every rack holds the same three tools (a magnifier, a wrench, a pen): the family's shared fixture.
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
-import { Color, Path, Shape, type BufferGeometry } from 'three';
+import { CircleGeometry, Color, Path, Shape, type BufferGeometry } from 'three';
+import { REQUEST_DOCK, REQUEST_DOCK_HEADING, RIDE, WORK_DEPTH, type BayDispatch, type Carry } from '../beat4.ts';
 import { bayDoor, bayWalls } from '../footprints.ts';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, tube } from '../geom.ts';
 import { EMIT, Step, WithMats, isStepped, useDeskMats, useDeskSets, type DeskMats } from '../kit.tsx';
-import { BAYS, BAY_FLOOR, BENCH, CARD, CARD_FILE, FOLDER, FRESH, GALLEY_TRAY, HATCH_DEPTH, PINS, REQUEST, SHEET, SINK, TOWER, rectC, towerTop, type BayLayout, type Rect } from '../layout.ts';
+import { BAYS, BAY_FLOOR, BENCH, CARD, CARD_FILE, FOLDER, FRESH, GALLEY_TRAY, HATCH_DEPTH, PINS, REQUEST, SHEET, SINK, TOWER, rectC, towerTop, type BayId, type BayLayout, type Rect } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
 import type { MeshBasicMaterial } from 'three';
 import { CAP_SLOT, closeAt, type DeskState } from '../state.ts';
@@ -100,31 +101,53 @@ function useBayGeometry(b: BayLayout, tools: (rack: Rect) => Tools) {
   }, [b, tools]);
 }
 
-/** The class every Worker shares, with its task's superstructure as children; `door`: how far its door is lifted (0 shut). */
-function BayBase({ b, slot, slotMat, tools = sharedTools, door = 0, close = 0, children }: { b: BayLayout; slot: 'slotBug' | 'slotTests' | 'slotDocs' | 'slotFresh'; slotMat?: MeshBasicMaterial; tools?: (rack: Rect) => Tools; door?: number; close?: number; children: ReactNode }) {
+/**
+ * The class every Worker shares, with its task's superstructure as children; `door`: how far its door is lifted (0
+ * shut). Its shell (the walls, the nameplate band, the door) stands on the slate; its work (the floor plate, the work
+ * slot, the dossier, the rack and the superstructure) rises out of the hatch inside the shell when the bay is
+ * dispatched (`work`: drawn at all, `workZ`: its height, below 0 while it rises). A closed, idle bay is its shell.
+ */
+function BayBase({ b, slot, slotMat, tools = sharedTools, door = 0, close = 0, work = true, workZ = 0, children }: { b: BayLayout; slot: 'slotBug' | 'slotTests' | 'slotDocs' | 'slotFresh'; slotMat?: MeshBasicMaterial; tools?: (rack: Rect) => Tools; door?: number; close?: number; work?: boolean; workZ?: number; children?: ReactNode }) {
   const m = useDeskMats();
   const g = useBayGeometry(b, tools);
   const lift = door * (b.wallH - 2);
   return (
     <group>
-      <mesh geometry={g.floor} material={m.floor} />
       <mesh geometry={g.walls} material={m.graphite} />
       <mesh geometry={g.band} material={m.printed.nameplate[b.id]} />
       <mesh geometry={g.door} material={m.enamelShade} position={[0, 0, lift]} />
       <mesh geometry={g.doorBar} material={m.steel} position={[0, 0, lift]} />
-      <mesh geometry={g.slotBlock} material={m.graphiteDark} />
-      <mesh geometry={g.slit} material={slotMat ?? m[slot]} />
-      <mesh geometry={g.slitLip} material={m.steel} />
-      <mesh geometry={g.tray} material={m.enamelShade} />
-      <mesh geometry={g.stack} material={m.paper} />
-      <mesh geometry={g.top} material={m.printed.dossier[b.id]} />
-      {close > 0 && <mesh geometry={g.top} material={m.printed.dossierFine[b.id]} position={[0, 0, 0.06]} />}
-      <mesh geometry={g.rail} material={m.graphiteDark} />
-      <mesh geometry={g.metal} material={m.steel} />
-      <mesh geometry={g.grips} material={m.enamel} />
-      {children}
+      {work && (
+        <group position={[0, 0, workZ]}>
+          <mesh geometry={g.floor} material={m.floor} />
+          <mesh geometry={g.slotBlock} material={m.graphiteDark} />
+          <mesh geometry={g.slit} material={slotMat ?? m[slot]} />
+          <mesh geometry={g.slitLip} material={m.steel} />
+          <mesh geometry={g.tray} material={m.enamelShade} />
+          <mesh geometry={g.stack} material={m.paper} />
+          <mesh geometry={g.top} material={m.printed.dossier[b.id]} />
+          {close > 0 && <mesh geometry={g.top} material={m.printed.dossierFine[b.id]} position={[0, 0, 0.06]} />}
+          <mesh geometry={g.rail} material={m.graphiteDark} />
+          <mesh geometry={g.metal} material={m.steel} />
+          <mesh geometry={g.grips} material={m.enamel} />
+          {children}
+        </group>
+      )}
     </group>
   );
+}
+
+/** A bay's work while it is dispatched (beat4.ts hatchRiseAt): drawn once its hatch opens, at its height as it rises. */
+export const workOf = (d: BayDispatch, id: BayId): { work: boolean; workZ: number } => ({ work: d.rise > 0 || d.hole, workZ: -WORK_DEPTH[id] * (1 - d.rise) });
+
+/** A dark work slot: nothing computes there (an idle Worker); a computing one is lit, evenly to the eye from dark (geometric). */
+export const SLOT_IDLE = '#1E2120';
+export function slotColour(target: Color, level: number, light: number): Color {
+  const idle = new Color(SLOT_IDLE);
+  if (light <= 0) return target.copy(idle);
+  const lit = new Color(LIGHT_HEX.work).multiplyScalar(level);
+  // geometric between dark and lit per channel, so the first frames of the spring are not most of the light
+  return target.setRGB(idle.r * (lit.r / idle.r) ** light, idle.g * (lit.g / idle.g) ** light, idle.b * (lit.b / idle.b) ** light);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -150,45 +173,84 @@ function useBenchGeometry() {
     const folder = slab(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 3, 1);
     const folderTop = planeOn(FOLDER.box, FOLDER.z[1] + 0.2);
     const folderTab = slab({ x0: FOLDER.box.x0 + 8, x1: FOLDER.box.x0 + 50, y0: FOLDER.box.y0 - 9, y1: FOLDER.box.y0 + 2 }, FOLDER.z[0], FOLDER.z[0] + 2, 2, 0.6);
-    const place = (g: BufferGeometry) => {
-      g.rotateZ(REQUEST.rot - Math.PI / 2);
-      g.translate(REQUEST.c[0], REQUEST.c[1], 0);
-      return g;
-    };
-    // the print covers the slip's west 82 u (the code), clear of the beetle window
-    const request = (() => {
-      const g = plane(82, REQUEST.w, -REQUEST.l / 2 + 41, 0, REQUEST.z + 0.5);
-      const uv = g.getAttribute('uv');
-      for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * (82 / REQUEST.l));
-      return place(g);
-    })();
-    const requestBody = (() => {
-      const s = new Shape();
-      const hw = REQUEST.l / 2;
-      const hh = REQUEST.w / 2;
-      s.moveTo(-hw, -hh);
-      s.lineTo(hw, -hh);
-      s.lineTo(hw, hh);
-      s.lineTo(-hw, hh);
-      s.closePath();
-      // the beetle, cut through: body, head and three legs a side (the folder shows through)
-      const bx = hw - 19;
-      const body = new Path();
-      body.absellipse(bx, -1, 10, 8, 0, Math.PI * 2, true);
-      s.holes.push(body);
-      const head = new Path();
-      head.absellipse(bx + 14, -1, 4, 4.5, 0, Math.PI * 2, true);
-      s.holes.push(head);
-      for (const side of [-1, 1])
-        for (const k of [-1, 0, 1]) {
-          const leg = new Path();
-          leg.absellipse(bx + k * 6, -1 + side * 11.5, 1.4, 3.6, 0, Math.PI * 2, true);
-          s.holes.push(leg);
-        }
-      return place(extrude(s, REQUEST.z - 0.6, REQUEST.z + 0.3, 0));
-    })();
-    return { top, edge, legs, pinBases, pinPosts, flag, folder, folderTop, folderTab, request, requestBody };
+    return { top, edge, legs, pinBases, pinPosts, flag, folder, folderTop, folderTab };
   }, []);
+}
+
+/**
+ * The request as it lies in its bay and as it rides its groove there (local: centred, its long axis along x, its
+ * beetle die-cut at +x; z from 0.3 under its centre plane): its body, its print over the west 82 u (clear of the
+ * beetle's window), and the transit light seen through the beetle while it moves (TREATMENT Emission).
+ */
+export function requestParts(): { body: BufferGeometry; print: BufferGeometry; light: BufferGeometry } {
+  const hw = REQUEST.l / 2;
+  const hh = REQUEST.w / 2;
+  const s = new Shape();
+  s.moveTo(-hw, -hh);
+  s.lineTo(hw, -hh);
+  s.lineTo(hw, hh);
+  s.lineTo(-hw, hh);
+  s.closePath();
+  // the beetle, cut through: body, head and three legs a side (the folder shows through)
+  const bx = hw - 19;
+  const body = new Path();
+  body.absellipse(bx, -1, 10, 8, 0, Math.PI * 2, true);
+  s.holes.push(body);
+  const head = new Path();
+  head.absellipse(bx + 14, -1, 4, 4.5, 0, Math.PI * 2, true);
+  s.holes.push(head);
+  for (const side of [-1, 1])
+    for (const k of [-1, 0, 1]) {
+      const leg = new Path();
+      leg.absellipse(bx + k * 6, -1 + side * 11.5, 1.4, 3.6, 0, Math.PI * 2, true);
+      s.holes.push(leg);
+    }
+  const print = plane(82, REQUEST.w, -hw + 41, 0, 0.8);
+  const uv = print.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * (82 / REQUEST.l));
+  const light = new CircleGeometry(8.4, 24);
+  light.scale(1.2, 1, 1);
+  light.translate(bx, -1, -0.5);
+  return { body: extrude(s, -0.3, 0.6, 0), print, light };
+}
+
+/** The request's materials: its own, so its chroma can step with its bay's focus ramp (shared by the carrier and the docked request). */
+function useTracer() {
+  const { textures } = useDeskSets();
+  const tracer = useMemo(() => {
+    const white = whiteTexture();
+    return {
+      folder: paper(white, HEX.vermilionShade, { roughness: 0.85 }),
+      folderTop: paper(textures.folder, HEX.vermilionShade, { roughness: 0.85 }),
+      body: paper(white, HEX.vermilion, { roughness: 0.82 }),
+      print: paper(textures.request, HEX.vermilion, { roughness: 0.82 }),
+      white,
+    };
+  }, [textures]);
+  useLayoutEffect(
+    () => () => {
+      for (const x of [tracer.folder, tracer.folderTop, tracer.body, tracer.print]) x.dispose();
+      tracer.white.dispose();
+    },
+    [tracer],
+  );
+  return tracer;
+}
+
+/** The request riding its dispatch (beat4.ts requestAt): out of the housing, down the ramp, along its groove, up onto its folder; the transit light through its beetle while it moves. */
+export function RequestCarrier({ pose }: { pose: Carry }) {
+  const m = useDeskMats();
+  const tracer = useTracer();
+  const g = useMemo(() => requestParts(), []);
+  useLayoutEffect(() => () => Object.values(g).forEach((x) => x.dispose()), [g]);
+  const squash = 1 - 0.03 * pose.squash;
+  return (
+    <group position={pose.p} rotation={[0, -pose.slope, pose.heading, 'ZYX']} scale={[1 + 0.015 * pose.squash, 1, squash]}>
+      <mesh geometry={g.body} material={tracer.body} />
+      <mesh geometry={g.print} material={tracer.print} />
+      {pose.transit > 0 && <mesh geometry={g.light} material={m.transit} />}
+    </group>
+  );
 }
 
 /** A pin's flag: graphite face up before its test runs, flipped (enamel up) once it passes. */
@@ -215,42 +277,42 @@ function quieter(hex: string, k: number): Color {
   return new Color(f(r), f(gg), f(b));
 }
 
-/** `noRequest`: the bay without the request and its folder (the turn, before the request is docked in it). */
+/**
+ * The request's bay: its bench with six test pins, the folder that holds its task on the bench. Closed and idle from
+ * the turn until the request is dispatched to it (beat4.ts, 4.3); its work rises from its hatch, the request rides
+ * its groove in and lands on the folder, which takes its vermilion; its work slot lights. `noRequest`: without the
+ * request at rest on its folder (it is still riding: beat4.ts requestAt).
+ */
 export function BugBay({ s, noRequest = false }: { s: DeskState; noRequest?: boolean }) {
   const g = useBenchGeometry();
-  const { full, textures } = useDeskSets();
-  // the request and its folder draw with their own materials, so their chroma can step with the bay's focus ramp
-  const tracer = useMemo(() => {
-    const white = whiteTexture();
-    return {
-      folder: paper(white, HEX.vermilionShade, { roughness: 0.85 }),
-      folderTop: paper(textures.folder, HEX.vermilionShade, { roughness: 0.85 }),
-      body: paper(white, HEX.vermilion, { roughness: 0.82 }),
-      print: paper(textures.request, HEX.vermilion, { roughness: 0.82 }),
-      white,
-    };
-  }, [textures]);
-  useLayoutEffect(
-    () => () => {
-      for (const x of [tracer.folder, tracer.folderTop, tracer.body, tracer.print]) x.dispose();
-      tracer.white.dispose();
-    },
-    [tracer],
-  );
+  const r = useMemo(() => requestParts(), []);
+  useLayoutEffect(() => () => Object.values(r).forEach((x) => x.dispose()), [r]);
+  const { full } = useDeskSets();
+  const tracer = useTracer();
+  const d = s.b4.bays.bug;
   const st = isStepped(s.step, 'bugBay');
   const amt = st === 'own' ? (s.step.own?.amount ?? 0) : st ? s.step.amount : 0;
+  // the folder waits on the bench in its own stock until the request lands on it, then takes its vermilion (spring-effects)
+  const take = s.b4.folderTake;
   useLayoutEffect(() => {
     const k = TRACER_STEP * amt;
-    tracer.folder.color.copy(quieter(HEX.vermilionShade, k));
-    tracer.folderTop.color.copy(quieter(HEX.vermilionShade, k));
+    const own = new Color(HEX.paperShade);
+    tracer.folder.color.copy(own.clone().lerp(quieter(HEX.vermilionShade, k), take));
+    tracer.folderTop.color.copy(own.lerp(quieter(HEX.vermilionShade, k), take));
     tracer.body.color.copy(quieter(HEX.vermilion, k));
     tracer.print.color.copy(quieter(HEX.vermilion, k));
-  }, [tracer, amt]);
+  }, [tracer, amt, take]);
+  // its work slot: dark while idle, lit (blooming) once its work computes
+  useLayoutEffect(() => {
+    slotColour(full.slotBug.color, EMIT.slot, s.bugLight);
+  }, [full, s.bugLight]);
+  const atRest = !noRequest && s.f >= RIDE.dock + 12;
+  const w = workOf(d, 'bug');
   return (
     <Step on={isStepped(s.step, 'bugBay')}>
       <WithMats>
         {(m) => (
-          <BayBase b={BAYS.bug} slot="slotBug" slotMat={full.slotBug} close={closeAt(s.f)}>
+          <BayBase b={BAYS.bug} slot="slotBug" slotMat={full.slotBug} close={closeAt(s.f)} door={d.door} work={w.work} workZ={w.workZ}>
             <mesh geometry={g.legs} material={m.graphiteDark} />
             <mesh geometry={g.top} material={m.graphite} />
             <mesh geometry={g.edge} material={m.enamelShade} />
@@ -259,15 +321,15 @@ export function BugBay({ s, noRequest = false }: { s: DeskState; noRequest?: boo
             {s.pins.map((p, i) => (
               <PinFlag key={i} i={i} state={p} geometry={g.flag} />
             ))}
-            {/* the request keeps its vermilion when the bay steps down (it is the film's tracer), a step quieter */}
-            {!noRequest && (
-              <>
-                <mesh geometry={g.folder} material={tracer.folder} />
-                <mesh geometry={g.folderTop} material={tracer.folderTop} />
-                <mesh geometry={g.folderTab} material={tracer.folder} />
-                <mesh geometry={g.requestBody} material={tracer.body} />
-                <mesh geometry={g.request} material={tracer.print} />
-              </>
+            {/* the request's folder; the request keeps its vermilion when the bay steps down (it is the film's tracer), a step quieter */}
+            <mesh geometry={g.folder} material={tracer.folder} />
+            <mesh geometry={g.folderTop} material={tracer.folderTop} />
+            <mesh geometry={g.folderTab} material={tracer.folder} />
+            {atRest && (
+              <group position={REQUEST_DOCK} rotation={[0, 0, REQUEST_DOCK_HEADING]}>
+                <mesh geometry={r.body} material={tracer.body} />
+                <mesh geometry={r.print} material={tracer.print} />
+              </group>
             )}
           </BayBase>
         )}
@@ -366,15 +428,17 @@ function TestsParts({ s }: { s: DeskState }) {
   );
   const lit = useMemo(() => new Color(LENS_HEX.lit), []);
   const out = useMemo(() => new Color(LENS_HEX.out), []);
+  const on = s.b4.bays.tests.light;
   useLayoutEffect(() => {
-    // its work light dims as the run finishes
-    m.slotTests.color.set(LIGHT_HEX.work).multiplyScalar(0.25 + (EMIT.slotDocs - 0.25) * s.testsLight);
+    // dark while idle; lit once its tests run (beat 4); its work light dims as the run finishes (MT1)
+    slotColour(m.slotTests.color, 0.25 + (EMIT.slotDocs - 0.25) * (on > 1e-6 ? s.testsLight / on : 1), on);
     lensMats.forEach((x, i) => x.color.copy(out).lerp(lit, s.lamps[i]));
-  }, [m, s.testsLight, s.lamps, lensMats, lit, out]);
+  }, [m, s.testsLight, on, s.lamps, lensMats, lit, out]);
   const T = TOWER;
   const angle = CAP_OPEN * (1 - s.testsCap);
+  const w = workOf(s.b4.bays.tests, 'tests');
   return (
-    <BayBase b={BAYS.tests} slot="slotTests" close={closeAt(s.f)}>
+    <BayBase b={BAYS.tests} slot="slotTests" close={closeAt(s.f)} work={w.work} workZ={w.workZ}>
       <mesh geometry={g.base} material={m.graphiteDark} />
       <mesh geometry={g.drums} material={m.graphite} />
       <mesh geometry={g.bands} material={m.enamelShade} />
@@ -422,11 +486,12 @@ function DocsParts({ m, close }: { m: DeskMats; close: number }) {
 }
 
 export function DocsBay({ s }: { s: DeskState }) {
+  const w = workOf(s.b4.bays.docs, 'docs');
   return (
     <Step on={isStepped(s.step, 'docsBay')}>
       <WithMats>
         {(m) => (
-          <BayBase b={BAYS.docs} slot="slotDocs" close={closeAt(s.f)}>
+          <BayBase b={BAYS.docs} slot="slotDocs" close={closeAt(s.f)} work={w.work} workZ={w.workZ}>
             <DocsParts m={m} close={closeAt(s.f)} />
           </BayBase>
         )}
@@ -525,7 +590,8 @@ export function FreshBay({ s }: { s: DeskState }) {
     // its level ramps evenly to the eye (geometric between dark and computing), so the first frame of the spring is not most of the light
     for (const set of [sets.full, sets.stepped]) set.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 * (EMIT.slot / 0.12) ** n.light);
   }, [sets, n.light]);
-  if (n.hatch <= 0) return null;
+  // in its pit under the shut hatch until the leaves part (beat4.ts hatchRiseAt): it rises only once they are open
+  if (!n.hole && n.rise <= 0) return null;
   // stepped down with the other bays at the summary (desk/summary.ts)
   return (
     <Step on={isStepped(s.step, 'freshBay')}>

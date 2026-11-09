@@ -136,6 +136,28 @@ export function cargoMark(g: CanvasRenderingContext2D, kind: string, x: number, 
   }
 }
 
+/**
+ * The request's Thread subscription as its row on the tape carries it once subscribed (beat 4, STORYBOARD 4.3): a short
+ * twisted cord in the request's vermilion under its stub, as long as the stub (a mark, never text; its cord is drawn
+ * only from C17, design D1). Its west end at (x, y), its centre line at y.
+ */
+export function threadMark(g: CanvasRenderingContext2D, x: number, y: number): void {
+  g.strokeStyle = VERMILION;
+  g.lineWidth = 1.5;
+  g.lineCap = 'round';
+  for (const phase of [0, Math.PI]) {
+    g.beginPath();
+    for (let i = 0; i <= 26; i++) {
+      const px = x + i;
+      const py = y + 1.5 * Math.sin((i / 26) * Math.PI * 3 + phase);
+      if (i === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.stroke();
+  }
+  g.lineCap = 'butt';
+}
+
 /** Every printed texture of the frame. */
 export interface PrintTextures {
   tape: Texture;
@@ -309,6 +331,8 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
         if (cell.request) {
           g.fillStyle = VERMILION;
           g.fillRect(x + 8, 48, 26, 5);
+          // its Thread's subscription, inked into its row in beat 4 (desk/beat4.ts)
+          threadMark(g, x + 8, 57);
         }
       });
       if (o.fresh) stagedInk(g, tw, h, TEX, o.stage ?? 2, cell0Ink(cells[0], !!o.notch));

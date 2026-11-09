@@ -40,6 +40,14 @@ export const FRAMING_B: Framing = { x: -200, y: 40, zoom: 0.85 };
 export const FRAMING_A: Framing = { x: -296, y: 94, zoom: 1.2 };
 
 /**
+ * The hook (STORYBOARD 1.1, f0–159) at 1.6x: close on the west end of the desk, the four feeders and the heap
+ * running east toward your desk, your bent-arm lamp at frame right and the nearest folders fanned north. The chat
+ * drum's top clears the frame's top edge and the calendar pad stays above the notes band (C1). Bar 3's downbeat eases
+ * out to FRAMING_A; the bookend (STORYBOARD 12.1, f6000) returns here.
+ */
+export const FRAMING_HOOK: Framing = { x: -600, y: 160, zoom: 1.6 };
+
+/**
  * The pose for a framing at a pitch: the camera sits south of its aim point, tilted `angle`
  * degrees from straight down, at D1 / zoom. Screen-up is north (three's default camera up, +y).
  */
@@ -71,8 +79,7 @@ export function projectBox(pose: CamPose, pts: readonly P3[]): { x0: number; y0:
 export const FRAMING_C: Framing = { x: -90, y: 150, zoom: 2.4 };
 
 /**
- * The camera's moves from the turn on (film frames >= 1400; act one's keys, before 1400, are act
- * one's own). Each move starts on a downbeat and runs between two held framings through a
+ * The camera's moves from the turn on (film frames >= 1400; act one's, before 1400, is ACT_ONE_MOVE). Each move starts on a downbeat and runs between two held framings through a
  * pass-through key at the geometric mean of their zooms, so the zoom reads evenly (perceptual
  * scale); between moves the framing holds exactly (`deskCamera`), so a still at a hold is the
  * static pose. The DOM layer projects through the same pose (`project`).
@@ -112,15 +119,43 @@ export function moveCameraAt(m: CameraMove, f: number, angle: Angle): CamPose {
   return movePath(m, angle).at(f);
 }
 
-/** The framing held at film frame f (>= 1400) outside a move. */
+/** Act one's one move (STORYBOARD 1.2): bar 3's downbeat (`title-thump`), out of the hook onto your desk, 1.6x to 1.2x over two bars. */
+export const ACT_ONE_MOVE: CameraMove = { from: 160, to: 320, a: FRAMING_HOOK, b: FRAMING_A };
+/** Every move of the film in order: act one's, then CAMERA_MOVES (from the turn on). */
+const ALL_MOVES: readonly CameraMove[] = [ACT_ONE_MOVE, ...CAMERA_MOVES];
+
+/** The framing held at film frame f outside a move: the hook until bar 3, then each move's last framing. */
 export function framingAt(f: number): Framing {
-  let fr = FRAMING_A;
-  for (const m of CAMERA_MOVES) if (f >= m.to) fr = m.b;
+  let fr = ALL_MOVES[0].a;
+  for (const m of ALL_MOVES) if (f >= m.to) fr = m.b;
   return fr;
 }
 
-/** The camera at film frame f (>= 1400): a move's path while it runs, else the held framing's exact pose. */
+/** The camera at film frame f: a move's path while it runs, else the held framing's exact pose. */
 export function cameraAt(f: number, angle: Angle): CamPose {
-  for (const m of CAMERA_MOVES) if (f > m.from && f < m.to) return movePath(m, angle).at(f);
+  for (const m of ALL_MOVES) if (f > m.from && f < m.to) return movePath(m, angle).at(f);
   return deskCamera(framingAt(f), angle);
+}
+
+/**
+ * The point on the horizontal plane at height z that a screen point (CSS px from the top left) sees through a pose:
+ * the inverse of `project` for one plane (the title card is placed from a fixed screen rectangle every frame, so it
+ * holds still on screen through a camera move).
+ */
+export function screenToDesk(pose: CamPose, s: readonly [number, number], z: number): P3 {
+  const [px, py, pz] = pose.pos;
+  const fw: P3 = [pose.look[0] - px, pose.look[1] - py, pose.look[2] - pz];
+  const fl = Math.hypot(...fw);
+  const f3: P3 = [fw[0] / fl, fw[1] / fl, fw[2] / fl];
+  // right = forward × up (three's camera up is +y), then the true up = right × forward
+  const r0: P3 = [-f3[2], 0, f3[0]];
+  const rl = Math.hypot(...r0);
+  const r: P3 = [r0[0] / rl, r0[1] / rl, r0[2] / rl];
+  const u: P3 = [r[1] * f3[2] - r[2] * f3[1], r[2] * f3[0] - r[0] * f3[2], r[0] * f3[1] - r[1] * f3[0]];
+  const th = Math.tan(((pose.fov / 2) * Math.PI) / 180);
+  const nx = ((s[0] / VIEW.width) * 2 - 1) * th * (VIEW.width / VIEW.height);
+  const ny = (1 - (s[1] / VIEW.height) * 2) * th;
+  const d: P3 = [f3[0] + nx * r[0] + ny * u[0], f3[1] + nx * r[1] + ny * u[1], f3[2] + nx * r[2] + ny * u[2]];
+  const t = (z - pz) / d[2];
+  return [px + d[0] * t, py + d[1] * t, z];
 }

@@ -131,6 +131,14 @@ export function WithMats({ children }: { children: (m: DeskMats) => ReactNode })
 export const isStepped = (step: { amount: number; ids: readonly string[]; own?: { amount: number; ids: readonly string[] } }, id: string): boolean | 'own' =>
   step.own?.ids.includes(id) ? (step.own.amount > 0 ? 'own' : false) : step.amount > 0 && step.ids.includes(id);
 
+/**
+ * The enclosing `<Step>`'s mode, for an object that makes its own materials (pass it as `{ stepped }` to paper, matte,
+ * graphite, so they step down with the kit's set: e.g. Fix A in beat 3.2, under act one's `late` ramp).
+ */
+export function useStepMode(): boolean | 'late' | 'own' {
+  return useContext(StepContext);
+}
+
 /** Draw the children with the stepped-down set when `on` (a beat's focus leaves them out). */
 export function Step({ on, children }: { on: boolean | 'late' | 'own'; children: ReactNode }) {
   return <StepContext.Provider value={on}>{children}</StepContext.Provider>;

@@ -129,8 +129,8 @@ export const FOLDER_PRINT = [
   { lines: ['config', 'staging', 'then prod'], clock: '13:40' },
   { lines: ['review', 'two notes', 'your call'], clock: '' },
 ] as const;
-/** The notes loop: your one note on each session, along the tape. */
-export const LOOP_NOTES = ['reply: short', 'lint: on CI', 'tests: seed?', 'scope: ask', 'deps: green', 'notes: eyes', 'config: prod', 'review: you'] as const;
+/** The notes loop: your one note on each session, along the tape at its tab (at most 8 characters: the tabs stand 81 u apart). */
+export const LOOP_NOTES = ['reply ok', 'lint: CI', 'seed?', 'scope?', 'deps: ok', 'eyes on', 'prod?', 'you: ok?'] as const;
 /** The chat slips in act one's heap: the clocks they came in at. */
 export const HEAP_CLOCKS = ['13:41', '13:43', '13:44', '13:46', '13:47', '13:49'] as const;
 

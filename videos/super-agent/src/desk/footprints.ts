@@ -10,10 +10,11 @@
  * packed as three vec4 each (`packFootprints`).
  */
 import { SHADOW_K, shadowOffset, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, TAPE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
-import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT_SLIP, SINK } from './layout.ts';
+import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT_SLIP, REQUEST, SINK, type BayId } from './layout.ts';
 import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, CORD_FROM, DOCK_B, hammerOffset, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
 import { CHORES, TRAY_Z, YOU_POSE_B, strutOnLid, type YouPose } from './you.ts';
 import { ciHopperFootprints, youPoseAt } from './actOne.ts';
+import { CARD_SPOT, HEAP_HATCH, WORK_DEPTH as WORK_DEPTH_FP, cardPose, type Beat4State, type CardState } from './beat4.ts';
 
 /** At most this many footprints reach the GPU (the uniform array's size). */
 export const MAX_FOOTPRINTS = 128;
@@ -59,12 +60,37 @@ export function bayWalls(b: BayLayout): Rect[] {
 export const bayDoor = (b: BayLayout): Rect => ({ x0: b.door[0], x1: b.door[1], y0: b.box.y1 - b.wall + 2, y1: b.box.y1 - 2 });
 
 function bayFootprints(b: BayLayout): Footprint[] {
-  const fp: Footprint[] = bayWalls(b).map((w) => rectFp(w, 0, b.wallH, 1, 2));
-  fp.push(rectFp(bayDoor(b), 0, b.wallH - 6, 1, 2));
-  fp.push(rectFp(b.box, 0, BAY_FLOOR, 1, 6));
-  fp.push(rectFp(b.slot, BAY_FLOOR, 40, 1, 4));
-  fp.push(rectFp(b.dossier, BAY_FLOOR, BAY_FLOOR + 4 + b.sheets * SHEET, 1, 4));
+  return [...bayShellFootprints(b), ...bayWorkOf(b)];
+}
+/** A bay's shell: its walls (the north one split round its door) and its door, shut or lifted (`door`, 0..1 of its lift). */
+export function bayShellFootprints(b: BayLayout, door = 0): Footprint[] {
+  const lift = door * (b.wallH - 2);
+  return [...bayWalls(b).map((w) => rectFp(w, 0, b.wallH, 1, 2)), rectFp(bayDoor(b), lift, b.wallH - 6 + lift, lift < 1 ? 1 : 0, 2)];
+}
+/** A bay's work in place: its floor plate, its work slot, its dossier (the superstructure is its own). */
+const bayWorkOf = (b: BayLayout): Footprint[] => [rectFp(b.box, 0, BAY_FLOOR, 1, 6), rectFp(b.slot, BAY_FLOOR, 40, 1, 4), rectFp(b.dossier, BAY_FLOOR, BAY_FLOOR + 4 + b.sheets * SHEET, 1, 4)];
+/** Each bay's superstructure: the bug bench, its pins and the request's folder; the test tower; the docs galley. */
+function superFootprints(id: BayId): Footprint[] {
+  if (id === 'bug') return [rectFp(BENCH.top, BENCH.z[0], BENCH.z[1], 0.4), rectFp(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 0.7), rectFp(BENCH.top, BENCH.z[0], BENCH.z[1] + PINS.h, 0, 4)];
+  if (id === 'tests') return [circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1)];
+  return [rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1], 1, 4)];
+}
+/**
+ * A beat-4 bay at its dispatch (desk/beat4.ts): its shell, and its work once its hatch is open, at its height as it rises
+ * (what is still under the slate casts nothing on it; its contact closes in as it settles).
+ */
+export function dispatchedBayFootprints(id: BayId, d: { hole: boolean; rise: number; door: number; contact: number }, depth: number): Footprint[] {
+  const b = BAYS[id];
+  const fp = bayShellFootprints(b, d.door);
+  if (!d.hole && d.rise <= 0) return fp;
+  const work = [...bayWorkOf(b), ...superFootprints(id)].map((x) => (x.kind === 'rect' || x.kind === 'circle' ? { ...x, contact: x.contact * d.contact } : x));
+  fp.push(...shiftFootprints(work, -depth * (1 - Math.min(1, d.rise))));
+  if (d.hole) fp.push(...pitFootprints(b.box));
   return fp;
+}
+/** An open hatch's pit: the slate round it shades and roofs what is below it (a bay rising out of the dark into the light). */
+export function pitFootprints(B: Rect): Footprint[] {
+  return [rectFp({ x0: B.x0 - 80, x1: B.x1 + 80, y0: B.y0 - 80, y1: B.y1 + 80 }, -1, 0, 0, 6), { kind: 'canopy', c: rectC(B), h: [(B.x1 - B.x0) / 2 + 30, (B.y1 - B.y0) / 2 + 30], z: 0, strength: 0.92 }];
 }
 
 /**
@@ -101,7 +127,13 @@ export function youFootprints(pose: YouPose): Footprint[] {
       fp.push(segFp(at3(s.a), at3(s.b), 3.4));
     }
   }
-  if (pose.inTray) fp.push(rectFp(R(YOU.inTray), YOU.top, YOU.top + 18, 1, 4));
+  if (pose.inTray) {
+    // its four walls, not a solid block: a block's footprint shades its own floor black, and the empty tray read as a
+    // second screen beside the laptop (still (a)'s critic)
+    const I = R(YOU.inTray);
+    const t = 3.5;
+    for (const w of [{ ...I, y1: I.y0 + t }, { ...I, y0: I.y1 - t }, { ...I, x1: I.x0 + t }, { ...I, x0: I.x1 - t }]) fp.push(rectFp(w, YOU.top, YOU.top + 18, 1, 1));
+  }
   return fp;
 }
 
@@ -180,20 +212,31 @@ export function registerFootprints(o: { legs?: boolean; fanfold?: boolean; trait
   return fp;
 }
 
-/** Every footprint that does not move in this lookdev (the layout's); `testsSink`: the finished test bay sunk into its hatch (0..1); `you`: your desk's pose. */
-export function staticFootprints(testsSink = 0, you: YouPose = YOU_POSE_B): Footprint[] {
+/**
+ * Every footprint that does not move in this lookdev (the layout's); `testsSink`: the finished test bay sunk into its
+ * hatch (0..1); `you`: your desk's pose; `b4`: the bays as beat 4 dispatches them (closed, rising, working: desk/beat4.ts;
+ * omitted: every bay at work, as still (b) and later).
+ */
+export function staticFootprints(testsSink = 0, you: YouPose = YOU_POSE_B, b4?: Beat4State['bays']): Footprint[] {
   const fp: Footprint[] = [];
   fp.push(...registerFootprints());
-  // the bays: every one under 80
+  // the bays: every one under 80; in beat 4 each is its shell until it is dispatched, then its work rises out of its hatch
+  const working = (id: BayId) => !b4 || (b4[id].rise >= 1 - 1e-4 && !b4[id].hole);
+  for (const id of ['tests', 'docs', 'bug'] as const) {
+    if (working(id)) continue;
+    fp.push(...dispatchedBayFootprints(id, b4![id], WORK_DEPTH_FP[id]));
+  }
   if (testsSink > 0) {
-    for (const b of Object.values(BAYS)) if (b.id !== 'tests') fp.push(...bayFootprints(b));
-  } else for (const b of Object.values(BAYS)) fp.push(...bayFootprints(b));
-  fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1], 0.4));
-  fp.push(rectFp(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 0.7));
+    for (const b of Object.values(BAYS)) if (b.id !== 'tests' && working(b.id as BayId)) fp.push(...bayFootprints(b));
+  } else for (const b of Object.values(BAYS)) if (working(b.id as BayId)) fp.push(...bayFootprints(b));
+  if (working('bug')) {
+    fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1], 0.4));
+    fp.push(rectFp(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 0.7));
+  }
   if (testsSink > 0) fp.push(...shiftFootprints(testsFootprints(), -SINK * testsSink));
-  else fp.push(circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1));
-  fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1] + PINS.h, 0, 4));
-  fp.push(rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1], 1, 4));
+  else if (working('tests')) fp.push(circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1));
+  if (working('bug')) fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1] + PINS.h, 0, 4));
+  if (working('docs')) fp.push(rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1], 1, 4));
   // you
   fp.push(...youFootprints(you));
   // the chute and its posts
@@ -249,16 +292,24 @@ export function movingFootprints(s: DeskState): Footprint[] {
   const n = s.next;
   if (n.slip) fp.push({ kind: 'rect', c: [n.slip.p[0], n.slip.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 3, rot: n.slip.heading, z0: n.slip.p[2] - 0.4, z1: n.slip.p[2] + 0.4, contact: 0 });
   if (n.folder) fp.push({ kind: 'rect', c: [n.folder.p[0], n.folder.p[1]], h: [DISPATCH.w / 2, DISPATCH.d / 2], r: 3, rot: n.folder.heading, z0: n.folder.p[2] - 1.5, z1: n.folder.p[2] + 1.5, contact: 0.6 });
-  if (n.hatch > 0) {
+  if (n.hole || n.rise > 0) {
     // the pit under the open hatch is dark: the desk round it shades and roofs whatever is below the desk (the bay
-    // rises out of the dark into the light; nothing above the desk is touched)
-    const B = FRESH.box;
-    fp.push(rectFp({ x0: B.x0 - 80, x1: B.x1 + 80, y0: B.y0 - 80, y1: B.y1 + 80 }, -1, 0, 0, 6));
-    fp.push({ kind: 'canopy', c: rectC(B), h: [(B.x1 - B.x0) / 2 + 30, (B.y1 - B.y0) / 2 + 30], z: 0, strength: 0.92 });
+    // rises out of the dark into the light; nothing above the desk is touched); its contact closes in as it settles
+    if (n.hole) fp.push(...pitFootprints(FRESH.box));
     const F = CARD_FILE;
-    const fresh = [...bayFootprints(FRESH), rectFp({ x0: F.x0 - F.cheek, x1: F.x1 + F.cheek, y0: F.y - F.r, y1: F.y + F.r }, BAY_FLOOR, F.z + F.cheekR, 1, 6)];
-    fp.push(...shiftFootprints(fresh, -HATCH_DEPTH * (1 - n.rise)));
+    const fresh = [...bayFootprints(FRESH), rectFp({ x0: F.x0 - F.cheek, x1: F.x1 + F.cheek, y0: F.y - F.r, y1: F.y + F.r }, BAY_FLOOR, F.z + F.cheekR, 1, 6)].map((x) => (x.kind === 'rect' || x.kind === 'circle' ? { ...x, contact: x.contact * n.contact } : x));
+    fp.push(...shiftFootprints(fresh, -HATCH_DEPTH * (1 - Math.min(1, n.rise))));
   }
+  // beat 4: the request on its ride, the arrivals on the intake, the counterfactual cards over the slate, the heap's pit
+  const b4 = s.b4;
+  const r = b4.request.pose;
+  if (r) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [REQUEST.l / 2, REQUEST.w / 2], r: 2, rot: r.heading, z0: r.p[2] - 0.4, z1: r.p[2] + 0.6, contact: r.p[2] < 3 ? 0.4 : 0 });
+  for (const a of b4.arrivals) fp.push({ kind: 'rect', c: [a.pose.p[0], a.pose.p[1]], h: a.kind === 'ci' ? [42, 25] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: a.pose.heading, z0: a.pose.p[2] - 0.4, z1: a.pose.p[2] + 0.4, contact: 0 });
+  for (const c of [b4.cards.split, b4.cards.ghost]) {
+    const cf = c ? cardFootprint(c) : null;
+    if (cf) fp.push(cf);
+  }
+  if (b4.heap.hole) fp.push(...pitFootprints(HEAP_HATCH.box));
   // still (c): the report in flight, its body at the mouth, the tab dropping into the drawer
   const c = s.cache;
   if (c?.card) fp.push({ kind: 'rect', c: [c.card.pos[0], c.card.pos[1]], h: [CARD_C.w / 2, CARD_C.d / 2], r: 4, rot: 0, z0: c.card.pos[2] - 1, z1: c.card.pos[2] + 1, contact: 0 });
@@ -276,9 +327,20 @@ export function movingFootprints(s: DeskState): Footprint[] {
   return fp;
 }
 
+/**
+ * A counterfactual card hovering over the slate (desk/beat4.ts cardAt, CARD_SPOT): its outline, as a thin plate just
+ * under its lowest edge (so it shades the slate under it and never its own face); nothing while it is under the slate.
+ */
+export function cardFootprint(c: CardState): Footprint | null {
+  const p = cardPose(c);
+  const low = p.c[2] - (CARD_SPOT.h / 2) * Math.sin(p.tilt);
+  if (low < 1) return null;
+  return { kind: 'rect', c: [p.c[0], p.c[1]], h: [(CARD_SPOT.w / 2) * p.scale, Math.max(2, (CARD_SPOT.h / 2) * Math.cos(p.tilt)) * p.scale], r: 4, rot: 0, z0: low - 1.5, z1: low - 0.5, contact: 0 };
+}
+
 /** All footprints at a frame (static first). Throws past MAX_FOOTPRINTS. */
 export function footprintsAt(s: DeskState): Footprint[] {
-  const all = [...staticFootprints(s.testsSink, youPoseAt(s.f)), ...movingFootprints(s)];
+  const all = [...staticFootprints(s.testsSink, youPoseAt(s.f), s.b4.bays), ...movingFootprints(s)];
   if (all.length > MAX_FOOTPRINTS) throw new Error(`desk: ${all.length} footprints, over the ${MAX_FOOTPRINTS} the shaders hold`);
   return all;
 }

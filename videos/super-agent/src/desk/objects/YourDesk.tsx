@@ -14,16 +14,17 @@
  * later place, its lamp reaching up to the folder it attends with the bulb standing out of the hood
  * (it blooms), and the lid strut props the laptop open; after the turn the pose is `YOU_POSE_B`.
  */
-import { useLayoutEffect, useMemo } from 'react';
-import { Path, Quaternion, Shape, Vector3, type BufferGeometry } from 'three';
-import { graphite, matte } from '../gl/materials.ts';
+import { useLayoutEffect, useMemo, type ReactNode } from 'react';
+import { Path, Quaternion, Shape, Vector3, type BufferGeometry, type Texture } from 'three';
+import { graphite, matte, paper } from '../gl/materials.ts';
+import { texture } from '../gl/text.ts';
 import { youPoseAt } from '../actOne.ts';
-import { cylinderZ, disc, dome, extrude, frame, latheZ, merge, plane, planeOn, rectShape, ringFlat, slab, tube } from '../geom.ts';
-import { EMIT, useDeskMats } from '../kit.tsx';
+import { cylinderZ, disc, dome, extrude, fitUv, frame, latheZ, merge, plane, planeOn, rectShape, ringFlat, slab, tube } from '../geom.ts';
+import { EMIT, Step, isStepped, useDeskMats } from '../kit.tsx';
 import { LAMP, YOU, rectC, type P3 } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
 import type { DeskState } from '../state.ts';
-import { CHORES, LAMP_FOOT_Z, RECESS_GAP, TRAY_Z, strutOnLid, type LampPose, type YouPose } from '../you.ts';
+import { CHORES, LAMP_FOOT_Z, RECESS_GAP, TRAY_Z, strutOnLid, type ChoreFlight, type LampPose, type YouPose } from '../you.ts';
 
 const lerp3 = (a: P3, b: P3, t: number): P3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
@@ -393,7 +394,10 @@ function useYouGeometry() {
     // the in-tray: a graphite tray with the replies already in it
     const I = YOU.inTray;
     // a dark floor inside an enamel rim: empty, it is a hollow; a reply lands on it as the only light paper
-    const inTrayFloor = slab(I, YOU.top, YOU.top + 3, 4, 1);
+    // its floor is the desk's own graphite under a gradient (lighter at the open south lip, darker under the north rim),
+    // so the empty tray reads as a recess in the desk, never as a second dark screen beside the laptop (still (a)'s critic)
+    const inTrayFloor = fitUv(slab({ x0: -(I.x1 - I.x0) / 2, x1: (I.x1 - I.x0) / 2, y0: -(I.y1 - I.y0) / 2, y1: (I.y1 - I.y0) / 2 }, YOU.top, YOU.top + 3, 4, 1), I.x1 - I.x0, I.y1 - I.y0);
+    inTrayFloor.translate(rectC(I)[0], rectC(I)[1], 0);
     const inTray = frame(I, 3.5, YOU.top, YOU.top + 18, 4, 1);
     const slip1 = (() => {
       const g = plane(80, 52, 0, 0, 0);
@@ -419,16 +423,85 @@ function strutPlacement(pose: YouPose): { p: P3; q: Quaternion; len: number } {
   return { p: a, q: new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d.normalize()), len: Math.round(len * 4) / 4 };
 }
 
-/** Your desk's own surfaces: the slab's brushed graphite top, the laptop's dark glass (dim, a key-light sheen, no transcript), the sand. */
+/** The in-tray floor's gradient (a map over the desk's graphite): the north rim's shade falling to the south lip, the side walls' a little. */
+function inTrayGradient(): Texture {
+  const w = YOU.inTray.x1 - YOU.inTray.x0;
+  const h = YOU.inTray.y1 - YOU.inTray.y0;
+  return texture(
+    w,
+    h,
+    (g) => {
+      const v = g.createLinearGradient(0, 0, 0, h);
+      v.addColorStop(0, '#9C9C9C');
+      v.addColorStop(0.55, '#E2E2E2');
+      v.addColorStop(1, '#FFFFFF');
+      g.fillStyle = v;
+      g.fillRect(0, 0, w, h);
+      const s = g.createLinearGradient(0, 0, w, 0);
+      s.addColorStop(0, 'rgba(0,0,0,0.16)');
+      s.addColorStop(0.18, 'rgba(0,0,0,0)');
+      s.addColorStop(0.82, 'rgba(0,0,0,0)');
+      s.addColorStop(1, 'rgba(0,0,0,0.16)');
+      g.fillStyle = s;
+      g.fillRect(0, 0, w, h);
+    },
+    4,
+  );
+}
+
+/**
+ * Your desk's own surfaces: the slab's brushed graphite top, the laptop's dark glass (dim, a key-light sheen, no
+ * transcript), the sand, the in-tray's floor. Two sets: full, and on the kit's `own` ramp (beat 3 steps your desk down
+ * with the folders while a fix is in focus: actOne.ts FOCUS_A).
+ */
 function useYouMats() {
-  const mats = useMemo(() => ({ slab: graphite('#2C2F2E', { roughness: 0.62, metalness: 0.35, brush: 0.07 }), screen: matte('#4B5250', 0.34, 0), sand: matte('#8E8676', 0.85, 0) }), []);
-  useLayoutEffect(() => () => Object.values(mats).forEach((x) => x.dispose()), [mats]);
+  const grad = useMemo(() => inTrayGradient(), []);
+  const mats = useMemo(() => {
+    const make = (stepped: false | 'own') => {
+      const floor = paper(grad, '#3A3D3C', { roughness: 0.66, fibre: 0, stepped });
+      floor.metalness = 0.3;
+      return { slab: graphite('#2C2F2E', { roughness: 0.62, metalness: 0.35, brush: 0.07, stepped }), screen: matte('#4B5250', 0.34, 0, stepped), sand: matte('#8E8676', 0.85, 0, stepped), floor };
+    };
+    return { full: make(false), own: make('own') };
+  }, [grad]);
+  useLayoutEffect(
+    () => () => {
+      for (const set of Object.values(mats)) Object.values(set).forEach((x) => x.dispose());
+      grad.dispose();
+    },
+    [mats, grad],
+  );
   return mats;
 }
 
-export function YourDesk({ s, pose: given }: { s: DeskState; pose?: YouPose }) {
+/** A chore resting at `rest` (desk coordinates), or on its post (act one): offset, turned and tilted about its own centre, squashed as it lands. */
+function Chore({ rest, held, flight, quaternion, children }: { rest: P3; held: number; flight?: ChoreFlight | null; quaternion?: Quaternion; children: ReactNode }) {
+  if (held <= 0.01 && !flight) return null;
+  const off = flight?.off ?? [0, 0, (1 - held) * 40];
+  const sq = flight?.squash ?? 0;
+  return (
+    <group position={[rest[0] + off[0], rest[1] + off[1], rest[2] + off[2]]} quaternion={quaternion}>
+      <group rotation={[flight?.tilt ?? 0, 0, flight?.yaw ?? 0]} scale={[1 + sq / 2, 1 + sq / 2, 1 - sq]}>
+        {quaternion ? children : <group position={[-rest[0], -rest[1], -rest[2]]}>{children}</group>}
+      </group>
+    </group>
+  );
+}
+
+/** Your desk: on the kit's own ramp while beat 3 steps it down (state.ts FocusId 'you'), else the full set. */
+export function YourDesk({ s, pose }: { s: DeskState; pose?: YouPose }) {
+  const on = isStepped(s.step, 'you');
+  return (
+    <Step on={on}>
+      <YourDeskBody s={s} given={pose} stepped={on === 'own'} />
+    </Step>
+  );
+}
+
+function YourDeskBody({ s, given, stepped }: { s: DeskState; given?: YouPose; stepped: boolean }) {
   const m = useDeskMats();
-  const own = useYouMats();
+  const sets = useYouMats();
+  const own = stepped ? sets.own : sets.full;
   const g = useYouGeometry();
   const pose = useMemo(() => given ?? youPoseAt(s.f), [given, s.f]);
   const lampG = useLampGeometry(pose.lamp);
@@ -449,7 +522,9 @@ export function YourDesk({ s, pose: given }: { s: DeskState; pose?: YouPose }) {
   const L = YOU.laptop;
   // shut: the lid swings on past upright and down over the keys, its screen face down on the base
   const shut = pose.lidShut ?? 0;
-  const drop = (held: number) => (1 - held) * 40;
+  const nudge = pose.trayNudge ?? 0;
+  const keyRest: P3 = [CHORES.key.c[0], CHORES.key.c[1], TRAY_Z.floor];
+  const glassRest: P3 = [CHORES.glass.c[0], CHORES.glass.c[1], TRAY_Z.floor];
   return (
     <group position={[pose.shift[0], pose.shift[1], 0]}>
       <mesh geometry={g.slabG} material={own.slab} />
@@ -476,35 +551,36 @@ export function YourDesk({ s, pose: given }: { s: DeskState; pose?: YouPose }) {
         <mesh geometry={g.screen} material={own.screen} />
       </group>
       {/* the chore tray, a shadow board, and the chores in it (or the strut propping the lid) */}
-      <mesh geometry={g.tray.floor} material={m.graphiteDark} />
-      <mesh geometry={g.tray.plate} material={m.enamelShade} />
-      {pose.held.key > 0.01 && (
-        <group position={[0, 0, drop(pose.held.key)]}>
+      {/* the tray nudges south 2 f after a chore lands in it (act one); a chore in the air flies on its own */}
+      <group position={[0, -nudge, 0]}>
+        <mesh geometry={g.tray.floor} material={m.graphiteDark} />
+        <mesh geometry={g.tray.plate} material={m.enamelShade} />
+      </group>
+      <Chore rest={keyRest} held={pose.held.key} flight={pose.post?.key}>
+        <group position={[0, pose.post?.key ? 0 : -nudge, 0]}>
           <mesh geometry={g.key.body} material={m.steel} />
           <mesh geometry={g.key.bow} material={m.steel} />
         </group>
-      )}
-      {pose.held.glass > 0.01 && (
-        <group position={[0, 0, drop(pose.held.glass)]}>
+      </Chore>
+      <Chore rest={glassRest} held={pose.held.glass} flight={pose.post?.glass}>
+        <group position={[0, pose.post?.glass ? 0 : -nudge, 0]}>
           <mesh geometry={g.glass} material={m.paper} />
           <mesh geometry={g.sand} material={own.sand} />
           <mesh geometry={g.glassEnds} material={m.graphite} />
           <mesh geometry={g.glassPosts} material={m.steel} />
         </group>
-      )}
-      {pose.held.strut > 0.01 && (
-        <group position={[strut.p[0], strut.p[1], strut.p[2] + drop(pose.held.strut)]} quaternion={strut.q}>
-          <mesh geometry={strutG.tube} material={m.steel} />
-          <mesh geometry={strutG.rod} material={m.steel} />
-          <mesh geometry={strutG.collar} material={m.enamel} />
-          <mesh geometry={strutG.clevis} material={m.enamelShade} />
-          <mesh geometry={strutG.pins} material={m.graphiteDark} />
-        </group>
-      )}
+      </Chore>
+      <Chore rest={strut.p} held={pose.held.strut} flight={pose.post?.strut} quaternion={strut.q}>
+        <mesh geometry={strutG.tube} material={m.steel} />
+        <mesh geometry={strutG.rod} material={m.steel} />
+        <mesh geometry={strutG.collar} material={m.enamel} />
+        <mesh geometry={strutG.clevis} material={m.enamelShade} />
+        <mesh geometry={strutG.pins} material={m.graphiteDark} />
+      </Chore>
       {/* the in-tray, where the Router's replies land: not on the desk in act one */}
       {pose.inTray && (
         <>
-          <mesh geometry={g.inTrayFloor} material={m.graphiteDark} />
+          <mesh geometry={g.inTrayFloor} material={own.floor} />
           <mesh geometry={g.inTray} material={m.enamelShade} />
           {pose.inTraySlip !== false && <mesh geometry={g.slip1} material={m.printed.inTray[0]} />}
         </>

@@ -10,21 +10,31 @@
  * ramp (kit.tsx), the fresh groove's cut and the hatches open in the desk (gl/desk.ts).
  */
 import { useLayoutEffect, useMemo } from 'react';
-import { BoxGeometry, CircleGeometry, Color, Path, Shape, Vector4, type BufferGeometry } from 'three';
+import { BoxGeometry, CircleGeometry, Color, Path, PlaneGeometry, Shape, Vector4, type BufferGeometry } from 'three';
+import { HEAP_HATCH, WORK_DEPTH } from '../beat4.ts';
 import { cylinderZ, dome, extrude, frame, merge, slab } from '../geom.ts';
-import { DESK_GROOVE_CUT, DESK_HOLES, HOLE_SHUT } from '../gl/desk.ts';
+import { DESK_GROOVE_CUT, DESK_HOLES, HOLE_SHUT, makeDeskMaterial } from '../gl/desk.ts';
 import { STEP_OWN, stepColour } from '../gl/materials.ts';
 import { EMIT, Step, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
-import { BAYS, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT_SLIP, PUNCH, type Rect } from '../layout.ts';
-import { LIGHT_HEX } from '../pools.ts';
+import { BAYS, DISPATCH, FRESH, HATCH_DEPTH, NEXT_SLIP, PUNCH, rectC, type Rect } from '../layout.ts';
 import { EVENTS_D, closeAt, type DeskState } from '../state.ts';
+import { slotColour } from './Bay.tsx';
 
-/** A hole a little larger than a bay's box (the seam round a hatch), opened `open` from its centre line. */
-function hole(b: Rect, open: number): Vector4 {
-  if (open <= 0) return HOLE_SHUT();
-  const cx = (b.x0 + b.x1) / 2;
-  const hw = ((b.x1 - b.x0) / 2 + 1.2) * open;
-  return new Vector4(cx - hw, b.y0 - 1.2, cx + hw, b.y1 + 1.2);
+/** A hatch's hole in the slate: a little larger than its box (the seam round it); the leaves in it are drawn by `Hatch`. */
+export const holeOf = (b: Rect): Vector4 => new Vector4(b.x0 - 1.2, b.y0 - 1.2, b.x1 + 1.2, b.y1 + 1.2);
+
+/**
+ * The frame's hatch holes, one per slot of gl/desk.ts DESK_HOLES (each slot serves hatches that are never open together):
+ * the request's bay or MT1's fresh bay; the test tower (its dispatch, then sinking once finished); the old heap or the
+ * docs galley.
+ */
+export function deskHoles(s: DeskState): Vector4[] {
+  const b = s.b4.bays;
+  const pick = (...open: [boolean, Rect][]): Vector4 => {
+    const o = open.find(([on]) => on);
+    return o ? holeOf(o[1]) : HOLE_SHUT();
+  };
+  return [pick([s.next.hole, FRESH.box], [b.bug.hole, BAYS.bug.box]), pick([b.tests.hole || s.testsSink > 0, BAYS.tests.box]), pick([s.b4.heap.hole, HEAP_HATCH.box], [b.docs.hole, BAYS.docs.box])];
 }
 
 export function DeskUniforms({ s }: { s: DeskState }) {
@@ -52,26 +62,91 @@ export function DeskUniforms({ s }: { s: DeskState }) {
       set.vellumCalendar.opacity = 1 - 0.4 * k;
     }
   }, [sets, stepA, own, late]);
+  const docs = s.b4.bays.docs.light;
   useLayoutEffect(() => {
-    // a stepped set's computing slot follows its own step amount, so handing a bay from the stepped set back to the
-    // full one (C12's ramp out at the rest) never jumps its light
-    const base = new Color(LIGHT_HEX.work).multiplyScalar(EMIT.slotDocs);
+    // the docs galley's slot: dark while it is idle, lit (clamped, never blooming) once it computes; a stepped set's slot
+    // follows its own step amount, so handing a bay from the stepped set back to the full one never jumps its light
+    const base = slotColour(new Color(), EMIT.slotDocs, docs);
+    sets.full.slotDocs.color.copy(base);
     for (const [set, k] of [
       [sets.stepped, stepA],
       [sets.own, own],
       [sets.late, late],
     ] as const)
       set.slotDocs.color.copy(stepColour(base, k));
-  }, [sets, stepA, own, late]);
-  const { cut, hatch } = s.next;
-  const sink = s.testsSink;
+  }, [sets, stepA, own, late, docs]);
+  const cuts = [s.b4.bays.bug.cut, s.b4.bays.tests.cut, s.b4.bays.docs.cut, s.next.cut];
+  const holes = deskHoles(s);
+  const key = `${cuts.join(',')}|${holes.map((h) => `${h.x},${h.y},${h.z},${h.w}`).join(';')}`;
   useLayoutEffect(() => {
     STEP_OWN.value = own;
-    DESK_GROOVE_CUT.value[3] = cut;
-    DESK_HOLES.value[0] = hole(FRESH.box, hatch);
-    DESK_HOLES.value[1] = hole(BAYS.tests.box, sink > 0 ? 1 : 0);
-  }, [own, cut, hatch, sink]);
+    // every groove's cut and every hole slot, every frame: a page that starts anywhere draws what one running through does
+    DESK_GROOVE_CUT.value.splice(0, cuts.length, ...cuts);
+    for (let i = 0; i < DESK_HOLES.value.length; i++) DESK_HOLES.value[i] = holes[i] ?? HOLE_SHUT();
+  }, [own, key]);
   return null;
+}
+
+/**
+ * A hatch in the slate (beat4.ts hatchRiseAt): two leaves that slide apart under the slate's edges, their tops the
+ * desk's own surface (the desk's program, the same uniforms), so a shut hatch reads as the slate with a seam; under them
+ * a dark pit. Drawn while its hole is open (gl/desk.ts DESK_HOLES).
+ */
+export function Hatch({ box, open, depth }: { box: Rect; open: number; depth: number }) {
+  const m = useDeskMats();
+  const leafMat = useMemo(() => {
+    const mat = makeDeskMaterial();
+    // the leaves are never cut away themselves
+    mat.uniforms.uHole = { value: [HOLE_SHUT(), HOLE_SHUT(), HOLE_SHUT()] };
+    return mat;
+  }, []);
+  const g = useMemo(() => {
+    const h = { x0: box.x0 - 1.2, x1: box.x1 + 1.2, y0: box.y0 - 1.2, y1: box.y1 + 1.2 };
+    const hw = (h.x1 - h.x0) / 2;
+    const leaf = new PlaneGeometry(hw + 1, h.y1 - h.y0);
+    // each leaf's inner edge: a steel lip under it, seen in the gap as the leaves part
+    const lip = slab({ x0: -1.6, x1: 0, y0: h.y0 - rectC(h)[1], y1: h.y1 - rectC(h)[1] }, -3.2, -0.5, 0.4, 0.2);
+    const pit = frame({ x0: box.x0 - 6, x1: box.x1 + 6, y0: box.y0 - 6, y1: box.y1 + 6 }, 5, -depth - 8, -0.5, 1, 0.5);
+    const floor = slab({ x0: box.x0 - 2, x1: box.x1 + 2, y0: box.y0 - 2, y1: box.y1 + 2 }, -depth - 10, -depth - 8, 1, 0.5);
+    return { leaf, lip, pit, floor, c: rectC(h), hw };
+  }, [box, depth]);
+  useLayoutEffect(
+    () => () => {
+      for (const x of [g.leaf, g.lip, g.pit, g.floor]) x.dispose();
+    },
+    [g],
+  );
+  useLayoutEffect(() => () => leafMat.dispose(), [leafMat]);
+  const [cx, cy] = g.c;
+  const out = (g.hw + 4) * clamp01(open);
+  return (
+    <group>
+      <mesh geometry={g.pit} material={m.graphiteDark} />
+      <mesh geometry={g.floor} material={m.hollow} />
+      {/* the west leaf and the east leaf, each with its lip along its inner edge */}
+      <group position={[cx - out, cy, 0]}>
+        <mesh geometry={g.leaf} material={leafMat} position={[-(g.hw + 1) / 2 + 0.5, 0, -0.25]} />
+        <mesh geometry={g.lip} material={m.steel} />
+      </group>
+      <group position={[cx + out, cy, 0]} rotation={[0, 0, Math.PI]}>
+        <mesh geometry={g.leaf} material={leafMat} position={[-(g.hw + 1) / 2 + 0.5, 0, -0.25]} />
+        <mesh geometry={g.lip} material={m.steel} />
+      </group>
+    </group>
+  );
+}
+const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
+
+/** Every hatch open in the slate at a state: the bays' (beat 4), the old heap's, MT1's fresh bay's. */
+export function Hatches({ s }: { s: DeskState }) {
+  const b = s.b4.bays;
+  return (
+    <>
+      {(['bug', 'tests', 'docs'] as const).map((id) => (b[id].hole ? <Hatch key={id} box={BAYS[id].box} open={b[id].hatch} depth={WORK_DEPTH[id]} /> : null))}
+      {s.b4.heap.hole && <Hatch box={HEAP_HATCH.box} open={s.b4.heap.hatch} depth={HEAP_HATCH.depth} />}
+      {s.next.hole && <Hatch box={FRESH.box} open={s.next.hatch} depth={HATCH_DEPTH} />}
+    </>
+  );
 }
 
 /** The chat slip as a thin paper body with its print on top, its tail cut in a swallow notch (the chat slip's form); `notched`: the loupe's accept, a V cut in its north edge. */
@@ -142,17 +217,22 @@ function useDispatchGeometry() {
     const tab = extrude(tabShape, -0.4, 0.4, 0);
     const light = new CircleGeometry(4.0, 24);
     light.translate(-W / 2 + 13, -D / 2 + 14, 2.15);
-    // the hatch's two leaves' edges: steel lips that part from the centre line (the seam while the bay rises)
-    const lip = slab({ x0: -1.3, x1: 1.3, y0: FRESH.box.y0 - 1.4, y1: FRESH.box.y1 + 1.4 }, -0.4, 0.9, 0.6, 0.3);
-    // the hatch's pit the fresh bay waits in: dark walls and floor under the desk, seen only through the open hatch
-    const B = FRESH.box;
-    const pit = frame({ x0: B.x0 - 6, x1: B.x1 + 6, y0: B.y0 - 6, y1: B.y1 + 6 }, 5, -HATCH_DEPTH - 8, -0.5, 1, 0.5);
-    const pitFloor = slab({ x0: B.x0 - 2, x1: B.x1 + 2, y0: B.y0 - 2, y1: B.y1 + 2 }, -HATCH_DEPTH - 10, -HATCH_DEPTH - 8, 1, 0.5);
-    // the dispatch housing under the deck's east end: a graphite box behind the ramp's face, its top just under the rails
-    const H = DISPATCH_HOUSING;
-    const housing = slab({ ...H.box, x1: H.box.x1 - 4.2 }, H.z[0], H.z[1], 3, 1.5);
-    const housingRim = frame({ x0: H.box.x0 + 4, x1: H.box.x1 - 4.2, y0: H.box.y0 + 4, y1: H.box.y1 - 4 }, 3, H.z[1], H.z[1] + 1.2, 1, 0.4);
-    return { slip, slipNotched, punch, back, sheets, cover, tab, light, lip, pit, pitFloor, housing, housingRim };
+    // a punched CI card (the card feeder's), its clipped corner at its north-west, for beat 4's arrival
+    const ciShape = new Shape();
+    ciShape.moveTo(-42 + 9, 25);
+    ciShape.lineTo(42, 25);
+    ciShape.lineTo(42, -25);
+    ciShape.lineTo(-42, -25);
+    ciShape.lineTo(-42, 25 - 9);
+    ciShape.closePath();
+    const ci = extrude(ciShape, -0.4, 0.4, 0);
+    {
+      const pos = ci.getAttribute('position');
+      const uv = ci.getAttribute('uv');
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / 84 + 0.5, pos.getY(i) / 50 + 0.5);
+      uv.needsUpdate = true;
+    }
+    return { slip, slipNotched, punch, back, sheets, cover, tab, light, ci };
   }, []);
 }
 
@@ -181,23 +261,13 @@ export function Dispatch({ s }: { s: DeskState }) {
           <SlipMesh slip={slip} geometry={slip.notched ? g.slipNotched : g.slip} />
         </Step>
       )}
+      {/* beat 4's arrivals on the intake: a CI card, a chat slip, each riding to the head for its row (beat4.ts arrivalsAt) */}
+      {s.b4.arrivals.map((a, i) => (
+        <group key={i} position={a.pose.p} rotation={[0, -a.pose.slope, a.pose.heading, 'ZYX']} scale={[1 + 0.015 * a.pose.squash, 1, 1 - 0.03 * a.pose.squash]}>
+          <mesh geometry={a.kind === 'ci' ? g.ci : g.slip} material={a.kind === 'ci' ? m.printed.ciCard : m.printed.chatNext} />
+        </group>
+      ))}
       {pz !== null && <mesh geometry={g.punch} material={m.steel} position={[PUNCH.x, PUNCH.y, pz]} />}
-      {/* the dispatch housing the folder is pushed out of */}
-      <mesh geometry={g.housing} material={m.graphiteDark} />
-      <mesh geometry={g.housingRim} material={m.steel} />
-      {n.hatch > 0 && (
-        <>
-          <mesh geometry={g.pit} material={m.graphiteDark} />
-          <mesh geometry={g.pitFloor} material={m.hollow} />
-        </>
-      )}
-      {n.hatch > 0 &&
-        n.rise < 0.995 &&
-        [-1, 1].map((side) => {
-          const cx = (FRESH.box.x0 + FRESH.box.x1) / 2;
-          const hw = ((FRESH.box.x1 - FRESH.box.x0) / 2 + 1.2) * n.hatch;
-          return <mesh key={side} geometry={g.lip} material={m.steel} position={[cx + side * (hw + 1.3), 0, 0]} />;
-        })}
       {folder && (
         <group position={folder.p} rotation={[0, -folder.slope, folder.heading, 'ZYX']}>
           <mesh geometry={g.back} material={m.paperShade} />

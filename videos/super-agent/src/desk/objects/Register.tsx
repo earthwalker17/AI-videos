@@ -11,12 +11,16 @@
  * - a sealed restricted-shell key on the north-east leg (FACTS l.114), and no bench: it never does the work;
  * - the pilot jewel: lit, never blooming.
  */
+import { textCanvas } from '@aiv/remotion-kit';
+import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
-import { CircleGeometry, Matrix4, Path, Shape, type BufferGeometry, type Material } from 'three';
+import { CanvasTexture, CircleGeometry, Matrix4, Path, SRGBColorSpace, Shape, type BufferGeometry, type Material, type MeshStandardMaterial, type Texture } from 'three';
+import { TAPE_ROWS, type TapeCell } from '../beat4.ts';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
-import { Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
-import { CACHE_WINDOW, CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, DRAWER_OPEN_C, FANFOLD, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
-import { NEWEST_STEP, PRINT_SIZE } from '../gl/text.ts';
+import { HEX, paper } from '../gl/materials.ts';
+import { Step, WithMats, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
+import { CACHE_WINDOW, CELLS_X, CROSS, DECK, DECK_PLATE, DISPATCH_HOUSING, DRAWER, DRAWER_OPEN_C, FANFOLD, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
+import { INK, NEWEST_STEP, PRINT_SIZE, TEX, cargoMark, stagedInk, texture, threadMark, tooth } from '../gl/text.ts';
 import { FiledTabs } from './Cache.tsx';
 import { DETENT, EVENTS_B, EVENTS_D, closeAt, hammerOffset, loupeAt, type DeskState } from '../state.ts';
 
@@ -163,7 +167,10 @@ function useRegisterGeometry() {
     );
     // the window: its frame, and enamel bars between the cells
     const win = frame(WINDOW.frame, WINDOW.bar, WINDOW.z[0], WINDOW.z[1], 5, 1.5);
-    const bars = merge(CELLS_X.slice(0, 4).map(([, x1]) => slab({ x0: x1 + 0.5, x1: x1 + 3.5, y0: WINDOW.frame.y0 + WINDOW.bar - 1, y1: WINDOW.frame.y1 - WINDOW.bar + 1 }, TAPE.z, WINDOW.z[1] - 2, 1, 0.5)));
+    const barOf = (x1: number) => slab({ x0: x1 + 0.5, x1: x1 + 3.5, y0: WINDOW.frame.y0 + WINDOW.bar - 1, y1: WINDOW.frame.y1 - WINDOW.bar + 1 }, TAPE.z, WINDOW.z[1] - 2, 1, 0.5);
+    // the bar between the second and third cells is its own: MT1's second stamp-in moves it on onto the next bar's place, so it never crosses #0408 once that print has moved on a whole newest cell (objects/Register.tsx Register)
+    const bars = merge([0, 2, 3].map((i) => barOf(CELLS_X[i][1])));
+    const bar1 = barOf(CELLS_X[1][1]);
     // the hooded reading lamp: a base on the cross member, a bent arm, a half-round hood over the newest cells
     const H = READ_LAMP.hood;
     const hood = (() => {
@@ -231,16 +238,14 @@ function useRegisterGeometry() {
     const gy = THROAT.box.y0 - 34;
     const gaugeBody = disc(28, top - 2, top + 3, { cx: gx, cy: gy, bevel: 1.2 });
     const gaugeFace = plane(48, 48, gx, gy, top + 3.2);
+    // the needle at its hub, pointing +x: posed per frame (beat4.ts gaugeAt: on its stop, then low)
     const needle = (() => {
       const s = new Shape();
       s.moveTo(0, -1.8);
       s.lineTo(22, 0);
       s.lineTo(0, 1.8);
       s.closePath();
-      const g = extrude(s, top + 3.5, top + 4.8, 0);
-      g.rotateZ(Math.PI * 0.86);
-      g.translate(gx, gy, 0);
-      return g;
+      return extrude(s, top + 3.5, top + 4.8, 0);
     })();
     const gaugeHub = dome(3.4, gx, gy, top + 4.6);
 
@@ -371,7 +376,16 @@ function useRegisterGeometry() {
     })();
     const rampCheeks = merge([rampCheek(RAMP.y1), rampCheek(RAMP.y0 + 6)]);
 
+    // the dispatch housing under the deck's east end: a graphite box behind the ramp's face, its top just under the rails
+    const HB = DISPATCH_HOUSING;
+    const housing = slab({ ...HB.box, x1: HB.box.x1 - 4.2 }, HB.z[0], HB.z[1], 3, 1.5);
+    const housingRim = frame({ x0: HB.box.x0 + 4, x1: HB.box.x1 - 4.2, y0: HB.box.y0 + 4, y1: HB.box.y1 - 4 }, 3, HB.z[1], HB.z[1] + 1.2, 1, 0.4);
+
     return {
+      housing,
+      housingRim,
+      bar1,
+      gauge: [gx, gy] as P2,
       legs,
       feet,
       rails,
@@ -442,6 +456,115 @@ function useRegisterGeometry() {
   }, []);
 }
 
+/** The Register's own print's ink for the cells of the window (as gl/text.ts tapeOf prints older cells): the newest's a step darker. */
+const OLD_INK = '#55534D';
+
+/**
+ * One state of the tape (beat4.ts TAPE_ROWS) as the window prints it before a stamp-in (gl/text.ts tapeOf, its
+ * `tapeBefore`): each cell's frame and its mark (the newest a step darker, its frame heavier), the request's
+ * vermilion stub and, once its Thread is subscribed, the Thread's mark beside it; its tooth and sprocket ticks. The
+ * newest print (`fresh`: the new cell, or the Thread's mark alone) at its ink stage (0, 1, then 2 printed).
+ */
+function rowTexture(cells: readonly TapeCell[], fresh: 'cell' | 'thread', stage: number, aniso: number): Texture {
+  const [tw, h] = PRINT_SIZE.tape;
+  return texture(
+    tw,
+    h,
+    (g) => {
+      cells.forEach((cell, i) => {
+        const x = CELLS_X[i][0] - TAPE.x0;
+        const w = CELLS_X[i][1] - CELLS_X[i][0];
+        const ink = i === 0 ? INK : OLD_INK;
+        const freshCell = i === 0 && fresh === 'cell';
+        const freshThread = i === 0 && fresh === 'thread';
+        const body = (c: CanvasRenderingContext2D) => {
+          c.strokeStyle = ink;
+          c.lineWidth = i === 0 ? 2.2 : 1.2;
+          c.strokeRect(x + 2, 4, w - 4, h - 8);
+          c.filter = 'blur(0.35px)';
+          cargoMark(c, cell.kind, x + 8, 20, ink);
+          c.filter = 'none';
+          if (cell.request) {
+            c.fillStyle = HEX.vermilion;
+            c.fillRect(x + 8, 48, 26, 5);
+          }
+          if (cell.thread && !freshThread) threadMark(c, x + 8, 57);
+        };
+        if (freshCell) stagedInk(g, tw, h, TEX, stage, body);
+        else body(g);
+        if (freshThread && cell.thread) stagedInk(g, tw, h, TEX, stage, (c) => threadMark(c, x + 8, 57));
+      });
+      tooth(g, tw, h);
+      for (let x = 4; x < tw; x += 9) {
+        g.fillStyle = '#C9C4B8';
+        g.fillRect(x, 1, 3, 1.6);
+        g.fillRect(x, h - 2.6, 3, 1.6);
+      }
+    },
+    aniso,
+  );
+}
+
+/** Every state of beat 4's tape at its three ink stages, as paper (made once per world). */
+function useRowTapes(): MeshStandardMaterial[][] {
+  const gl = useThree((st) => st.gl);
+  const mats = useMemo(() => {
+    const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
+    return TAPE_ROWS.map((row, i) => {
+      const fresh = i > 0 && TAPE_ROWS[i - 1].cells.length === row.cells.length ? 'thread' : 'cell';
+      return [0, 1, 2].map((stage) => paper(rowTexture(row.cells, fresh, stage, aniso), HEX.paper));
+    });
+  }, [gl]);
+  useLayoutEffect(
+    () => () => {
+      for (const m of mats.flat()) {
+        m.map?.dispose();
+        m.dispose();
+      }
+    },
+    [mats],
+  );
+  return mats;
+}
+
+/**
+ * The reel's top while the request's stub inks onto it with its row (beat4.ts stubAt): the bare top (gl/text.ts
+ * `reelTopBare`) with the vermilion stub at its first two ink stages; printed, the top is gl/text.ts `reelTop`.
+ */
+function useStubTops(): MeshStandardMaterial[] {
+  const { textures } = useDeskSets();
+  const mats = useMemo(() => {
+    const bare = textures.reelTopBare.image as HTMLCanvasElement;
+    const R = REEL.packR;
+    return [0, 1].map((stage) => {
+      const { c, g } = textCanvas(bare.width, bare.height);
+      g.drawImage(bare, 0, 0);
+      g.scale(bare.width / (2 * R), bare.height / (2 * R));
+      stagedInk(g, 2 * R, 2 * R, bare.width / (2 * R), stage, (ig) => {
+        ig.strokeStyle = HEX.vermilion;
+        ig.lineWidth = 3.2;
+        ig.beginPath();
+        ig.arc(R, R, R - 6, -0.55, -0.35);
+        ig.stroke();
+      });
+      const t = new CanvasTexture(c);
+      t.colorSpace = SRGBColorSpace;
+      t.anisotropy = textures.reelTopBare.anisotropy;
+      return paper(t, '#FFFFFF');
+    });
+  }, [textures]);
+  useLayoutEffect(
+    () => () => {
+      for (const m of mats) {
+        m.map?.dispose();
+        m.dispose();
+      }
+    },
+    [mats],
+  );
+  return mats;
+}
+
 /** The newest cell's step along the tape, in the tape texture's u (gl/text.ts NEWEST_STEP). */
 const NEWEST_STEP_U = NEWEST_STEP / (TAPE_FLAT_X1 - TAPE.x0);
 /** One older cell's step along the tape, in the tape texture's u. */
@@ -487,8 +610,9 @@ function LoupeSwing({ a, lens, children }: { a: number; lens: BufferGeometry; ch
 /**
  * The Register's pose during the turn (desk/turn.ts): the deck rolling in and lifting on its legs (which the
  * turn draws, telescoping), the parts that dock on it, the tape's run and print, the jewel's light. The reel's
- * pack, hub and spokes are the turn's coil until the lock, so the Register leaves them out; the log's history
- * (the fanfold, the spilled tabs) does not exist yet.
+ * pack, hub and spokes are the turn's coil until the lock, so the Register leaves them out. Its log rides in with
+ * it: the fanfold slides in on the slate under the deck, the filed tabs in its spill drawer, so the world the turn
+ * hands to act two is the one act two draws.
  */
 export interface RegisterTurn {
   deck: { dy: number; dz: number; tilt: readonly [number, number] };
@@ -499,8 +623,8 @@ export interface RegisterTurn {
    * plate turned over on its long axis (radians: it rides in face down, its graphite back up)
    */
   parts: { throat: number; head: number; index: number; loupe: number; ramp: number; plate: number };
-  /** the flat run's material, or null while the turn lays the leader itself */
-  tape: Material | null;
+  /** the flat run laid (its rows as beat 4 prints them: beat4.ts tapeAt), or false while the turn lays the leader itself */
+  tape: boolean;
   hammer: number;
   /** the pilot jewel's light (0 dark .. 1 lit) */
   jewel: number;
@@ -545,32 +669,44 @@ export function Hinge({ angle, x, z, children }: { angle?: number; x: number; z:
 export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
   const m = useDeskMats();
   const g = useRegisterGeometry();
+  const rows = useRowTapes();
+  const stubs = useStubTops();
   const C = s.cache;
+  const b4 = s.b4;
   useLayoutEffect(() => {
     // the tape advances one cell, driven by the reel's detent: the old print slides east, fresh tape comes out of the head
-    const before = m.printed.tapeBefore.map;
-    if (before) before.offset.x = -CELL_STEP_U * s.tape;
+    // (beat 4's rows: each state moves on with its next stamp-in's detent, the last with MT1's first, f2183)
+    rows.forEach((stages, i) => {
+      for (const st of stages) if (st.map) st.map.offset.x = i === b4.tape.row ? -CELL_STEP_U * (b4.tape.advance + s.tape) : 0;
+    });
     // MT1's second stamp-in drives the stamped tape on one more cell; in still (c) the bare tape moves one stub with the reel
     const stamped = m.printed.tape.map;
     // (MT1's second stamp-in moves it on by the newest cell's width, so #0408's print clears that cell whole)
     if (stamped) stamped.offset.x = -NEWEST_STEP_U * s.next.tape;
     const bare = m.printed.tapeBlank.map;
     if (bare) bare.offset.x = -STUB_STEP_U * (C?.tape ?? 0);
-  }, [m, s.tape, s.next.tape, C?.tape]);
+  }, [m, rows, b4.tape.row, b4.tape.advance, s.tape, s.next.tape, C?.tape]);
   const T = turn;
   // each stamp-in inks its cell over 3 f (the ink's stages), the frame after the head comes down
   const inkStage = (ink: number) => (ink <= 0 ? -1 : Math.min(2, Math.ceil(ink * 3 - 1e-6) - 1));
   const stamped = (after: number, ink: number, before: Material, stages: Material[], full: Material) => (inkStage(ink) < 0 ? before : inkStage(ink) < 2 ? stages[inkStage(ink)] : full);
+  // beat 4's rows as stamped since the turn (the bare leader before the first)
+  const rowMat = b4.tape.row < 0 ? m.printed.tapeBlank : rows[b4.tape.row][b4.tape.stage];
+  const lastRow = rows[rows.length - 1][2];
   const tapeMat = T
     ? T.tape
+      ? rowMat
+      : null
     : C
       ? m.printed.tapeBlank
       : s.f >= EVENTS_D.stampIn + 1
         ? stamped(EVENTS_D.stampIn, s.next.ink, m.printed.tape, m.printed.tape2Ink, m.printed.tape2)
         : s.f >= EVENTS_B.stampIn + 1
-          ? stamped(EVENTS_B.stampIn, s.ink, m.printed.tapeBefore, m.printed.tapeInk, m.printed.tape)
-          : m.printed.tapeBefore;
+          ? stamped(EVENTS_B.stampIn, s.ink, lastRow, m.printed.tapeInk, m.printed.tape)
+          : rowMat;
+  // the reel: beat 4's detents bring it from where the coil locked to its rest (0) by MT1, then MT1's and the cache's detents
   const reelTurn = s.reel + s.next.reel + (C?.reel ?? 0);
+  const reelAngle = b4.reel - 0.26 * reelTurn;
   const hammer = T ? T.hammer : Math.max(s.stamp, s.next.stamp, C?.stamp ?? 0);
   return (
     <group>
@@ -589,9 +725,10 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
             <>
               <mesh geometry={g.flange} material={n.graphiteDark} />
               {!T && <mesh geometry={g.pack} material={n.paperShade} />}
-              {!T && <group position={[REEL.x, REEL.y, 0]} rotation={[0, 0, -0.26 * reelTurn]}>
+              {!T && <group position={[REEL.x, REEL.y, 0]} rotation={[0, 0, reelAngle]}>
                 <group position={[-REEL.x, -REEL.y, 0]}>
-                  <mesh geometry={g.packTop} material={n.printed.reelTop} />
+                  {/* its top: bare until the request's stub inks onto it with its row (beat4.ts stubAt) */}
+                  <mesh geometry={g.packTop} material={b4.stub < 0 ? n.printed.reelTopBare : b4.stub < 2 ? stubs[b4.stub] : n.printed.reelTop} />
                   <mesh geometry={g.hub} material={n.enamel} />
                   <mesh geometry={g.hubSlot} material={n.graphiteDark} />
                   <mesh geometry={g.spokes} material={n.enamel} />
@@ -610,6 +747,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
       <mesh geometry={g.win} material={m.graphite} />
       {/* the window's bars; in still (c) they slide with the shrinking cards (objects/Cache.tsx) */}
       {!C && <mesh geometry={g.bars} material={m.enamelShade} />}
+      {!C && <mesh geometry={g.bar1} material={m.enamelShade} position={[(CELLS_X[2][1] - CELLS_X[1][1]) * s.next.tape, 0, 0]} />}
       <mesh geometry={g.hood} material={m.enamel} />
       <mesh geometry={g.hoodLining} material={m.paperLit} />
       <mesh geometry={g.hoodCaps} material={m.enamelShade} />
@@ -642,7 +780,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
             <>
               <mesh geometry={g.gaugeBody} material={n.graphite} />
               <mesh geometry={g.gaugeFace} material={n.printed.gauge} />
-              <mesh geometry={g.needle} material={n.rubber} />
+              <mesh geometry={g.needle} material={n.rubber} position={[g.gauge[0], g.gauge[1], 0]} rotation={[0, 0, b4.gauge]} />
               <mesh geometry={g.gaugeHub} material={n.steel} />
             </>
           )}
@@ -686,7 +824,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
         <mesh geometry={g.drawerBox} material={m.graphiteDark} />
         <mesh geometry={g.drawerFront} material={m.enamel} />
         <mesh geometry={g.drawerHandle} material={m.steel} />
-        {!T && <FiledTabs />}
+        <FiledTabs />
       </group>
       <Step on={isStepped(s.step, 'mouth')}>
         <WithMats>{(n) => <mesh geometry={g.hopper} material={n.enamelShade} />}</WithMats>
@@ -708,21 +846,6 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
       {/* the pilot jewel */}
       <mesh geometry={g.jewel} material={T && T.jewel < 0.5 ? m.graphiteDark : m.jewel} />
       <mesh geometry={g.bezel} material={m.steel} />
-      {/* the fanfold under the deck */}
-      {!T && (
-      <Step on={isStepped(s.step, 'fanfold')}>
-        <WithMats>
-          {(n) => (
-            <>
-              <mesh geometry={g.fanfoldBody} material={n.paperShade} />
-              <mesh geometry={g.fanfoldTop} material={n.printed.fanfold} />
-              {closeAt(s.f) > 0 && <mesh geometry={g.fanfoldTop} material={n.printed.fanfoldFine} position={[0, 0, 0.06]} />}
-              <mesh geometry={g.fanfoldSide} material={n.printed.fanfoldSide} />
-            </>
-          )}
-        </WithMats>
-      </Step>
-      )}
       {/* the Continuous plate behind the reel, on its brackets */}
       <mesh geometry={g.traitBrackets} material={m.graphite} />
       <Flip angle={T?.parts.plate}>
@@ -739,12 +862,30 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
         </WithMats>
       </Step>
       </Flip>
+      {/* the dispatch housing the request and the folders are pushed out of, behind the ramp's face */}
+      <mesh geometry={g.housing} material={m.graphiteDark} />
+      <mesh geometry={g.housingRim} material={m.steel} />
       {/* the dispatch ramp */}
       <Hinge angle={T?.parts.ramp} x={RAMP.x} z={RAMP.top}>
       <mesh geometry={g.rampSheet} material={m.enamelShade} />
       <mesh geometry={g.rampCheeks} material={m.steel} />
       </Hinge>
       </DeckPose>
+      {/* the fanfold on the slate under the deck: in the turn it slides in under the collapsed deck as it rolls in */}
+      <group position={[0, T?.deck.dy ?? 0, 0]}>
+        <Step on={isStepped(s.step, 'fanfold')}>
+          <WithMats>
+            {(n) => (
+              <>
+                <mesh geometry={g.fanfoldBody} material={n.paperShade} />
+                <mesh geometry={g.fanfoldTop} material={n.printed.fanfold} />
+                {closeAt(s.f) > 0 && <mesh geometry={g.fanfoldTop} material={n.printed.fanfoldFine} position={[0, 0, 0.06]} />}
+                <mesh geometry={g.fanfoldSide} material={n.printed.fanfoldSide} />
+              </>
+            )}
+          </WithMats>
+        </Step>
+      </group>
     </group>
   );
 }

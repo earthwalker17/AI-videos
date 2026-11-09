@@ -16,7 +16,7 @@
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { Shape, type BufferGeometry, type Texture } from 'three';
-import { cylinderZ, disc, dome, extrude, merge, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
+import { cylinderZ, disc, dome, extrude, merge, piece, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
 import { paper } from '../gl/materials.ts';
 import { texture, tooth } from '../gl/text.ts';
 import { Step, WithMats, isStepped } from '../kit.tsx';
@@ -28,37 +28,44 @@ import { ACT_ONE_END, GENERIC_FEEDERS } from '../actOne.ts';
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 const lerp3 = (a: P3, b: P3, t: number): P3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
-/** A chat slip's print, as marks (no clock: only the teaching chain prints numbers): a speech mark and two lines of message rule. */
-export function chatSlipPrint(g: CanvasRenderingContext2D, w: number, h: number, ink = '#5E5B55'): void {
+/**
+ * A chat slip's print: the paper's tooth only, its specks seeded so no two slips print alike. The slip's mark is its
+ * cut, the notch at its leading end (geom.ts slipShape, gl/text.ts cargoMark): a bubble or rules of "message" read as
+ * glyph-line text (BANNED; the critic's P0 on (b) and MT1), and texture print would fall under 18 px at 0.64x.
+ */
+export function chatSlipPrint(g: CanvasRenderingContext2D, w: number, h: number, seed = 0): void {
   tooth(g, w, h);
-  g.fillStyle = ink;
-  // the speech mark: a rounded bubble with its tail
-  const bx = 8;
-  const by = h / 2 - 7;
-  g.beginPath();
-  g.moveTo(bx + 4, by);
-  g.lineTo(bx + 18, by);
-  g.quadraticCurveTo(bx + 22, by, bx + 22, by + 4);
-  g.lineTo(bx + 22, by + 9);
-  g.quadraticCurveTo(bx + 22, by + 13, bx + 18, by + 13);
-  g.lineTo(bx + 9, by + 13);
-  g.lineTo(bx + 4, by + 18);
-  g.lineTo(bx + 5, by + 13);
-  g.quadraticCurveTo(bx, by + 13, bx, by + 9);
-  g.lineTo(bx, by + 4);
-  g.quadraticCurveTo(bx, by, bx + 4, by);
-  g.closePath();
-  g.fill();
-  // two lines of message: rules of unequal length (texture, never letters)
-  g.fillRect(bx + 30, h / 2 - 6, w * 0.42, 2.6);
-  g.fillRect(bx + 30, h / 2 + 2, w * 0.26, 2.6);
+  g.fillStyle = 'rgba(70,64,54,0.10)';
+  const n = Math.round((w * h) / 40);
+  for (let i = 0; i < n; i++) {
+    const a = Math.imul(i + 1 + seed * 7919, 2654435761) >>> 0;
+    const b = Math.imul(i + 13 + seed * 104729, 2246822519) >>> 0;
+    g.fillRect(((a % 10007) / 10007) * w, ((b % 10009) / 10009) * h, 0.7, 0.7);
+  }
+}
+
+/** A calendar leaf's print: a header bar and a 7 × 4 grid of day cells, one ringed (marks, never dates). */
+export function leafPrint(g: CanvasRenderingContext2D, w: number, h: number, ringed = 17): void {
+  tooth(g, w, h);
+  const sx = w / 96;
+  const sy = h / 52;
+  g.fillStyle = '#4E4C47';
+  g.fillRect(6 * sx, 5 * sy, 84 * sx, 6 * sy);
+  for (let r = 0; r < 4; r++)
+    for (let c = 0; c < 7; c++) {
+      g.fillStyle = '#7A766E';
+      g.fillRect((8 + c * 11.6) * sx, (15 + r * 8.6) * sy, 7.6 * sx, 5.2 * sy);
+    }
+  g.strokeStyle = '#2A2B2A';
+  g.lineWidth = 1.4;
+  g.strokeRect((8 + (ringed % 7) * 11.6 - 1.6) * sx, (15 + Math.floor(ringed / 7) * 8.6 - 1.6) * sy, 10.8 * sx, 8.4 * sy);
 }
 
 /** The chat feeder's slip and its roll's top (marks only), and the calendar's top leaf (a date grid). */
 function useFeederPrint(): { slip: Texture; roll: Texture; leaf: Texture } {
   const t = useMemo(
     () => ({
-      slip: texture(96, 40, (g) => chatSlipPrint(g, 96, 40, '#4E4C47'), 4),
+      slip: texture(96, 40, (g) => chatSlipPrint(g, 96, 40, 11), 4),
       // the paper roll seen from above: its wound turns
       roll: texture(
         60,
@@ -79,24 +86,7 @@ function useFeederPrint(): { slip: Texture; roll: Texture; leaf: Texture } {
         4,
       ),
       // a month's leaf: a header bar and a 7 x 4 grid of day cells, one ringed
-      leaf: texture(
-        96,
-        52,
-        (g) => {
-          tooth(g, 96, 52);
-          g.fillStyle = '#4E4C47';
-          g.fillRect(6, 5, 84, 6);
-          for (let r = 0; r < 4; r++)
-            for (let c = 0; c < 7; c++) {
-              g.fillStyle = '#7A766E';
-              g.fillRect(8 + c * 11.6, 15 + r * 8.6, 7.6, 5.2);
-            }
-          g.strokeStyle = '#2A2B2A';
-          g.lineWidth = 1.4;
-          g.strokeRect(8 + 3 * 11.6 - 1.6, 15 + 2 * 8.6 - 1.6, 10.8, 8.4);
-        },
-        4,
-      ),
+      leaf: texture(96, 52, (g) => leafPrint(g, 96, 52), 4),
     }),
     [],
   );
@@ -186,8 +176,10 @@ function useFeederGeometry() {
       return extrude(t, 0, 16, 1.4);
     })();
     const spoutMouth = slab({ x0: cx + r + 28, x1: cx + r + 35, y0: spoutY - 22, y1: spoutY + 22 }, 2, 12, 1, 0.5);
-    // the slip: its west end in the spout's mouth, the rest lying out on the desk in front of it, whole
-    const slip = plane(96, 40, cx + r + 80, spoutY, 0.8);
+    // the slip: its west end in the spout's mouth, the rest lying out on the desk in front of it, whole, notched at its
+    // leading (east) end like every chat slip (the cut is its mark)
+    const slip = piece('chat', 96, 40, 0.8);
+    slip.translate(cx + r + 80, spoutY, 0);
     // the conversation spool: a post on a foot, two flanges, the cord wound between (its turns as ridges), windows in the top flange
     const spoolPost = merge([cylinderZ(6, 0, SPOOL.z[0], SPOOL.x, SPOOL.y, 16), disc(18, 0, 4, { cx: SPOOL.x, cy: SPOOL.y, bevel: 1 })]);
     const win = [0, 1, 2, 3].map((k) => ({ c: [SPOOL.x + 17 * Math.cos(k * (Math.PI / 2) + 0.4), SPOOL.y + 17 * Math.sin(k * (Math.PI / 2) + 0.4)] as P2, r: 7 }));
