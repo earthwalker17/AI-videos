@@ -9,10 +9,11 @@
  * Pure: the footprints are a function of the layout and the frame's state. The GPU gets them
  * packed as three vec4 each (`packFootprints`).
  */
-import { SHADOW_K, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
-import { CARD_C, CARD_FILE, DISPATCH, FRESH, HATCH_DEPTH, NEXT_SLIP, SINK } from './layout.ts';
-import { CORD_FROM, TAB_REST_C, slipPose, tabArc, type DeskState } from './state.ts';
+import { SHADOW_K, shadowOffset, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, TAPE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
+import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT_SLIP, SINK } from './layout.ts';
+import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, CORD_FROM, DOCK_B, hammerOffset, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
 import { CHORES, TRAY_Z, YOU_POSE_B, strutOnLid, type YouPose } from './you.ts';
+import { ciHopperFootprints, youPoseAt } from './actOne.ts';
 
 /** At most this many footprints reach the GPU (the uniform array's size). */
 export const MAX_FOOTPRINTS = 128;
@@ -86,7 +87,9 @@ export function youFootprints(pose: YouPose): Footprint[] {
   fp.push(rectFp(R(YOU.laptop), YOU.top, YOU.top + 8, 1, 6));
   const lid = YOU.laptop;
   const lx = (lid.x0 + lid.x1) / 2;
-  fp.push(segFp(at3([lx, lid.y1, YOU.top + 8]), at3([lx, lid.y1 + YOU.lidH * Math.sin(YOU.lidLean), YOU.top + 8 + YOU.lidH * Math.cos(YOU.lidLean)]), (lid.x1 - lid.x0) / 2 - 4));
+  // the lid about its hinge as YourDesk poses it: leaning back while open, shut down over the keys for the night
+  const th = Math.PI / 2 - YOU.lidLean + (Math.PI / 2 + YOU.lidLean - 0.02) * (pose.lidShut ?? 0);
+  fp.push(segFp(at3([lx, lid.y1, YOU.top + 8]), at3([lx, lid.y1 + YOU.lidH * Math.cos(th), YOU.top + 8 + YOU.lidH * Math.sin(th)]), (lid.x1 - lid.x0) / 2 - 4));
   fp.push(rectFp(R(YOU.tray), YOU.top, TRAY_Z.plate, 1, 6));
   const { key, glass, strut } = CHORES;
   if (pose.held.key > 0.5) fp.push(rectFp(R({ x0: key.c[0] - key.bowR, x1: key.c[0] + key.bit.x[1], y0: key.c[1] + key.shank[0], y1: key.c[1] + key.bowY + key.bowR }), TRAY_Z.floor, TRAY_Z.floor + 4, 0.7, 4));
@@ -131,8 +134,11 @@ function testsFootprints(): Footprint[] {
 export function registerFootprints(o: { legs?: boolean; fanfold?: boolean; trait?: boolean } = {}): Footprint[] {
   o = { legs: true, fanfold: true, trait: true, ...o };
   const fp: Footprint[] = [];
-  // under the deck the desk sees less sky: the deck's outline as a canopy
-  fp.push({ kind: 'canopy', c: [(DECK.x0 + DECK.x1) / 2, (DECK.y0 + DECK.y1) / 2], h: [(DECK.x1 - DECK.x0) / 2 - 10, (DECK.y1 - DECK.y0) / 2 - 10], z: DECK.railZ0, strength: 0.6 });
+  // the deck's shade: its outline as a canopy carried down the key by its shadow's offset, so the desk and the bays'
+  // floors where the deck's shadow falls (the bays' north parts, tucked under its south edge) see less sky and sit in
+  // its soft shade: two levels as real height (C9, C11)
+  const [ox, oy] = shadowOffset(DECK.top);
+  fp.push({ kind: 'canopy', c: [(DECK.x0 + DECK.x1) / 2 + ox, (DECK.y0 + DECK.y1) / 2 + oy], h: [(DECK.x1 - DECK.x0) / 2 + 10, (DECK.y1 - DECK.y0) / 2 + 10], z: DECK.railZ0, strength: 0.86 });
   // the Register: splayed legs, rails, cross members, the plate, the reel and its frame, the head, the window, the lamp
   if (o.legs)
     for (const l of LEG_STRUTS) {
@@ -174,8 +180,8 @@ export function registerFootprints(o: { legs?: boolean; fanfold?: boolean; trait
   return fp;
 }
 
-/** Every footprint that does not move in this lookdev (the layout's); `testsSink`: the finished test bay sunk into its hatch (0..1). */
-export function staticFootprints(testsSink = 0): Footprint[] {
+/** Every footprint that does not move in this lookdev (the layout's); `testsSink`: the finished test bay sunk into its hatch (0..1); `you`: your desk's pose. */
+export function staticFootprints(testsSink = 0, you: YouPose = YOU_POSE_B): Footprint[] {
   const fp: Footprint[] = [];
   fp.push(...registerFootprints());
   // the bays: every one under 80
@@ -189,31 +195,50 @@ export function staticFootprints(testsSink = 0): Footprint[] {
   fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1] + PINS.h, 0, 4));
   fp.push(rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1], 1, 4));
   // you
-  fp.push(...youFootprints(YOU_POSE_B));
+  fp.push(...youFootprints(you));
   // the chute and its posts
   // the chute: a narrow line of shadow (a wide one smudged its own trough)
   fp.push(...polySegs(CHUTE, 12));
   for (const [x, y] of CHUTE_POSTS) fp.push(circleFp([x, y], 6, 0, 90, 1));
   // intake
   fp.push(circleFp(rectC(FEEDERS.chat), (FEEDERS.chat.y1 - FEEDERS.chat.y0) / 2, 0, FEEDER_H.chat, 1));
-  fp.push(rectFp(FEEDERS.ci, 0, FEEDER_H.ci, 1, 8));
+  fp.push(...ciHopperFootprints());
   fp.push(circleFp([SPOOL.x, SPOOL.y], SPOOL.r, 0, SPOOL.z[1], 1));
   fp.push(rectFp(GATE.bar, 0, GATE.h, 1, 3));
   fp.push(segFp(BELT.from, BELT.to, BELT.w / 2));
+  // the dispatch housing under the deck's east end, behind the ramp's face
+  fp.push(rectFp(DISPATCH_HOUSING.box, DISPATCH_HOUSING.z[0], DISPATCH_HOUSING.z[1], 0, 3));
   return fp;
 }
 
-/** The footprints that move with the frame: the card in flight or at the mouth, its tab, the slip in the chute. */
+/** A sheet's footprint: lying `tilt` up from the desk about x, its centre at c (its depth foreshortened, its height span). */
+const tiltedFp = (c: P3, w: number, d: number, tilt: number, contact = 0): Footprint => ({ kind: 'rect', c: [c[0], c[1]], h: [w / 2, Math.max(1, (d / 2) * Math.cos(tilt))], r: 3, rot: 0, z0: c[2] - (d / 2) * Math.sin(tilt), z1: c[2] + (d / 2) * Math.sin(tilt) + 1, contact });
+
+/** The footprints that move with the frame: the card rising, in flight or at the mouth, its tab, the reply in the chute. */
 export function movingFootprints(s: DeskState): Footprint[] {
   const fp: Footprint[] = [];
-  if (s.card) {
-    const [x, y, z] = s.card.pos;
-    fp.push({ kind: 'rect', c: [x, y], h: [CARD.w / 2, CARD.d / 2], r: 4, rot: 0, z0: z - 1, z1: z + 1, contact: 0 });
-  } else if (s.dock && !s.dock.gone) {
-    const [x, y, z] = s.dock.drop > 0 ? tabArc(s.dock.drop) : MOUTH.land;
-    const d = (CARD.d / 2) * (1 - 0.7 * s.dock.fold);
-    fp.push({ kind: 'rect', c: [x, y], h: [CARD.w / 2 - 10, d], r: 4, rot: 0, z0: z - 4, z1: z + 4, contact: 0 });
+  if (s.cardOut !== null) {
+    // standing in the cap's slot: only what has risen above the cap casts
+    const p = cardRise(s.cardOut);
+    const top = p[2] + (CARD.d / 2) * Math.sin(CARD_STAND);
+    if (top > CAP_SLOT[2] + 1) fp.push({ kind: 'rect', c: [p[0], p[1]], h: [CARD.w / 2, 2], r: 1, rot: 0, z0: CAP_SLOT[2], z1: top, contact: 0 });
+  } else if (s.card) {
+    fp.push(tiltedFp(s.card.pos, CARD.w, CARD.d, cardTilt(s.card.s)));
+  } else if (s.dock) {
+    const d = s.dock;
+    if (d.fold < 0.5 && d.drop <= 0) fp.push(tiltedFp(DOCK_B, CARD.w, CARD.d, CARD_DOCK_TILT));
+    else {
+      // the folded tab: from its crease (the origin) up its depth at its tilt
+      const crease = d.landed !== null ? TAB_REST_B : d.drop > 0 ? tabArc(d.drop) : DOCK_B;
+      const tilt = d.landed !== null ? TAB_LEAN_B : CARD_DOCK_TILT + (TAB_LEAN_B - CARD_DOCK_TILT) * d.drop;
+      const c: P3 = [crease[0], crease[1] + (TAB_B.d / 2) * Math.cos(tilt), crease[2] + (TAB_B.d / 2) * Math.sin(tilt)];
+      fp.push(tiltedFp(c, TAB_B.w, TAB_B.d, tilt, d.landed !== null ? 0.5 : 0));
+    }
   }
+  // the print head's hammer, raised over the tape at rest, its shadow closing on the newest cell as it comes down
+  const hammer = Math.max(s.stamp, s.next.stamp, s.cache?.stamp ?? 0);
+  const [hx, , hz] = hammerOffset(hammer);
+  fp.push(rectFp({ x0: PRINT_HEAD.box.x1 - 4 + hx, x1: PRINT_HEAD.box.x1 + 10 + hx, y0: TAPE.y0 + 6, y1: TAPE.y1 - 6 }, TAPE.z + 3 + hz, TAPE.z + 16 + hz, 0, 1));
   // the Thread cord and its guide, from 7.1 only (design D1)
   if (s.f >= CORD_FROM) {
     fp.push(segFp([MAST.arm[0], MAST.arm[1], DECK.top - 4], [MAST.x, MAST.y, DECK.top - 4], 4));
@@ -225,6 +250,11 @@ export function movingFootprints(s: DeskState): Footprint[] {
   if (n.slip) fp.push({ kind: 'rect', c: [n.slip.p[0], n.slip.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 3, rot: n.slip.heading, z0: n.slip.p[2] - 0.4, z1: n.slip.p[2] + 0.4, contact: 0 });
   if (n.folder) fp.push({ kind: 'rect', c: [n.folder.p[0], n.folder.p[1]], h: [DISPATCH.w / 2, DISPATCH.d / 2], r: 3, rot: n.folder.heading, z0: n.folder.p[2] - 1.5, z1: n.folder.p[2] + 1.5, contact: 0.6 });
   if (n.hatch > 0) {
+    // the pit under the open hatch is dark: the desk round it shades and roofs whatever is below the desk (the bay
+    // rises out of the dark into the light; nothing above the desk is touched)
+    const B = FRESH.box;
+    fp.push(rectFp({ x0: B.x0 - 80, x1: B.x1 + 80, y0: B.y0 - 80, y1: B.y1 + 80 }, -1, 0, 0, 6));
+    fp.push({ kind: 'canopy', c: rectC(B), h: [(B.x1 - B.x0) / 2 + 30, (B.y1 - B.y0) / 2 + 30], z: 0, strength: 0.92 });
     const F = CARD_FILE;
     const fresh = [...bayFootprints(FRESH), rectFp({ x0: F.x0 - F.cheek, x1: F.x1 + F.cheek, y0: F.y - F.r, y1: F.y + F.r }, BAY_FLOOR, F.z + F.cheekR, 1, 6)];
     fp.push(...shiftFootprints(fresh, -HATCH_DEPTH * (1 - n.rise)));
@@ -239,16 +269,16 @@ export function movingFootprints(s: DeskState): Footprint[] {
     const half = c.fold > 0.5 || t > 0 ? CARD_C.d / 8 : CARD_C.d / 4;
     fp.push({ kind: 'rect', c: [x, y - CARD_C.d / 4 + half], h: [CARD_C.w / 2, half], r: 3, rot: 0, z0: z - 3, z1: z + 3, contact: t >= 1 ? 0.5 : 0 });
   }
-  if (s.slip && s.slip.s < 1 && s.slip.emerge >= 1) {
-    const pose = slipPose(s.slip.s);
-    fp.push({ kind: 'rect', c: [pose.p[0], pose.p[1]], h: [SLIP.l / 2, SLIP.w / 2], r: 3, rot: pose.heading, z0: pose.p[2] + 2, z1: pose.p[2] + 3, contact: 0 });
+  if (s.slip && s.slip.s > 0 && s.slip.s < 1) {
+    const pose = replyPose(s.slip);
+    fp.push({ kind: 'rect', c: [pose.p[0], pose.p[1]], h: [SLIP.l / 2, SLIP.w / 2], r: 3, rot: pose.heading, z0: pose.p[2] - 0.6, z1: pose.p[2] + 0.6, contact: 0 });
   }
   return fp;
 }
 
 /** All footprints at a frame (static first). Throws past MAX_FOOTPRINTS. */
 export function footprintsAt(s: DeskState): Footprint[] {
-  const all = [...staticFootprints(s.testsSink), ...movingFootprints(s)];
+  const all = [...staticFootprints(s.testsSink, youPoseAt(s.f)), ...movingFootprints(s)];
   if (all.length > MAX_FOOTPRINTS) throw new Error(`desk: ${all.length} footprints, over the ${MAX_FOOTPRINTS} the shaders hold`);
   return all;
 }

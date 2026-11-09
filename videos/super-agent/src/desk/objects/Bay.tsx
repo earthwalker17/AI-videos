@@ -15,14 +15,15 @@
  * Every rack holds the same three tools (a magnifier, a wrench, a pen): the family's shared fixture.
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
-import { Path, Shape, type BufferGeometry } from 'three';
+import { Color, Path, Shape, type BufferGeometry } from 'three';
 import { bayDoor, bayWalls } from '../footprints.ts';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, tube } from '../geom.ts';
 import { EMIT, Step, WithMats, isStepped, useDeskMats, useDeskSets, type DeskMats } from '../kit.tsx';
-import { BAYS, BAY_FLOOR, BENCH, CARD_FILE, FOLDER, FRESH, GALLEY_TRAY, HATCH_DEPTH, PINS, REQUEST, SHEET, SINK, TOWER, rectC, towerTop, type BayLayout, type Rect } from '../layout.ts';
+import { BAYS, BAY_FLOOR, BENCH, CARD, CARD_FILE, FOLDER, FRESH, GALLEY_TRAY, HATCH_DEPTH, PINS, REQUEST, SHEET, SINK, TOWER, rectC, towerTop, type BayLayout, type Rect } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
 import type { MeshBasicMaterial } from 'three';
-import { closeAt, type DeskState } from '../state.ts';
+import { CAP_SLOT, closeAt, type DeskState } from '../state.ts';
+import { HEX, paper, whiteTexture } from '../gl/materials.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 const z = BAY_FLOOR + 4;
@@ -201,9 +202,50 @@ function PinFlag({ i, state, geometry }: { i: number; state: number; geometry: B
   );
 }
 
-export function BugBay({ s }: { s: DeskState }) {
+/** The request's vermilion when its bay steps down: the focus rule's chroma step, held at 60% (it stays the film's tracer, a step quieter). */
+const TRACER_STEP = 0.4;
+
+/** A colour (sRGB hex) with its chroma cut by k toward its own grey in display values (its value kept). */
+function quieter(hex: string, k: number): Color {
+  const c = new Color(hex);
+  const enc = (v: number) => Math.pow(Math.max(v, 0), 1 / 2.2);
+  const [r, gg, b] = [enc(c.r), enc(c.g), enc(c.b)];
+  const l = 0.2126 * r + 0.7152 * gg + 0.0722 * b;
+  const f = (v: number) => (v + (l - v) * k) ** 2.2;
+  return new Color(f(r), f(gg), f(b));
+}
+
+/** `noRequest`: the bay without the request and its folder (the turn, before the request is docked in it). */
+export function BugBay({ s, noRequest = false }: { s: DeskState; noRequest?: boolean }) {
   const g = useBenchGeometry();
-  const { full } = useDeskSets();
+  const { full, textures } = useDeskSets();
+  // the request and its folder draw with their own materials, so their chroma can step with the bay's focus ramp
+  const tracer = useMemo(() => {
+    const white = whiteTexture();
+    return {
+      folder: paper(white, HEX.vermilionShade, { roughness: 0.85 }),
+      folderTop: paper(textures.folder, HEX.vermilionShade, { roughness: 0.85 }),
+      body: paper(white, HEX.vermilion, { roughness: 0.82 }),
+      print: paper(textures.request, HEX.vermilion, { roughness: 0.82 }),
+      white,
+    };
+  }, [textures]);
+  useLayoutEffect(
+    () => () => {
+      for (const x of [tracer.folder, tracer.folderTop, tracer.body, tracer.print]) x.dispose();
+      tracer.white.dispose();
+    },
+    [tracer],
+  );
+  const st = isStepped(s.step, 'bugBay');
+  const amt = st === 'own' ? (s.step.own?.amount ?? 0) : st ? s.step.amount : 0;
+  useLayoutEffect(() => {
+    const k = TRACER_STEP * amt;
+    tracer.folder.color.copy(quieter(HEX.vermilionShade, k));
+    tracer.folderTop.color.copy(quieter(HEX.vermilionShade, k));
+    tracer.body.color.copy(quieter(HEX.vermilion, k));
+    tracer.print.color.copy(quieter(HEX.vermilion, k));
+  }, [tracer, amt]);
   return (
     <Step on={isStepped(s.step, 'bugBay')}>
       <WithMats>
@@ -217,12 +259,16 @@ export function BugBay({ s }: { s: DeskState }) {
             {s.pins.map((p, i) => (
               <PinFlag key={i} i={i} state={p} geometry={g.flag} />
             ))}
-            {/* the request keeps its vermilion when the bay steps down: it is the film's tracer */}
-            <mesh geometry={g.folder} material={full.vermilionShade} />
-            <mesh geometry={g.folderTop} material={full.printed.folder} />
-            <mesh geometry={g.folderTab} material={full.vermilionShade} />
-            <mesh geometry={g.requestBody} material={full.vermilionPaper} />
-            <mesh geometry={g.request} material={full.printed.request} />
+            {/* the request keeps its vermilion when the bay steps down (it is the film's tracer), a step quieter */}
+            {!noRequest && (
+              <>
+                <mesh geometry={g.folder} material={tracer.folder} />
+                <mesh geometry={g.folderTop} material={tracer.folderTop} />
+                <mesh geometry={g.folderTab} material={tracer.folder} />
+                <mesh geometry={g.requestBody} material={tracer.body} />
+                <mesh geometry={g.request} material={tracer.print} />
+              </>
+            )}
           </BayBase>
         )}
       </WithMats>
@@ -231,6 +277,9 @@ export function BugBay({ s }: { s: DeskState }) {
 }
 
 // ------------------------------------------------------------------------------------------------
+
+/** Where each test lamp sits round the tower (radians from +x), bottom up: south-west, south, south-east. */
+const LAMP_AZ = [(-125 * Math.PI) / 180, (-90 * Math.PI) / 180, (-55 * Math.PI) / 180] as const;
 
 function useTowerGeometry() {
   return useMemo(() => {
@@ -243,20 +292,43 @@ function useTowerGeometry() {
       const a = z0 + i * (T.seg + T.gap);
       drums.push(cylinderZ(T.r, a, a + T.seg, T.x, T.y, 64));
       bands.push(cylinderZ(T.r + 1.5, a + T.seg - 4, a + T.seg, T.x, T.y, 64));
-      // each lamp's lens faces south, toward the camera
-      const lens = dome(9, 0, 0, 0);
-      lens.rotateX(-Math.PI / 2);
-      lens.translate(T.x, T.y - T.r + 0.5, a + T.seg / 2);
+      // each lamp's lens on its drum's south flank (south-west, south, south-east up the tower), tilted up to the camera
+      const az = LAMP_AZ[i];
+      const lens = dome(11, 0, 0, 0);
+      lens.rotateX(-Math.PI / 4);
+      lens.rotateZ(az + Math.PI / 2);
+      lens.translate(T.x + (T.r - 4) * Math.cos(az), T.y + (T.r - 4) * Math.sin(az), a + T.seg / 2 + 2);
       lenses.push(lens);
-      if (i > 0) drums.push(cylinderZ(T.r - 6, a - T.gap, a, T.x, T.y, 48));
+      // the collar between two lamps (nearly their width, so nothing inside the tower shows between them)
+      if (i > 0) drums.push(cylinderZ(T.r - 2, a - T.gap, a, T.x, T.y, 48));
     }
+    const bezels = merge(
+      Array.from({ length: T.n }, (_, i) => {
+        const a = z0 + i * (T.seg + T.gap);
+        const az = LAMP_AZ[i];
+        const g = ringFlat(12.5, 2.4, 0, 0, 0);
+        g.rotateX(-Math.PI / 4);
+        g.rotateZ(az + Math.PI / 2);
+        g.translate(T.x + (T.r - 3.4) * Math.cos(az), T.y + (T.r - 3.4) * Math.sin(az), a + T.seg / 2 + 2);
+        return g;
+      }),
+    );
     const top = towerTop();
-    const cap = disc(T.r + 2, top, top + T.dome, { cx: T.x, cy: T.y, bevel: 1.5 });
-    // the cap's concentric lenses, the tower's mark seen from above
-    const capLens = disc(T.r - 12, top + T.dome, top + T.dome + 1.5, { cx: T.x, cy: T.y, bevel: 0.6 });
-    const capRings = merge([ringFlat(T.r - 6, 1.6, T.x, T.y, top + T.dome + 0.4), ringFlat(T.r - 22, 1.4, T.x, T.y, top + T.dome + 1.8), ringFlat(8, 1.2, T.x, T.y, top + T.dome + 1.9)]);
+    // the cap: a lid hinged along the tower's north edge (posed per frame), its concentric rings, the slot across its south half
+    const capLid = disc(T.r + 2, 0, T.dome, { cx: 0, cy: -(T.r + 2), bevel: 1.5 });
+    const capRings = merge([ringFlat(T.r - 6, 1.6, 0, -(T.r + 2), T.dome + 0.2), ringFlat(T.r - 26, 1.4, 0, -(T.r + 2), T.dome + 0.3)]);
+    const slotY = CAP_SLOT[1] - (T.y + T.r + 2);
+    const capSlot = slab({ x0: -CARD.w / 2 - 2, x1: CARD.w / 2 + 2, y0: slotY - 2.2, y1: slotY + 2.2 }, T.dome - 0.2, T.dome + 0.35, 0.4, 0.2);
+    const hinge = (() => {
+      const g = cylinderZ(3, 0, 2 * T.r - 20, 0, 0, 12);
+      g.rotateY(Math.PI / 2);
+      g.translate(-T.r + 10, 0, 1);
+      return g;
+    })();
+    // the tower's top under the lid: the top lamp's face, dark, with the slot's throat
+    const topFace = disc(T.r - 3, top - 0.6, top + 0.2, { cx: T.x, cy: T.y, bevel: 0.4 });
     const base = disc(T.r + 6, T.base, T.base + T.post, { cx: T.x, cy: T.y, bevel: 1 });
-    return { drums: merge(drums), bands: merge(bands), lenses: merge(lenses), cap, capLens, capRings, base };
+    return { drums: merge(drums), bands: merge(bands), lenses, bezels, capLid, capRings, capSlot, hinge, topFace, base, top };
   }, []);
 }
 
@@ -270,23 +342,54 @@ export function TestsBay({ s }: { s: DeskState }) {
   return s.testsSink > 0 ? <group position={[0, 0, -SINK * s.testsSink]}>{parts}</group> : parts;
 }
 
-/** The test tower's bay: once it has reported, it steps down on its own ramp (state.ts testsStep). */
+/** The cap's swing when open (radians about its hinge): standing a little past upright, behind the tower. */
+const CAP_OPEN = 1.78;
+/** A test lamp's lens: lit while its test runs, out (graphite) once it has finished. */
+const LENS_HEX = { lit: '#E4DFD3', out: '#4F5351' } as const;
+
+/** The test tower's bay: its lamps go out one by one, its cap swings shut; once it has reported, it steps down on its own ramp (state.ts testsStep). */
 function TestsParts({ s }: { s: DeskState }) {
   const m = useDeskMats();
   const g = useTowerGeometry();
+  const lensMats = useMemo(() => {
+    const white = whiteTexture();
+    return [0, 1, 2].map(() => paper(white, LENS_HEX.lit, { roughness: 0.35, fibre: 0, stepped: 'late' }));
+  }, []);
+  useLayoutEffect(
+    () => () => {
+      for (const x of lensMats) {
+        x.map?.dispose();
+        x.dispose();
+      }
+    },
+    [lensMats],
+  );
+  const lit = useMemo(() => new Color(LENS_HEX.lit), []);
+  const out = useMemo(() => new Color(LENS_HEX.out), []);
   useLayoutEffect(() => {
     // its work light dims as the run finishes
     m.slotTests.color.set(LIGHT_HEX.work).multiplyScalar(0.25 + (EMIT.slotDocs - 0.25) * s.testsLight);
-  }, [m, s.testsLight]);
+    lensMats.forEach((x, i) => x.color.copy(out).lerp(lit, s.lamps[i]));
+  }, [m, s.testsLight, s.lamps, lensMats, lit, out]);
+  const T = TOWER;
+  const angle = CAP_OPEN * (1 - s.testsCap);
   return (
     <BayBase b={BAYS.tests} slot="slotTests" close={closeAt(s.f)}>
       <mesh geometry={g.base} material={m.graphiteDark} />
       <mesh geometry={g.drums} material={m.graphite} />
       <mesh geometry={g.bands} material={m.enamelShade} />
-      <mesh geometry={g.lenses} material={m.paperLit} />
-      <mesh geometry={g.cap} material={m.enamel} />
-      <mesh geometry={g.capLens} material={m.paperLit} />
-      <mesh geometry={g.capRings} material={m.steel} />
+      {g.lenses.map((l, i) => (
+        <mesh key={i} geometry={l} material={lensMats[i]} />
+      ))}
+      <mesh geometry={g.bezels} material={m.steel} />
+      <mesh geometry={g.topFace} material={m.graphiteDark} />
+      {/* the cap on its hinge along the north edge: swung up behind the tower while the tests run, shut on the downbeat */}
+      <group position={[T.x, T.y + T.r + 2, g.top]} rotation={[-angle, 0, 0]}>
+        <mesh geometry={g.capLid} material={m.enamel} />
+        <mesh geometry={g.capRings} material={m.steel} />
+        <mesh geometry={g.capSlot} material={m.hollow} />
+        <mesh geometry={g.hinge} material={m.steel} />
+      </group>
     </BayBase>
   );
 }
@@ -419,7 +522,8 @@ export function FreshBay({ s }: { s: DeskState }) {
   const sets = useDeskSets();
   useLayoutEffect(() => {
     // dark until the folder is in, then it ignites (spring-effects): a live process, it blooms (stepped down too: the same level)
-    for (const set of [sets.full, sets.stepped]) set.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 + (EMIT.slot - 0.12) * n.light);
+    // its level ramps evenly to the eye (geometric between dark and computing), so the first frame of the spring is not most of the light
+    for (const set of [sets.full, sets.stepped]) set.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 * (EMIT.slot / 0.12) ** n.light);
   }, [sets, n.light]);
   if (n.hatch <= 0) return null;
   // stepped down with the other bays at the summary (desk/summary.ts)

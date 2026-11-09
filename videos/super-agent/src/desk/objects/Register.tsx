@@ -16,9 +16,9 @@ import { CircleGeometry, Matrix4, Path, Shape, type BufferGeometry, type Materia
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
 import { Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
 import { CACHE_WINDOW, CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, DRAWER_OPEN_C, FANFOLD, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
-import { PRINT_SIZE } from '../gl/text.ts';
+import { NEWEST_STEP, PRINT_SIZE } from '../gl/text.ts';
 import { FiledTabs } from './Cache.tsx';
-import { DETENT, EVENTS_B, EVENTS_D, closeAt, loupeAt, type DeskState } from '../state.ts';
+import { DETENT, EVENTS_B, EVENTS_D, closeAt, hammerOffset, loupeAt, type DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 
@@ -309,8 +309,9 @@ function useRegisterGeometry() {
     const M = MOUTH.box;
     const hopper = merge([
       slab(M, MOUTH.z[0], MOUTH.z[0] + 3, 4, 1),
-      slab({ x0: M.x0, x1: M.x0 + 5, y0: M.y0, y1: M.y1 }, MOUTH.z[0], MOUTH.z[1], 2, 1),
-      slab({ x0: M.x1 - 5, x1: M.x1, y0: M.y0, y1: M.y1 }, MOUTH.z[0], MOUTH.z[1], 2, 1),
+      // low side walls: a docked card lies over them, never behind them (its print clear)
+      slab({ x0: M.x0, x1: M.x0 + 5, y0: M.y0, y1: M.y1 }, MOUTH.z[0], MOUTH.z[0] + 8, 2, 1),
+      slab({ x0: M.x1 - 5, x1: M.x1, y0: M.y0, y1: M.y1 }, MOUTH.z[0], MOUTH.z[0] + 8, 2, 1),
       slab({ x0: M.x0, x1: M.x1, y0: M.y0, y1: M.y0 + 4 }, MOUTH.z[0], MOUTH.z[0] + 9, 2, 1),
     ]);
 
@@ -351,17 +352,13 @@ function useRegisterGeometry() {
       return g;
     })();
 
-    // the Continuous plate: a narrow enamel apron along the deck's front, on a graphite backing
+    // the Continuous plate: an enamel plate with its words on a graphite backing, on two brackets off the north rail
     const T = TRAIT_PLATE.box;
     const traitBack = slab(T, TRAIT_PLATE.z[0], TRAIT_PLATE.z[0] + 2, 4, 0.8);
     const trait = slab(inset(T, 3), TRAIT_PLATE.z[0] + 2, TRAIT_PLATE.z[1], 3, 1);
     const traitFace = planeOn(inset(T, 5), TRAIT_PLATE.z[1] + 0.2);
-    const bolts = merge(
-      [
-        [T.x0 + 6, rectC(T)[1]],
-        [T.x1 - 6, rectC(T)[1]],
-      ].map(([x, y]) => dome(2.6, x, y, TRAIT_PLATE.z[1])),
-    );
+    const bolts = merge(TRAIT_PLATE.brackets.map((x) => dome(2.6, x, T.y0 + 6, TRAIT_PLATE.z[1])));
+    const traitBrackets = merge(TRAIT_PLATE.brackets.map((x) => slab({ x0: x - 7, x1: x + 7, y0: DECK.y1 - DECK.rail + 4, y1: T.y0 + 14 }, TRAIT_PLATE.z[0] - 7, TRAIT_PLATE.z[0], 2, 1)));
 
     // the dispatch ramp off the east rail, and its cheeks
     const rampSheet = (() => {
@@ -436,6 +433,7 @@ function useRegisterGeometry() {
       trait,
       traitFace,
       bolts,
+      traitBrackets,
       gaugeBody,
       gaugeFace,
       needle,
@@ -444,6 +442,8 @@ function useRegisterGeometry() {
   }, []);
 }
 
+/** The newest cell's step along the tape, in the tape texture's u (gl/text.ts NEWEST_STEP). */
+const NEWEST_STEP_U = NEWEST_STEP / (TAPE_FLAT_X1 - TAPE.x0);
 /** One older cell's step along the tape, in the tape texture's u. */
 const CELL_STEP_U = (CELLS_X[1][1] - CELLS_X[1][0] + 4) / (TAPE_FLAT_X1 - TAPE.x0);
 /** One stub's step along the tape in still (c). */
@@ -552,12 +552,24 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
     if (before) before.offset.x = -CELL_STEP_U * s.tape;
     // MT1's second stamp-in drives the stamped tape on one more cell; in still (c) the bare tape moves one stub with the reel
     const stamped = m.printed.tape.map;
-    if (stamped) stamped.offset.x = -CELL_STEP_U * s.next.tape;
+    // (MT1's second stamp-in moves it on by the newest cell's width, so #0408's print clears that cell whole)
+    if (stamped) stamped.offset.x = -NEWEST_STEP_U * s.next.tape;
     const bare = m.printed.tapeBlank.map;
     if (bare) bare.offset.x = -STUB_STEP_U * (C?.tape ?? 0);
   }, [m, s.tape, s.next.tape, C?.tape]);
   const T = turn;
-  const tapeMat = T ? T.tape : C ? m.printed.tapeBlank : s.f >= EVENTS_D.stampIn + 1 ? m.printed.tape2 : s.f >= EVENTS_B.stampIn + 1 ? m.printed.tape : m.printed.tapeBefore;
+  // each stamp-in inks its cell over 3 f (the ink's stages), the frame after the head comes down
+  const inkStage = (ink: number) => (ink <= 0 ? -1 : Math.min(2, Math.ceil(ink * 3 - 1e-6) - 1));
+  const stamped = (after: number, ink: number, before: Material, stages: Material[], full: Material) => (inkStage(ink) < 0 ? before : inkStage(ink) < 2 ? stages[inkStage(ink)] : full);
+  const tapeMat = T
+    ? T.tape
+    : C
+      ? m.printed.tapeBlank
+      : s.f >= EVENTS_D.stampIn + 1
+        ? stamped(EVENTS_D.stampIn, s.next.ink, m.printed.tape, m.printed.tape2Ink, m.printed.tape2)
+        : s.f >= EVENTS_B.stampIn + 1
+          ? stamped(EVENTS_B.stampIn, s.ink, m.printed.tapeBefore, m.printed.tapeInk, m.printed.tape)
+          : m.printed.tapeBefore;
   const reelTurn = s.reel + s.next.reel + (C?.reel ?? 0);
   const hammer = T ? T.hammer : Math.max(s.stamp, s.next.stamp, C?.stamp ?? 0);
   return (
@@ -605,9 +617,18 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
       <mesh geometry={g.lampFeet} material={m.graphiteDark} />
       {/* the throat, the print head */}
       <Hinge angle={T?.parts.head} x={PRINT_HEAD.box.x0} z={DECK.top}>
-      <mesh geometry={g.head} material={m.graphite} />
-      <mesh geometry={g.headCap} material={m.enamel} />
-      <mesh geometry={g.headHammer} material={m.steel} position={[0, 0, -9 * hammer]} />
+      <Step on={isStepped(s.step, 'head')}>
+        <WithMats>
+          {(n) => (
+            <>
+              <mesh geometry={g.head} material={n.graphite} />
+              <mesh geometry={g.headCap} material={n.enamel} />
+              {/* the hammer: raised clear of the tape at rest, it rocks east and comes down onto the newest cell */}
+              <mesh geometry={g.headHammer} material={n.steel} position={T ? [0, 0, -9 * hammer] : hammerOffset(hammer)} />
+            </>
+          )}
+        </WithMats>
+      </Step>
       </Hinge>
       <Lift z={T?.parts.throat}>
       <mesh geometry={g.throat} material={m.graphiteDark} />
@@ -646,12 +667,20 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
         </WithMats>
       </Step>
       {/* the index arm on its detent plate */}
-      <mesh geometry={g.plateGeo} material={m.enamelShade} />
-      <group position={[INDEX.pivot[0], INDEX.pivot[1], 0]} rotation={[0, 0, T ? s.arm + T.parts.index : s.arm]}>
-        <mesh geometry={g.arm} material={m.graphite} />
-        <mesh geometry={g.armTip} material={m.enamel} />
-      </group>
-      <mesh geometry={g.boss} material={m.enamel} />
+      <Step on={isStepped(s.step, 'index')}>
+        <WithMats>
+          {(n) => (
+            <>
+              <mesh geometry={g.plateGeo} material={n.enamelShade} />
+              <group position={[INDEX.pivot[0], INDEX.pivot[1], 0]} rotation={[0, 0, T ? s.arm + T.parts.index : s.arm]}>
+                <mesh geometry={g.arm} material={n.graphite} />
+                <mesh geometry={g.armTip} material={n.enamel} />
+              </group>
+              <mesh geometry={g.boss} material={n.enamel} />
+            </>
+          )}
+        </WithMats>
+      </Step>
       {/* the spill drawer (in still (c) it pulls open to take the request's tab) with its filed pointer tabs, the mouth */}
       <group position={[0, -DRAWER_OPEN_C * (C?.drawer ?? 0), 0]}>
         <mesh geometry={g.drawerBox} material={m.graphiteDark} />
@@ -659,7 +688,9 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
         <mesh geometry={g.drawerHandle} material={m.steel} />
         {!T && <FiledTabs />}
       </group>
-      <mesh geometry={g.hopper} material={m.enamelShade} />
+      <Step on={isStepped(s.step, 'mouth')}>
+        <WithMats>{(n) => <mesh geometry={g.hopper} material={n.enamelShade} />}</WithMats>
+      </Step>
       {/* the sealed shell key */}
       <Step on={isStepped(s.step, 'lock')}>
         <WithMats>
@@ -692,7 +723,8 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
         </WithMats>
       </Step>
       )}
-      {/* the Continuous plate on the front apron */}
+      {/* the Continuous plate behind the reel, on its brackets */}
+      <mesh geometry={g.traitBrackets} material={m.graphite} />
       <Flip angle={T?.parts.plate}>
       <Step on={isStepped(s.step, 'plate')}>
         <WithMats>

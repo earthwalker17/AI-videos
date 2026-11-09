@@ -65,10 +65,10 @@ export function projectBox(pose: CamPose, pts: readonly P3[]): { x0: number; y0:
  * The close on the Register's throat and reading window (STORYBOARD 5.3-6.4, still (c) at f3150):
  * 2.4x, so the record, the stub row, the mouth and the spill drawer fill the upper-left two-thirds
  * above the notes band and the bug bay leaves the frame (its pins and folder are past the east
- * edge). 2.4x is past TREATMENT's 1.6-2.2x close range: a framing decision for the user (lookdev
- * round 2, the (c) and (d) polish).
+ * edge). 2.4x is past TREATMENT's 1.6-2.2x close range: the director kept it (polish pass 2), trucked
+ * 15 u (about 35 px) south so the reel's hub leaves the top edge cleanly instead of sitting tangent to it.
  */
-export const FRAMING_C: Framing = { x: -90, y: 165, zoom: 2.4 };
+export const FRAMING_C: Framing = { x: -90, y: 150, zoom: 2.4 };
 
 /**
  * The camera's moves from the turn on (film frames >= 1400; act one's keys, before 1400, are act
@@ -77,7 +77,13 @@ export const FRAMING_C: Framing = { x: -90, y: 165, zoom: 2.4 };
  * scale); between moves the framing holds exactly (`deskCamera`), so a still at a hold is the
  * static pose. The DOM layer projects through the same pose (`project`).
  */
-export const CAMERA_MOVES: readonly { from: number; to: number; a: Framing; b: Framing }[] = [
+export interface CameraMove {
+  from: number;
+  to: number;
+  a: Framing;
+  b: Framing;
+}
+export const CAMERA_MOVES: readonly CameraMove[] = [
   // the turn (MT2, STORYBOARD 4.1): bar 19's downbeat, 1.2x to 0.85x with a truck north, two bars
   { from: 1440, to: 1600, a: FRAMING_A, b: FRAMING_B },
   // bar 34's downbeat (5.3): in on the throat and the reading window, one bar
@@ -87,8 +93,8 @@ export const CAMERA_MOVES: readonly { from: number; to: number; a: Framing; b: F
 ];
 
 const movePaths = new Map<string, CamPath>();
-function movePath(m: (typeof CAMERA_MOVES)[number], angle: Angle): CamPath {
-  const key = `${m.from}:${angle}`;
+function movePath(m: CameraMove, angle: Angle): CamPath {
+  const key = `${m.from}:${m.to}:${m.a.x},${m.a.y},${m.a.zoom}:${m.b.x},${m.b.y},${m.b.zoom}:${angle}`;
   let p = movePaths.get(key);
   if (!p) {
     const mid: Framing = { x: (m.a.x + m.b.x) / 2, y: (m.a.y + m.b.y) / 2, zoom: Math.sqrt(m.a.zoom * m.b.zoom) };
@@ -97,6 +103,13 @@ function movePath(m: (typeof CAMERA_MOVES)[number], angle: Angle): CamPath {
     movePaths.set(key, p);
   }
   return p;
+}
+
+/** One move's pose at film frame f: its first framing held before it, its path while it runs, its last after. */
+export function moveCameraAt(m: CameraMove, f: number, angle: Angle): CamPose {
+  if (f <= m.from) return deskCamera(m.a, angle);
+  if (f >= m.to) return deskCamera(m.b, angle);
+  return movePath(m, angle).at(f);
 }
 
 /** The framing held at film frame f (>= 1400) outside a move. */

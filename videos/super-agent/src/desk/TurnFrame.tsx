@@ -3,62 +3,74 @@
  * text layer as act one and act two, posed by the turn's schedule. The camera is the film's
  * (camera.ts cameraAt: bar 19's downbeat, 1.2x to 0.85x over two bars), so the DOM labels and the
  * notes ride the same pose; the narration is the cue sheet's (C8, then C9). History marks: no
- * grooves yet (no task has been handed over), the folders' imprints as they are pressed in.
+ * grooves yet (no task has been handed over), the imprints as they are pressed in.
  */
 import { Stage3D, useFont } from '@aiv/remotion-kit';
-import { useMemo } from 'react';
-import { Quaternion, Vector3 } from 'three';
+import { useLayoutEffect, useMemo } from 'react';
+import { Vector4 } from 'three';
 import { AbsoluteFill } from 'remotion';
-import { WORDS } from '../cues.ts';
 import { useFilmFonts } from '../look/fonts.ts';
 import { cameraAt, FAR, FOV, NEAR, type Angle } from './camera.ts';
 import { DeskWorld } from './DeskWorld.tsx';
-import { DESK_HEX } from './gl/desk.ts';
+import { DESK_HEX, DESK_HOLES, HOLE_SHUT } from './gl/desk.ts';
 import { PRINT_FONT } from './gl/text.ts';
-import { useDeskMats } from './kit.tsx';
-import { CHUTE, REEL, YOU, rectC } from './layout.ts';
+import { useTurnTape } from './gl/textTurn.ts';
+import { useDeskMats, useDeskSets } from './kit.tsx';
+import type { Rect } from './layout.ts';
+import { ACT_ONE_LABELS } from './ActOneFrame.tsx';
 import { ActOneObjects } from './objects/ActOne.tsx';
-import { Chute } from './objects/Links.tsx';
+import { TurnChute } from './objects/Links.tsx';
 import { Feeders, Gate } from './objects/Intake.tsx';
-import { DeckPose, Register } from './objects/Register.tsx';
+import { Register } from './objects/Register.tsx';
 import { TurnObjects } from './objects/Turn.tsx';
 import { YourDesk } from './objects/YourDesk.tsx';
-import { Overlay, type RoleLabel } from './Overlay.tsx';
-import { TURN_SPAN, imprintsAt, turnAt, turnDeskState, turnFootprints, turnPools, type TurnState } from './turn.ts';
+import { Overlay, ROLE_LABELS, type RoleLabel } from './Overlay.tsx';
+import { TURN, TURN_SPAN, chutePath, imprintsAt, turnAt, turnDeskState, turnFootprints, turnHoles, turnPools, type TurnState } from './turn.ts';
 import type { DeskState } from './state.ts';
 
-/** The labels as they re-enter once the camera has settled: yours at your act-two place, the Router's on its reel (as ROLE_LABELS). */
+/**
+ * The labels: your act-one label until the camera moves (then it exits, 6 f), and as they re-enter once the camera
+ * has settled: yours at your act-two place, the Router's on the reel frame's east member (both as ROLE_LABELS).
+ */
 function turnLabels(t: TurnState): RoleLabel[] {
   const out: RoleLabel[] = [];
-  if (t.labels.you) out.push({ text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [YOU.slab.x0 + 14, rectC(YOU.slab)[1] - 30, YOU.top], dx: -84, dy: 30, anchor: 'end', ...t.labels.you });
-  if (t.labels.router) out.push({ text: WORDS.router.en, foot: [REEL.x + 92, REEL.y - 40, REEL.packZ[1]], dx: 150, dy: 30, anchor: 'start', ...t.labels.router });
+  if (t.labels.youA) out.push({ ...ACT_ONE_LABELS[0], ...t.labels.youA });
+  if (t.labels.you) out.push({ ...ROLE_LABELS[2], ...t.labels.you });
+  if (t.labels.router) out.push({ ...ROLE_LABELS[0], ...t.labels.router });
   return out;
 }
 
-/** The chute hinges down from the deck's south-west corner (riding with the deck), its posts telescoping to the desk. */
-const CHUTE_AXIS = (() => {
-  const d = new Vector3(CHUTE[CHUTE.length - 1][0] - CHUTE[0][0], CHUTE[CHUTE.length - 1][1] - CHUTE[0][1], 0).normalize();
-  return new Vector3(d.y, -d.x, 0).negate();
-})();
-function TurnChute({ t }: { t: TurnState }) {
-  const q = useMemo(() => new Quaternion().setFromAxisAngle(CHUTE_AXIS, t.parts.chute), [t.parts.chute]);
-  const top = CHUTE[0];
-  return (
-    <DeckPose pose={t.deck}>
-      <group position={[top[0], top[1], top[2]]} quaternion={q}>
-        <group position={[-top[0], -top[1], -top[2]]}>
-          <Chute posts={t.parts.posts} />
-        </group>
-      </group>
-    </DeckPose>
-  );
+/** The Register posed by the turn: its tape's run (the leader the turn lays, then the first row's ink spreading), its head, its jewel. */
+function TurnRegister({ s, t, printFamily }: { s: DeskState; t: TurnState; printFamily: string }) {
+  const m = useDeskMats();
+  const row = useTurnTape(printFamily);
+  const tape = t.tape.leader < 1 ? null : t.tape.ink < 0 ? m.printed.tapeBlank : row[t.tape.ink];
+  return <Register s={s} turn={{ deck: t.deck, parts: t.parts, tape, hammer: t.tape.hammer, jewel: t.tape.jewel }} />;
 }
 
-/** The Register posed by the turn (its tape's material from the kit). */
-function TurnRegister({ s, t }: { s: DeskState; t: TurnState }) {
-  const m = useDeskMats();
-  const tape = t.tape.leader < 1 ? null : t.tape.print === 'first' ? m.printed.tapeFirst : m.printed.tapeBlank;
-  return <Register s={s} turn={{ deck: t.deck, parts: t.parts, tape, hammer: t.tape.hammer, jewel: t.tape.jewel }} />;
+/** A hatch in the desk over a bay's box (with its seam). */
+const holeOf = (r: Rect): Vector4 => new Vector4(r.x0 - 1.2, r.y0 - 1.2, r.x1 + 1.2, r.y1 + 1.2);
+
+/** What the turn sets on shared uniforms before the frame is drawn: the hatches the bays rise through, the vellum feeders' opacity. */
+function TurnUniforms({ t }: { t: TurnState }) {
+  const sets = useDeskSets();
+  const holes = turnHoles(t);
+  const key = holes.map((h) => `${h.x0},${h.y0}`).join(';');
+  const mail = t.intake.mail.k;
+  const calendar = t.intake.calendar.k;
+  const step = t.step;
+  useLayoutEffect(() => {
+    for (let i = 0; i < DESK_HOLES.value.length; i++) DESK_HOLES.value[i] = holes[i] ? holeOf(holes[i]) : HOLE_SHUT();
+    // the vellum drawings are laid down as the generic feeders press flat (a stepped drawing a step fainter, as DeskUniforms does)
+    for (const [set, k] of [
+      [sets.full, 0],
+      [sets.stepped, step],
+    ] as const) {
+      set.vellumMail.opacity = mail * (1 - 0.4 * k);
+      set.vellumCalendar.opacity = calendar * (1 - 0.4 * k);
+    }
+  }, [key, sets, mail, calendar, step]);
+  return null;
 }
 
 export interface TurnFrameProps {
@@ -82,19 +94,21 @@ export function TurnFrame({ f, angle, bloom, objects = true }: TurnFrameProps) {
   const imprints = useMemo(() => imprintsAt(t), [t]);
   const pose = useMemo(() => cameraAt(wf, angle), [wf, angle]);
   const labels = useMemo(() => turnLabels(t), [t]);
+  const chute = useMemo(() => (t.parts.chute > 0 ? chutePath(t.parts.chute) : null), [t.parts.chute]);
   return (
     <AbsoluteFill style={{ background: DESK_HEX.base }}>
       {all && (
         <Stage3D shadows={false} antialias={false} camera={{ fov: FOV, near: NEAR, far: FAR, position: [pose.pos[0], pose.pos[1], pose.pos[2]] }}>
           <DeskWorld s={s} pose={pose} bloom={bloom} printFamily={print.family} sansFamily={fonts.sans} footprints={footprints} pools={pools} marks={{ grooves: false, imprints }}>
+            <TurnUniforms t={t} />
             {objects && (
               <>
                 <YourDesk s={s} pose={t.you} />
                 <Feeders s={s} turn={{ spool: t.intake.spool, mail: t.intake.mail, calendar: t.intake.calendar }} />
-                <Gate s={s} drop={{ gate: t.intake.gate, belt: t.intake.belt }} />
-                {f >= 1452 && <TurnChute t={t} />}
-                <ActOneObjects a={t.act} printFamily={print.family} press={t.press} loop={false} />
-                {f >= 1452 && <TurnRegister s={s} t={t} />}
+                <Gate s={s} belt={t.intake.belt} />
+                {chute && <TurnChute path={chute} posts={t.parts.posts} />}
+                <ActOneObjects a={t.act} printFamily={print.family} press={t.press} loop={false} stepRequest={t.step > 0} />
+                {wf >= TURN.deckIn && <TurnRegister s={s} t={t} printFamily={print.family} />}
                 <TurnObjects t={t} printFamily={print.family} />
               </>
             )}

@@ -26,7 +26,9 @@ describe('act one at still A (f915, C4)', () => {
     expect(A.lamp.bulb).toBeGreaterThan(1);
     const pools = actOnePools(A);
     expect(pools).toHaveLength(1);
-    expect(dist(pools[0].c, [FOLDERS[2].c[0], FOLDERS[2].c[1]])).toBeLessThan(10);
+    // centred a little toward the lamp, so F3 falls off to its far edge
+    expect(dist(pools[0].c, [FOLDERS[2].c[0], FOLDERS[2].c[1]])).toBeLessThan(60);
+    expect(pools[0].c[1]).toBeLessThan(FOLDERS[2].c[1]);
   });
   it('has about four warm folders working and four cold ones waiting (no number on screen)', () => {
     for (const [i, s] of A.folders.entries()) {
@@ -111,27 +113,36 @@ describe('act one layout (FRAMING_A, 15°)', () => {
 });
 
 describe('your desk in act one', () => {
-  it('stands north-east of its act-two place, with no in-tray, the strut on the lid and the bulb out of the hood', () => {
+  it('stands north-east of its act-two place, its in-tray empty, the strut on the lid and the bulb out of the hood', () => {
     const y = youPoseA(A);
     expect(y.shift[0]).toBeGreaterThan(0);
     expect(y.shift[1]).toBeGreaterThan(0);
-    expect(y.inTray).toBe(false);
+    expect(y.inTray).toBe(true);
+    expect(y.inTraySlip).toBe(false);
     expect(y.strut).toBe('lid');
     expect(y.bulbOut).toBeGreaterThan(0);
     expect(youPoseAt(ACT_ONE_END)).toBe(YOU_POSE_B);
     expect(youPoseAt(2225)).toBe(YOU_POSE_B);
   });
-  it('bends one lamp: the arms keep their lengths, the elbow up and west of the base (the Λ), the hood aimed down at F3', () => {
-    const { base, elbow, head, aim } = youPoseA(A).lamp;
+  it('bends one lamp inside the loop: the arms keep their lengths, the elbow up (the Λ), only the light crosses the tape to F3', () => {
+    const y = youPoseA(A);
+    const { base, elbow, head, aim } = y.lamp;
     const foot: P3 = [base[0], base[1], base[2] + LAMP_FOOT_Z];
     expect(dist(foot, elbow)).toBeCloseTo(LAMP_ARMS.lower, 3);
     expect(dist(elbow, head)).toBeCloseTo(LAMP_ARMS.upper, 3);
     expect(elbow[2]).toBeGreaterThan(head[2]);
-    expect(elbow[0]).toBeLessThan(base[0]);
     expect(aim[2]).toBeLessThan(head[2]);
-    // north-east from the head
-    expect(aim[0]).toBeGreaterThan(head[0]);
+    // the hood aims north at F3
     expect(aim[1]).toBeGreaterThan(head[1]);
+    // every joint, seen through the camera, lies inside the loop's tape (no arm reaches toward a folder)
+    const L = LOOP_A;
+    for (const p of [foot, elbow, head]) {
+      const w: P3 = [p[0] + y.shift[0], p[1] + y.shift[1], p[2]];
+      // the point on the desk the camera sees it over (its height pushes it north on screen by z·tan 15°)
+      const seen: [number, number] = [w[0], w[1] + w[2] * Math.tan((15 * Math.PI) / 180)];
+      const q = ((seen[0] - L.c[0]) / (L.a - L.w)) ** 2 + ((seen[1] - L.c[1]) / (L.b - L.w)) ** 2;
+      expect(q).toBeLessThan(1);
+    }
   });
   it('fits its footprints in the shaders', () => {
     expect(actOneFootprints(A).length).toBeLessThanOrEqual(MAX_FOOTPRINTS);

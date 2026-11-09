@@ -43,7 +43,7 @@ export interface FolderLayout {
   /** the cover's size (its sheets are inset) */
   w: number;
   d: number;
-  /** context: sheets in the stack, 0.8 u each */
+  /** context: sheets in the stack (SHEET u each) */
   sheets: number;
   /** the task card clipped to the stack: the message that started the session */
   card: CardKind;
@@ -66,12 +66,13 @@ export const FOLDERS: readonly FolderLayout[] = [
   { n: 5, c: [-40, 394], rot: -0.07, w: 122, d: 150, sheets: 12, card: 'ci', contents: 'cards', tab: 0.3 },
   { n: 6, c: [98, 388], rot: -0.11, w: 108, d: 140, sheets: 5, card: 'chat', contents: 'sheets', tab: 0.55 },
   { n: 7, c: [238, 322], rot: -0.21, w: 120, d: 150, sheets: 17, card: 'chat', contents: 'slips', tab: 0.2 },
-  { n: 8, c: [384, 232], rot: -0.32, w: 114, d: 146, sheets: 13, card: 'ci', contents: 'sheets', tab: 0.66 },
+  { n: 8, c: [344, 214], rot: -0.36, w: 114, d: 146, sheets: 13, card: 'ci', contents: 'sheets', tab: 0.66 },
 ];
 /** The cover board under the stack, and the sheets' inset from its edge. */
 export const COVER_Z = 1.2;
 export const SHEET_INSET = 5;
-export const SHEET = 0.8;
+/** A sheet's thickness in act one's stacks (exaggerated: at 15° a stack's height shows only as its south edge band, so 25 sheets against 5 must differ by 8 px or more). */
+export const SHEET = 1.4;
 export const stackTop = (fl: FolderLayout): number => COVER_Z + fl.sheets * SHEET;
 
 /** A folder-local point (x east, y north of its centre, before its turn) in world coordinates. */
@@ -173,13 +174,13 @@ export interface HeapPiece {
 /** A chat slip and a punched CI card, as from the feeders (texture sizes in gl/text.ts PRINT_SIZE). */
 export const PIECE = { chat: [96, 40] as P2, ci: [84, 50] as P2 } as const;
 const HEAP_SEED = 0x5a01;
-/** The heap's spine: from the feeders' mouths, spilling south-east. */
+/** The heap's spine: from the feeders' mouths, spilling south-east toward you (its newest slips against the loop's west flank, clear of Fix A's folder and of your act-two desk). */
 const HEAP_SPINE: readonly P2[] = [
-  [-836, 392],
-  [-806, 300],
-  [-782, 214],
-  [-762, 128],
-  [-742, 40],
+  [-842, 380],
+  [-812, 290],
+  [-778, 206],
+  [-738, 124],
+  [-690, 52],
 ];
 const spineAt = (s: number): { p: P2; n: P2 } => {
   const k = Math.min(Math.floor(s * (HEAP_SPINE.length - 1)), HEAP_SPINE.length - 2);
@@ -191,7 +192,7 @@ const spineAt = (s: number): { p: P2; n: P2 } => {
   return { p: [a[0] + d[0] * t, a[1] + d[1] * t], n: [d[1] / l, -d[0] / l] };
 };
 /** The request: 1.3× a chat slip (layout.ts REQUEST), creased, its south-east corner showing. */
-export const REQUEST_A = { c: [-744, 132] as P2, rot: 0.38, z: 0.9, l: 114, w: 52, crease: 38, lift: 0.22 } as const;
+export const REQUEST_A = { c: [-762, 150] as P2, rot: 0.38, z: 0.9, l: 114, w: 52, crease: 38, lift: 0.22 } as const;
 
 /**
  * The heap, oldest first: each piece lies on whatever landed before it under its outline, so the
@@ -202,7 +203,8 @@ export const HEAP: readonly HeapPiece[] = (() => {
   const N = 24;
   for (let i = 0; i < N; i++) {
     const old = i < N * 0.55;
-    const s = old ? 0.25 + 0.75 * rand(HEAP_SEED, i, 0) : 0.62 * rand(HEAP_SEED, i, 0);
+    // the oldest lie near the feeders, the newest toward you
+    const s = old ? 0.62 * rand(HEAP_SEED, i, 0) : 0.4 + 0.6 * rand(HEAP_SEED, i, 0);
     const { p, n } = spineAt(s);
     const spread = 34 + 46 * s;
     const lat = (rand(HEAP_SEED, i, 1) * 2 - 1) * spread;
@@ -238,8 +240,8 @@ export const HEAP: readonly HeapPiece[] = (() => {
 
 /** One chat slip in flight from the spout to the heap: posted on a sixteenth (3 f anticipation, a 12 f arc). */
 const SPOUT: P3 = [rectC(FEEDERS.chat)[0] + (FEEDERS.chat.y1 - FEEDERS.chat.y0) / 2 + 40, rectC(FEEDERS.chat)[1] - 4, 16];
-/** It lands past the heap's north-east edge (the heap spreads), so at mid-arc it is over open slate and its shadow lies apart from it. */
-export const FLIGHT = { from: SPOUT, to: [-636, 432, 3] as P3, posted: 905, apex: 44 } as const;
+/** It lands at the heap's newest end, toward you (the heap grows your way), at mid-arc over open slate so its shadow lies apart from it. */
+export const FLIGHT = { from: SPOUT, to: [-626, 112, 3] as P3, posted: 905, apex: 44 } as const;
 
 // ------------------------------------------------------------------------------------------------
 // The schedule (film frames)
@@ -268,8 +270,11 @@ export const FLAG_UP = 0.3;
 export const ARRIVE: Readonly<Record<number, number>> = { 6: 420, 7: 460, 8: 500 };
 /** The lamp's bulb while it attends (HDR: above 1.0 it blooms) and how far it stands out of the hood. */
 export const BULB_A = { level: 3, out: 46 } as const;
-/** The lamp head's reach back from the folder it attends, and its height. */
-export const HEAD_A = { back: 175, z: 116, pole: [-0.85, 0.25, 0.7] as P3 } as const;
+/**
+ * The lamp head inside the loop: on the line from the loop's centre to the folder it attends, this far out (so only
+ * its light crosses the tape), at this height; its elbow bends up and south, over the desk (no arm reaches a folder).
+ */
+export const HEAD_A = { k: 0.25, z: 116, pole: [0.12, -0.6, 0.79] as P3 } as const;
 
 /** Per-beat focus in act one: during C4 the intake and its heap step down (the request keeps its vermilion). */
 export const FOCUS_A: readonly { id: string; from: number; to: number; step: readonly FocusId[] }[] = [{ id: 'c4', from: cue('c4').frame - 6, to: cue('c4').end! + 6, step: ['intake'] }];
@@ -381,20 +386,24 @@ export function youPoseA(a: ActOneState): YouPose {
   const [sx, sy] = YOU_SHIFT_A;
   const aimL: P3 = [a.lamp.aim[0] - sx, a.lamp.aim[1] - sy, a.lamp.aim[2]];
   const base = LAMP.base;
-  const dx = aimL[0] - base[0];
-  const dy = aimL[1] - base[1];
-  const l = Math.hypot(dx, dy);
-  const head: P3 = [aimL[0] - (dx / l) * HEAD_A.back, aimL[1] - (dy / l) * HEAD_A.back, HEAD_A.z];
-  return { shift: YOU_SHIFT_A, lamp: { base, elbow: lampElbow(base, head, HEAD_A.pole), head, aim: aimL }, bulb: a.lamp.bulb, bulbOut: BULB_A.out, strut: 'lid', held: { key: a.chores.key, glass: a.chores.glass, strut: a.chores.strut }, inTray: false };
+  const c: P2 = [LOOP_A.c[0] - sx, LOOP_A.c[1] - sy];
+  const head: P3 = [c[0] + (aimL[0] - c[0]) * HEAD_A.k, c[1] + (aimL[1] - c[1]) * HEAD_A.k, HEAD_A.z];
+  // the in-tray stands empty in act one (nobody answers you yet: replies land there from beat 3 on)
+  return { shift: YOU_SHIFT_A, lamp: { base, elbow: lampElbow(base, head, HEAD_A.pole), head, aim: aimL }, bulb: a.lamp.bulb, bulbOut: BULB_A.out, strut: 'lid', held: { key: a.chores.key, glass: a.chores.glass, strut: a.chores.strut }, inTray: true, inTraySlip: false };
 }
+
+/** Beat 9's downbeat: your laptop's lid shuts for the night (STORYBOARD 9.1). */
+export const LID_SHUTS = 4560;
 
 /** Your desk's pose at a film frame: act one's before the turn's run-up, then the act-two pose (the turn, MT2, will ease between them), its tray emptying as the chores are handed over. */
 export function youPoseAt(f: number): YouPose {
   if (f < ACT_ONE_END) return youPoseA(actOneAt(f));
   // after the turn each chore leaves the tray when it is handed over (the Proactive, Productive, Persistent plates)
   const gone = (id: string) => f >= cue(id).frame;
-  if (!gone('trait-proactive')) return YOU_POSE_B;
-  return { ...YOU_POSE_B, held: { key: 0, glass: gone('trait-productive') ? 0 : 1, strut: gone('trait-persistent') ? 0 : 1 } };
+  // beat 9 (f4560, STORYBOARD 9.1): the laptop's lid shuts for the night, over 12 f, before the strut lifts off
+  const lidShut = springAt(f, LID_SHUTS, SPRING.settle);
+  if (!gone('trait-proactive')) return lidShut > 0 ? { ...YOU_POSE_B, lidShut } : YOU_POSE_B;
+  return { ...YOU_POSE_B, held: { key: 0, glass: gone('trait-productive') ? 0 : 1, strut: gone('trait-persistent') ? 0 : 1 }, lidShut };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -412,7 +421,7 @@ export function actOneFootprints(a: ActOneState): Footprint[] {
     fp.push(segFp([p[0], p[1], L.z], [q[0], q[1], L.z], L.w / 2 - 1));
   }
   const cp = loopPoint(L, L.clipAt);
-  fp.push(circleFp(cp, 24, 0, 10, 0.7));
+  fp.push(circleFp(cp, 26, 0, 7.8, 0.9));
   // the folders: cover and stack, the pen arm, a raised flag
   FOLDERS.forEach((fl, i) => {
     const s = a.folders[i];
@@ -430,7 +439,7 @@ export function actOneFootprints(a: ActOneState): Footprint[] {
   });
   // the feeders that exist in act one (the Thread's spool comes later)
   fp.push(circleFp(rectC(FEEDERS.chat), (FEEDERS.chat.y1 - FEEDERS.chat.y0) / 2, 0, FEEDER_H.chat, 1));
-  fp.push(rectFp(FEEDERS.ci, 0, FEEDER_H.ci, 1, 8));
+  fp.push(...ciHopperFootprints());
   const G = GENERIC_FEEDERS;
   fp.push(rectFp(G.mailBox, 0, G.mailH, 1, 6));
   fp.push({ kind: 'rect', c: G.envelope.c, h: [G.envelope.w / 2, G.envelope.d / 2], r: 2, rot: G.envelope.rot, z0: G.envelope.z - 0.3, z1: G.envelope.z + 0.6, contact: 0 });
@@ -448,6 +457,18 @@ export function actOneFootprints(a: ActOneState): Footprint[] {
     fp.push({ kind: 'rect', c: [a.flight.pos[0], a.flight.pos[1]], h: [w / 2, d / 2], r: 3, rot: -0.5, z0: a.flight.pos[2] - 1, z1: a.flight.pos[2] + 1, contact: 0 });
   }
   return fp;
+}
+
+/** The CI hopper's footprints: its base, its back wall and its two cheeks (an open hopper: its deck of cards is not in its own shadow). */
+export function ciHopperFootprints(): Footprint[] {
+  const F = FEEDERS.ci;
+  return [
+    rectFp(F, 0, 8, 1, 6),
+    rectFp({ x0: F.x0, x1: F.x0 + 10, y0: F.y0, y1: F.y1 }, 8, FEEDER_H.ci, 1, 2),
+    rectFp({ x0: F.x0, x1: F.x1 - 8, y0: F.y0, y1: F.y0 + 8 }, 8, FEEDER_H.ci - 10, 1, 2),
+    rectFp({ x0: F.x0, x1: F.x1 - 8, y0: F.y1 - 8, y1: F.y1 }, 8, FEEDER_H.ci - 10, 1, 2),
+    rectFp({ x0: F.x0 + 14, x1: F.x1 - 8, y0: F.y0 + 13, y1: F.y1 - 13 }, 8, 8 + 6 * 4.2, 0.6, 3),
+  ];
 }
 
 /** The pen's nib (folder-local, 3D): on the sheet at the end of the newest line, or lifted and swung off it. */
@@ -477,7 +498,14 @@ export function flagTop(fl: FolderLayout, up: number): P3 {
   return [w[0], w[1], p[2]];
 }
 
-/** Act one's one pool: your lamp on the folder it attends (light is attention). */
+/**
+ * Act one's one pool: your lamp on the folder it attends (light is attention), its centre a little toward the lamp
+ * so the folder falls off to its far edge; narrow across, so the neighbours' near edges stay cold.
+ */
+export const POOL_A = { back: 46, sigma: [50, 92] as P2, k: 1.05 } as const;
 export function actOnePools(a: ActOneState): Pool[] {
-  return [{ c: [a.lamp.aim[0], a.lamp.aim[1]], z: [0, 60], sigma: [64, 76], rgb: tint(LIGHT_HEX.yours, 0.85) }];
+  const c = LOOP_A.c;
+  const d: P2 = [a.lamp.aim[0] - c[0], a.lamp.aim[1] - c[1]];
+  const l = Math.hypot(d[0], d[1]) || 1;
+  return [{ c: [a.lamp.aim[0] - (d[0] / l) * POOL_A.back, a.lamp.aim[1] - (d[1] / l) * POOL_A.back], z: [0, 60], sigma: POOL_A.sigma, rgb: tint(LIGHT_HEX.yours, POOL_A.k) }];
 }

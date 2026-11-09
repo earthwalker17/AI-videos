@@ -23,12 +23,12 @@ const GROOVE_IDS = ['bug', 'tests', 'docs', 'fresh'] as const;
 
 /**
  * What the frame sets on the desk (objects set them in layout effects, before the frame is drawn):
- * how much of each groove is cut (the fresh groove is cut in MT1, the others are whole) and up to two
+ * how much of each groove is cut (the fresh groove is cut in MT1, the others are whole) and up to three
  * open hatches, holes in the desk a bay rises or sinks through (x0, y0, x1, y1; far away when shut).
  */
 export const DESK_GROOVE_CUT = { value: [1, 1, 1, 0] };
 export const HOLE_SHUT = (): Vector4 => new Vector4(1e6, 1e6, 1e6, 1e6);
-export const DESK_HOLES = { value: [HOLE_SHUT(), HOLE_SHUT()] };
+export const DESK_HOLES = { value: [HOLE_SHUT(), HOLE_SHUT(), HOLE_SHUT()] };
 
 /** The desk's colours (sRGB hex from the synthesis's palette). */
 export const DESK_HEX = { base: '#212322', tint: '#121312' } as const;
@@ -77,7 +77,7 @@ uniform vec4 uGroove[${GROOVE_IDS.length * GROOVE_PTS}];
 uniform vec4 uGrooveBox[${GROOVE_IDS.length}];
 uniform float uGrooveW;
 uniform float uGrooveCut[${GROOVE_IDS.length}];
-uniform vec4 uHole[2];
+uniform vec4 uHole[3];
 uniform vec4 uImp[${IMPRINTS.length}];
 uniform vec4 uImpRot[${IMPRINTS.length}];
 ${NOISE_GLSL}
@@ -144,10 +144,11 @@ float imprintShade(vec2 p) {
     gr = gr / max(length(gr), 1e-4);
     // the inner wall at the edge faces inward (-gr): lit if that faces the key
     float face = dot(-gr, uLight);
-    float edge = 1.0 - smoothstep(0.0, 2.2, abs(d + 1.2));
+    // an embossed outline that reads at delivery size (8-10 codes off the slate on its lit wall)
+    float edge = 1.0 - smoothstep(0.0, 2.8, abs(d + 1.5));
     float inside = 1.0 - smoothstep(-1.0, 1.0, d);
     // how deep it is pressed (the turn presses the folders in; 1 once they are history)
-    s += uImpRot[i].w * (inside * -0.025 + edge * (face > 0.0 ? 0.05 * face : 0.07 * face));
+    s += uImpRot[i].w * (inside * -0.06 + edge * (face > 0.0 ? 0.62 * face : 0.34 * face));
   }
   return s;
 }
@@ -155,7 +156,7 @@ float imprintShade(vec2 p) {
 void main() {
   vec2 p = vW.xy;
   // an open hatch: the desk is cut away (the bay in it, or the dark below, shows through)
-  for (int h = 0; h < 2; h++) {
+  for (int h = 0; h < 3; h++) {
     vec4 o = uHole[h];
     if (p.x > o.x && p.y > o.y && p.x < o.z && p.y < o.w) discard;
   }

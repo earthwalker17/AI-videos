@@ -14,7 +14,7 @@ import { GREY_TEXT, Label, NotesBlock, lineWidth, type TextLook } from '../kit/t
 import type { FilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
 import { project } from './camera.ts';
-import { BAYS, REEL, YOU, rectC, type P3 } from './layout.ts';
+import { BAYS, REEL_FRAME, REEL_FRAME_Z, YOU, rectC, type P3 } from './layout.ts';
 
 /** Text colours of the Register Desk (synthesis §2, Palette): EN and zh. */
 export const TEXT_HEX = { en: '#ECE9E2', zh: '#BAB7AF', leader: '#C9C6BE' } as const;
@@ -38,11 +38,13 @@ export interface RoleLabel {
   /** entering (the turn): the hairline drawn so far from the foot (0..1), then the label wiped in left to right (0..1); absent: landed */
   leader?: number;
   wipe?: number;
+  /** leaving (a camera move it would ride more than 40 px): its fade out (1 landed .. 0 gone); absent: 1 */
+  opacity?: number;
 }
 
 export const ROLE_LABELS: readonly RoleLabel[] = [
-  // its leader ends on the reel's body; the label sits on clear ground east of the deck
-  { text: WORDS.router.en, foot: [REEL.x + 92, REEL.y - 40, REEL.packZ[1]], dx: 150, dy: 30, anchor: 'start' },
+  // its leader ends on the gantry's frame (the reel frame's east member), naming the whole machine; the label sits on clear ground east of the deck
+  { text: WORDS.router.en, foot: [(REEL_FRAME[2].x0 + REEL_FRAME[2].x1) / 2, 300, REEL_FRAME_Z[1] + 1], dx: 108, dy: 18, anchor: 'start' },
   // the reporting Worker: the leader ends on the test bay's south wall, below its nameplate
   { text: WORDS.worker.en, foot: [rectC(BAYS.tests.box)[0] + 70, BAYS.tests.box.y0 + 3, 20], dx: 52, dy: 58, anchor: 'start' },
   // beside your desk: a clear hairline from the slab's west edge out to the label (design D3)
@@ -101,7 +103,8 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
                   </clipPath>
                 </defs>
                 <line x1={a[0]} y1={a[1]} x2={a[0] + (b[0] - a[0]) * k} y2={a[1] + (b[1] - a[1]) * k} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />
-                <circle cx={a[0]} cy={a[1]} r={4} fill={TEXT_HEX.en} />
+                {/* the foot's dot grows with its leader (and shrinks with it as a label exits) */}
+                <circle cx={a[0]} cy={a[1]} r={4 * Math.min(1, 3 * k)} fill={TEXT_HEX.en} />
                 {(l.wipe ?? 1) > 0 && (
                   <g clipPath={`url(#${id})`}>
                     <Label x={x} y={y} text={l.text} family={fonts.sans} size={size} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={l.anchor} />
@@ -111,7 +114,7 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
             );
           }
           return (
-            <g key={l.text}>
+            <g key={l.text} opacity={l.opacity}>
               <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />
               <circle cx={a[0]} cy={a[1]} r={4} fill={TEXT_HEX.en} />
               <Label x={x} y={y} text={l.text} family={fonts.sans} size={size} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={l.anchor} />

@@ -40,7 +40,7 @@ export interface DeskFrameProps {
   /** the desk's state at a film frame (default: state.ts deskStateAt) */
   stateAt?: (f: number) => DeskState;
   /** which strings the printed textures print (default all): a planned shot prints the rest as marks */
-  printKeep?: (text: string) => boolean;
+  printKeep?: (text: string) => boolean | 'texture';
 }
 
 export function DeskFrame({ f, angle, bloom, objects, footprints, poseAt, span = LOOKDEV_SPAN, labels, tags, stateAt = deskStateAt, printKeep }: DeskFrameProps) {

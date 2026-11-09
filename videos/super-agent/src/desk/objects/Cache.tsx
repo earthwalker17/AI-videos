@@ -16,7 +16,6 @@
  * Every card in the window draws with its own paper material (its dim is a colour, never alpha).
  */
 import { useLayoutEffect, useMemo } from 'react';
-import { Easing } from 'remotion';
 import { BoxGeometry, CircleGeometry, Color, MeshStandardMaterial, PlaneGeometry, type Material, type Texture } from 'three';
 import { slab } from '../geom.ts';
 import { HEX, paper } from '../gl/materials.ts';
@@ -37,8 +36,6 @@ const HEAD_C = rectC(PRINT_HEAD.box);
 const SLOT = { x: HEAD_C[0], y: PRINT_HEAD.box.y0 - 0.2, z: 150, w: CARD_C.d * CARD_C.header + 4, h: 3.4 } as const;
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
-/** The film's move curve, bezier(.2, 0, 0, 1) (TREATMENT Motion grammar). */
-const MOVE = Easing.bezier(0.2, 0, 0, 1);
 /** The card stands as it rises out of the slot, and lies at the mouth's tilt once docked. */
 const RISE_TILT = Math.PI / 2 - 0.2;
 const DOCK_TILT = 0.28;
@@ -53,6 +50,9 @@ const HY = D - HH;
 /** In the card's frame: the strip's centre, and the crease the body folds along (the body's middle). */
 const STRIP_Y = D / 2 - HH / 2;
 const CREASE_Y = -D / 2 + HY / 2;
+
+/** How far the folding paper bows (radians the inner strip lags and the outer leads mid-fold). */
+const BOW = 0.42;
 
 /** A card's place in the window at its shrink k: its west edge, its width. */
 export function cellAt(i: number, k: number): { x0: number; w: number } {
@@ -99,11 +99,15 @@ function useCacheGeometry() {
     // the body's halves about the crease (the crease frame: y = 0 on the crease). The south half turns up over
     // the north one, so its back (the tab's face, the ID upright once folded) comes up
     const north = faceUV(new BoxGeometry(W, HY / 2, 0.8).translate(0, HY / 4, 0), (x, y) => [(x + W / 2) / W, (y + HY / 2) / D]);
-    const south = faceUV(
-      new BoxGeometry(W, HY / 2, 0.8).translate(0, -HY / 4, 0),
-      (x, y) => [(x + W / 2) / W, (y + HY / 2) / D],
-      (x, y) => [(x + W / 2) / W, -y / (HY / 2)],
-    );
+    // the south half as two strips, so the fold bends the paper (the outer strip leads, the inner lags) rather than
+    // flipping it as a board: the inner strip next to the crease, the outer one hinged at the inner's far edge
+    const strip = (off: number) =>
+      faceUV(
+        new BoxGeometry(W, HY / 4, 0.8).translate(0, -HY / 8, 0),
+        (x, y) => [(x + W / 2) / W, (y + off + HY / 2) / D],
+        (x, y) => [(x + W / 2) / W, -(y + off) / (HY / 2)],
+      );
+    const south = { inner: strip(0), outer: strip(-HY / 4) };
     // one card in the window, a unit quad posed per frame; a window bar
     const bar = slab({ x0: 0, x1: CACHE_WINDOW.bar, y0: WINDOW.frame.y0 + WINDOW.bar - 1, y1: WINDOW.frame.y1 - WINDOW.bar + 1 }, TAPE.z, WINDOW.z[1] - 2, 1, 0.5);
     const light = new CircleGeometry(4.6, 24);
@@ -216,14 +220,16 @@ export function Cache({ s }: { s: DeskState }) {
   const crease0 = creaseDocked(dockP);
   // the body (and the folded tab): from the dock to its rest in the drawer, an arc that clears the mouth's rim,
   // then on spring-dock into place (it overshoots a little and settles) with a 3% squash at contact
-  const d = c.drop;
+  const d = Math.max(0, c.drop);
+  // its launch's anticipation (a negative drop: state.ts cacheAt): it lifts a little and draws back before it goes
+  const ant = c.drop < 0 ? -c.drop / 0.04 : 0;
   const settle = c.landed ?? 0;
   const sink = c.landed !== null ? 2.2 * (1 - settle) : 0;
-  // it slides across first (the move curve, decelerating over the drawer), then drops in (accelerating) once clear of the drawer's wall
-  const across = MOVE(d);
+  // it slides across (eased in and out), then drops in (accelerating) once clear of the drawer's wall
+  const across = d;
   const down = Math.max(0, (d - 0.7) / 0.3) ** 2;
-  const bodyP: P3 = d <= 0 ? crease0 : [lerp(crease0[0], TAB_REST_C[0], across), lerp(crease0[1], TAB_REST_C[1], across), lerp(crease0[2], TAB_REST_C[2], down) + 6 * Math.sin(Math.PI * Math.min(1, d / 0.7)) + sink];
-  const lean = d <= 0 ? DOCK_TILT : lerp(DOCK_TILT, TAB_LEAN_C, d) + (c.landed !== null ? 0.05 * (1 - settle) : 0);
+  const bodyP: P3 = d <= 0 ? [crease0[0], crease0[1] + 1.6 * ant, crease0[2] + 2.6 * ant] : [lerp(crease0[0], TAB_REST_C[0], across), lerp(crease0[1], TAB_REST_C[1], across), lerp(crease0[2], TAB_REST_C[2], down) + 6 * Math.sin(Math.PI * Math.min(1, d / 0.7)) + sink];
+  const lean = d <= 0 ? DOCK_TILT + 0.08 * ant : lerp(DOCK_TILT, TAB_LEAN_C, d) + (c.landed !== null ? 0.05 * (1 - settle) : 0);
   const turn = TAB_TURN_C * d;
   const sq = 0.03 * c.squash;
   const showBody = (c.docked && !c.docked.headerOn) || d > 0;
@@ -276,10 +282,15 @@ export function Cache({ s }: { s: DeskState }) {
       {showBody && (
         <group position={bodyP} rotation={[lean, 0, turn, 'ZXY']} scale={[1 + sq, 1 - sq, 1]}>
           <mesh geometry={g.north} material={faces} />
-          {/* the south half turns up over the crease onto the north half: its back (the tab's face, the ID) comes up */}
-          <group position={[0, 0, 0.4]} rotation={[-Math.PI * c.fold, 0, 0]}>
+          {/* the south half turns up over the crease onto the north half, bending as it goes: its back (the tab's face, the ID) comes up */}
+          <group position={[0, 0, 0.4]} rotation={[-(Math.PI * c.fold - BOW * Math.sin(Math.PI * c.fold)), 0, 0]}>
             <group position={[0, 0, -0.4]}>
-              <mesh geometry={g.south} material={southFaces} />
+              <mesh geometry={g.south.inner} material={southFaces} />
+              <group position={[0, -HY / 4, 0.4]} rotation={[-2 * BOW * Math.sin(Math.PI * c.fold), 0, 0]}>
+                <group position={[0, 0, -0.4]}>
+                  <mesh geometry={g.south.outer} material={southFaces} />
+                </group>
+              </group>
             </group>
           </group>
         </group>

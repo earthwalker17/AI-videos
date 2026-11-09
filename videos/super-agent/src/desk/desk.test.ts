@@ -3,10 +3,10 @@ import { CELLS, NAMEPLATE, PRINT_STRINGS, REPLY, REPORT, REPORT_C } from '../pri
 import { D1, FRAMING_B, FRAMING_C, cameraAt, deskCamera, project, projectBox } from './camera.ts';
 import { footprintsAt, KIND, MAX_FOOTPRINTS, cullRadius, packFootprints, staticFootprints, type Footprint } from './footprints.ts';
 import { neutral, preToe } from './gl/post.ts';
-import { BAYS, BENCH, CELLS_X, CORDS, DECK, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, TAPE, TOWER, WINDOW, penumbra, PENUMBRA_K, shadowOffset, towerTop, type BayId } from './layout.ts';
+import { BAYS, BENCH, CARD, CELLS_X, CORDS, DECK, DISPATCH, FRESH, HATCH_DEPTH, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, SLIP, TAPE, TOWER, WINDOW, penumbra, PENUMBRA_K, shadowOffset, towerTop, type BayId, type P3 } from './layout.ts';
 import { MAX_POOLS, linearOf, packPools, poolsAt } from './pools.ts';
 import { ROUND2, MOTION_TESTS } from '../lookdev/frames.ts';
-import { cardArc, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, LAMP_STEPS, SLIP_LANDS, SLIP_RIDE_FROM } from './state.ts';
+import { CAP_SLOT, CARD_STAND, REPLY_PATH, cardArc, cardRise, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, LAMP_STEPS, SLIP_LANDS, SLIP_RIDE_FROM, replyPose } from './state.ts';
 
 const B = deskStateAt(ROUND2.stillB);
 
@@ -131,13 +131,16 @@ describe('desk footprints', () => {
   it('fits the shaders at every frame of the lookdev span', () => {
     for (const f of [2100, 2190, 2200, 2210, 2340]) expect(footprintsAt(deskStateAt(f)).length).toBeLessThanOrEqual(MAX_FOOTPRINTS);
   });
-  it('adds the card (flying, docked, its tab dropping) and the slip while it rides', () => {
-    const base = staticFootprints().length;
-    expect(footprintsAt(B).length).toBe(base + 1);
+  it('adds the card (rising, flying, docked, its tab in the drawer) and the reply while it rides', () => {
+    // the static ones and the print head's hammer (always cast, from wherever its stroke has it)
+    const base = staticFootprints().length + 1;
+    // still B: the tab in the drawer and the reply in the chute
+    expect(footprintsAt(B).length).toBe(base + 2);
     expect(footprintsAt(deskStateAt(2185)).length).toBe(base + 1);
-    // MT1's next chat slip lands at the gate at 2240 (state.ts EVENTS_D)
-    expect(footprintsAt(deskStateAt(2240)).length).toBe(base + 1);
+    // MT1's next chat slip lands at the gate at 2240 (state.ts EVENTS_D), the tab still in the drawer
+    expect(footprintsAt(deskStateAt(2240)).length).toBe(base + 2);
     expect(footprintsAt(deskStateAt(2150)).length).toBe(base);
+    for (let f = MOTION_TESTS.mt1[0]; f < MOTION_TESTS.mt1[1]; f++) expect(footprintsAt(deskStateAt(f)).length).toBeLessThanOrEqual(MAX_FOOTPRINTS);
   });
   it('culls no farther than the shadow and contact reach', () => {
     const fp: Footprint = { kind: 'rect', c: [0, 0], h: [50, 20], r: 3, rot: 0, z0: 0, z1: 120, contact: 1 };
@@ -208,13 +211,21 @@ describe('desk state at still B (C12)', () => {
     expect(ROUND2.stillB).toBeGreaterThan(MOTION_TESTS.mt1[0]);
     expect(ROUND2.stillB).toBeLessThan(MOTION_TESTS.mt1[1]);
   });
-  it('runs the handshake in cause order inside MT1: fly, dock, stamp, detent, fold, drop, arm, emerge, ride, land, lamp', () => {
+  it('runs the handshake in cause order inside MT1: lamps out, cap, rise, fly, dock, detent, stamp, fold, drop; arm, reply, land, lamp', () => {
     const E = EVENTS_B;
-    const order = [E.testsCap, E.cardEject, E.cardEject + E.cardFly, E.reelDetent, E.header, E.stampIn, E.fold, E.tabDrop, E.tabDrop + E.tabFrames, E.slipLeave, SLIP_RIDE_FROM, SLIP_LANDS, E.lampUp];
+    const order = [E.lampsOut, E.testsCap, E.cardEmerge, E.cardEject, E.cardEject + E.cardFly, E.reelDetent, E.stampIn, E.fold, E.tabDrop, E.tabDrop + E.tabFrames];
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
+    // the cap lands on the downbeat, before the card rises out of its slot; the last lamp is out before the cap moves
+    expect(E.testsCap + E.capFrames).toBe(2160);
+    expect(E.cardEmerge).toBeGreaterThanOrEqual(E.testsCap + E.capFrames);
+    expect(E.lampsOut + 2 * E.lampStagger + E.lampFrames).toBeLessThanOrEqual(E.testsCap);
+    // the reply follows the stamp-in's ink and the arm's detent; it lands, then your lamp answers
     expect(E.armTurn).toBeGreaterThan(E.stampIn);
     expect(E.armTurn + 6).toBeLessThanOrEqual(E.slipLeave);
-    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
-    expect(E.testsCap).toBeGreaterThanOrEqual(MOTION_TESTS.mt1[0]);
+    expect(E.slipLeave).toBeGreaterThan(E.stampIn + 4);
+    expect(SLIP_RIDE_FROM).toBeLessThan(SLIP_LANDS);
+    expect(SLIP_LANDS).toBeLessThan(E.lampUp);
+    expect(E.lampsOut).toBeGreaterThanOrEqual(MOTION_TESTS.mt1[0]);
     expect(E.lampUp + 10).toBeLessThan(MOTION_TESTS.mt1[1]);
     // the arm settles (about 6 f) before the reply moves
     expect(Math.abs(deskStateAt(E.slipLeave).arm - DETENT.you)).toBeLessThan(0.05);
@@ -228,9 +239,13 @@ describe('desk state at still B (C12)', () => {
     }
     expect(deskStateAt(E.cardEject + E.cardFly).transit).toBe(0);
   });
-  it('has the stamp-in done, the card folded away, the arm west and the reply 60-70% down the chute, clear of the arm', () => {
+  it('has the stamp-in done, the card folded into its tab in the drawer, the arm west and the reply 60-70% down the chute, clear of the arm', () => {
     expect(B.card).toBeNull();
-    expect(B.dock?.gone).toBe(true);
+    expect(B.dock?.fold).toBe(1);
+    expect(B.dock?.landed).toBe(1);
+    expect(B.cardOut).toBeNull();
+    expect(B.testsCap).toBe(1);
+    for (const l of B.lamps) expect(l).toBe(0);
     expect(B.cellLit).toBeGreaterThan(0.99);
     expect(B.reel).toBeGreaterThan(0.95);
     expect(B.arm).toBeCloseTo(DETENT.you, 2);
@@ -280,11 +295,11 @@ describe('micro-print', () => {
 describe('MT1 after the reply: the next dispatch (state.ts EVENTS_D)', () => {
   it('runs in cause order inside MT1: slip, post, belt, loupe, notch, feed, detent, stamp, arm, cut, hatch, rise, folder, door, dock, light', () => {
     const E = EVENTS_D;
-    const order = [E.slipOut, E.post, E.belt, E.loupe, E.scan, E.notch, E.feed, E.reelDetent, E.stampIn, E.armTurn, E.cut, E.hatch, E.rise, E.folderOut, E.ramp, E.groove, E.doorUp, E.dock, E.doorDown, E.light];
+    const order = [E.slipOut, E.post, E.belt, E.loupe, E.scan, E.notch, E.feed, E.reelDetent, E.stampIn, E.armTurn, E.cut, E.hatch, E.rise, E.folderOut, E.ramp, E.doorUp, E.groove, E.dock, E.doorDown, E.light];
     for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
-    // the post lands at the gate on f2240 (TREATMENT MT1) and the door lifts 4 f before the folder arrives
+    // the post lands at the gate on f2240 (TREATMENT MT1); the hatch is open before the bay rises
     expect(E.post + E.postFrames).toBe(2240);
-    expect(E.dock - E.doorUp).toBe(4);
+    expect(E.hatch + E.hatchFrames).toBeLessThanOrEqual(E.rise);
     expect(E.slipOut).toBeGreaterThan(ROUND2.stillB);
     expect(E.light + 10).toBeLessThanOrEqual(MOTION_TESTS.mt1[1]);
   });
@@ -304,6 +319,62 @@ describe('MT1 after the reply: the next dispatch (state.ts EVENTS_D)', () => {
       expect(s.transit > 0 && s.next.folderTransit > 0).toBe(false);
     }
     expect(deskStateAt(EVENTS_D.dock).next.folderTransit).toBe(0);
+  });
+  it('lifts the door of the fresh bay fully at least 4 f before the leading edge of the folder reaches it (no effect before its cause)', () => {
+    const doorY = FRESH.box.y1;
+    let reached = -1;
+    for (let f = EVENTS_D.folderOut; f <= EVENTS_D.dock; f++) {
+      const fo = deskStateAt(f).next.folder;
+      if (!fo) continue;
+      // the folder's leading point (its centre plus half its length along its heading)
+      const lead = fo.p[1] + Math.sin(fo.heading) * (DISPATCH.w / 2);
+      if (fo.p[0] > FRESH.door[0] - 10 && lead < doorY + 4 && reached < 0) reached = f;
+    }
+    expect(reached).toBeGreaterThan(0);
+    expect(deskStateAt(reached - 4).next.door).toBeGreaterThan(0.99);
+  });
+  it('moves every carrier continuously: no one-frame swaps of the card, the tab, the reply, the folder or the rising bay', () => {
+    const anchor = (f: number): Record<string, P3 | null> => {
+      const s = deskStateAt(f);
+      const card = s.cardOut !== null ? cardRise(s.cardOut) : s.card ? s.card.pos : null;
+      const reply = s.slip ? replyPose(s.slip).p : null;
+      return { card, reply, folder: s.next.folder?.p ?? null, bay: [0, 0, -HATCH_DEPTH * (1 - s.next.rise)] as P3 };
+    };
+    for (let f = MOTION_TESTS.mt1[0] + 1; f < MOTION_TESTS.mt1[1]; f++) {
+      const a = anchor(f - 1);
+      const b = anchor(f);
+      for (const k of Object.keys(b)) {
+        const p = a[k];
+        const q = b[k];
+        if (!p || !q) continue;
+        expect(Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]), `${k} at f${f}`).toBeLessThan(40);
+      }
+    }
+    // the card is hidden in the tower as it starts to rise (its top edge at the cap), and the reply under the deck
+    expect(cardRise(0)[2] + (CARD.d / 2) * Math.sin(CARD_STAND)).toBeLessThanOrEqual(CAP_SLOT[2] + 0.7);
+    const [a, b] = [REPLY_PATH[0], REPLY_PATH[1]];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const [dx, dy] = [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
+    // every corner of the reply at its start lies under the deck (north of the south rail's face)
+    for (const [u, v] of [
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ])
+      expect(a[1] + (u * SLIP.l * dy) / 2 + (v * SLIP.w * dx) / 2).toBeGreaterThan(DECK.y0);
+  });
+  it('keeps the cells of the window continuous through both stamp-ins: the ink spreads over 3 f after the head drops', () => {
+    for (const [stamp, ink] of [
+      [EVENTS_B.stampIn, (f: number) => deskStateAt(f).ink],
+      [EVENTS_D.stampIn, (f: number) => deskStateAt(f).next.ink],
+    ] as const) {
+      expect(ink(stamp)).toBe(0);
+      expect(ink(stamp + 1)).toBe(0);
+      expect(ink(stamp + 2)).toBeCloseTo(1 / 3, 6);
+      expect(ink(stamp + 3)).toBeCloseTo(2 / 3, 6);
+      expect(ink(stamp + 4)).toBe(1);
+    }
   });
   it('turns the arm to the fresh bay after the stamp-in and settles it before the folder moves', () => {
     expect(deskStateAt(EVENTS_D.armTurn).arm).toBeCloseTo(DETENT.you, 6);

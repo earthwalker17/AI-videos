@@ -21,8 +21,8 @@ import { YourDesk } from './objects/YourDesk.tsx';
 import { Overlay, type RoleLabel } from './Overlay.tsx';
 import { deskStateAt, type DeskState } from './state.ts';
 
-/** "you · 你": a hairline from the desk's east end (it ends on the slab) out past the loop to clear ground. */
-export const ACT_ONE_LABELS: readonly RoleLabel[] = [{ text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [YOU.slab.x1 - 16 + YOU_SHIFT_A[0], rectC(YOU.slab)[1] + YOU_SHIFT_A[1] + 10, YOU.top], dx: 150, dy: 30, anchor: 'start' }];
+/** "you · 你": a hairline from your in-tray's east wall (it ends on a body of your desk) out past the loop to clear ground. */
+export const ACT_ONE_LABELS: readonly RoleLabel[] = [{ text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [YOU.inTray.x1 - 2 + YOU_SHIFT_A[0], rectC(YOU.inTray)[1] + YOU_SHIFT_A[1] - 6, YOU.top + 18], dx: 168, dy: 34, anchor: 'start' }];
 
 export interface ActOneFrameProps {
   /** film frame (the leader excluded) */

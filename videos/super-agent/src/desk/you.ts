@@ -37,18 +37,10 @@ export interface YouPose {
   inTray: boolean;
   /** the earlier reply lies in it (default: yes; the turn's in-tray holds only Fix B's replies, which it draws itself) */
   inTraySlip?: boolean;
+  /** the laptop's lid shut for the night (0 open … 1 shut; default open: STORYBOARD 9.1, f4560) */
+  lidShut?: number;
 }
 
-/** Your desk after the turn (the act-two pose every style frame from (b) on draws). */
-export const YOU_POSE_B: YouPose = {
-  shift: [0, 0],
-  lamp: { base: LAMP.base, elbow: LAMP.elbow, head: LAMP.head, aim: LAMP.aim },
-  bulb: null,
-  bulbOut: 0,
-  strut: 'tray',
-  held: { key: 1, glass: 1, strut: 1 },
-  inTray: true,
-};
 
 /** The lamp's arm lengths (from the base's swivel to the elbow, the elbow to the head), kept by every pose. */
 export const LAMP_FOOT_Z = 16;
@@ -75,6 +67,20 @@ export function lampElbow(base: P3, head: P3, pole: P3): P3 {
   return [f[0] + a * u[0] + r * v[0], f[1] + a * u[1] + r * v[1], f[2] + a * u[2] + r * v[2]];
 }
 
+/**
+ * Your desk after the turn (the act-two pose every style frame from (b) on draws). The lamp's elbow bends up and
+ * south over your own desk (the Λ seen from the camera), clear of the heap that lies north-west of it.
+ */
+export const YOU_POSE_B: YouPose = {
+  shift: [0, 0],
+  lamp: { base: LAMP.base, elbow: lampElbow(LAMP.base, LAMP.head, [0.25, -0.62, 0.74]), head: LAMP.head, aim: LAMP.aim },
+  bulb: null,
+  bulbOut: 0,
+  strut: 'tray',
+  held: { key: 1, glass: 1, strut: 1 },
+  inTray: true,
+};
+
 // ------------------------------------------------------------------------------------------------
 // The chore tray, a shadow board (desk coordinates; the tray is `YOU.tray`)
 
@@ -87,8 +93,8 @@ export const TRAY_Z = { floor: YOU.top + 3, plate: YOU.top + 7 } as const;
  */
 export const CHORES = {
   key: { c: [YOU.tray.x0 + 40, TRAY_C[1] - 3] as P2, bowY: 24, bowR: 14, shank: [-32, 10] as const, bit: { x: [3, 17] as const, y: [-32, -15] as const } },
-  glass: { c: [YOU.tray.x0 + 102, TRAY_C[1]] as P2, half: [14, 30] as const },
-  strut: { c: [YOU.tray.x0 + 152, TRAY_C[1]] as P2, half: [7, 38] as const },
+  glass: { c: [YOU.tray.x0 + 100, TRAY_C[1]] as P2, half: [20, 34] as const },
+  strut: { c: [YOU.tray.x0 + 154, TRAY_C[1]] as P2, half: [9, 40] as const },
 } as const;
 /** A recess is cut this much wider than its chore. */
 export const RECESS_GAP = 3;

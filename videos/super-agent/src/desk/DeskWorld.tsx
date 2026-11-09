@@ -94,7 +94,7 @@ export interface DeskWorldProps {
   /** which history marks the desk shows (default: all) */
   marks?: DeskMarks;
   /** which strings the printed textures print (default all; gl/text.ts makePrintTextures) */
-  printKeep?: (text: string) => boolean;
+  printKeep?: (text: string) => boolean | 'texture';
 }
 
 export function DeskWorld({ s, pose, bloom, printFamily, sansFamily, children, footprints, pools, marks, printKeep }: DeskWorldProps) {

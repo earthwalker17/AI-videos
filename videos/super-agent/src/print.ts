@@ -70,8 +70,6 @@ export const FANFOLD_FINE = ['13:46 ack', '13:47 route', '13:48 ack', '13:49 ski
 export const GALLEY_FINE = ['guide', 'setup', 'usage', 'options', 'index', 'examples', 'notes', 'changes'] as const;
 export const DOSSIER_FINE = ['notes', 'steps', 'files', 'checks', 'state', 'next'] as const;
 
-/** Type lines set in the docs galley. */
-export const GALLEY = ['Intake', 'Read once,', 'route it'] as const;
 
 /** The reply slip: it cites the report it answers. */
 export const REPLY = ['#0408'] as const;
@@ -144,7 +142,6 @@ export const PRINT_STRINGS: readonly string[] = [
   ...POLICY,
   ...FANFOLD,
   ...REPORT,
-  ...GALLEY,
   ...REPLY,
   ...IN_TRAY.flat(),
   ...Object.values(SLIPS),

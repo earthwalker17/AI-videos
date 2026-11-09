@@ -15,7 +15,7 @@
  * World units as layout.ts. Pure numbers; the poses over time are the turn's.
  */
 import { FOLDERS, YOU_SHIFT_A } from './actOne.ts';
-import { YOU, rectC, type P2 } from './layout.ts';
+import { YOU, rectC, type BayId, type P2 } from './layout.ts';
 
 // ------------------------------------------------------------------------------------------------
 // Fix A: one folder, one long tape
@@ -150,6 +150,16 @@ export const TRAY_CARD = { w: 40, d: 26, dx: -18, dy: 6 } as const;
 export const B_SLIP = { w: 30, l: 62 } as const;
 /** The follow-up in tray 6 whose task is in tray 2: the break mark between them (two stubs that do not meet). */
 export const BREAK = { from: 2, to: 6 } as const;
+/**
+ * At the turn eight event trays become three task bays: the three whose replies come home first wall up into
+ * (b)'s bays (each nearest its bay's place south of the deck); the other five are pressed flat into the desk.
+ */
+export const BAY_TRAYS: readonly { k: number; id: BayId }[] = [
+  { k: 4, id: 'tests' },
+  { k: 5, id: 'docs' },
+  { k: 6, id: 'bug' },
+];
+export const PRESS_TRAYS: readonly number[] = [0, 1, 2, 3, 7];
 
 /** Your in-tray in act one (world): YOU.inTray at the act-one shift. */
 export const IN_TRAY_A_C: P2 = [rectC(YOU.inTray)[0] + YOU_SHIFT_A[0], rectC(YOU.inTray)[1] + YOU_SHIFT_A[1]];
@@ -166,6 +176,10 @@ export const IN_TRAY_PILE: readonly { o: P2; rot: number }[] = [
 ];
 
 // ------------------------------------------------------------------------------------------------
-// Imprints: every act-one folder, and Fix A's, pressed into the desk at the turn (history at −2)
+// Imprints: every act-one folder, Fix A's and the five pressed trays, pressed into the desk at the turn (history at −2)
 
-export const IMPRINTS: readonly { c: P2; w: number; d: number; rot: number }[] = [...FOLDERS.map((fl) => ({ c: fl.c, w: fl.w, d: fl.d, rot: fl.rot })), { c: FIX_A_FOLDER.c, w: FIX_A_FOLDER.w, d: FIX_A_FOLDER.d, rot: FIX_A_FOLDER.rot }];
+export const IMPRINTS: readonly { c: P2; w: number; d: number; rot: number }[] = [
+  ...FOLDERS.map((fl) => ({ c: fl.c, w: fl.w, d: fl.d, rot: fl.rot })),
+  { c: FIX_A_FOLDER.c, w: FIX_A_FOLDER.w, d: FIX_A_FOLDER.d, rot: FIX_A_FOLDER.rot },
+  ...PRESS_TRAYS.map((k) => ({ c: TRAYS[k].c, w: TRAYS[k].w, d: TRAYS[k].d, rot: 0 })),
+];

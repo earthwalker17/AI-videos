@@ -4,20 +4,21 @@
  *
  * Around style frame (b) (C12 "Workers report up. Only the Router talks to you.") the handshake runs
  * in cause order (STORYBOARD 4.6, synthesis §5 MT1), all inside MT1 (f2140–2340):
- * - 2156 the test tower caps; 2160 (downbeat) its work light dims;
- * - 2163 its report card #0408 leaves the tower and flies 18 f under the transit light (the
- *   treatment's one transit light rides a report card or a dispatch folder, never a reply) up into
- *   the deck's mouth, docking on spring-dock at 2181;
- * - stamp-in: 2183 the print head drops for 4 f; the card's header prints into the newest window
- *   cell (its ID at ≥ 24 px) and the older cells dim a step; 2187 the reel detents one step; 2189
- *   the card's body folds into a tab (8 f) and 2197 the tab drops into the spill drawer (6 f):
- *   Inline & Spill;
+ * - 2140 the test tower's lamps go out one by one as their tests finish (2 f stagger); its cap swings
+ *   shut over 8 f and lands on the 2160 downbeat; its work light dims from there;
+ * - 2160 its report card #0408 rises out of the slot in the cap (4 f), then flies an 18 f arc under the
+ *   transit light (the one transit light rides a report card or a dispatch folder, never a reply), up
+ *   over the deck's rail and down into its mouth, docking on spring-dock at 2182;
+ * - stamp-in: 2183 the reel detents and drives the tape one cell; 2190 the print head drops (4 f) and
+ *   #0408 inks into the newest cell over 3 f (the older cells dim a step with it); 2194 the card folds
+ *   in half along its crease (8 f) into a pointer tab, which drops into the spill drawer from 2203
+ *   (6 f) and stays there, its #0408 face up: Inline & Spill;
  * - 2200 (downbeat) the index arm turns west to you and settles on spring-detent;
- * - 2206 the reply #0408 ok emerges from the slot under the index sector (4 f), rides the chute
- *   from 2210 for 22 f, turns along its exit curve and lands in your in-tray beside #0403 at 2232
- *   (spring-dock, 3% squash); your lamp brightens a step at 2234.
- * Still B (lookdev/frames.ts) is f2218: the cell lit with #0408, the card folded away, the arm
- * west, the reply about 30% down the chute.
+ * - 2206 the reply #0408 slides out from under the deck's south-west corner along the chute's line
+ *   and on down the chute, one motion of 28 f, landing in your in-tray at 2234 (spring-dock, 3%
+ *   squash); your lamp brightens a step at 2236.
+ * Still B (lookdev/frames.ts) is f2225: the cell inked with #0408, the tab in the drawer, the arm
+ * west, the reply about 60% down the chute.
  *
  * Focus (synthesis §2): during a beat, what is not part of its action steps down to 55% contrast and
  * 30% chroma over 14 f (`stepAt`). Easing uses the film's spring tokens, mass 1.
@@ -26,7 +27,7 @@ import { clamp, easings } from '@aiv/core';
 import { Curve } from '@aiv/remotion-kit';
 import { Easing, spring } from 'remotion';
 import { BEAT, FPS } from '../cues.ts';
-import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, DRAWER_OPEN_C, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, rectC, towerTop, type P2, type P3 } from './layout.ts';
+import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, DRAWER_OPEN_C, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, YOU, rectC, towerTop, type P2, type P3 } from './layout.ts';
 
 /** Remotion spring configs from the synthesis's tokens (mass 1, c = 2ζ√k). Remotion's default spring is never used. */
 export const SPRING = {
@@ -43,28 +44,34 @@ export const springAt = (f: number, start: number, config: (typeof SPRING)[keyof
 
 /** The handshake round C12 (film frames). */
 export const EVENTS_B = {
-  testsCap: 2160,
+  /** the test lamps go out one by one as their tests finish: 4 f each, 2 f apart */
+  lampsOut: 2140,
+  lampStagger: 2,
+  lampFrames: 4,
+  /** the cap swings shut over 8 f (falling, the move curve's tail), landing on the downbeat */
+  testsCap: 2152,
+  capFrames: 8,
   testsDim: 2160,
-  /** the card is pushed out of the slot in the tower's cap (4 f), then flies */
+  /** the card is pushed up out of the slot in the tower's cap (4 f), then flies */
   cardEmerge: 2160,
   cardEject: 2164,
   cardFly: 18,
-  /** the reel detents and drives the tape on one cell (7 f) while the header slides up from the holder */
+  /** the reel detents and drives the tape on one cell (7 f) */
   reelDetent: 2183,
   tapeFrames: 7,
-  header: 2184,
-  headerFrames: 6,
-  /** the print head drops (4 f) and #0408 prints into the newest cell, its ink spreading over 3 f */
+  /** the print head drops (4 f) and #0408 inks into the newest cell, its ink spreading over 3 f */
   stampIn: 2190,
   /** the test tower steps down once it has reported */
   testsStep: 2186,
-  fold: 2193,
+  /** the card folds in half along its crease (8 f), then the tab drops into the spill drawer (6 f) and stays */
+  fold: 2194,
   foldFrames: 8,
-  tabDrop: 2201,
+  tabDrop: 2203,
   tabFrames: 6,
   armTurn: 2200,
-  slipLeave: 2208,
-  emergeFrames: 4,
+  /** the reply: out from under the deck (its lead-in) and down the chute, one motion */
+  slipLeave: 2206,
+  emergeFrames: 6,
   slipRide: 22,
   lampUp: 2236,
   /** the bug bay's pins flip one per beat from here (4 f each), cycling through the six */
@@ -77,8 +84,8 @@ export const SLIP_LANDS = SLIP_RIDE_FROM + EVENTS_B.slipRide;
 
 /** The angle (radians, from +x) of the index arm's detents: toward each party it can address. */
 export const DETENT = {
-  /** toward you, stopping at the chute's lip (never over the reply) */
-  you: Math.atan2(CHUTE[0][1] - 14 - INDEX.pivot[1], CHUTE[0][0] - 8 - INDEX.pivot[0]),
+  /** toward you (west-south-west), its tip at the chute's north lip: the reply slides out under the deck and down the chute clear of it */
+  you: (-165 * Math.PI) / 180,
   tests: Math.atan2(139 - INDEX.pivot[1], -232 - INDEX.pivot[0]),
   docs: Math.atan2(139 - INDEX.pivot[1], 150 - INDEX.pivot[0]),
   bug: Math.atan2(90 - INDEX.pivot[1], 298 - INDEX.pivot[0]),
@@ -93,7 +100,7 @@ export const LAMP_DIMS = 2340;
 export const LAMP_STEPS = { dim: 0.62, up: 0.9 } as const;
 
 /** What steps down during a beat: everything not in its action. */
-export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge';
+export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge' | 'head' | 'index' | 'mouth';
 /** No Thread cord before C17's beat: it first pays out at 7.1 (f3440); before that a Thread is a row on the tape (design D1). */
 export const CORD_FROM = 3440;
 /**
@@ -119,8 +126,8 @@ export interface DeskState {
   lamp: number;
   /** the report card in flight: arc progress 0..1, world position (null when not flying) */
   card: { s: number; pos: P3 } | null;
-  /** the card at the mouth: docked (settling on spring-dock), folding into a tab, the tab dropping into the drawer */
-  dock: { settle: number; fold: number; drop: number; gone: boolean } | null;
+  /** the card at the mouth: docked (settling on spring-dock), folding in half into a tab, the tab dropping into the spill drawer and landing (spring-dock, then still); it stays until the cache's cards take the window (f3000) */
+  dock: { settle: number; fold: number; drop: number; landed: number | null; squash: number } | null;
   /** the print head's stamp 0..1 (down at 1) */
   stamp: number;
   /** the stamp-in: the newest cell carries the new report (0 before, 1 after) and lights */
@@ -137,12 +144,12 @@ export interface DeskState {
   cardOut: number | null;
   /** the tape advancing one cell, driven by the reel's detent (0..1) */
   tape: number;
-  /** the report's header sliding up from the holder to the print head (0..1, 1 = arrived) */
-  header: number;
   /** the #0408 ink spreading in the newest cell (0..1) */
   ink: number;
   /** the test tower's cap: 0 open → 1 closed */
   testsCap: number;
+  /** each of the test tower's three lamps, bottom up: 1 lit (its test running) → 0 out (finished) */
+  lamps: number[];
   /** the bug bay's work slot (computing): 1 */
   bugLight: number;
   /** each of the bug bay's six pins: 0 graphite face up (not run) → 1 enamel face up (passed) */
@@ -158,6 +165,12 @@ export interface DeskState {
   /** the finished test bay sinking into its hatch (0..1, spring-heavy) */
   testsSink: number;
 }
+
+/** The print head's hammer at its stroke h (0 raised clear of the tape, 1 down on the newest cell): it rocks east as it falls, so its drop reads from above. */
+export const hammerOffset = (h: number): [number, number, number] => [3.5 * h, 0, 12 - 13 * h];
+
+/** The one transit light along a flight of `length` frames, `t` frames in: in over 4 f, out over the last 6 f on a squared ramp (its last frames under the bloom's threshold). */
+export const transitRamp = (t: number, length: number): number => clamp(t / 4) * clamp((length - t) / 6) ** 2;
 
 /** Arc length positions along a polyline (for the chute ride). */
 export function polylineAt(pts: readonly P3[], s: number): { p: P3; dir: P3 } {
@@ -177,20 +190,42 @@ export function polylineAt(pts: readonly P3[], s: number): { p: P3; dir: P3 } {
   return { p: pts[pts.length - 1], dir: [0, 0, 0] };
 }
 
-/** The card's flight: from the tower's lens cap up into the mouth, a parabolic arc `apex` above the chord. */
-export const CARD_FROM: P3 = [TOWER.x, TOWER.y, towerTop() + TOWER.dome + 2];
-export const CARD_TO: P3 = MOUTH.land;
+/**
+ * The slot in the test tower's cap: across the cap's south half, where its chord is wider than the card.
+ * The card stands in it, its face to the south, and rises out of it before it flies.
+ */
+export const CAP_SLOT: P3 = [TOWER.x, TOWER.y - 14, towerTop() + TOWER.dome];
+/** The standing card's centre, risen `out` (0: its top edge at the cap's top, all of it inside the tower; 1: its foot at the cap's top). */
+export const cardRise = (out: number): P3 => [CAP_SLOT[0], CAP_SLOT[1], CAP_SLOT[2] + (CARD.d / 2) * (2 * clamp(out) - 1) + 0.6];
+/** The card's flight: from standing clear of the slot, up over the deck's south rail and down into the mouth, an arc `apex` above the chord. */
+export const CARD_FROM: P3 = cardRise(1);
+/** Where it docks: on the mouth, its foot clear of the hopper's south wall, its head resting over the south rail. */
+export const DOCK_B: P3 = [MOUTH.land[0], MOUTH.land[1], MOUTH.z[1] - 2];
+export const CARD_TO: P3 = DOCK_B;
 export function cardArc(s: number): { pos: P3 } {
   const u = clamp(s);
   return { pos: [CARD_FROM[0] + (CARD_TO[0] - CARD_FROM[0]) * u, CARD_FROM[1] + (CARD_TO[1] - CARD_FROM[1]) * u, CARD_FROM[2] + (CARD_TO[2] - CARD_FROM[2]) * u + 4 * CARD.apex * u * (1 - u)] };
 }
+/** The card's tilt about x: standing (leaning back a little) as it leaves the slot, lying at the mouth's tilt by two thirds of its flight. */
+export const CARD_STAND = Math.PI / 2 - 0.16;
+export const CARD_DOCK_TILT = 0.28;
+export const cardTilt = (s: number): number => CARD_DOCK_TILT + (CARD_STAND - CARD_DOCK_TILT) * (1 - Math.min(1, clamp(s) / 0.66)) ** 2;
 
-/** Where the folded tab falls: from the mouth into the spill drawer (an arc, dropping). */
-export const TAB_FROM: P3 = MOUTH.land;
-export const TAB_TO: P3 = [rectC(DRAWER.box)[0], rectC(DRAWER.box)[1], DRAWER.z[0] + 8];
+/**
+ * The folded tab (the card folded in half along its crease, #0408 face up) and where it comes to rest:
+ * standing on its fold in the spill drawer's front, leaning back on the filed tabs, its face to the
+ * camera above the drawer's front plate.
+ */
+export const TAB_B = { w: CARD.w, d: CARD.d / 2 } as const;
+export const TAB_REST_B: P3 = [rectC(DRAWER.box)[0], DRAWER.box.y0 + 5, DRAWER.z[0] + 4];
+export const TAB_LEAN_B = 0.86;
+/** The tab's path from the mouth to its rest: across first (the move curve), then down into the drawer once clear of its wall. */
 export function tabArc(u: number): P3 {
   const t = clamp(u);
-  return [TAB_FROM[0] + (TAB_TO[0] - TAB_FROM[0]) * t, TAB_FROM[1] + (TAB_TO[1] - TAB_FROM[1]) * t, TAB_FROM[2] + (TAB_TO[2] - TAB_FROM[2]) * t * t + 14 * t * (1 - t)];
+  const a = DOCK_B;
+  const across = Easing.bezier(0.2, 0, 0, 1)(t);
+  const down = Math.max(0, (t - 0.55) / 0.45) ** 2;
+  return [a[0] + (TAB_REST_B[0] - a[0]) * across, a[1] + (TAB_REST_B[1] - a[1]) * across, a[2] + (TAB_REST_B[2] - a[2]) * down + 10 * Math.sin(Math.PI * Math.min(1, t / 0.55))];
 }
 
 /** The focus step-down at film frame f: ramps in over STEP_FRAMES from a beat's start, out after its end. */
@@ -206,39 +241,42 @@ export function stepAt(f: number): DeskState['step'] {
 /** The state of the desk at film frame `f` (pure). */
 export function deskStateAt(f: number): DeskState {
   const E = EVENTS_B;
-  // the test tower finishes: cap, dim; its card flies up into the mouth
-  const testsCap = springAt(f, E.testsCap, SPRING.detent);
+  // the test tower finishes: its lamps go out one by one, its cap swings shut onto the downbeat, its light dims; its card flies up into the mouth
+  const lamps = [0, 1, 2].map((i) => 1 - sine((f - E.lampsOut - i * E.lampStagger) / E.lampFrames));
+  const testsCap = easings.inCubic(clamp((f - E.testsCap) / E.capFrames));
   const testsLight = 1 - springAt(f, E.testsDim, SPRING.effects);
   const fly = (f - E.cardEject) / E.cardFly;
   const card = fly >= 0 && fly < 1 ? { s: easings.inOutSine(fly), pos: cardArc(easings.inOutSine(fly)).pos } : null;
-  // the transit light fades in over 4 f after the card leaves and out over the 4 f before it docks (dark in the dock frame)
+  // the transit light ramps in over 4 f after the card leaves and out over the 6 f before it docks (spring-effects-like, under the bloom by its last frame; dark in the dock frame)
   const flown = f - E.cardEject;
-  const transit = card ? clamp(flown / 4) * clamp((E.cardFly - flown) / 4) : 0;
-  // at the mouth: dock (spring-dock settle), stamp, fold, the tab drops into the drawer
-  const docked = f >= E.cardEject + E.cardFly;
+  const transit = card ? transitRamp(flown, E.cardFly) : 0;
+  // at the mouth: dock (spring-dock settle), stamp, fold in half, the tab drops into the drawer and lands there (it stays until the cache takes the window)
+  const docked = f >= E.cardEject + E.cardFly && f < EVENTS_C.from;
+  const landAt = E.tabDrop + E.tabFrames;
   const dock = docked
     ? {
         settle: springAt(f, E.cardEject + E.cardFly, SPRING.dock),
         fold: easings.inOutSine(clamp((f - E.fold) / E.foldFrames)),
         drop: clamp((f - E.tabDrop) / E.tabFrames),
-        gone: f >= E.tabDrop + E.tabFrames,
+        landed: f >= landAt ? (f - landAt >= 12 ? 1 : springAt(f, landAt, SPRING.dock)) : null,
+        squash: f < landAt ? 0 : Math.max(0, 1 - (f - landAt) / 4) * Math.min(1, (f - landAt + 1) / 1.5),
       }
     : null;
   const stamp = clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2));
   const cellLit = springAt(f, E.stampIn + 1, SPRING.effects);
   const reel = springAt(f, E.reelDetent, SPRING.detent);
   const tape = easings.inOutSine(clamp((f - E.reelDetent) / E.tapeFrames));
-  const header = easings.inOutSine(clamp((f - E.header) / E.headerFrames));
   const ink = clamp((f - E.stampIn - 1) / 3);
   const cardOut = f >= E.cardEmerge && f < E.cardEject ? easings.outCubic((f - E.cardEmerge) / (E.cardEject - E.cardEmerge)) : null;
   const testsStep = easings.inOutSine(clamp((f - E.testsStep) / STEP_FRAMES));
   // the index arm: from the test bay's detent to yours (west), settled before the reply moves
   const arm = DETENT.tests + (DETENT.you - DETENT.tests) * springAt(f, E.armTurn, SPRING.detent);
-  // the reply: emerges from the slot, rides the chute (in and out), lands on spring-dock with a 3% squash
+  // the reply: one motion from under the deck along the chute's line and down the chute (in and out), landing on spring-dock with a 3% squash
   let slip: DeskState['slip'] = null;
   if (f >= E.slipLeave) {
-    const emerge = easings.outCubic(clamp((f - E.slipLeave) / E.emergeFrames));
-    const s = easings.inOutSine(clamp((f - SLIP_RIDE_FROM) / E.slipRide));
+    const d = easings.inOutSine(clamp((f - E.slipLeave) / (SLIP_LANDS - E.slipLeave))) * (REPLY_LEAD + REPLY_CHUTE);
+    const emerge = clamp(d / REPLY_LEAD);
+    const s = clamp((d - REPLY_LEAD) / REPLY_CHUTE);
     const settle = springAt(f, SLIP_LANDS, SPRING.dock);
     const squash = f < SLIP_LANDS ? 0 : Math.max(0, 1 - (f - SLIP_LANDS) / 4) * Math.min(1, (f - SLIP_LANDS) / 1.5);
     slip = { emerge, s, squash, settle };
@@ -260,7 +298,41 @@ export function deskStateAt(f: number): DeskState {
   // MT1: once the slip is stamped in, the arm turns from you to the fresh bay's detent
   const armNow = f > EVENTS_D.armTurn ? DETENT.you + (DETENT.fresh - DETENT.you) * springAt(f, EVENTS_D.armTurn, SPRING.detent) : arm;
   const testsSink = springAt(f, EVENTS_D.rest, SPRING.heavy);
-  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, header, ink, testsCap, bugLight: 1, pins, galley, step: withOwnRamp(f, stepAt(f)), next, cache: cacheAt(f), testsSink };
+  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: 1, pins, galley, step: withOwnRamp(f, stepAt(f)), next, cache: cacheAt(f), testsSink };
+}
+
+/** The reply's lead-in: hidden under the deck's plate and south rail, on the chute's line produced back north-east, so it slides out of the deck straight into the chute. */
+export const REPLY_LEAD = 132;
+const CHUTE_DIR: P3 = (() => {
+  const [a, b] = [CHUTE[0], CHUTE[1]];
+  const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  return [(b[0] - a[0]) / l, (b[1] - a[1]) / l, 0];
+})();
+/** Its path: from under the deck (a little low, under the plate) to the chute's head, then the chute's bed. */
+export const REPLY_PATH: readonly P3[] = [[CHUTE[0][0] - CHUTE_DIR[0] * REPLY_LEAD, CHUTE[0][1] - CHUTE_DIR[1] * REPLY_LEAD, CHUTE[0][2] + 3], ...CHUTE.map((p): P3 => [p[0], p[1], p[2] + 6])];
+const REPLY_CHUTE = CHUTE.slice(1).reduce((a, q, i) => a + Math.hypot(q[0] - CHUTE[i][0], q[1] - CHUTE[i][1], q[2] - CHUTE[i][2]), 0);
+/** Where the landed reply rests: in the in-tray's north part, clear of the chute's mouth and of the older slip's print. */
+export const IN_TRAY_REST: P3 = [rectC(YOU.inTray)[0] + 4, YOU.inTray.y1 - 23, 33];
+
+/**
+ * The reply's pose: on its path (heading and slope from it), turning along the chute's exit curve to lie
+ * as it will in the tray, then settling into the tray on spring-dock.
+ */
+export function replyPose(slip: NonNullable<DeskState['slip']>): { p: P3; heading: number; slope: number } {
+  const { emerge, s, settle } = slip;
+  if (s >= 1) {
+    const end = REPLY_PATH[REPLY_PATH.length - 1];
+    const k = settle;
+    return { p: [end[0] + (IN_TRAY_REST[0] - end[0]) * k, end[1] + (IN_TRAY_REST[1] - end[1]) * k, end[2] + (IN_TRAY_REST[2] - end[2]) * k], heading: 0.05, slope: 0 };
+  }
+  const lead = REPLY_LEAD / (REPLY_LEAD + REPLY_CHUTE);
+  const u = s > 0 ? lead + (1 - lead) * s : lead * emerge;
+  // the path's own arc length, mapped so the lead-in and the chute keep their shares
+  const { p, dir } = polylineAt(REPLY_PATH, u);
+  const h = Math.hypot(dir[0], dir[1]);
+  const heading = Math.atan2(dir[1], dir[0]) + Math.PI;
+  const turn = clamp((s - 0.7) / 0.3);
+  return { p, heading: heading + (0.05 - heading) * easings.inOutSine(turn), slope: Math.atan2(dir[2], h) * (1 - turn) };
 }
 
 /** The reply's pose: under the index sector while it emerges, then on the chute, turning along its exit curve. */
@@ -306,21 +378,21 @@ export const EVENTS_D = {
   stampIn: 2277,
   /** dispatch: the index arm detents toward the bay floor */
   armTurn: 2280,
-  /** the fresh groove is cut from the ramp's foot (10 f), the hatch opens (6 f), the bay rises on spring-heavy */
+  /** the fresh groove is cut from the ramp's foot (10 f), the hatch's leaves part (3 f), the bay rises out of its pit on spring-heavy */
   cut: 2283,
   cutFrames: 10,
   hatch: 2286,
-  hatchFrames: 6,
+  hatchFrames: 3,
   rise: 2289,
-  /** the folder is pushed out of the rail's slot (4 f), down the ramp (6 f), along the groove (14 f) */
+  /** the folder is pushed out of the dispatch housing's slit (6 f), runs down the ramp (4 f), along the groove (14 f) */
   folderOut: 2290,
-  folderOutFrames: 4,
-  ramp: 2294,
-  rampFrames: 6,
+  folderOutFrames: 6,
+  ramp: 2296,
+  rampFrames: 4,
   groove: 2300,
   grooveFrames: 14,
-  /** the door lifts 4 f before the folder arrives and drops 6 f after it docks */
-  doorUp: 2310,
+  /** the door lifts (4 f) and is fully up 4 f before the folder's leading edge reaches it; it drops 6 f after the folder docks */
+  doorUp: 2299,
   dock: 2314,
   doorDown: 2320,
   /** the work light ignites (spring-effects) */
@@ -329,15 +401,25 @@ export const EVENTS_D = {
   rest: 2320,
 } as const;
 
+/** Still (c): from the tab's launch the head, the index arm and the holder are out of the action (their enamel steps under the lit record). */
+export const CACHE_SETTLE = 3127;
+const CACHE_STEP: readonly FocusId[] = ['head', 'index', 'mouth'];
+/** The own parts' lag behind the bays when C12's step-down ramps out at the rest. */
+const OWN_LAG = 3;
+
 /** The intake, gate, belt, policy card and gauge leave C12's step-down as the slip comes to them, and step down again during the dispatch. */
 export const OWN_STEP: readonly FocusId[] = ['intake', 'gate', 'belt', 'policy', 'gauge'];
 
 /** C12's step-down with the parts on their own ramp (from f2226 to the end of the rest). */
 export function withOwnRamp(f: number, step: DeskState['step']): DeskState['step'] {
   const E = EVENTS_D;
-  if (f < E.slipOut || f >= E.rest + STEP_FRAMES) return step;
+  // still (c): once the record is in and the tab is falling, the print head, the index and the emptied holder step down
+  // with the other parts out of the action, so the inline record and the drawer are the frame's brightest
+  if (f >= CACHE_SETTLE && f < CACHE_SETTLE + 200) return { ...step, own: { amount: easings.inOutSine(clamp((f - CACHE_SETTLE) / STEP_FRAMES)), ids: CACHE_STEP } };
+  if (f < E.slipOut || f >= E.rest + OWN_LAG + STEP_FRAMES) return step;
   const r = (a: number) => easings.inOutSine(clamp((f - a) / STEP_FRAMES));
-  const amount = Math.min(Math.max(1 - r(E.slipOut), r(E.cut - 1)), 1 - r(E.rest));
+  // at the rest they come back up a few frames after the bays (a stagger, never one block)
+  const amount = Math.min(Math.max(1 - r(E.slipOut), r(E.cut - 1)), 1 - r(E.rest + OWN_LAG));
   return { ...step, own: { amount, ids: OWN_STEP } };
 }
 
@@ -374,39 +456,22 @@ const BELT_TOP: P3 = [-394, 210, 112];
 /** The slip's ride from the gate up the belt into the throat. */
 export const SLIP_BELT: readonly P3[] = [NEXT_SLIP.gate, BELT_TOP, NEXT_SLIP.throat];
 
-/** The ramp's quarter pipe, as points 2 u above its sheet, from the rail's lip down to the desk. */
-function rampPath(y: number): P3[] {
-  const r = RAMP.lip;
-  const pts: P3[] = [
-    [RAMP.x + 2, y, RAMP.top + 2],
-    [RAMP.x + 2, y, r + 4],
-  ];
-  for (let i = 1; i <= 8; i++) {
-    const a = (Math.PI / 2) * (1 - i / 8);
-    pts.push([RAMP.x + r - (r - 2) * Math.sin(a), y, r - (r - 2) * Math.cos(a) + 0.5]);
-  }
-  return pts;
-}
-
 /** The fresh groove as a polyline: centripetal Catmull-Rom through its keys (the kit's Curve, as the desk engraves it). */
 export function freshGrooveLine(n = 13): P2[] {
   return new Curve(GROOVE_FRESH.map((p) => [p[0], p[1]])).polyline(n).map((p) => [p[0], p[1]] as P2);
 }
 
-/** The folder's whole path: out of the rail's slot, down the ramp, along the fresh groove, through the door to its dock. */
+/**
+ * The folder's legs. Pushed level out of the housing's slit until its tail clears it; then it drops off the lip
+ * down the quarter pipe (a short fall, nose down then level: the pipe is too tight for it to slide rigidly) and lands
+ * on the fresh groove's start; then along the groove, through the door, to its dock.
+ */
+export const FOLDER_OUT_AT: P3 = [FOLDER_OUT[0][0] + DISPATCH.w / 2 + 3, FOLDER_OUT[0][1], FOLDER_OUT[0][2]];
+export const FOLDER_LANDS: P3 = [RAMP.foot + 14, (RAMP.y0 + RAMP.y1) / 2, 1.6];
 export const FOLDER_PATH: readonly P3[] = (() => {
-  const y = (RAMP.y0 + RAMP.y1) / 2;
   const groove = freshGrooveLine().map(([x, yy]): P3 => [x, yy, 1.2]);
-  return [FOLDER_SLOT, ...FOLDER_OUT, ...rampPath(y), ...groove.slice(1), DISPATCH.dock];
+  return [FOLDER_LANDS, ...groove.slice(1), DISPATCH.dock];
 })();
-/** Where the slot's push and the ramp end on the folder's path (arc-length fractions), so each leg keeps its own timing. */
-const FOLDER_LEGS = (() => {
-  const len = (pts: readonly P3[]) => pts.slice(1).reduce((a, q, i) => a + Math.hypot(q[0] - pts[i][0], q[1] - pts[i][1], q[2] - pts[i][2]), 0);
-  const total = len(FOLDER_PATH);
-  const out = 1 + FOLDER_OUT.length;
-  return { top: len(FOLDER_PATH.slice(0, out + 1)) / total, rampEnd: len(FOLDER_PATH.slice(0, out + rampPath(0).length)) / total };
-})();
-
 /** MT1's next dispatch at film frame f (pure). */
 export function nextAt(f: number): NextState {
   const E = EVENTS_D;
@@ -465,14 +530,23 @@ export function nextAt(f: number): NextState {
       const settle = springAt(f, E.dock, SPRING.dock);
       folder = { p: [DISPATCH.dock[0], DISPATCH.dock[1], DISPATCH.dock[2] + 2.5 * (1 - settle)], heading: -Math.PI / 2, slope: 0 };
     } else {
-      let s: number;
-      if (f < E.ramp) s = FOLDER_LEGS.top * easings.outCubic(clamp((f - E.folderOut) / E.folderOutFrames));
-      else if (f < E.groove) s = FOLDER_LEGS.top + (FOLDER_LEGS.rampEnd - FOLDER_LEGS.top) * easings.inQuad(clamp((f - E.ramp) / E.rampFrames));
-      else s = FOLDER_LEGS.rampEnd + (1 - FOLDER_LEGS.rampEnd) * (1 - Math.pow(1 - clamp((f - E.groove) / E.grooveFrames), 1.6));
-      const { p, dir } = polylineAt(FOLDER_PATH, s);
-      const h = Math.hypot(dir[0], dir[1]);
-      folder = { p, heading: h > 1e-3 ? Math.atan2(dir[1], dir[0]) : 0, slope: Math.atan2(dir[2], Math.max(h, 1e-3)) };
-      folderTransit = clamp((f - E.folderOut) / 4) * clamp((E.dock - f) / 4);
+      if (f < E.ramp) {
+        // pushed level out of the slit (the push takes it)
+        folder = { p: lerp3(FOLDER_SLOT, FOLDER_OUT_AT, sine((f - E.folderOut) / E.folderOutFrames)), heading: 0, slope: 0 };
+      } else if (f < E.groove) {
+        // off the lip: a fall down the pipe, nose down, levelling as it lands on the groove's start
+        const t = clamp((f - E.ramp) / E.rampFrames);
+        const a = FOLDER_OUT_AT;
+        const b = FOLDER_LANDS;
+        folder = { p: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t * t], heading: 0, slope: -0.62 * Math.sin(Math.PI * t) };
+      } else {
+        // along the groove, easing into the dock
+        const s = Math.sin((Math.PI / 2) * clamp((f - E.groove) / E.grooveFrames));
+        const { p, dir } = polylineAt(FOLDER_PATH, s);
+        const h = Math.hypot(dir[0], dir[1]);
+        folder = { p, heading: h > 1e-3 ? Math.atan2(dir[1], dir[0]) : 0, slope: 0 };
+      }
+      folderTransit = transitRamp(f - E.folderOut, E.dock - E.folderOut);
     }
   }
   return { slip, loupe, punch, stamp, tape, reel, ink, cut, hatch, rise, door, light, folder, folderTransit };
@@ -506,7 +580,7 @@ export const EVENTS_C = {
   cardEject: 3080,
   cardFly: 18,
   /** the older cards shrink to stubs: oldest first (they lead, so no two ever overlap), 1 f apart, 6 f each, all packed before the head prints */
-  shrink: 3099,
+  shrink: 3100,
   shrinkFrames: 6,
   shrinkStagger: 1,
   /** the header strip tears off along its perforation, flies to the head (6 f) and feeds down through the slot in its cap (4 f) */
@@ -588,17 +662,19 @@ export function cacheAt(f: number): CacheState | null {
   const fly = (f - E.cardEject) / E.cardFly;
   const card = fly >= 0 && fly < 1 ? { s: sine(fly), pos: cardArcC(sine(fly)) } : null;
   const flown = f - E.cardEject;
-  const transit = card ? clamp(flown / 4) * clamp((E.cardFly - flown) / 4) : 0;
+  const transit = card ? transitRamp(flown, E.cardFly) : 0;
   const dockAt = E.cardEject + E.cardFly;
-  const docked = f >= dockAt && f <= E.tabDrop ? { settle: springAt(f, dockAt, SPRING.dock), headerOn: f < E.header } : null;
+  const docked = f >= dockAt && f <= E.tabDrop ? { settle: springAt(f, dockAt, SPRING.dock), headerOn: f < E.header - ANTICIPATE } : null;
   const feedEnd = E.header + E.headerFrames + E.slotFrames;
-  const strip = f >= E.header && f < feedEnd ? { fly: MOVE((f - E.header) / E.headerFrames), feed: clamp((f - E.header - E.headerFrames) / E.slotFrames) } : null;
+  // the strip tears off and draws back a hair (3 f anticipation), then flies to the head on the film's enter curve
+  const strip = f >= E.header - ANTICIPATE && f < feedEnd ? { fly: f < E.header ? -0.05 * Math.sin((Math.PI * (f - E.header + ANTICIPATE)) / ANTICIPATE) : ENTER((f - E.header) / E.headerFrames), feed: clamp((f - E.header - E.headerFrames) / E.slotFrames) } : null;
   const stamp = clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2));
   const ink = clamp((f - E.stampIn) / 3);
   const shrink = [0, 1, 2, 3, 4].map((i) => sine((f - E.shrink - (4 - i) * E.shrinkStagger) / E.shrinkFrames));
   const dim = sine((f - E.dim) / 4);
   const fold = sine((f - E.fold) / E.foldFrames);
-  const drop = clamp((f - E.tabDrop) / E.tabFrames);
+  // the tab's launch: 3 f of anticipation (it lifts and draws back), then the drop eases in and out
+  const drop = f < E.tabDrop ? -0.04 * Math.sin((Math.PI * clamp((f - E.tabDrop + ANTICIPATE) / ANTICIPATE))) : sine((f - E.tabDrop) / E.tabFrames);
   const landAt = E.tabDrop + E.tabFrames;
   // a hold is dead still: 12 f after the landing the spring is within 2e-3 of rest (far under a pixel), so it rests exactly
   const landed = f >= landAt ? (f - landAt >= SETTLED ? 1 : springAt(f, landAt, SPRING.dock)) : null;
@@ -612,8 +688,8 @@ export function cacheAt(f: number): CacheState | null {
 /** Frames after which a cache spring rests exactly (no sub-pixel creep in a hold). */
 const SETTLED = 12;
 
-/** The film's move curve, bezier(.2, 0, 0, 1) (TREATMENT Motion grammar), clamped to 0..1. */
-const MOVE_CURVE = Easing.bezier(0.2, 0, 0, 1);
-function MOVE(t: number): number {
-  return MOVE_CURVE(clamp(t));
-}
+/** The film's enter curve, bezier(.05, .7, .1, 1) (TREATMENT Motion grammar), clamped to 0..1. */
+const ENTER_CURVE = Easing.bezier(0.05, 0.7, 0.1, 1);
+const ENTER = (t: number): number => ENTER_CURVE(clamp(t));
+/** Cargo anticipates by 3 f (TREATMENT Motion grammar). */
+const ANTICIPATE = 3;

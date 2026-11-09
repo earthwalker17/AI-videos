@@ -106,10 +106,12 @@ export const CELLS_X: readonly [number, number][] = [
 ];
 
 /**
- * The Continuous plate (trait 连续), docked at the turn (cues.ts 'trait-continuous', f1640): an
- * enamel plate on the deck itself, between the rail and the window, its loop engraved as a mark.
+ * The Continuous plate (trait 连续), turned face up at the turn (cues.ts 'trait-continuous', f1640): an
+ * enamel plate carrying its words, Continuous · 连续, at about 36 px at 0.85× (gl/plate.ts), on two
+ * brackets off the deck's north rail behind the reel it names: clear of the lock, inside the diagram
+ * band at 0.85×, and outside the close shot of (c) (it would sit on the cache tag there).
  */
-export const TRAIT_PLATE = { box: { x0: -248, x1: -132, y0: 140, y1: 178 } as Rect, z: [122, 126] as const } as const;
+export const TRAIT_PLATE = { box: { x0: -232, x1: 152, y0: 490, y1: 554 } as Rect, z: [122, 126] as const, brackets: [-150, 72] as const } as const;
 /** The hooded reading lamp: a base on the deck's cross member, a bent arm, a hood over the newest cells (a pool, never bloom). */
 export const READ_LAMP = { base: [-30, 300] as P2, hood: { x0: -296, x1: -150, y: 276, z: 178, r: 19 } } as const;
 
@@ -273,7 +275,8 @@ export const SPIKE = { x: -646, y: 384, h: 84, baseR: 22 } as const;
 export const BELT = { from: [-548, 300, 22] as P3, to: [-394, 210, 104] as P3, w: 62 } as const;
 
 /**
- * The request's Thread cord: one arch from the chat spool, rising north of the reel over the
+ * The request's Thread cord: one arch from the chat spool, rising north of the reel and of the Continuous
+ * plate on its brackets (68 u over its north edge, so seen from the camera it passes clear of the plate) over the
  * deck's pulley (its touch is the notice: the Router hears of the Thread without deciding), then
  * falling east of the deck to the bug bay. Kept inside the diagram band (screen y ≥ 72) at 15°.
  */
@@ -281,11 +284,12 @@ export const MAST = { arm: [DECK.x1, 430] as P2, x: 352, y: 430, h: 192 } as con
 export const CORDS: { readonly vermilion: readonly P3[] } = {
   vermilion: [
     [SPOOL.x + 8, SPOOL.y + 6, 100],
-    [-640, 478, 150],
-    [-420, 500, 178],
-    [-120, 508, 190],
-    [150, 506, 194],
-    [300, 476, 194],
+    [-640, 498, 150],
+    [-430, 540, 178],
+    [-250, 547, 188],
+    [-50, 548, 192],
+    [160, 548, 194],
+    [295, 502, 194],
     [MAST.x, MAST.y, MAST.h],
     [430, 330, 172],
     [450, 220, 132],
@@ -294,8 +298,8 @@ export const CORDS: { readonly vermilion: readonly P3[] } = {
   ],
 };
 
-/** The report card (1.3× its old size) flies from the tower's dome up into the mouth (apex 70 over the line). */
-export const CARD = { w: 98, d: 68, apex: 70 } as const;
+/** The report card (a punched card: its width fits the spill drawer once folded) flies from the slot in the tower's cap up into the mouth (apex 70 over the line). */
+export const CARD = { w: 88, d: 68, apex: 70 } as const;
 /** The reply slip (44 × 100: its report's ID at ≥ 24 px) with its enamel stop tab. */
 export const SLIP = { w: 44, l: 100 } as const;
 
@@ -352,25 +356,27 @@ export const FRESH: BayLayout = {
   wallH: 40,
   wall: 10,
   southWall: 34,
-  door: [536, 592],
-  slot: { x0: 606, x1: 688, y0: 52, y1: 82 },
-  dossier: { x0: 536, x1: 610, y0: -122, y1: -66 },
+  door: [528, 600],
+  slot: { x0: 618, x1: 690, y0: 52, y1: 82 },
+  dossier: { x0: 536, x1: 610, y0: -110, y1: -64 },
   sheets: 8,
-  rack: { x0: 616, x1: 690, y0: -122, y1: -50 },
+  rack: { x0: 616, x1: 690, y0: -110, y1: -46 },
 };
-/** How deep the fresh bay waits under its hatch, and how deep a finished bay sinks (TREATMENT element sheet: done sinks 40 u). */
-export const HATCH_DEPTH = 52;
+/** How deep the fresh bay waits in its hatch's pit (deeper than its card file stands, so nothing of it shows before it rises), and how deep a finished bay sinks (TREATMENT element sheet: done sinks 40 u). */
+export const HATCH_DEPTH = 94;
 export const SINK = 40;
 /** The fresh bay's rotary card file: a drum of cards between two enamel cheeks, its axle along x. */
-export const CARD_FILE = { x0: 552, x1: 668, y: -14, z: 44, r: 32, core: 11, cards: 28, cheekR: 38, cheek: 6 } as const;
-/** The dispatch folder (the task handed over whole) and where it docks inside the fresh bay, past its door. */
-export const DISPATCH = { w: 62, d: 46, dock: [564, 58, 7.6] as P3 } as const;
-/** Where the folder waits, under the reel's flange (hidden from above), and the points it slides out over the east rail by. */
-export const FOLDER_SLOT: P3 = [160, 250, 115];
-export const FOLDER_OUT: readonly P3[] = [
-  [236, 218, 118],
-  [262, 212, 124.5],
-];
+export const CARD_FILE = { x0: 552, x1: 668, y: -30, z: 44, r: 32, core: 11, cards: 28, cheekR: 38, cheek: 6 } as const;
+/** The dispatch folder (the task handed over whole, a tabbed paper folder at about 72 px) and where it docks inside the fresh bay, past its door. */
+export const DISPATCH = { w: 86, d: 58, dock: [564, 42, 7.6] as P3 } as const;
+/**
+ * The dispatch housing under the deck's east end, behind the ramp's face: the folder waits in it and is
+ * pushed out through the slit in the ramp's face onto the quarter pipe. Its top is just under the rails.
+ */
+export const DISPATCH_HOUSING = { box: { x0: 190, x1: RAMP.x, y0: 174, y1: 246 } as Rect, z: [62, 119] as const, slit: { y0: 178, y1: 242, z0: 69, z1: 79 } } as const;
+/** Where the folder waits (in the housing, its leading edge at the slit), and the slit it is pushed out through. */
+export const FOLDER_SLOT: P3 = [RAMP.x - DISPATCH.w / 2 - 1, (RAMP.y0 + RAMP.y1) / 2, 73];
+export const FOLDER_OUT: readonly P3[] = [[RAMP.x + 1, (RAMP.y0 + RAMP.y1) / 2, 72.5]];
 /** The fresh groove: from the ramp's foot round the bug bay's north to the fresh bay's door. */
 export const GROOVE_FRESH: readonly P2[] = [[RAMP.foot + 4, (RAMP.y0 + RAMP.y1) / 2], [430, 194], [520, 166], [(FRESH.door[0] + FRESH.door[1]) / 2, FRESH.box.y1 + 4]];
 

@@ -56,6 +56,9 @@ export interface DeskMats {
     trait: MeshStandardMaterial;
     /** MT1's next dispatch (gl/text.ts) */
     tape2: MeshStandardMaterial;
+    /** the stamp-ins' ink at its first two stages (gl/text.ts tapeInk, tape2Ink) */
+    tapeInk: MeshStandardMaterial[];
+    tape2Ink: MeshStandardMaterial[];
     chatNext: MeshStandardMaterial;
     folderFresh: MeshStandardMaterial;
     /** still (c): the bare tape, the report card's face and the tab's face (the window's cards draw with their own materials) */
@@ -171,7 +174,7 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
     graphite: G('#626764'),
     graphiteDark: G('#4A4E4C', { roughness: 0.5 }),
     graphiteDeck: G('#555957', { roughness: 0.46 }),
-    floor: matte('#3F4241', 0.8, 0, stepped),
+    floor: matte('#484C4A', 0.8, 0, stepped),
     steel: G('#A3A8A5', { metalness: 0.75, roughness: 0.3, brush: 0.03 }),
     rubber: matte('#262827', 0.75, 0, stepped),
     enamel: E(white),
@@ -205,6 +208,8 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
       lockFace: E(t.lockFace),
       trait: E(t.trait),
       tape2: P(t.tape2, HEX.paper),
+      tapeInk: t.tapeInk.map((x) => P(x, HEX.paper)),
+      tape2Ink: t.tape2Ink.map((x) => P(x, HEX.paper)),
       chatNext: P(t.chatNext, HEX.paper),
       folderFresh: P(t.folderFresh, HEX.paper),
       tapeBlank: P(t.tapeBlank, HEX.paper),
@@ -229,7 +234,7 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
   };
 }
 
-export function DeskKit({ printFamily, sansFamily, step, stepLate = 0, printKeep, children }: { printFamily: string; sansFamily: string; step: number; stepLate?: number; printKeep?: (text: string) => boolean; children: ReactNode }) {
+export function DeskKit({ printFamily, sansFamily, step, stepLate = 0, printKeep, children }: { printFamily: string; sansFamily: string; step: number; stepLate?: number; printKeep?: (text: string) => boolean | 'texture'; children: ReactNode }) {
   const gl = useThree((s) => s.gl);
   const env = useEnamelEnv();
   const sets = useMemo(() => {

@@ -17,10 +17,11 @@ import { rand } from '@aiv/core';
 import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, Path, Quaternion, Shape, Vector3, type MeshStandardMaterial, type Texture } from 'three';
-import { FOLDER_PRINT, HEAP_CLOCKS, LOOP_NOTES } from '../../print.ts';
+import { FOLDER_PRINT, LOOP_NOTES } from '../../print.ts';
+import { chatSlipPrint } from './Intake.tsx';
 import { COVER_Z, FLAG, FOLDERS, cardEast, HEAP, PEN, PIECE, REQUEST_A, SHEET, SHEET_INSET, SHEET_PRINT, TAB, flagHinge, flagLocal, loopNormal, loopPoint, penLocal, penPivot, stackTop, tabAt, type ActOneState, type CardKind, type FolderLayout, type FolderState, type LoopPose } from '../actOne.ts';
 import { cylinderZ, extrude, merge, slab, tube } from '../geom.ts';
-import { PRESS_DEPTH } from '../turn.ts';
+import type { Press } from '../turn.ts';
 import { HEX, paper, whiteTexture } from '../gl/materials.ts';
 import { INK, print, texture, tooth } from '../gl/text.ts';
 import { useDeskSets, useDeskMats } from '../kit.tsx';
@@ -97,7 +98,7 @@ function punches(g: CanvasRenderingContext2D, seed: number, x0: number, y0: numb
   for (let r = 0; r < 2; r++) for (let i = 0; i < cols; i++) if (rand(0x0c1, seed, r * 31 + i) < 0.62) g.fillRect(x0 + i * pitch, y0 + r * 9, 3, 6);
 }
 
-export function makeActOnePrint(family: string, aniso: number, tapeLen: number, tapeNotes: readonly number[]): ActOnePrint {
+export function makeActOnePrint(family: string, aniso: number, tapeLen: number, tapeNotes: readonly number[], flips: readonly boolean[] = []): ActOnePrint {
   const top = FOLDERS.map((fl) => {
     const [w, h] = sheetSize(fl);
     return texture(
@@ -116,10 +117,11 @@ export function makeActOnePrint(family: string, aniso: number, tapeLen: number, 
       w,
       h,
       (g) => {
-        tooth(g, w, h);
-        const clock = FOLDER_PRINT[fl.n - 1].clock;
-        if (fl.card === 'chat' && clock) print(g, family, clock, 6, h * 0.72, 16, 500, '#6A6862');
-        else punches(g, fl.n, 10, 9, 8, 6);
+        if (fl.card === 'chat') chatSlipPrint(g, w, h, '#5E5B55');
+        else {
+          tooth(g, w, h);
+          punches(g, fl.n, 10, 9, 8, 6);
+        }
       },
       aniso,
     );
@@ -129,17 +131,29 @@ export function makeActOnePrint(family: string, aniso: number, tapeLen: number, 
     24,
     (g) => {
       tooth(g, tapeLen, 24);
-      tapeNotes.forEach((s, i) => print(g, family, LOOP_NOTES[i], s, 17, 15, 500, '#3E3E3A', 'center'));
+      tapeNotes.forEach((s, i) => {
+        // on the loop's far (north) side the tape runs right to left with its inner edge south: turned over, it reads upright
+        if (!flips[i]) return print(g, family, LOOP_NOTES[i], s, 17, 15, 500, '#3E3E3A', 'center');
+        g.save();
+        g.translate(s, 12);
+        g.rotate(Math.PI);
+        print(g, family, LOOP_NOTES[i], 0, 5, 15, 500, '#3E3E3A', 'center');
+        g.restore();
+      });
     },
     aniso,
   );
-  const chat = HEAP_CLOCKS.map((clock, i) =>
+  const chat = Array.from({ length: 6 }, (_, i) =>
     texture(
       PIECE.chat[0],
       PIECE.chat[1],
       (g) => {
-        tooth(g, PIECE.chat[0], PIECE.chat[1]);
-        print(g, family, clock, 16 + (i % 3) * 5, 26, 17, 500, '#6E6B64');
+        chatSlipPrint(g, PIECE.chat[0], PIECE.chat[1], i % 2 ? '#77736B' : '#6E6B64');
+        // a third, shorter line on some: no two slips print alike
+        if (i % 3 === 1) {
+          g.fillStyle = '#77736B';
+          g.fillRect(38, PIECE.chat[1] / 2 + 10, 14 + i * 3, 2.4);
+        }
       },
       aniso,
     ),
@@ -256,16 +270,16 @@ export function clipGeometry(L: LoopPose): { body: BufferGeometry; spine: Buffer
     return g;
   };
   // local x: outward across the tape; y: along it
-  const body = place(slab({ x0: -23, x1: 23, y0: -21, y1: 21 }, L.z + 0.9, L.z + 8, 5, 2));
-  const spine = place(slab({ x0: -24, x1: 24, y0: -4, y1: 4 }, L.z + 7.2, L.z + 10.6, 1.6, 0.8));
+  const body = place(slab({ x0: -27, x1: 27, y0: -24, y1: 24 }, L.z + 0.9, L.z + 8, 5, 2));
+  const spine = place(slab({ x0: -28, x1: 28, y0: -4.5, y1: 4.5 }, L.z + 7.2, L.z + 10.6, 1.6, 0.8));
   const wire = place(
     merge(
       [-1, 1].map((k) =>
         tube(
           [
-            [16, k * 3, L.z + 10.2],
-            [30, k * 13, L.z + 10.8],
-            [44, k * 12, L.z + 7],
+            [20, k * 3, L.z + 10.2],
+            [34, k * 14, L.z + 10.8],
+            [48, k * 13, L.z + 7],
           ],
           1.3,
           8,
@@ -301,15 +315,44 @@ function folderGeometry(fl: FolderLayout) {
   const tw = 36 + ((fl.n * 7) % 3) * 4;
   const tx = -w / 2 + tw / 2 + 8 + (w - tw - 16) * fl.tab;
   const tab = slab({ x0: tx - tw / 2, x1: tx + tw / 2, y0: d / 2 - 6, y1: d / 2 + 13 }, 0, COVER_Z, 4, 0.4);
-  // the stack: layers whose edges stagger (a thick stack shows many), cut as its contents are
+  // the stack: layers whose edges stagger (a thick stack shows many), cut as its contents are. A chat thread's
+  // slips fan out past the cover's east edge, their notched ends showing; punched cards stand proud of its north-west
+  // corner with their clipped corners and punch rows; plain sheets stay square
   const K = Math.max(2, Math.min(6, Math.round(fl.sheets / 4)));
   const h = fl.sheets * SHEET;
   const layers: BufferGeometry[] = [];
   for (let j = 0; j < K; j++) {
     const top = j === K - 1;
-    const jx = top ? 0 : (rand(0xf01d, fl.n, j) * 2 - 1) * (fl.contents === 'slips' ? 5 : 2.4);
-    const jy = top ? 0 : (rand(0xf01d, fl.n, j + 9) * 2 - 1) * (fl.contents === 'slips' ? 4 : 2);
-    const g = extrude(sheetShape(fl), COVER_Z + (j * h) / K, COVER_Z + ((j + 1) * h) / K, 0.3);
+    const z0 = COVER_Z + (j * h) / K;
+    const z1 = COVER_Z + ((j + 1) * h) / K;
+    if (!top && fl.contents === 'slips') {
+      const sl = slipShape('chat', sw * 0.62, 24);
+      const g = extrude(sl, z0, z1, 0.3);
+      g.rotateZ((rand(0xf01d, fl.n, j + 19) * 2 - 1) * 0.08);
+      g.translate(sw * 0.5 - sw * 0.31 + 14 + 9 * ((j * 3) % 4), -sd / 2 + 22 + ((sd - 44) * j) / Math.max(1, K - 2), 0);
+      layers.push(g);
+      continue;
+    }
+    if (!top && fl.contents === 'cards') {
+      const c = slipShape('ci', sw, sd);
+      for (let i = 0; i < 6; i++) {
+        const ph = new Path();
+        const px = -sw / 2 + 12 + i * 7;
+        ph.moveTo(px, sd / 2 - 4);
+        ph.lineTo(px + 2.6, sd / 2 - 4);
+        ph.lineTo(px + 2.6, sd / 2 - 9);
+        ph.lineTo(px, sd / 2 - 9);
+        ph.closePath();
+        if ((i + j) % 3 !== 0) c.holes.push(ph);
+      }
+      const g = extrude(c, z0, z1, 0.3);
+      g.translate(-6 - 3 * (j % 2), 8 + 2 * (j % 3), 0);
+      layers.push(g);
+      continue;
+    }
+    const jx = top ? 0 : (rand(0xf01d, fl.n, j) * 2 - 1) * 2.4;
+    const jy = top ? 0 : (rand(0xf01d, fl.n, j + 9) * 2 - 1) * 2;
+    const g = extrude(sheetShape(fl), z0, z1, 0.3);
     g.rotateZ(top ? 0 : (rand(0xf01d, fl.n, j + 19) * 2 - 1) * 0.02);
     g.translate(jx, jy, 0);
     layers.push(g);
@@ -432,7 +475,7 @@ interface FolderMats {
 
 const mix = (a: string, b: string, t: number): Color => new Color(a).lerp(new Color(b), t);
 
-function Folder({ fl, s, lit, mats, press = 0 }: { fl: FolderLayout; s: FolderState; lit: number; mats: FolderMats; press?: number }) {
+function Folder({ fl, s, lit, mats, press }: { fl: FolderLayout; s: FolderState; lit: number; mats: FolderMats; press?: Press }) {
   const m = useDeskMats();
   const g = useMemo(() => folderGeometry(fl), [fl]);
   const pen = useMemo(() => penGeometry(fl, s), [fl, s]);
@@ -447,11 +490,13 @@ function Folder({ fl, s, lit, mats, press = 0 }: { fl: FolderLayout; s: FolderSt
     mats.cover.color.copy(cover);
     mats.card.color.copy(sheet).lerp(new Color(HEX.paperLit), 0.12 * (1 - lit));
   }, [mats, s.warmth, lit]);
-  if (s.present <= 0 || press >= 1) return null;
-  // pressed into the desk at the turn: it sinks below the slate (desk/turn.ts PRESS_DEPTH), leaving its imprint
-  const drop = (1 - s.present) * 60 - PRESS_DEPTH * press;
+  if (s.present <= 0 || (press && press.k >= 1)) return null;
+  // pressed into the desk at the turn as one body (desk/turn.ts pressAt): squashed flat with its pen, flag and clip, then
+  // sunk north edge first into its imprint
+  const drop = (1 - s.present) * 60 - (press?.sink ?? 0);
   return (
     <group position={[fl.c[0], fl.c[1], drop]} rotation={[0, 0, fl.rot]}>
+      <group rotation={[-(press?.tilt ?? 0), 0, 0]} scale={[1, 1, press?.scaleZ ?? 1]}>
       <mesh geometry={g.cover} material={mats.cover} />
       <mesh geometry={g.tab} material={mats.cover} />
       <mesh geometry={g.layers} material={mats.sheet} />
@@ -470,6 +515,7 @@ function Folder({ fl, s, lit, mats, press = 0 }: { fl: FolderLayout; s: FolderSt
           <mesh geometry={flag.pennant} material={m.enamel} />
         </>
       )}
+      </group>
     </group>
   );
 }
@@ -516,8 +562,10 @@ export function requestGeometry(): { body: BufferGeometry; flap: BufferGeometry;
   return { body: place(bodyG), flap: place(flap), crease: place(crease) };
 }
 
-function Heap({ a, print: tex }: { a: ActOneState; print: ActOnePrint }) {
-  const { full } = useDeskSets();
+function Heap({ a, print: tex, stepRequest = false }: { a: ActOneState; print: ActOnePrint; stepRequest?: boolean }) {
+  const sets = useDeskSets();
+  // the request keeps its vermilion when act one's intake steps down; in the turn's focus pull it steps down with the heap
+  const full = stepRequest ? sets.stepped : sets.full;
   const geo = useMemo(() => ({ chat: piece('chat', ...PIECE.chat), ci: piece('ci', ...PIECE.ci), request: requestGeometry() }), []);
   // the heap's paper, in the stepped set (C4 steps the intake down): one material per print and stock
   const mats = useMemo(() => {
@@ -572,17 +620,27 @@ const litOf = (a: ActOneState, fl: FolderLayout): number => Math.exp(-((a.lamp.a
 
 /** Where each folder's note is printed along the tape (u from the clip): one per session, evenly, clear of the clip's overlap and of the east point (where your label's leader crosses). */
 export const loopNotes = (len: number): number[] => FOLDERS.map((_, i) => 60 + ((len - 120) * (i + 1)) / FOLDERS.length - 40);
+/** Whether each note lies on the loop's north half (it is turned over there, to read upright from the camera). */
+export function loopNoteFlips(L: LoopPose, notes: readonly number[]): boolean[] {
+  const { t, s: arc } = loopArc(L);
+  return notes.map((u) => {
+    let i = 0;
+    while (i < arc.length - 1 && arc[i] < u) i++;
+    return loopPoint(L, t[i])[1] > L.c[1] + L.b * 0.25;
+  });
+}
 
 /**
  * Act one's own objects (the desk and feeders pose themselves). The turn (desk/turn.ts) presses the folders into the
- * desk (`press`, 0..1 each) and draws the notes loop itself (`loop` false).
+ * desk (`press`, one per folder), draws the notes loop itself (`loop` false) and steps the request down with the heap.
  */
-export function ActOneObjects({ a, printFamily, press, loop = true }: { a: ActOneState; printFamily: string; press?: readonly number[]; loop?: boolean }) {
+export function ActOneObjects({ a, printFamily, press, loop = true, stepRequest = false }: { a: ActOneState; printFamily: string; press?: readonly Press[]; loop?: boolean; stepRequest?: boolean }) {
   const gl = useThree((s) => s.gl);
   const L0 = a.loop;
   const arc = useMemo(() => loopArc(L0), [L0]);
   const notes = useMemo(() => loopNotes(arc.len), [arc]);
-  const print = useMemo(() => makeActOnePrint(printFamily, Math.min(8, gl.capabilities.getMaxAnisotropy()), Math.ceil(arc.len), notes), [printFamily, gl, arc.len, notes]);
+  const flips = useMemo(() => loopNoteFlips(L0, notes), [L0, notes]);
+  const print = useMemo(() => makeActOnePrint(printFamily, Math.min(8, gl.capabilities.getMaxAnisotropy()), Math.ceil(arc.len), notes, flips), [printFamily, gl, arc.len, notes, flips]);
   const mats = useMemo(() => {
     const white = whiteTexture();
     return {
@@ -604,7 +662,7 @@ export function ActOneObjects({ a, printFamily, press, loop = true }: { a: ActOn
         <Folder key={fl.n} fl={fl} s={a.folders[i]} lit={litOf(a, fl)} mats={mats.folders[i]} press={press?.[i]} />
       ))}
       {loop && <NotesLoop a={a} tape={mats.tape} />}
-      <Heap a={a} print={print} />
+      <Heap a={a} print={print} stepRequest={stepRequest} />
     </>
   );
 }

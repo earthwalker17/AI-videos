@@ -16,12 +16,13 @@
  * N5 and the cache tag; DeskGroundC15 is its objects-free twin:
  *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillC15 --frames 3165 --label r2-c15
  */
+import { useMemo } from 'react';
 import { Composition, registerRoot, useCurrentFrame } from 'remotion';
 import { FILM_FRAMES, FPS, LEADER_FRAMES } from '../cues.ts';
 import { cameraAt, type Angle } from '../desk/camera.ts';
 import { ActOneFrame } from '../desk/ActOneFrame.tsx';
 import { TurnFrame } from '../desk/TurnFrame.tsx';
-import { SPAN_D, poseD, summaryAt, summaryDeskState } from '../desk/summary.ts';
+import { SPAN_D, poseD, summaryAt, summaryDeskState, summaryLabelAt } from '../desk/summary.ts';
 import { PRINT_FONT } from '../desk/gl/text.ts';
 import { Proposed } from '../desk/objects/Proposed.tsx';
 import { Trace } from '../desk/objects/Trace.tsx';
@@ -29,13 +30,13 @@ import { DeskFrame } from '../desk/DeskFrame.tsx';
 import { World } from '../desk/objects/World.tsx';
 import type { TagSpec } from '../desk/Overlay.tsx';
 import { WORDS } from '../cues.ts';
-import { keepClose, keepNone } from '../desk/marks.ts';
+import { keepClose, keepTeaching, keepTexture } from '../desk/marks.ts';
 import { ROLE_LABELS, type RoleLabel } from '../desk/Overlay.tsx';
-import { BAYS, rectC } from '../desk/layout.ts';
+import { BAYS, DECK, rectC } from '../desk/layout.ts';
 
 function StyleB({ angle, bloom }: { angle: Angle; bloom: boolean }) {
   const f = useCurrentFrame() - LEADER_FRAMES;
-  return <DeskFrame f={f} angle={angle} bloom={bloom} objects={(s) => <World s={s} />} />;
+  return <DeskFrame f={f} angle={angle} bloom={bloom} printKeep={keepTeaching} objects={(s) => <World s={s} />} />;
 }
 
 export const StyleB15 = () => <StyleB angle={15} bloom />;
@@ -70,11 +71,28 @@ export const StillAGround15 = () => <StillA objects={false} />;
 /** The print face's CSS family (the kit's useFont registers it as `"AIV <family>"`). */
 const PRINT_CSS = `"AIV ${PRINT_FONT.family}"`;
 
-/** Still (d)'s labels: "Worker" names the request's bay, where the route ends (its leader on W-07's south wall); "Router" and "you" as in the film. */
-const LABELS_D: readonly RoleLabel[] = ROLE_LABELS.map((l) => (l.text === WORDS.worker.en ? { ...l, foot: [rectC(BAYS.bug.box)[0] - 30, BAYS.bug.box.y0 + 3, 20], dx: -60, dy: 70, anchor: 'end' } : l));
+/**
+ * Still (d)'s labels. "Router" names the whole machine from the deck's west rail and sits west of it, in
+ * the clear band under the Thread cord (its leader never crosses the cord); "Worker" names the request's
+ * bay, where the route ends, its foot inside W-07's nameplate band and the label straight under the bay;
+ * "you" as in the film. Round the camera's ease-out they leave and re-enter (desk/summary.ts summaryLabelAt).
+ */
+const LABELS_D: readonly RoleLabel[] = ROLE_LABELS.map((l) =>
+  l.text === WORDS.worker.en
+    ? { ...l, foot: [rectC(BAYS.bug.box)[0] + 5, BAYS.bug.box.y0 + BAYS.bug.southWall / 2, BAYS.bug.wallH + 0.4], dx: 6, dy: 104, anchor: 'start' }
+    : l.text === WORDS.router.en
+      ? { ...l, foot: [DECK.x0 + DECK.rail / 2, 300, DECK.top], dx: -36, dy: -54, anchor: 'end' }
+      : l,
+);
+const labelsDAt = (f: number): RoleLabel[] =>
+  LABELS_D.flatMap((l, i) => {
+    const a = summaryLabelAt(f, i);
+    return a ? [{ ...l, ...a }] : [];
+  });
 
 function StillD({ objects }: { objects: boolean }) {
   const f = useCurrentFrame() - LEADER_FRAMES;
+  const labels = useMemo(() => labelsDAt(Math.min(Math.max(f, SPAN_D[0]), SPAN_D[1])), [f]);
   return (
     <DeskFrame
       f={f}
@@ -83,8 +101,8 @@ function StillD({ objects }: { objects: boolean }) {
       poseAt={poseD}
       span={SPAN_D}
       stateAt={summaryDeskState}
-      printKeep={keepNone}
-      labels={LABELS_D}
+      printKeep={keepTexture}
+      labels={labels}
       objects={(s) =>
         objects ? (
           <>
@@ -103,7 +121,7 @@ export const StillDGround15 = () => <StillD objects={false} />;
 /** Act two's frames this world is posed for (the turn to the close's ease-out). */
 const SPAN_C: readonly [number, number] = [2100, 3440];
 /** The cache tag (cues.ts tag-cache): under the window on the dark deck plate, its leader ending on the inline record it qualifies. */
-const TAGS_C: readonly TagSpec[] = [{ cue: 'tag-cache', words: WORDS.tagCache, at: [1050, 470], anchor: 'start', foot: [-112, 196, 123] }];
+const TAGS_C: readonly TagSpec[] = [{ cue: 'tag-cache', words: WORDS.tagCache, at: [1050, 432], anchor: 'start', foot: [-112, 196, 123] }];
 
 function StillC({ angle, bloom, objects = true }: { angle: Angle; bloom: boolean; objects?: boolean }) {
   const f = useCurrentFrame() - LEADER_FRAMES;

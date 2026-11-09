@@ -16,8 +16,9 @@
  */
 import { useLayoutEffect, useMemo } from 'react';
 import { Path, Quaternion, Shape, Vector3, type BufferGeometry } from 'three';
+import { graphite, matte } from '../gl/materials.ts';
 import { youPoseAt } from '../actOne.ts';
-import { cylinderZ, disc, dome, extrude, frame, latheZ, merge, plane, planeOn, rectShape, ringFlat, roundRect, slab, tube } from '../geom.ts';
+import { cylinderZ, disc, dome, extrude, frame, latheZ, merge, plane, planeOn, rectShape, ringFlat, slab, tube } from '../geom.ts';
 import { EMIT, useDeskMats } from '../kit.tsx';
 import { LAMP, YOU, rectC, type P3 } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
@@ -85,30 +86,36 @@ function useLampGeometry(lamp: LampPose) {
   }, [base, elbow, head]);
 }
 
+/** The lid strut's sizes: an outer tube, its rod, the enamel collar between, a clevis at each end (each at least 24 px at 1.2x across). */
+export const STRUT = { tube: 4.6, rod: 2.8, collar: 7.6, collarL: 7, clevis: [18, 11] as const } as const;
+/** Where the collar sits along a strut of length `len` (the outer tube's end). */
+const strutOuter = (len: number) => Math.min(46, len * 0.6);
+
 /** The lid strut: a telescoping prop along +y from 0 to `len`, an outer tube, the inner rod, an enamel collar and a clevis at each end. */
 function strutParts(len: number) {
-  const outer = Math.min(44, len * 0.6);
+  const outer = strutOuter(len);
+  const [cw, cl] = STRUT.clevis;
   return {
     tube: tube(
       [
-        [0, 6, 0],
+        [0, cl - 2, 0],
         [0, outer, 0],
       ],
-      3.4,
+      STRUT.tube,
       4,
-      14,
+      16,
     ),
     rod: tube(
       [
         [0, outer - 2, 0],
-        [0, len - 6, 0],
+        [0, len - cl + 2, 0],
       ],
-      2.1,
+      STRUT.rod,
       4,
       12,
     ),
     collar: (() => {
-      const g = cylinderZ(4.4, -2.5, 2.5, 0, 0, 20);
+      const g = merge([cylinderZ(STRUT.collar, -STRUT.collarL / 2, STRUT.collarL / 2, 0, 0, 24), cylinderZ(STRUT.collar + 1, -1, 1, 0, 0, 24)]);
       g.rotateX(Math.PI / 2);
       g.translate(0, outer, 0);
       return g;
@@ -116,18 +123,24 @@ function strutParts(len: number) {
     clevis: merge(
       [0, len].map((y) => {
         const s = y === 0 ? 1 : -1;
-        const g = slab({ x0: -5.5, x1: 5.5, y0: Math.min(y, y + s * 9), y1: Math.max(y, y + s * 9) }, -4.5, 4.5, 2, 1);
-        return g;
+        const a = Math.min(y, y + s * cl);
+        const b = Math.max(y, y + s * cl);
+        // a forked block: two cheeks and the bridge between them
+        return merge([
+          slab({ x0: -cw / 2, x1: -cw / 2 + 5, y0: a, y1: b }, -5.5, 5.5, 1.6, 1),
+          slab({ x0: cw / 2 - 5, x1: cw / 2, y0: a, y1: b }, -5.5, 5.5, 1.6, 1),
+          slab({ x0: -cw / 2, x1: cw / 2, y0: Math.min(y + s * (cl - 4), y + s * cl), y1: Math.max(y + s * (cl - 4), y + s * cl) }, -5.5, 5.5, 1.6, 1),
+        ]);
       }),
     ),
     pins: merge(
-      [3, len - 3].map((y) =>
+      [4, len - 4].map((y) =>
         tube(
           [
-            [-7.5, y, 0],
-            [7.5, y, 0],
+            [-cw / 2 - 2, y, 0],
+            [cw / 2 + 2, y, 0],
           ],
-          1.6,
+          1.9,
           2,
           10,
         ),
@@ -141,7 +154,7 @@ function keyGeometry(): { body: BufferGeometry; bow: BufferGeometry } {
   const { c, bowY, bowR, shank, bit } = CHORES.key;
   const [kx, ky] = c;
   const z0 = TRAY_Z.floor;
-  const z1 = TRAY_Z.floor + 4.6;
+  const z1 = TRAY_Z.floor + 6;
   const bow = disc(bowR, z0, z1, { inner: 6.5, cx: kx, cy: ky + bowY, bevel: 1.4 });
   const collar = slab({ x0: kx - 5.5, x1: kx + 5.5, y0: ky + shank[1] - 1, y1: ky + shank[1] + 4 }, z0 + 0.3, z1 - 0.2, 1.5, 0.8);
   const shaft = tube(
@@ -173,6 +186,9 @@ function keyGeometry(): { body: BufferGeometry; bow: BufferGeometry } {
   return { body: merge([collar, shaft, tip, bitG]), bow };
 }
 
+/** The sand-glass lying on its side: its end plates (wider than its waist), the posts at its sides, the bulbs and their waist. */
+const GLASS = { plateR: 20, plateT: 5, plateY: 31, postX: 14, postR: 2.2, bulbR: 11.5, bulbL: 29, waist: 2.6 } as const;
+
 /** The shadow board: the enamel plate with a recess cut to each chore's outline, over its dark floor. */
 function trayGeometry(): { plate: BufferGeometry; floor: BufferGeometry } {
   const T = YOU.tray;
@@ -193,10 +209,54 @@ function trayGeometry(): { plate: BufferGeometry; floor: BufferGeometry } {
   key.absarc(kx, ky + bowY, r, Math.atan2(yJoin - ky - bowY, half), Math.atan2(yJoin - ky - bowY, -half) + Math.PI * 2, false);
   key.lineTo(kx - half, ky + shank[0] - g);
   shape.holes.push(key);
+  // the sand-glass's own outline: its end plates wider than the posts' waist between them (a dog-bone)
   const gl = CHORES.glass;
-  shape.holes.push(roundRect(2 * (gl.half[0] + g), 2 * (gl.half[1] + g), 9, gl.c[0], gl.c[1], new Path()) as Path);
+  const [gx, gy] = gl.c;
+  const pw = GLASS.plateR + g;
+  const ww = GLASS.postX + GLASS.postR + g;
+  const py = gl.half[1] + g;
+  const pin = GLASS.plateY - GLASS.plateT / 2 - g;
+  const glass = new Path();
+  glass.moveTo(gx - pw, gy - py);
+  glass.lineTo(gx + pw, gy - py);
+  glass.lineTo(gx + pw, gy - pin);
+  glass.lineTo(gx + ww, gy - pin);
+  glass.lineTo(gx + ww, gy + pin);
+  glass.lineTo(gx + pw, gy + pin);
+  glass.lineTo(gx + pw, gy + py);
+  glass.lineTo(gx - pw, gy + py);
+  glass.lineTo(gx - pw, gy + pin);
+  glass.lineTo(gx - ww, gy + pin);
+  glass.lineTo(gx - ww, gy - pin);
+  glass.lineTo(gx - pw, gy - pin);
+  glass.closePath();
+  shape.holes.push(glass);
+  // the strut's own outline: a clevis at each end, the tube, the collar's bulge, the rod
   const st = CHORES.strut;
-  shape.holes.push(roundRect(2 * (st.half[0] + g), 2 * (st.half[1] + g), st.half[0] + g - 0.5, st.c[0], st.c[1], new Path()) as Path);
+  const len = 2 * st.half[1] - 4;
+  const y0 = st.c[1] - st.half[1] + 2;
+  const sx = st.c[0];
+  const [cw, cl] = STRUT.clevis;
+  const outer = strutOuter(len);
+  const steps: [number, number][] = [
+    [cw / 2, 0],
+    [cw / 2, cl],
+    [STRUT.tube, cl],
+    [STRUT.tube, outer - STRUT.collarL / 2],
+    [STRUT.collar, outer - STRUT.collarL / 2],
+    [STRUT.collar, outer + STRUT.collarL / 2],
+    [STRUT.rod, outer + STRUT.collarL / 2],
+    [STRUT.rod, len - cl],
+    [cw / 2, len - cl],
+    [cw / 2, len],
+  ];
+  const strut = new Path();
+  const yy = (y: number) => y0 + y + (y === 0 ? -g : y === len ? g : 0);
+  strut.moveTo(sx - steps[0][0] - g, yy(0));
+  for (const [w, y] of steps) strut.lineTo(sx + w + g, yy(y));
+  for (const [w, y] of [...steps].reverse()) strut.lineTo(sx - w - g, yy(y));
+  strut.closePath();
+  shape.holes.push(strut);
   return { plate: extrude(shape, TRAY_Z.floor - 0.5, TRAY_Z.plate, 1.2), floor: slab(T, YOU.top, TRAY_Z.floor, 6, 1) };
 }
 
@@ -283,30 +343,36 @@ function useYouGeometry() {
     const key = keyGeometry();
     const gx = CHORES.glass.c[0];
     const gy = CHORES.glass.c[1];
-    const gz = TRAY_Z.floor + 13.5;
-    const glass = (() => {
-      const g = latheZ(
-        [
-          [0.01, -26],
-          [10, -24],
-          [11.5, -14],
-          [2.4, -1.5],
-          [2.4, 1.5],
-          [11.5, 14],
-          [10, 24],
-          [0.01, 26],
-        ],
-        28,
-      );
+    // lying on its side across its end plates: the axis along y at the plates' radius over the recess floor
+    const gz = TRAY_Z.floor + GLASS.plateR;
+    const lathe = (profile: [number, number][]) => {
+      const g = latheZ(profile, 32);
       g.rotateX(Math.PI / 2);
       g.translate(gx, gy, gz);
       return g;
-    })();
+    };
+    const glass = lathe([
+      [0.01, -GLASS.bulbL],
+      [GLASS.bulbR - 2, -GLASS.bulbL + 2],
+      [GLASS.bulbR, -GLASS.bulbL * 0.55],
+      [GLASS.waist, -1.6],
+      [GLASS.waist, 1.6],
+      [GLASS.bulbR, GLASS.bulbL * 0.55],
+      [GLASS.bulbR - 2, GLASS.bulbL - 2],
+      [0.01, GLASS.bulbL],
+    ]);
+    // the sand in the lower bulb: the waiting, as tone inside the glass
+    const sand = lathe([
+      [0.01, -GLASS.bulbL + 1.4],
+      [GLASS.bulbR - 3, -GLASS.bulbL + 3.4],
+      [GLASS.bulbR - 2.6, -GLASS.bulbL * 0.6],
+      [0.01, -GLASS.bulbL * 0.42],
+    ]);
     const glassEnds = merge(
       [-1, 1].map((k) => {
-        const g = cylinderZ(13.5, -2, 2, 0, 0, 24);
+        const g = cylinderZ(GLASS.plateR, -GLASS.plateT / 2, GLASS.plateT / 2, 0, 0, 32);
         g.rotateX(Math.PI / 2);
-        g.translate(gx, gy + k * 28, gz);
+        g.translate(gx, gy + k * GLASS.plateY, gz);
         return g;
       }),
     );
@@ -314,26 +380,28 @@ function useYouGeometry() {
       [-1, 1].map((k) =>
         tube(
           [
-            [gx + k * 10.5, gy - 28, gz + 10],
-            [gx + k * 10.5, gy + 28, gz + 10],
+            [gx + k * GLASS.postX, gy - GLASS.plateY, gz],
+            [gx + k * GLASS.postX, gy + GLASS.plateY, gz],
           ],
-          1.5,
+          GLASS.postR,
           4,
-          6,
+          8,
         ),
       ),
     );
 
     // the in-tray: a graphite tray with the replies already in it
     const I = YOU.inTray;
-    const inTray = merge([slab(I, YOU.top, YOU.top + 3, 4, 1), frame(I, 3.5, YOU.top, YOU.top + 18, 4, 1)]);
+    // a dark floor inside an enamel rim: empty, it is a hollow; a reply lands on it as the only light paper
+    const inTrayFloor = slab(I, YOU.top, YOU.top + 3, 4, 1);
+    const inTray = frame(I, 3.5, YOU.top, YOU.top + 18, 4, 1);
     const slip1 = (() => {
       const g = plane(80, 52, 0, 0, 0);
       g.rotateZ(-0.1);
       g.translate(rectC(I)[0] + 2, rectC(I)[1] - 14, YOU.top + 4.2);
       return g;
     })();
-    return { slabG, slabEdge, blotter, corners, base, hood, hoodInner, bulb, capRing, lapBase, keys: merge(keys), pad, lid, screen, tray, key, glass, glassEnds, glassPosts, inTray, slip1 };
+    return { slabG, slabEdge, blotter, corners, base, hood, hoodInner, bulb, capRing, lapBase, keys: merge(keys), pad, lid, screen, tray, key, glass, sand, glassEnds, glassPosts, inTray, inTrayFloor, slip1 };
   }, []);
 }
 
@@ -351,8 +419,16 @@ function strutPlacement(pose: YouPose): { p: P3; q: Quaternion; len: number } {
   return { p: a, q: new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d.normalize()), len: Math.round(len * 4) / 4 };
 }
 
+/** Your desk's own surfaces: the slab's brushed graphite top, the laptop's dark glass (dim, a key-light sheen, no transcript), the sand. */
+function useYouMats() {
+  const mats = useMemo(() => ({ slab: graphite('#2C2F2E', { roughness: 0.62, metalness: 0.35, brush: 0.07 }), screen: matte('#4B5250', 0.34, 0), sand: matte('#8E8676', 0.85, 0) }), []);
+  useLayoutEffect(() => () => Object.values(mats).forEach((x) => x.dispose()), [mats]);
+  return mats;
+}
+
 export function YourDesk({ s, pose: given }: { s: DeskState; pose?: YouPose }) {
   const m = useDeskMats();
+  const own = useYouMats();
   const g = useYouGeometry();
   const pose = useMemo(() => given ?? youPoseAt(s.f), [given, s.f]);
   const lampG = useLampGeometry(pose.lamp);
@@ -371,10 +447,12 @@ export function YourDesk({ s, pose: given }: { s: DeskState; pose?: YouPose }) {
     m.bulb.color.set(LIGHT_HEX.yours).multiplyScalar(bulb);
   }, [m, bulb]);
   const L = YOU.laptop;
+  // shut: the lid swings on past upright and down over the keys, its screen face down on the base
+  const shut = pose.lidShut ?? 0;
   const drop = (held: number) => (1 - held) * 40;
   return (
     <group position={[pose.shift[0], pose.shift[1], 0]}>
-      <mesh geometry={g.slabG} material={m.rubber} />
+      <mesh geometry={g.slabG} material={own.slab} />
       <mesh geometry={g.slabEdge} material={m.enamelShade} />
       <mesh geometry={g.blotter} material={m.paperShade} />
       <mesh geometry={g.corners} material={m.enamelShade} />
@@ -393,13 +471,13 @@ export function YourDesk({ s, pose: given }: { s: DeskState; pose?: YouPose }) {
       <mesh geometry={g.lapBase} material={m.graphiteDark} />
       <mesh geometry={g.keys} material={m.rubber} />
       <mesh geometry={g.pad} material={m.graphite} />
-      <group position={[(L.x0 + L.x1) / 2, L.y1, YOU.top + 8]} rotation={[Math.PI / 2 - YOU.lidLean, 0, 0]}>
+      <group position={[(L.x0 + L.x1) / 2, L.y1, YOU.top + 8]} rotation={[Math.PI / 2 - YOU.lidLean + (Math.PI / 2 + YOU.lidLean - 0.02) * shut, 0, 0]}>
         <mesh geometry={g.lid} material={m.graphiteDark} />
-        <mesh geometry={g.screen} material={m.screen} />
+        <mesh geometry={g.screen} material={own.screen} />
       </group>
       {/* the chore tray, a shadow board, and the chores in it (or the strut propping the lid) */}
       <mesh geometry={g.tray.floor} material={m.graphiteDark} />
-      <mesh geometry={g.tray.plate} material={m.enamel} />
+      <mesh geometry={g.tray.plate} material={m.enamelShade} />
       {pose.held.key > 0.01 && (
         <group position={[0, 0, drop(pose.held.key)]}>
           <mesh geometry={g.key.body} material={m.steel} />
@@ -408,9 +486,10 @@ export function YourDesk({ s, pose: given }: { s: DeskState; pose?: YouPose }) {
       )}
       {pose.held.glass > 0.01 && (
         <group position={[0, 0, drop(pose.held.glass)]}>
-          <mesh geometry={g.glass} material={m.paperLit} />
+          <mesh geometry={g.glass} material={m.paper} />
+          <mesh geometry={g.sand} material={own.sand} />
           <mesh geometry={g.glassEnds} material={m.graphite} />
-          <mesh geometry={g.glassPosts} material={m.graphite} />
+          <mesh geometry={g.glassPosts} material={m.steel} />
         </group>
       )}
       {pose.held.strut > 0.01 && (
@@ -425,6 +504,7 @@ export function YourDesk({ s, pose: given }: { s: DeskState; pose?: YouPose }) {
       {/* the in-tray, where the Router's replies land: not on the desk in act one */}
       {pose.inTray && (
         <>
+          <mesh geometry={g.inTrayFloor} material={m.graphiteDark} />
           <mesh geometry={g.inTray} material={m.enamelShade} />
           {pose.inTraySlip !== false && <mesh geometry={g.slip1} material={m.printed.inTray[0]} />}
         </>

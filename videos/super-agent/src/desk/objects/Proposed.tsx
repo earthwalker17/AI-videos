@@ -1,10 +1,11 @@
 /**
  * The proposed and the open, at the summary (desk/summary.ts; STORYBOARD 9.1–10.3).
  * - Proposed parts exist only as vellum drawings laid flat east of the system: the plan of the deck,
- *   the state cabinet, the cloud loop (an open ring track, never a filled disc) with the lid strut
- *   docked on it and the Persistent plate beside it, curved tethers of unequal length out to a daemon
- *   clip beside each machine; the Watchdog, an inspection station outside the system, its sightline
- *   reaching in to the bays. Vellum is never drawn solid and casts no shadow.
+ *   the state cabinet, the cloud loop's sheet (the loop, the docked lid strut and the Persistent plate
+ *   drawn on it, never a ring standing in for a node), three tethers run as parallel strips of unequal
+ *   length from its east edge to a daemon clip beside each machine, each clip its machine's own
+ *   fixture; the Watchdog, a plan of an inspection station outside the system, its scope and sightline
+ *   aimed at the stuck bay and the pencil flag pinned on it. Vellum is never drawn solid and casts no shadow.
  * - The machines a cloud loop would keep running are real: graphite (built), each its own silhouette.
  * - Open problems are pencil, drawn once and grained: a "?" beside the tethers; the reel split, its tape
  *   torn and its outer windings in pencil (memory over months); the handle outline a running bay lacks,
@@ -20,8 +21,8 @@ import { cylinderZ, merge, plane, slab } from '../geom.ts';
 import { vellum } from '../gl/materials.ts';
 import { texture } from '../gl/text.ts';
 import { useDeskMats } from '../kit.tsx';
-import { BAYS, REEL } from '../layout.ts';
-import { CLIP_DX, HANDLE, MACHINES, QUERIES, VELLUM, WATCHDOG } from '../summary.ts';
+import { BAYS, REEL, type P2 } from '../layout.ts';
+import { FLAG, HANDLE, MACHINES, QUERIES, TETHER_W, VELLUM, WATCHDOG, clipC } from '../summary.ts';
 
 /** A seeded hash of an index to 0..1 (integer mixing: deterministic, no randomness). */
 function hash01(i: number, seed: number): number {
@@ -94,116 +95,263 @@ function lead(g: G, pts: readonly (readonly [number, number])[], width: number, 
   }
 }
 
-/** The loop sheet's extent (world): from west of the ring to the daemon clips' west edges, north and south of the outer clips. */
-const L = VELLUM.loop;
-const CLIPS = MACHINES.map((m) => [m.c[0] + CLIP_DX, m.c[1]] as const);
-const LOOP_SHEET = {
-  x0: L.c[0] - L.a - 70,
-  x1: Math.max(...CLIPS.map((c) => c[0])) - 28,
-  y0: Math.min(...CLIPS.map((c) => c[1])) - 60,
-  y1: Math.max(...CLIPS.map((c) => c[1])) + 60,
-} as const;
-const SHEET_W = LOOP_SHEET.x1 - LOOP_SHEET.x0;
-const SHEET_H = LOOP_SHEET.y1 - LOOP_SHEET.y0;
-/** World to the loop sheet's canvas (north up). */
-const sx = (x: number): number => x - LOOP_SHEET.x0;
-const sy = (y: number): number => LOOP_SHEET.y1 - y;
+/** The loop's sheet (world), and world to its canvas (north up). */
+const LS = VELLUM.loop;
+const SHEET_W = LS.x1 - LS.x0;
+const SHEET_H = LS.y1 - LS.y0;
+const sx = (x: number): number => x - LS.x0;
+const sy = (y: number): number => LS.y1 - y;
+/** The loop drawn on it: an oval track, centred in the sheet's upper part. */
+const LOOP = { c: [LS.x0 + SHEET_W * 0.48, LS.y0 + SHEET_H * 0.62] as P2, rx: 74, ry: 96, gauge: 16 } as const;
+/** The tether strips: one per machine, from the sheet's east edge to its clip's west edge, each with its own sag. */
+const CLIPS = MACHINES.map((m) => clipC(m));
+const CLIP_SIZE: P2 = [60, 72];
+const TETHER = { x0: LS.x1 - 4, x1: Math.max(...CLIPS.map((c) => c[0])) - CLIP_SIZE[0] / 2 + 8, y0: Math.min(...CLIPS.map((c) => c[1])) - 30, y1: Math.max(...CLIPS.map((c) => c[1])) + 30 } as const;
+const SAG = [5, -4, 7] as const;
 
-/**
- * The cloud loop: an open ring track (two dashed rails, their band at the vellum fill, the inside empty
- * desk), running anticlockwise to a chevron at its open end; the lid strut docked across the track at
- * its foot; the Persistent plate beside it with its mark (a looped arrow; no word at this distance); the
- * tethers curving out to each daemon clip, each its own length and bend.
- */
-function loopSheet(g: G): void {
-  const cx = sx(L.c[0]);
-  const cy = sy(L.c[1]);
-  const ro = L.a;
-  const ri = L.a - 18;
-  const a0 = -0.95;
-  const a1 = Math.PI * 2 - 1.45;
-  // the track's band
-  g.fillStyle = FILL;
-  g.beginPath();
-  g.arc(cx, cy, ro, a0, a1);
-  g.arc(cx, cy, ri, a1, a0, true);
-  g.closePath();
-  g.fill();
-  dashed(g, 3.6);
-  for (const r of [ro, ri]) {
+/** Construction ticks outside a rectangle's corners, as a draughtsman lays them. */
+function construction(g: G, x: number, y: number, w: number, h: number): void {
+  g.setLineDash([]);
+  g.strokeStyle = FAINT;
+  g.lineWidth = 1.6;
+  for (const [cx, cy, kx, ky] of [
+    [x, y, -1, -1],
+    [x + w, y, 1, -1],
+    [x, y + h, -1, 1],
+    [x + w, y + h, 1, 1],
+  ]) {
     g.beginPath();
-    g.arc(cx, cy, r, a0, a1);
+    g.moveTo(cx + kx * 4, cy);
+    g.lineTo(cx + kx * 14, cy);
+    g.moveTo(cx, cy + ky * 4);
+    g.lineTo(cx, cy + ky * 14);
     g.stroke();
   }
-  // its sleepers, drawn finer: a track, not a ring
+}
+
+/** A sheet's paper: the 14% fill, a dashed edge, a faint inner border, the ruled title block in its corner (no words). */
+function sheet(g: G, w: number, h: number, title = true): void {
+  g.fillStyle = FILL;
+  g.fillRect(4, 4, w - 8, h - 8);
+  dashed(g);
+  g.strokeRect(8, 8, w - 16, h - 16);
+  g.setLineDash([]);
+  g.strokeStyle = FAINT;
+  g.lineWidth = 1.6;
+  g.strokeRect(20, 20, w - 40, h - 40);
+  if (!title) return;
+  const tw = Math.min(110, w * 0.5);
+  g.strokeRect(w - 20 - tw, h - 54, tw, 34);
+  for (const k of [0.33, 0.66]) {
+    g.beginPath();
+    g.moveTo(w - 20 - tw, h - 54 + 34 * k);
+    g.lineTo(w - 20, h - 54 + 34 * k);
+    g.stroke();
+  }
+  g.beginPath();
+  g.moveTo(w - 20 - tw * 0.4, h - 54);
+  g.lineTo(w - 20 - tw * 0.4, h - 20);
+  g.stroke();
+}
+
+/**
+ * The cloud loop's sheet: a vellum drawing laid flat like the deck's plan. On it the loop (an oval
+ * track: two dashed rails, sleepers, its way round marked by a chevron), the lid strut docked across the
+ * track's foot, the Persistent plate's outline with its looped mark, and on its east edge the three
+ * ports the tethers leave from.
+ */
+function loopSheet(g: G): void {
+  sheet(g, SHEET_W, SHEET_H);
+  const [cx, cy] = [sx(LOOP.c[0]), sy(LOOP.c[1])];
+  const { rx, ry, gauge } = LOOP;
+  // the track's band and its rails
+  g.fillStyle = FILL;
+  g.beginPath();
+  g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  g.ellipse(cx, cy, rx - gauge, ry - gauge, 0, 0, Math.PI * 2, true);
+  g.fill();
+  // its rails drawn as lines on the drawing (the sheet's dashed edge already says proposed)
+  g.setLineDash([]);
+  g.strokeStyle = LINE;
+  g.lineWidth = 2.6;
+  for (const k of [0, gauge]) {
+    g.beginPath();
+    g.ellipse(cx, cy, rx - k, ry - k, 0, 0, Math.PI * 2);
+    g.stroke();
+  }
+  // sleepers across the band
   g.setLineDash([]);
   g.strokeStyle = FAINT;
   g.lineWidth = 2;
-  for (let a = a0 + 0.12; a < a1; a += 0.26) {
+  for (let a = 0.1; a < Math.PI * 2; a += 0.24) {
     g.beginPath();
-    g.moveTo(cx + Math.cos(a) * (ri + 2), cy + Math.sin(a) * (ri + 2));
-    g.lineTo(cx + Math.cos(a) * (ro - 2), cy + Math.sin(a) * (ro - 2));
+    g.moveTo(cx + Math.cos(a) * (rx - gauge + 2), cy + Math.sin(a) * (ry - gauge + 2));
+    g.lineTo(cx + Math.cos(a) * (rx - 2), cy + Math.sin(a) * (ry - 2));
     g.stroke();
   }
-  // the chevron at the open end: the way it runs
-  const ae = a1;
-  const mx = cx + Math.cos(ae) * (ri + 9);
-  const my = cy + Math.sin(ae) * (ri + 9);
-  const tx = -Math.sin(ae);
-  const ty = Math.cos(ae);
+  // the way round (anticlockwise seen from above): a chevron on the band's west side
   g.strokeStyle = LINE;
   g.lineWidth = 4;
+  const mx = cx - rx + gauge / 2;
   g.beginPath();
-  g.moveTo(mx - tx * 2 + Math.cos(ae) * 16, my - ty * 2 + Math.sin(ae) * 16);
-  g.lineTo(mx + tx * 16, my + ty * 16);
-  g.lineTo(mx - tx * 2 - Math.cos(ae) * 16, my - ty * 2 - Math.sin(ae) * 16);
+  g.moveTo(mx - 9, cy - 8);
+  g.lineTo(mx, cy + 6);
+  g.lineTo(mx + 9, cy - 8);
   g.stroke();
-  // the lid strut, docked across the track at its foot (south): its bar and its clip end
-  const fy = cy + (ro + ri) / 2;
+  // the centre's construction cross
+  g.strokeStyle = FAINT;
+  g.lineWidth = 1.4;
+  g.beginPath();
+  g.moveTo(cx - 20, cy);
+  g.lineTo(cx + 20, cy);
+  g.moveTo(cx, cy - 20);
+  g.lineTo(cx, cy + 20);
+  g.stroke();
+  // the lid strut, docked across the track's foot: its bar, its clip end, its pivot
+  const fy = cy + ry - gauge / 2;
+  g.strokeStyle = LINE;
   g.lineWidth = 3.4;
-  g.strokeRect(cx - 34, fy - 7, 68, 14);
+  g.strokeRect(cx - 40, fy - 7, 80, 14);
   g.beginPath();
-  g.arc(cx + 42, fy, 7, 0, Math.PI * 2);
+  g.arc(cx + 50, fy, 8, 0, Math.PI * 2);
   g.stroke();
-  // the Persistent plate under the strut, south of the ring: a looped arrow
-  const px = cx - 6;
-  const py = fy + 46;
+  g.beginPath();
+  g.arc(cx - 32, fy, 3, 0, Math.PI * 2);
+  g.stroke();
+  // the Persistent plate's outline under it, its looped mark
+  const px = cx;
+  const py = fy + 44;
   g.setLineDash([12, 8]);
   g.lineWidth = 3;
-  g.strokeRect(px - 40, py - 20, 80, 40);
+  g.strokeRect(px - 44, py - 18, 88, 36);
   g.setLineDash([]);
   g.lineWidth = 3.2;
   g.beginPath();
-  g.arc(px, py, 11, 0.5, Math.PI * 2 - 0.2);
+  g.arc(px, py, 10, 0.5, Math.PI * 2 - 0.2);
   g.stroke();
   g.beginPath();
-  g.moveTo(px + 14, py - 4);
-  g.lineTo(px + 10, py + 6);
-  g.lineTo(px + 2, py + 1);
+  g.moveTo(px + 13, py - 4);
+  g.lineTo(px + 9, py + 6);
+  g.lineTo(px + 1, py + 1);
   g.stroke();
-  // the tethers: each leaves the track's outer rail at its own angle and curves out to its clip's west edge
-  dashed(g, 3.2);
-  const leave = [-0.55, 0.12, 0.78];
-  const bend = [-46, 38, 64];
-  MACHINES.forEach((m, i) => {
-    const a = leave[i];
-    const x0 = cx + Math.cos(a) * ro;
-    const y0 = cy + Math.sin(a) * ro;
-    const x1 = sx(m.c[0] + CLIP_DX - 28);
-    const y1 = sy(m.c[1]);
+  // the ports on the east edge the tethers leave from
+  g.lineWidth = 3;
+  for (const c of CLIPS) {
     g.beginPath();
-    g.moveTo(x0, y0);
-    g.bezierCurveTo(x0 + Math.cos(a) * 60, y0 + Math.sin(a) * 60 + bend[i], x1 - 70, y1 - bend[i] * 0.6, x1, y1);
+    g.arc(SHEET_W - 8, sy(c[1]), 10, Math.PI / 2, (3 * Math.PI) / 2);
+    g.stroke();
+  }
+}
+
+/** The tethers: parallel vellum strips, one per machine, each a band with dashed edges and a perforated middle, sagging its own way. */
+function tetherSheet(g: G): void {
+  CLIPS.forEach((c, i) => {
+    const y = TETHER.y1 - c[1];
+    const x1 = c[0] - CLIP_SIZE[0] / 2 + 6 - TETHER.x0;
+    const hw = TETHER_W / 2;
+    const s = 2 * SAG[i];
+    const path = (off: number) => {
+      g.beginPath();
+      g.moveTo(0, y + off);
+      g.quadraticCurveTo(x1 / 2, y + off + s, x1, y + off);
+    };
+    g.fillStyle = FILL;
+    g.beginPath();
+    g.moveTo(0, y - hw);
+    g.quadraticCurveTo(x1 / 2, y - hw + s, x1, y - hw);
+    g.lineTo(x1, y + hw);
+    g.quadraticCurveTo(x1 / 2, y + hw + s, 0, y + hw);
+    g.closePath();
+    g.fill();
+    dashed(g, 2.6);
+    g.setLineDash([16, 10]);
+    for (const off of [-hw, hw]) {
+      path(off);
+      g.stroke();
+    }
+    g.setLineDash([3, 9]);
+    g.strokeStyle = FAINT;
+    g.lineWidth = 2.4;
+    path(0);
     g.stroke();
   });
   g.setLineDash([]);
 }
 
+/** A daemon clip in plan, each its machine's own fixture: a rack ear for the server, a C-clamp for the workstation, a binder clip for the laptop. */
+function clipSheet(g: G, kind: (typeof MACHINES)[number]['kind'], w: number, h: number): void {
+  const outline = () => {
+    g.fillStyle = FILL;
+    g.fill();
+    dashed(g, 3);
+    g.setLineDash([10, 7]);
+    g.stroke();
+    g.setLineDash([]);
+    g.strokeStyle = LINE;
+    g.lineWidth = 2.6;
+  };
+  g.beginPath();
+  if (kind === 'server') {
+    // an L-shaped rack ear: its flange with two screw holes, its arm reaching east to the machine
+    g.moveTo(10, 8);
+    g.lineTo(28, 8);
+    g.lineTo(28, h * 0.4);
+    g.lineTo(w - 6, h * 0.4);
+    g.lineTo(w - 6, h * 0.6);
+    g.lineTo(28, h * 0.6);
+    g.lineTo(28, h - 8);
+    g.lineTo(10, h - 8);
+    g.closePath();
+    outline();
+    for (const y of [18, h - 18]) {
+      g.beginPath();
+      g.arc(19, y, 4.5, 0, Math.PI * 2);
+      g.stroke();
+    }
+  } else if (kind === 'workstation') {
+    // a C-clamp: the frame open to the east, its screw and swivel pad, the screw's handle
+    g.moveTo(w - 8, 8);
+    g.lineTo(12, 8);
+    g.lineTo(12, h - 8);
+    g.lineTo(w - 8, h - 8);
+    g.lineTo(w - 8, h - 20);
+    g.lineTo(24, h - 20);
+    g.lineTo(24, 20);
+    g.lineTo(w - 8, 20);
+    g.closePath();
+    outline();
+    g.beginPath();
+    g.moveTo(w * 0.62, 20);
+    g.lineTo(w * 0.62, h - 34);
+    g.stroke();
+    g.strokeRect(w * 0.62 - 9, h - 34, 18, 7);
+    g.beginPath();
+    g.moveTo(w * 0.62 - 10, 14);
+    g.lineTo(w * 0.62 + 10, 14);
+    g.stroke();
+  } else {
+    // a binder clip: its folded body and its two wire handles folded back west
+    g.moveTo(w - 8, 14);
+    g.lineTo(w - 8, h - 14);
+    g.lineTo(w * 0.45, h - 22);
+    g.lineTo(w * 0.45, 22);
+    g.closePath();
+    outline();
+    for (const [y0, y1] of [
+      [24, 10],
+      [h - 24, h - 10],
+    ]) {
+      g.beginPath();
+      g.moveTo(w * 0.45, y0);
+      g.lineTo(10, y1);
+      g.lineTo(10, h / 2);
+      g.stroke();
+    }
+  }
+}
+
 function planSheet(g: G, w: number, h: number): void {
-  g.fillStyle = FILL;
-  g.fillRect(0, 0, w, h);
-  dashed(g);
-  g.strokeRect(6, 6, w - 12, h - 12);
+  sheet(g, w, h, false);
   // the deck's plan: its rails, the reel, the window
   g.setLineDash([]);
   g.strokeStyle = FAINT;
@@ -219,139 +367,249 @@ function planSheet(g: G, w: number, h: number): void {
     g.lineTo(x, h * 0.55);
     g.stroke();
   }
+  construction(g, 26, 26, w - 52, h - 52);
 }
 
 function cabinetSheet(g: G, w: number, h: number): void {
-  g.fillStyle = FILL;
-  g.fillRect(0, 0, w, h);
-  dashed(g);
-  g.strokeRect(6, 6, w - 12, h - 12);
+  sheet(g, w, h, false);
   g.strokeStyle = LINE;
   g.lineWidth = 3;
   g.setLineDash([]);
   for (let i = 0; i < 3; i++) {
-    const y = 22 + i * ((h - 36) / 3);
-    g.strokeRect(22, y, w - 44, (h - 36) / 3 - 8);
-    g.strokeRect(w / 2 - 16, y + (h - 36) / 6 - 8, 32, 8);
+    const y = 26 + i * ((h - 44) / 3);
+    g.strokeRect(26, y, w - 52, (h - 44) / 3 - 8);
+    g.strokeRect(w / 2 - 16, y + (h - 44) / 6 - 8, 32, 8);
   }
 }
 
-/** A daemon clip: a spring clip in plan, its jaw open toward its machine. */
-function clipSheet(g: G, w: number, h: number): void {
-  dashed(g, 3.4);
-  g.setLineDash([12, 8]);
-  g.beginPath();
-  g.moveTo(w - 8, 10);
-  g.lineTo(14, 10);
-  g.quadraticCurveTo(6, h / 2, 14, h - 10);
-  g.lineTo(w - 8, h - 10);
-  g.stroke();
+/** The Watchdog's sheet (world bounds): the station's plan and its sightline out to the flag. */
+const WD = (() => {
+  const [x, y] = WATCHDOG.c;
+  const [fx, fy] = WATCHDOG.look;
+  const m = 40;
+  return { x0: Math.min(x - WATCHDOG.w / 2, fx) - m, x1: Math.max(x + WATCHDOG.w / 2, fx) + m, y0: Math.min(y - WATCHDOG.d / 2, fy) - m, y1: Math.max(y + WATCHDOG.d / 2, fy) + m };
+})();
+
+/**
+ * The Watchdog, entirely vellum: a plan of an inspection station (its base plate and bolts, a
+ * turntable with the arc of its sweep, a scope on it with its lens, a counterweight, centre lines) aimed
+ * at the stuck bay; its sightline a narrow dashed wedge out to the pencil flag it pins there, ringed.
+ */
+function watchSheet(g: G): void {
+  const wx = (x: number) => x - WD.x0;
+  const wy = (y: number) => WD.y1 - y;
+  const [cx, cy] = [wx(WATCHDOG.c[0]), wy(WATCHDOG.c[1])];
+  const [fx, fy] = [wx(WATCHDOG.look[0]), wy(WATCHDOG.look[1])];
+  const a = Math.atan2(fy - cy, fx - cx);
+  const ux = Math.cos(a);
+  const uy = Math.sin(a);
+  const bw = WATCHDOG.w;
+  const bd = WATCHDOG.d;
+  // the base plate, its bolts, its centre lines
+  g.fillStyle = FILL;
+  g.fillRect(cx - bw / 2, cy - bd / 2, bw, bd);
+  dashed(g);
+  g.strokeRect(cx - bw / 2, cy - bd / 2, bw, bd);
   g.setLineDash([]);
+  g.strokeStyle = LINE;
+  g.lineWidth = 2.4;
+  for (const [kx, ky] of [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+  ]) {
+    g.beginPath();
+    g.arc(cx + kx * (bw / 2 - 16), cy + ky * (bd / 2 - 16), 6, 0, Math.PI * 2);
+    g.stroke();
+  }
+  construction(g, cx - bw / 2, cy - bd / 2, bw, bd);
+  g.strokeStyle = FAINT;
+  g.lineWidth = 1.4;
+  g.beginPath();
+  g.moveTo(cx - bw / 2 - 10, cy);
+  g.lineTo(cx + bw / 2 + 10, cy);
+  g.moveTo(cx, cy - bd / 2 - 10);
+  g.lineTo(cx, cy + bd / 2 + 10);
+  g.stroke();
+  // the turntable and the arc of its sweep (ticks), centred on the aim
+  const R = 40;
+  g.strokeStyle = LINE;
   g.lineWidth = 3;
   g.beginPath();
-  g.arc(w * 0.42, h / 2, 8, 0, Math.PI * 2);
+  g.arc(cx, cy, R, 0, Math.PI * 2);
   g.stroke();
+  g.lineWidth = 2;
+  for (let k = -6; k <= 6; k++) {
+    const t = a + k * 0.09;
+    const r1 = R + (k % 3 === 0 ? 16 : 11);
+    g.beginPath();
+    g.moveTo(cx + Math.cos(t) * (R + 6), cy + Math.sin(t) * (R + 6));
+    g.lineTo(cx + Math.cos(t) * r1, cy + Math.sin(t) * r1);
+    g.stroke();
+  }
+  // the scope: its barrel from the turntable's centre toward the bay, its lens at the end
+  const L = 84;
+  const hw = 11;
+  const px = -uy;
+  const py = ux;
+  g.lineWidth = 3.4;
   g.beginPath();
-  g.moveTo(w * 0.42 + 8, h / 2);
-  g.lineTo(w - 6, h / 2 - 12);
-  g.moveTo(w * 0.42 + 8, h / 2);
-  g.lineTo(w - 6, h / 2 + 12);
+  g.moveTo(cx + px * hw, cy + py * hw);
+  g.lineTo(cx + ux * L + px * hw, cy + uy * L + py * hw);
+  g.lineTo(cx + ux * L - px * hw, cy + uy * L - py * hw);
+  g.lineTo(cx - px * hw, cy - py * hw);
   g.stroke();
-}
-
-function watchSheet(g: G, w: number, h: number): void {
-  const cx = w * 0.62;
-  const cy = h * 0.62;
-  const r = WATCHDOG.r * 0.55;
-  // the sightline: a dashed wedge north-west, reaching in to the bays
-  const a = Math.atan2(-(WATCHDOG.look[1] - WATCHDOG.c[1]), WATCHDOG.look[0] - WATCHDOG.c[0]);
+  const lx = cx + ux * (L + 8);
+  const ly = cy + uy * (L + 8);
+  g.beginPath();
+  g.ellipse(lx, ly, 6, hw + 4, a, 0, Math.PI * 2);
+  g.stroke();
+  // the counterweight behind the pivot
+  g.strokeRect(cx - ux * 34 - 12, cy - uy * 34 - 12, 24, 24);
+  // the sightline: a narrow wedge out to the flag, and the ring that pins it
+  const d = Math.hypot(fx - lx, fy - ly);
+  const spread = 0.045;
   g.fillStyle = rgba(VELLUM_FILL, 0.08);
   g.beginPath();
-  g.moveTo(cx, cy);
-  g.arc(cx, cy, w * 0.6, a - 0.16, a + 0.16);
+  g.moveTo(lx, ly);
+  g.lineTo(lx + Math.cos(a - spread) * d, ly + Math.sin(a - spread) * d);
+  g.lineTo(lx + Math.cos(a + spread) * d, ly + Math.sin(a + spread) * d);
   g.closePath();
   g.fill();
-  dashed(g, 3.4);
-  g.stroke();
-  // the station: a round base, its lens, a short post
-  g.fillStyle = FILL;
+  dashed(g, 2.8);
+  g.setLineDash([14, 10]);
+  for (const k of [-1, 1]) {
+    g.beginPath();
+    g.moveTo(lx, ly);
+    g.lineTo(lx + Math.cos(a + k * spread) * (d - 22), ly + Math.sin(a + k * spread) * (d - 22));
+    g.stroke();
+  }
+  g.setLineDash([8, 6]);
   g.beginPath();
-  g.arc(cx, cy, r, 0, Math.PI * 2);
-  g.fill();
-  dashed(g);
+  g.arc(fx, fy, 22, 0, Math.PI * 2);
   g.stroke();
   g.setLineDash([]);
-  g.lineWidth = 3;
-  g.beginPath();
-  g.arc(cx, cy, r * 0.42, 0, Math.PI * 2);
-  g.stroke();
-  g.beginPath();
-  g.moveTo(cx + Math.cos(a) * r * 0.42, cy - Math.sin(a) * r * 0.42);
-  g.lineTo(cx + Math.cos(a) * r * 1.25, cy - Math.sin(a) * r * 1.25);
-  g.stroke();
 }
 
-/** A pencil "?" (graphite at 80%, a lead of 4–6 u, two passes, grained). */
-function query(g: G, s: number, seed: number): void {
+/** The pencil flag the Watchdog pins on the stuck bay: a pin lying along its nameplate band, its pennant at the head (dark lead on enamel). */
+const FLAG_SIZE = 66;
+function flagSheet(g: G, s: number): void {
+  lead(
+    g,
+    [
+      [s * 0.12, s * 0.64],
+      [s * 0.88, s * 0.64],
+    ],
+    4.4,
+    'enamel',
+  );
+  // the pennant, hatched in lead so it reads as a flag
+  g.fillStyle = 'rgba(70,68,64,0.55)';
+  g.beginPath();
+  g.moveTo(s * 0.14, s * 0.14);
+  g.lineTo(s * 0.56, s * 0.34);
+  g.lineTo(s * 0.14, s * 0.52);
+  g.closePath();
+  g.fill();
+  lead(
+    g,
+    [
+      [s * 0.14, s * 0.64],
+      [s * 0.14, s * 0.14],
+      [s * 0.56, s * 0.34],
+      [s * 0.14, s * 0.52],
+    ],
+    3.8,
+    'enamel',
+  );
+  lead(
+    g,
+    [
+      [s * 0.88, s * 0.64],
+      [s * 0.89, s * 0.65],
+    ],
+    8,
+    'enamel',
+  );
+  grain(g, s, s, 97);
+}
+
+/** A pencil "?" (graphite at 80%, a lead of 4–6 u, two passes, grained); `on` a light surface the lead reads darker. */
+function query(g: G, s: number, seed: number, on: 'desk' | 'enamel' = 'desk', ox = 0, oy = 0): void {
   const pts: [number, number][] = [];
   for (let i = 0; i <= 24; i++) {
     const t = i / 24;
     // the hook: an arc over the top, then down to the stem
     const a = Math.PI * (1.05 + 1.25 * Math.min(1, t / 0.7));
-    const p: [number, number] = t <= 0.7 ? [s * 0.5 + Math.cos(a) * s * 0.21, s * 0.3 + Math.sin(a) * s * 0.21] : [s * 0.5, s * 0.47 + (t - 0.7) * s * 0.55];
+    const p: [number, number] = t <= 0.7 ? [ox + s * 0.5 + Math.cos(a) * s * 0.21, oy + s * 0.3 + Math.sin(a) * s * 0.21] : [ox + s * 0.5, oy + s * 0.47 + (t - 0.7) * s * 0.55];
     pts.push(p);
   }
-  lead(g, pts, s * 0.052);
+  lead(g, pts, s * 0.052, on);
   lead(
     g,
     [
-      [s * 0.5, s * 0.83],
-      [s * 0.51, s * 0.86],
+      [ox + s * 0.5, oy + s * 0.83],
+      [ox + s * 0.51, oy + s * 0.86],
     ],
     s * 0.085,
+    on,
   );
-  grain(g, s, s, seed);
+  if (on === 'desk') grain(g, s, s, seed);
 }
 
-/** The pencil over the Register: the reel split across, its tape torn, its outer windings gone to pencil. */
+/** The split sheet's size: the reel's diameter and the margin its windings' "?" reaches into. */
+const SPLIT = REEL.r * 2 + 90;
+/**
+ * The pencil over the Register: the reel split across (its crack at full pencil value), its tape torn,
+ * its outer windings gone to pencil, a "?" on the split (sharding) and one on the outer windings
+ * (memory over months), each at least 64 px.
+ */
 function splitSheet(g: G, w: number, h: number): void {
   const cx = w / 2;
   const cy = h / 2;
+  const R = REEL.r;
   // the outer windings, in pencil (the reel's paper stops short of them)
   for (let k = 0; k < 5; k++) {
-    const r = w / 2 - 3 - k * 3.4;
+    const r = R - 3 - k * 3.4;
     const from = -0.4 + k * 0.17;
     const pts: [number, number][] = [];
     for (let i = 0; i <= 40; i++) {
       const a = from + (i / 40) * 4.6;
       pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
     }
-    lead(g, pts, 2.2);
+    lead(g, pts, 2.4, 'enamel');
   }
-  // the split: a jagged cut across the reel, its tape torn where it crosses the windings
+  // the split: a jagged cut across the reel at full pencil value, its tape torn where it crosses the windings
   lead(
     g,
     [
-      [cx - 10, 2],
-      [cx - 2, h * 0.18],
-      [cx - 9, h * 0.3],
-      [cx + 4, h * 0.45],
-      [cx - 3, h * 0.6],
-      [cx + 6, h * 0.78],
-      [cx - 2, h - 2],
+      [cx - 10, cy - R + 2],
+      [cx - 2, cy - R * 0.64],
+      [cx - 9, cy - R * 0.4],
+      [cx + 4, cy - R * 0.1],
+      [cx - 3, cy + R * 0.2],
+      [cx + 6, cy + R * 0.56],
+      [cx - 2, cy + R - 2],
     ],
-    3.6,
+    4,
+    'enamel',
   );
   lead(
     g,
     [
-      [cx + 14, 8],
-      [cx + 22, 14],
-      [cx + 16, 20],
-      [cx + 25, 27],
+      [cx + 14, cy - R + 8],
+      [cx + 22, cy - R + 14],
+      [cx + 16, cy - R + 20],
+      [cx + 25, cy - R + 27],
     ],
-    2.4,
+    2.6,
+    'enamel',
   );
+  // sharding: a "?" on the west half; memory over months: a "?" over the north-east windings
+  // (a "?" glyph is 0.77 of its box: 134 u is 66 px at 0.64x)
+  query(g, 134, 41, 'enamel', cx - R * 0.5 - 67, cy - 76);
+  query(g, 132, 43, 'enamel', cx + R * 0.56 - 66, cy - R * 0.88 - 62);
   grain(g, w, h, 41);
 }
 
@@ -374,12 +632,14 @@ function useProposedTextures() {
     const t = (w: number, h: number, draw: (g: G) => void): Texture => texture(w, h, draw, an, 'transparent');
     return {
       loop: t(SHEET_W, SHEET_H, (g) => loopSheet(g)),
+      tethers: t(TETHER.x1 - TETHER.x0, TETHER.y1 - TETHER.y0, (g) => tetherSheet(g)),
       plan: t(VELLUM.plan.w, VELLUM.plan.d, (g) => planSheet(g, VELLUM.plan.w, VELLUM.plan.d)),
       cabinet: t(VELLUM.cabinet.w, VELLUM.cabinet.d, (g) => cabinetSheet(g, VELLUM.cabinet.w, VELLUM.cabinet.d)),
-      clip: t(56, 64, (g) => clipSheet(g, 56, 64)),
-      watch: t(WATCHDOG.r * 6, WATCHDOG.r * 4, (g) => watchSheet(g, WATCHDOG.r * 6, WATCHDOG.r * 4)),
+      clips: MACHINES.map((m) => t(CLIP_SIZE[0], CLIP_SIZE[1], (g) => clipSheet(g, m.kind, CLIP_SIZE[0], CLIP_SIZE[1]))),
+      watch: t(WD.x1 - WD.x0, WD.y1 - WD.y0, (g) => watchSheet(g)),
+      flag: t(FLAG_SIZE, FLAG_SIZE, (g) => flagSheet(g, FLAG_SIZE)),
       query: QUERIES.map((q, i) => t(q.size, q.size, (g) => query(g, q.size, 11 + i))),
-      split: t(REEL.r * 2, REEL.r * 2, (g) => splitSheet(g, REEL.r * 2, REEL.r * 2)),
+      split: t(SPLIT, SPLIT, (g) => splitSheet(g, SPLIT, SPLIT)),
       handle: t(HANDLE.w, HANDLE.d, (g) => handleSheet(g, HANDLE.w, HANDLE.d)),
     };
   }, [gl]);
@@ -421,10 +681,12 @@ export function Proposed() {
   const mats = useMemo(
     () => ({
       loop: vellum(tex.loop),
+      tethers: vellum(tex.tethers),
       plan: vellum(tex.plan),
       cabinet: vellum(tex.cabinet),
-      clip: vellum(tex.clip),
+      clips: tex.clips.map((t) => vellum(t)),
       watch: vellum(tex.watch),
+      flag: vellum(tex.flag),
       query: tex.query.map((t) => vellum(t)),
       split: vellum(tex.split),
       handle: vellum(tex.handle),
@@ -433,7 +695,7 @@ export function Proposed() {
   );
   useLayoutEffect(
     () => () => {
-      for (const x of [mats.loop, mats.plan, mats.cabinet, mats.clip, mats.watch, mats.split, mats.handle, ...mats.query]) {
+      for (const x of [mats.loop, mats.tethers, mats.plan, mats.cabinet, mats.watch, mats.flag, mats.split, mats.handle, ...mats.clips, ...mats.query]) {
         x.map?.dispose();
         x.dispose();
       }
@@ -444,13 +706,16 @@ export function Proposed() {
     const flat = (w: number, d: number, c: readonly [number, number], z = 0.4) => plane(w, d, c[0], c[1], z);
     const machines = machineGeometry();
     return {
-      loop: flat(SHEET_W, SHEET_H, [(LOOP_SHEET.x0 + LOOP_SHEET.x1) / 2, (LOOP_SHEET.y0 + LOOP_SHEET.y1) / 2]),
+      loop: flat(SHEET_W, SHEET_H, [(LS.x0 + LS.x1) / 2, (LS.y0 + LS.y1) / 2]),
+      tethers: flat(TETHER.x1 - TETHER.x0, TETHER.y1 - TETHER.y0, [(TETHER.x0 + TETHER.x1) / 2, (TETHER.y0 + TETHER.y1) / 2], 0.45),
       plan: flat(VELLUM.plan.w, VELLUM.plan.d, VELLUM.plan.c),
       cabinet: flat(VELLUM.cabinet.w, VELLUM.cabinet.d, VELLUM.cabinet.c),
-      clips: merge(CLIPS.map((c) => flat(56, 64, c))),
-      watch: flat(WATCHDOG.r * 6, WATCHDOG.r * 4, [WATCHDOG.c[0] - WATCHDOG.r * 0.72, WATCHDOG.c[1] + WATCHDOG.r * 0.48]),
+      clips: CLIPS.map((c) => flat(CLIP_SIZE[0], CLIP_SIZE[1], c, 0.5)),
+      watch: flat(WD.x1 - WD.x0, WD.y1 - WD.y0, [(WD.x0 + WD.x1) / 2, (WD.y0 + WD.y1) / 2]),
+      // the flag lying on the stuck bay's nameplate band
+      flag: plane(FLAG_SIZE, FLAG_SIZE, FLAG[0], FLAG[1], FLAG[2]),
       queries: QUERIES.map((q) => plane(q.size, q.size, q.at[0], q.at[1], q.at[2])),
-      split: plane(REEL.r * 2, REEL.r * 2, REEL.x, REEL.y, REEL.packZ[1] + 0.6),
+      split: plane(SPLIT, SPLIT, REEL.x, REEL.y, REEL.packZ[1] + 0.6),
       handle: plane(HANDLE.w, HANDLE.d, HANDLE.c[0], HANDLE.c[1], BAYS.docs.wallH + 0.6),
       machines: machines.body,
       machineDetail: machines.detail,
@@ -461,10 +726,14 @@ export function Proposed() {
       <mesh geometry={g.machines} material={m.graphite} />
       <mesh geometry={g.machineDetail} material={m.graphiteDark} />
       <mesh geometry={g.loop} material={mats.loop} renderOrder={2} />
+      <mesh geometry={g.tethers} material={mats.tethers} renderOrder={2} />
       <mesh geometry={g.plan} material={mats.plan} renderOrder={2} />
       <mesh geometry={g.cabinet} material={mats.cabinet} renderOrder={2} />
-      <mesh geometry={g.clips} material={mats.clip} renderOrder={2} />
+      {g.clips.map((c, i) => (
+        <mesh key={i} geometry={c} material={mats.clips[i]} renderOrder={2} />
+      ))}
       <mesh geometry={g.watch} material={mats.watch} renderOrder={2} />
+      <mesh geometry={g.flag} material={mats.flag} renderOrder={3} />
       <mesh geometry={g.split} material={mats.split} renderOrder={3} />
       <mesh geometry={g.handle} material={mats.handle} renderOrder={3} />
       {g.queries.map((q, i) => (
