@@ -15,7 +15,7 @@ their URLs and pins, are in [sources.jsonl](sources.jsonl), and every claim is i
 **Series:** [Science & Technology Explainers](../../series/science-explainers/SERIES.md) · **Number:** 4 · **Engine:** remotion
 ▶ **Watch:** not yet published.
 
-## Status: production, the look in rework
+## Status: production, lookdev round 2
 The film has been in production since 2026-11-08. Decisions with the user so far:
 
 | Date | Decision | The user's words |
@@ -61,8 +61,9 @@ design works.
   - it is drawn in WebGL under the DOM text (ARCHITECTURE decision 30).
 
   [TREATMENT.md](TREATMENT.md) "Art direction v2" is the spec.
-- **No scene code is built** until lookdev round 2 (style frames, stills and motion tests) is
-  signed off.
+- **Lookdev round 2 is built in the film's own code** (`src/desk/`): four stills and two motion
+  tests, so the build starts from them. The beats themselves are built only after the user
+  signs the round off.
 
 **Session 1 (2026-11-08): research and the foundation docs.**
 - **Research:** 22 research and design agents and a frame study, written back to:
@@ -105,12 +106,13 @@ design works.
      - the 84-bar cue sheet, SCRIPT, STORYBOARD, FACTS and TREATMENT revision 2;
      - ARCHITECTURE decisions 30–31;
      - the motion-test tooling (`aiv still --span --encode --inner`);
-     - the kit parts copied from the frozen film.
+     - the kit parts copied from the frozen film;
+     - **User:** signed off the new zh strings (2026-11-09: "Correct as written");
+     - the Register Desk vertical slice: style frame (b) at both angles, with bloom on and off;
+     - **User:** picked the 15° angle and bloom 0.3, and "Right direction, refine";
+     - the kit's noise hash replaced by a public-domain one; IBM Plex Mono for JetBrains Mono;
+     - stills (a) to (d) and motion tests MT1 and MT2, with critic rounds and refine passes.
    - **Then:**
-     - **User:** signs off the new zh strings (done 2026-11-09: "Correct as written").
-     - The Register Desk vertical slice: style frame (b) at both angles, with bloom on and off.
-     - **User:** picks the angle and the bloom.
-     - Stills (a) to (d) and motion tests MT1 and MT2; the critic; a refine pass.
      - **User:** signs off lookdev round 2.
 4. **Build, part 1.**
    - An animatic: the key poses timed on the cue sheet, with the score sketch re-laid on the
@@ -188,19 +190,25 @@ or the ground (the `render-verify` skill; numbers in
   and `Title`; `@aiv/remotion-kit` has no `"sideEffects": false`, so 3D code is bundled.
 
 ## How it was made
-The picture style is being reworked (see Status); the stack and the numbers below hold. Speed and size were measured in session 2.
-- **Picture:** Remotion 4.0.539 in 2D: DOM text and inline SVG, with no React Three Fiber.
-  - **World and camera:** one 3840×2160 route-map world under a camera that only translates
-    and scales.
+- **Picture:** Remotion 4.0.539 with a WebGL world under a DOM text layer (ARCHITECTURE
+  decision 30).
+  - **World:** React Three Fiber through `@remotion/three`, three.js 0.186.1 and postprocessing
+    6.39.5. One continuous desk world under a long-lens camera (fov 20°, 15° pitch, 1 unit =
+    1 px at 1.0×) that only trucks, dollies and zooms. The DOM notes and labels are posed by the
+    same pure camera function.
+  - **Light and finish:** a fixed light set with no punctual lights; analytic SDF footprint
+    shadows instead of shadow maps; mipmap bloom (threshold 1.0, intensity 0.3) on at most
+    three live emitters; NEUTRAL tone mapping, dither and the kit's `FinishEffect`.
   - **Determinism:** every frame is a pure function of `useCurrentFrame()`, built with
-    `@aiv/core` (`progress`, easings, seeded `rand`).
-  - **Libraries:** `@remotion/paths` for drawing lines along their paths and moving tokens
-    on them; `@remotion/layout-utils` for measuring text.
-  - **Fonts:** IBM Plex Sans, Noto Sans SC and JetBrains Mono, all OFL npm packages that are
-    not committed. They load through the kit's `useFont`, which proves glyph coverage.
-  - **Where the code lives:** the look tokens in `src/look/`, the 2D motion kit in
-    `src/kit/`.
-  - **Fallback:** the web engine, only if the DOM determinism probe fails.
+    `@aiv/core` (`progress`, easings, seeded `rand`); the shaders hash with integers
+    (MurmurHash3's fmix32), never clocks.
+  - **Libraries:** `@aiv/remotion-kit` (Stage3D and PostChain, noise, `CamPath`, `Curve`,
+    `screenBoxAt`, the GPU program cache); `@remotion/layout-utils` for measuring text.
+  - **Fonts:** IBM Plex Sans, Noto Sans SC and IBM Plex Mono, all OFL npm packages that are
+    not committed. They load through the kit's `useFont`, which proves glyph coverage;
+    in-world text is drawn into canvas textures.
+  - **Where the code lives:** the world in `src/desk/`, the look tokens in `src/look/`, the 2D
+    overlay kit in `src/kit/`.
 - **Text:** `src/cues.ts` is the single source of every on-screen string, English and
   zh-Hans, and of its span on the bar grid (90 bpm, 4/4, 80 frames a bar).
   - Three things read it: the picture draws from it, the score's hold check reads it, and
@@ -221,10 +229,11 @@ The picture style is being reworked (see Status); the stack and the numbers belo
     in `packages/pipeline/src/audio/runtime/kit/`. The frozen film is untouched.
 - **Numbers:** 6,720 frames at 30 fps (3:44.0; the 2:56 cut had 5,280).
   - The round-1 DOM look measured 0.20–0.21 s and 0.49 MiB per frame at 1080p.
-  - The round-2 WebGL world is estimated at 0.5–0.9 s per frame, so a 1080p pass takes about
-    56–100 min, as chunked foreground calls with `--budget-min 9` or overnight. The probe on
-    style frame (b) measures it before anything is built (gate: 0.8 s per frame or less).
-  - At about 1.2 MiB per frame, a review mezzanine is about 8 GiB.
+  - The round-2 WebGL world measured 0.37–0.62 s per frame steady at 1080p in the motion tests
+    (gate: 0.8 s or less), so a 1080p pass takes about 40–70 min, as chunked foreground calls
+    with `--budget-min 9` or overnight.
+  - The lossless spans measured 1.31–1.32 MiB per frame, so a review mezzanine is about
+    8.7 GiB.
 
 ## Reproduce it
 ```sh
@@ -247,6 +256,9 @@ Planned; nothing is built yet.
 - **Its rules:** it imports nothing from the film and has its own tests. Each part is
   listed in `video.json` `reusable` once it is built. The kit moves to `@aiv/remotion-kit`
   when the next 2D explainer needs it (the rule of two).
+- **The Register Desk's shaders and geometry** (`src/desk/gl/`, `geom.ts`) stay in this film
+  until a second video needs them (ARCHITECTURE decision 30). The parts it took from the frozen
+  *A Halloween Gift* already live in `@aiv/remotion-kit`.
 - **Shared code this film puts straight into `packages/`** is documented with those
   packages, not here: the score kit, the bilingual caption pattern, the cue-text helpers
   and `readingSeconds`. `reusable` paths are relative to this folder.
@@ -281,6 +293,19 @@ Session 1, research and design:
     specific scenes.
 
   Treatments, lookdev stills and the frame-critic are checked against both lists.
+
+Session 3, the look rework:
+- **Calibrate the critic on the user's rejections first.** The frame-critic's "finished craft"
+  rubric had to fail the rejected round-1 stills before it judged anything new.
+- **Treat a critic's score as evidence, not as the bar.** The critic held style frame (b) near
+  23/38 across passes that visibly improved it. Its recurring confusions were real, and each
+  became a standing decision (D1–D5 in the Handoff); the user's eye at the gate decides.
+- **Ask a stranger.** An agent with no project context, asked "what is this frame telling
+  you?", found what the spec hid. One example is cords drawn before the line that explains
+  them, so they now first appear at C17.
+- **Give parallel implementers disjoint files.** Two builders that both edited `state.ts`,
+  `layout.ts` and the Register left one combined diff to review before either could be
+  committed.
 
 ## Licence
 This text is CC BY 4.0 and the code MIT ([licensing](../../docs/LICENSING.md)). The film

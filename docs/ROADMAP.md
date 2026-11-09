@@ -42,6 +42,16 @@ to be worth watching. A look-rework session now comes before the build. The rema
     `knowledge/dom-text-determinism.md`);
   - a flat ground, because CSS gradients band.
   Follow-ups are under Known gaps.
+- [x] **The look rework's infrastructure** (2026-11-09, decisions 30–31):
+  - a diagram film is a lit WebGL world under DOM text, posed by one camera function;
+  - `aiv still --span --encode --inner` for motion tests and their fresh-page check;
+  - `@aiv/remotion-kit` gains the frozen film's noise, `FinishEffect`, `Curve`, `CamPath`
+    and `screenBoxAt`, now hashing with public-domain MurmurHash3 fmix32;
+  - IBM Plex Mono 5.3.0 replaces JetBrains Mono;
+  - the frame-critic's calibrated "finished craft" criterion.
+
+  The WebGL world measured 0.37–0.62 s/frame and 1.31 MiB/frame at 1080p, deterministic on
+  fresh pages.
 - [ ] **Two-user promotions:** `readingSeconds` and the hold rule → `@aiv/core` are done
   (2026-11-08). Still to do:
   - the bilingual caption pattern and the cue-text helpers → `@aiv/remotion-kit` / `@aiv/core`,
