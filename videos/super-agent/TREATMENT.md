@@ -295,7 +295,7 @@ midway. Each leaves a pencil "?".
 | 8 · Many runs: the evidence | 50–57 (f3920–4559) | 2:10.7–2:32.0 | The synthetic test (~300 messages and ~20 work requests per run): the slowest tasks take about half the time of a single session, typical ones are only ~10% faster than the stronger baseline, the single session left to choose never delegated, and delegation becomes structural at 2–4× the tokens | C20 "Slowest tasks: about half the time of a single session." |
 | 9 · Keeping it running, handed over (proposed) | 58–62 (f4560–4959) | 2:32.0–2:45.3 | **Keep it running → Persistent**, in vellum. The cloud loop, state and daemons; a Watchdog that checks progress; the proposed tag | C24 "Proposed: a cloud loop that works while your laptop sleeps." |
 | 10 · Still open | 63–68 (f4960–5439) | 2:45.3–3:01.3 | What cannot be handed over yet: a hijacked loop (after two beats of silence), sharding (the trade-off returns), stepping in midway | C25 "Open risk: a hijacked loop could reach all connected machines." |
-| 11 · Sign-off, old ideas, meaning | 69–75 (f5440–5999) | 3:01.3–3:20.0 | You stamp the delivered reply (f5440); the route traced at 0.5×; six classic systems ideas labelled on their parts; the status key; attention becomes the limit | C27 "So people move up: to decisions, and to sign-off." |
+| 11 · Sign-off, old ideas, meaning | 69–75 (f5440–5999) | 3:01.3–3:20.0 | You stamp the delivered reply (f5440); the route traced at 0.64×; six classic systems ideas labelled on their parts; the status key; attention becomes the limit | C27 "So people move up: to decisions, and to sign-off." |
 | 12 · Bookend | 76–77 (f6000–6159) | 3:20.0–3:25.3 | The frame-0 framing; a new slip turns vermilion and rides out, and your desk does not move | C28 "Your agents work in parallel. By design, you don't have to." |
 | 13 · End card | 78–84 (f6160–6719) | 3:25.3–3:44.0 | A dissolve to the bare desk; the source card and the status key | The end card, from "Source: …" to "Not affiliated with DeepSeek" |
 
@@ -969,7 +969,9 @@ the only path to you. T is the causing frame.
 
 ### Camera
 - **Lens.** Long: a vertical fov of 20° at a distance of 3063 u at 1.0×, so 1 u = 1 px. Shot
-  sizes: wide 0.5×, medium 0.85–1.2×, close 1.6–2.2×.
+  sizes: wide 0.5–0.64×, medium 0.85–1.2×, close 1.6–2.4×. Round 2 set the two extremes: the
+  summary at 0.64× (every role still reads) and the cache close at 2.4× (the record and its
+  drawer together, the bug bay out of frame).
 - **Angle: a fixed 15° pitch** (the long-lens desk), the user's pick on 2026-11-09 ("15° tilt
   (Recommended)") over the plan view. The angle does not change during the film.
 - **Moves.** Truck, dolly and zoom only, with no rotation or shake. Moves start on downbeats,
@@ -1219,9 +1221,9 @@ diagram.
 | Entry in `frames.ts` | Film frame (time) | Camera | On screen |
 |---|---|---|---|
 | (a) `stillA` | f915 (0:30.5) | 1.2× | C4 alone; the notes loop clipped shut at f880 |
-| (b) `stillB` | f2200 (1:13.3) | 0.85× | C12 alone (the built tag ended at f2130); the Continuous plate on the deck |
-| (c) `stillC` | f3150 (1:45.0) | 2.0× on the reading window | N5 and the cache tag |
-| (d) `stillD` | f5520 (3:04.0) | 0.5× | The sign-off rest: no narration and no tag |
+| (b) `stillB` | f2225 (1:14.2) | 0.85× | C12 alone (the built tag ended at f2130); the Continuous plate on the deck |
+| (c) `stillC` | f3150 (1:45.0) | 2.4× on the reading window and the spill drawer | N5 and the cache tag |
+| (d) `stillD` | f5520 (3:04.0) | 0.64× | The sign-off rest: no narration and no tag |
 | Check `tag` | f2050 (1:08.3) | As in the film | The built tag beside C11 |
 | Check `chart` | f4200 (2:20.0) | As in the film | The evidence sheet under C21, with the chart and load tags, the lanes and the "~½" and "~10%" stamps |
 | Check `stepDown` | f5940 (3:18.0) | As in the film | The step-down under C27: everything but your desk and the stamped slip |
@@ -1292,7 +1294,7 @@ diagram.
   trait plates have retired into the emptied chore tray before the classic-idea labels land
   (f5580).
 - **Labels:** "Router", "Worker" and "you · 你" only.
-- **Must read:** every role's silhouette at 0.5×; built, proposed and open nameable without
+- **Must read:** every role's silhouette at 0.64×; built, proposed and open nameable without
   the key, in greyscale and under the colour-blindness simulation; the Register still a hero
   of at least 170 px; the floor under 30% of the frame; the ground's luma against the QA
   threshold.
