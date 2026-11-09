@@ -1204,7 +1204,7 @@ diagram.
   is evidence, not the user's verdict, so the user sees frames early.
 
 **Step 1: style frame (b), the direction check.**
-- Style frame (b) at f2200 (below), rendered four ways: at the 15° long-lens angle and in plan
+- Style frame (b) at f2200 (below; the round-2 still moved to f2225), rendered four ways: at the 15° long-lens angle and in plan
   view (pitch 0), each with bloom 0 and 0.3, in full and as 320 px thumbnails.
 - With them: a sheet of every role as a flat-white silhouette at 25%, and (b) in greyscale and
   under a colour-blindness simulation.
@@ -1313,12 +1313,12 @@ and that the Router is never busy.
 
 | Frames | What happens |
 |---|---|
-| 2140–2160 | The test tower's pins drop (2 f stagger); on the downbeat its cap closes in 8 f and its work light dims (spring-effects) |
-| 2163–2181 | The report card ejects and flies an 18 f arc with its transit light; it docks (spring-dock), and the throat blinks for 5 f |
-| 2183–2205 | Stamp-in: the print head drops, the "№" ink spreads, the reel detents (2187–2195), the fanfold +1; the header goes inline, the body folds, the tab drops, and the other cells dim one step |
-| 2200–2240 | The index arm turns west (6 f); the reply slip rides the chute (2208–2230) and lands with a 3% squash; your lamp +1 step (2232–2240) |
+| 2140–2160 | The test tower's lamps go out one by one as its tests finish (2 f stagger); its hinged cap swings shut over 8 f and lands on the 2160 downbeat; its work light dims (spring-effects) |
+| 2160–2182 | The report card rises standing out of the slot in the cap (4 f) and flies an 18 f arc with the transit light, over the deck's rail and down into its mouth; it docks on spring-dock at 2182 |
+| 2183–2209 | Stamp-in: the reel detents and drives the tape one cell (2183); the print head drops at 2190 and #0408 inks into the newest cell over 3 f while the older cells dim a step; the card folds in half along its crease (2194, 8 f) into a pointer tab, which drops into the spill drawer (2203, 6 f) and stays there, face up |
+| 2200–2240 | On the downbeat the index arm turns west to you (spring-detent); the reply slides out from under the deck's south-west corner along the chute's line and down the chute, one 28 f motion (2206–2234), landing in your in-tray with a 3% squash; your lamp +1 step at 2236 |
 | 2240–2275 | A chat slip reaches the gate (finger 4 f); the loupe dwells (2244–2264); the notch at 2266; stamp-in (2268–2275) |
-| 2280–2332 | The index arm detents toward the bay floor and a fresh bay rises from its floor hatch: one Worker per task, so never the busy docs galley. The folder slides the groove (2290–2314); the door lifts at 2310, docks at 2314 and drops at 2320; the work light ignites (2322–2332) |
+| 2280–2332 | The index arm detents toward the bay floor; a groove is cut from the ramp's foot (2283), the hatch opens in 3 f over a dark pit (2286) and a fresh bay rises (2289): one Worker per task, so never the busy docs galley. The folder is pushed out of the dispatch housing under the deck's east end (2290), tips off the ramp lip (2296, 4 f) and slides the groove (2300–2314); the door is fully up 4 f before the folder reaches it, and drops at 2320; the work light ignites (2322–2332) |
 | 2320–2340 | The finished bays step down to 55% contrast |
 
 The cue sheet labels the bays' step-down on rest-model (f2260–2320); MT1 settles which frames
