@@ -7,7 +7,8 @@
  * the DOM layer projects world points through the same pose (`project`, the kit's `screenBoxAt`),
  * so a label lands on its object at every zoom (docs/ARCHITECTURE.md decision 30, "One camera").
  */
-import { CamPath, screenBoxAt, type CamKey, type CamPose } from '@aiv/remotion-kit';
+import { screenBoxAt, type CamPose } from '@aiv/remotion-kit';
+import { Easing } from 'remotion';
 import type { P3 } from './layout.ts';
 
 /** The composition's CSS size. */
@@ -79,10 +80,10 @@ export function projectBox(pose: CamPose, pts: readonly P3[]): { x0: number; y0:
 export const FRAMING_C: Framing = { x: -90, y: 150, zoom: 2.4 };
 
 /**
- * The camera's moves from the turn on (film frames >= 1400; act one's, before 1400, is ACT_ONE_MOVE). Each move starts on a downbeat and runs between two held framings through a
- * pass-through key at the geometric mean of their zooms, so the zoom reads evenly (perceptual
- * scale); between moves the framing holds exactly (`deskCamera`), so a still at a hold is the
- * static pose. The DOM layer projects through the same pose (`project`).
+ * The camera's moves from the turn on (film frames >= 1400; act one's, before 1400, is ACT_ONE_MOVE). Each move starts
+ * on a downbeat and runs between two held framings on the camera token, its zoom even in log scale (perceptual scale)
+ * and its truck even on screen (`moveFraming`); between moves the framing holds exactly (`deskCamera`), so a still at a
+ * hold is the static pose. The DOM layer projects through the same pose (`project`).
  */
 export interface CameraMove {
   from: number;
@@ -99,24 +100,26 @@ export const CAMERA_MOVES: readonly CameraMove[] = [
   { from: 3280, to: 3440, a: FRAMING_C, b: FRAMING_B },
 ];
 
-const movePaths = new Map<string, CamPath>();
-function movePath(m: CameraMove, angle: Angle): CamPath {
-  const key = `${m.from}:${m.to}:${m.a.x},${m.a.y},${m.a.zoom}:${m.b.x},${m.b.y},${m.b.zoom}:${angle}`;
-  let p = movePaths.get(key);
-  if (!p) {
-    const mid: Framing = { x: (m.a.x + m.b.x) / 2, y: (m.a.y + m.b.y) / 2, zoom: Math.sqrt(m.a.zoom * m.b.zoom) };
-    const k = (f: number, fr: Framing, hold: boolean): CamKey => ({ f, ...deskCamera(fr, angle), hold });
-    p = new CamPath([k(m.from, m.a, true), k((m.from + m.to) / 2, mid, false), k(m.to, m.b, true)]);
-    movePaths.set(key, p);
-  }
-  return p;
+/** The camera token (TREATMENT Motion grammar): cubic-bezier(.65, 0, .35, 1), one bell of speed peaking mid-move. */
+const CAMERA_EASE = Easing.bezier(0.65, 0, 0.35, 1);
+
+/**
+ * A move's framing at progress u (0..1, already eased): the zoom changes evenly in log scale (perceptual scale), and
+ * the aim point trucks in proportion to 1/zoom along the way, so its speed on screen stays even while the zoom
+ * changes (a truck at 2.4x covers less world per frame than the same truck at 0.85x).
+ */
+export function moveFraming(m: CameraMove, u: number): Framing {
+  const r = m.b.zoom / m.a.zoom;
+  const zoom = m.a.zoom * r ** u;
+  const w = Math.abs(r - 1) < 1e-6 ? u : (1 - r ** -u) / (1 - 1 / r);
+  return { x: m.a.x + (m.b.x - m.a.x) * w, y: m.a.y + (m.b.y - m.a.y) * w, zoom };
 }
 
-/** One move's pose at film frame f: its first framing held before it, its path while it runs, its last after. */
+/** One move's pose at film frame f: its first framing held before it, the eased path while it runs, its last after. */
 export function moveCameraAt(m: CameraMove, f: number, angle: Angle): CamPose {
   if (f <= m.from) return deskCamera(m.a, angle);
   if (f >= m.to) return deskCamera(m.b, angle);
-  return movePath(m, angle).at(f);
+  return deskCamera(moveFraming(m, CAMERA_EASE((f - m.from) / (m.to - m.from))), angle);
 }
 
 /** Act one's one move (STORYBOARD 1.2): bar 3's downbeat (`title-thump`), out of the hook onto your desk, 1.6x to 1.2x over two bars. */
@@ -133,7 +136,7 @@ export function framingAt(f: number): Framing {
 
 /** The camera at film frame f: a move's path while it runs, else the held framing's exact pose. */
 export function cameraAt(f: number, angle: Angle): CamPose {
-  for (const m of ALL_MOVES) if (f > m.from && f < m.to) return movePath(m, angle).at(f);
+  for (const m of ALL_MOVES) if (f > m.from && f < m.to) return moveCameraAt(m, f, angle);
   return deskCamera(framingAt(f), angle);
 }
 

@@ -24,7 +24,7 @@ import { Trace } from './objects/Trace.tsx';
 import { World } from './objects/World.tsx';
 import { cueReveal } from './onScreen.ts';
 import { TEXT_HEX } from './Overlay.tsx';
-import { poseD, summaryAt, summaryDeskState } from './summary.ts';
+import { SPAN_D, poseD, summaryAt, summaryDeskState } from './summary.ts';
 import { TurnFrame } from './TurnFrame.tsx';
 
 /** The film's pitch and bloom: the user's picks on style frame (b) (2026-11-09: "15° tilt", "Bloom 0.3"). */
@@ -80,11 +80,13 @@ function AnimaticSlate({ f }: { f: number }) {
   if (!ready || f < BUILT_TO) return null;
   const size = TYPE.label.size;
   const shown = SLATE_CUES.filter((e) => cueReveal(e.id, f).visible);
+  // the summary's sign-off (still (d)) is built: no mark over it
+  const built = f >= SPAN_D[0] && f <= SPAN_D[1];
   let y = 132;
   return (
     <AbsoluteFill>
       <svg width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
-        <Label x={1824} y={84} text="animatic · not built yet" family={fonts.sans} size={36} weight={400} cjkWeight={400} color={TEXT_HEX.zh} anchor="end" />
+        {!built && <Label x={1824} y={84} text="animatic · not built yet" family={fonts.sans} size={36} weight={400} cjkWeight={400} color={TEXT_HEX.zh} anchor="end" />}
         {shown.map((e) => {
           const r = cueReveal(e.id, f);
           const lines = Object.entries(e.text ?? {}).flatMap(([lang, s]) => s.split('\n').map((t) => ({ lang, t })));

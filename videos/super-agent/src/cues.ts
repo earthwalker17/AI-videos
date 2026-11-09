@@ -269,10 +269,13 @@ export const BOTH_FIXES = at(17);
  * Beat 4 after the turn (STORYBOARD 4.2-4.5), in cause order. The request rises out of the old heap
  * and is stamped in; a counterfactual card (the request torn three ways) rises 12 f, is struck 6 f
  * and exits 8 f; the index arm detents toward the bay floor, a hatch opens, the bug bay's bench rises
- * and the request's folder slides its groove whole; the Thread's subscription prints as a tape row
- * (its cord waits for C17, design D1). Under N2 the neck-collar gauge shows, arrivals take the next
- * rows on beats 2 and 4, and a ghost card (a Router with a bench, its backlog piling for a bar) is
- * struck. Under C11 two more tasks are dispatched and their bays rise; the Worker label enters.
+ * and the request rides its groove whole; the Thread's subscription inks into the request's own row
+ * on the tape (its cord waits for C17, design D1). Under N2 the neck-collar gauge shows, needle low;
+ * two arrivals take the next rows (still (b)'s tape has room for exactly two before #0408) while the
+ * index detents on beats 2 and 4; and a ghost card (a Router with a bench, its backlog piling at its
+ * door for a bar) is struck. Under C11 two more tasks are dispatched and their bays rise; the Worker
+ * label enters. Every frame here is a contact frame: the picture's event lands on it (the cue is the
+ * contract; the sound sits on it).
  */
 export const BEAT_4 = {
   requestRise: 1648,
@@ -285,7 +288,7 @@ export const BEAT_4 = {
   gauge: 1826,
   ghostCard: at(24),
   ghostStrike: at(25),
-  rows: [at(24, 2), at(24, 4), at(25, 2)],
+  rows: [at(24, 2), at(24, 4)],
   armTests: 1990,
   dispatchTests: at(26),
   armDocs: 2030,
@@ -417,11 +420,11 @@ const events: CueEvent[] = [
   hit('strike-split', BEAT_4.splitStrike, 'an ink rule strikes the split card: a dry scratch'),
   mark('arm-bug', BEAT_4.armBug, 'the index arm detents toward the bay floor'),
   hit('dispatch-bug', BEAT_4.dispatchBug, 'a hatch opens and the bug bay’s bench rises; the request’s folder slides its groove: a knock, then its marimba voice'),
-  mark('thread-row', BEAT_4.threadRow, 'the request’s Thread subscription prints as a row on the tape (no cord until C17)'),
+  mark('thread-row', BEAT_4.threadRow, 'the request’s Thread subscription inks into its row on the tape (no cord until C17)'),
   line('n2', at(23, 4), at(25, 3.5)),
   mark('gauge', BEAT_4.gauge, 'the neck-collar gauge on the throat shows, its needle low'),
   mark('ghost-router', BEAT_4.ghostCard, 'a grey-stock card rises: a Router with a bench, its backlog piling at the door for a bar'),
-  ...BEAT_4.rows.map((f, i) => mark(`row-${i + 1}`, f, 'an arrival takes the next row on the tape (beats 2 and 4)')),
+  ...BEAT_4.rows.map((f, i) => mark(`row-${i + 1}`, f, 'an arrival takes the next row on the tape')),
   hit('strike-ghost', BEAT_4.ghostStrike, 'the ghost Router is struck: the smeared cluster fades'),
   line('c11', at(25, 4), at(27, 3.5)),
   mark('arm-tests', BEAT_4.armTests, 'the index arm detents toward the test tower’s hatch'),
