@@ -28,10 +28,10 @@ import { BugBay, DocsBay, TestsBay } from './Bay.tsx';
 import { TAPE_HEX, clipGeometry, fitUv, loopArc, loopNoteFlips, loopNotes, makeActOnePrint, piece, slipShape } from './ActOne.tsx';
 
 /** Grey stock: the road not taken (STORYBOARD's palette). */
-const GREY = '#77756F';
-const GREY_LIGHT = '#8A8781';
+export const GREY = '#77756F';
+export const GREY_LIGHT = '#8A8781';
 /** Fix B's replies: a paler grey stock, so the jostling pile reads slip by slip on the in-tray. */
-const GREY_PALE = '#9B9891';
+export const GREY_PALE = '#9B9891';
 /** A bay's wall at rest (the kit's graphite) and its nameplate band's enamel. */
 const BAY_WALL_HEX = '#626764';
 /** A dark work slot: no task has been dispatched yet, so nothing computes. */
@@ -297,7 +297,7 @@ function Coil({ c, edge, fold, mats }: { c: NonNullable<TurnState['loop']['coil'
 // Fix A: the folder, the tape (desk part and span), the queue
 
 /** A ribbon along a list of centre points with width vectors, its u by material distance. */
-function stripGeometry(pts: readonly { p: P3; w: P3; u: number }[], half: number): BufferGeometry | null {
+export function stripGeometry(pts: readonly { p: P3; w: P3; u: number }[], half: number): BufferGeometry | null {
   if (pts.length < 2) return null;
   const pos: number[] = [];
   const uv: number[] = [];
@@ -329,7 +329,7 @@ function stripGeometry(pts: readonly { p: P3; w: P3; u: number }[], half: number
 
 /** The tape's print: sprocket ticks along both edges and its tooth, 120 u a repeat. */
 const A_TEX_LEN = 120;
-function tapeTexture(): Texture {
+export function tapeTexture(): Texture {
   const t = texture(
     A_TEX_LEN,
     A_TAPE_W,
@@ -348,7 +348,7 @@ function tapeTexture(): Texture {
 }
 
 /** Prints for the queue's stock: a chat slip's mark, a CI card's punches, a task card's pictogram. */
-function itemTexture(kind: AItemKind, v: number): Texture {
+export function itemTexture(kind: AItemKind, v: number): Texture {
   const [l, w] = A_SIZE[kind];
   return texture(
     l,
@@ -376,7 +376,7 @@ function itemTexture(kind: AItemKind, v: number): Texture {
 }
 
 /** The request's grey copy: 1.3× a chat slip, its beetle cut out (as act one's request, never vermilion here). */
-function requestCopy(): BufferGeometry {
+export function requestCopy(): BufferGeometry {
   const [l, w] = A_SIZE.request;
   const s = slipShape('chat', l, w);
   const bx = -l / 2 + 12;
@@ -391,9 +391,13 @@ function requestCopy(): BufferGeometry {
   return fitUv(extrude(s, 0, 0.8, 0.2), l, w);
 }
 
-function FixA({ t }: { t: TurnState }) {
+/**
+ * Fix A in grey stock (beat 3, then the turn winds its tape onto the reel): its folder, its one tape and the items queued on
+ * it, posed by turn.ts fixATurnAt (and beat 3's schedule before f1400). Exported for act one's beat 3 (desk/beat3.ts).
+ */
+export function FixA({ fixA, pressA }: { fixA: TurnState['fixA']; pressA: TurnState['pressA'] }) {
   const m = useDeskMats();
-  const A = t.fixA;
+  const A = fixA;
   const tex = useMemo(() => tapeTexture(), []);
   const itemTex = useMemo(() => A_ITEMS.map((it) => itemTexture(it.kind, it.v)), []);
   const geo = useMemo(() => ({ chat: piece('chat', ...A_SIZE.chat), ci: piece('ci', ...A_SIZE.ci), task: piece('ci', ...A_SIZE.task), request: requestCopy() }), []);
@@ -465,9 +469,9 @@ function FixA({ t }: { t: TurnState }) {
     <group>
       {desk && <mesh geometry={desk} material={mats.grey} />}
       {span && <mesh geometry={span} material={mats.span} />}
-      {t.pressA.k < 1 && (
+      {pressA.k < 1 && (
         <group position={[F.c[0], F.c[1], 0]} rotation={[0, 0, F.rot]}>
-          <Pressed p={t.pressA}>
+          <Pressed p={pressA}>
             <mesh geometry={folder.cover} material={mats.folder} />
             <mesh geometry={folder.stack} material={mats.stack} />
             <mesh geometry={folder.sheet} material={mats.sheet} />
@@ -490,7 +494,7 @@ function FixA({ t }: { t: TurnState }) {
 // Fix B: the trays (pressed flat, or walled up into the bays), the replies
 
 /** A tray at rest (tray-local): its floor, its low walls (the north wall with its door gap), its event card. */
-function trayGeometry(w: number, d: number, doorAt: number) {
+export function trayGeometry(w: number, d: number, doorAt: number) {
   const x0 = -w / 2;
   const x1 = w / 2;
   const y0 = -d / 2;
@@ -510,7 +514,7 @@ function trayGeometry(w: number, d: number, doorAt: number) {
 }
 
 /** A reply's print: a mark at its west end (a reply, as the chute's slips), never a number. */
-function useReplyTexture(): Texture {
+export function useReplyTexture(): Texture {
   const t = useMemo(
     () =>
       texture(
@@ -600,14 +604,18 @@ function BayTray({ k, b, f, slip, slipMat, mats, card }: { k: number; b: BayTurn
   );
 }
 
-function SlipMesh({ p, rot, tilt, material }: { p: P3; rot: number; tilt: number; material: Material }) {
+export function SlipMesh({ p, rot, tilt, material }: { p: P3; rot: number; tilt: number; material: Material }) {
   const g = useGeo(() => piece('chat', B_SLIP.l, B_SLIP.w), []);
   return <mesh geometry={g} material={material} position={p} rotation={[tilt, 0, rot]} />;
 }
 
-function FixB({ t }: { t: TurnState }) {
+/**
+ * Fix B in grey stock (beat 3's eight trays; at the turn three of them grow walls into bays), posed by turn.ts fixBTurnAt
+ * (and beat 3's schedule before f1400). Exported for act one's beat 3 (desk/beat3.ts).
+ */
+export function FixB({ fixB, f }: { fixB: TurnState['fixB']; f: number }) {
   const sets = useDeskSets();
-  const B = t.fixB;
+  const B = fixB;
   const gs = useMemo(() => TRAYS.map((tr) => trayGeometry(tr.w, tr.d, tr.door)), []);
   const slipTex = useReplyTexture();
   const brk = useMemo(() => {
@@ -656,7 +664,7 @@ function FixB({ t }: { t: TurnState }) {
     // no Worker computes yet: every work slot is dark (they light when a task is dispatched, 4.3 on)
     for (const set of [sets.full, sets.stepped]) for (const s of [set.slotBug, set.slotTests, set.slotDocs]) s.color.set(SLOT_IDLE);
   });
-  const landed = (k: number) => t.f >= replyLands(k);
+  const landed = (k: number) => f >= replyLands(k);
   return (
     <group>
       {TRAYS.map((tr, k) => {
@@ -688,7 +696,7 @@ function FixB({ t }: { t: TurnState }) {
             </group>
           );
         }
-        return <BayTray key={k} k={k} b={b} f={t.f} slip={landed(k) ? { rot: B.slips[k].rot } : null} slipMat={mats[`s${k}`]} mats={{ wall: mats[`w${k}`], floor: mats.floor, band: mats[`b${k}`], card: mats.card }} card={g.card} />;
+        return <BayTray key={k} k={k} b={b} f={f} slip={landed(k) ? { rot: B.slips[k].rot } : null} slipMat={mats[`s${k}`]} mats={{ wall: mats[`w${k}`], floor: mats.floor, band: mats[`b${k}`], card: mats.card }} card={g.card} />;
       })}
       {breakGone < 1 && <mesh geometry={brk} material={mats.brk} />}
       {/* the replies in flight (and in your in-tray before they leave) */}
@@ -771,8 +779,8 @@ export function TurnObjects({ t, printFamily }: { t: TurnState; printFamily: str
     <>
       {t.loop.ribbon && <Ribbon r={t.loop.ribbon} mats={loopMats} />}
       {t.loop.coil && <Coil c={t.loop.coil} edge={t.loop.edge} fold={t.loop.fold} mats={loopMats} />}
-      <FixA t={t} />
-      <FixB t={t} />
+      <FixA fixA={t.fixA} pressA={t.pressA} />
+      <FixB fixB={t.fixB} f={t.f} />
       {t.f >= TURN.deckIn && <Legs t={t} />}
       {t.tape.leader < 1 && <Leader k={t.tape.leader} />}
       {t.slip && <FirstSlip s={t.slip} />}
