@@ -39,9 +39,11 @@ export interface DeskFrameProps {
   tags?: readonly TagSpec[];
   /** the desk's state at a film frame (default: state.ts deskStateAt) */
   stateAt?: (f: number) => DeskState;
+  /** which strings the printed textures print (default all): a planned shot prints the rest as marks */
+  printKeep?: (text: string) => boolean;
 }
 
-export function DeskFrame({ f, angle, bloom, objects, footprints, poseAt, span = LOOKDEV_SPAN, labels, tags, stateAt = deskStateAt }: DeskFrameProps) {
+export function DeskFrame({ f, angle, bloom, objects, footprints, poseAt, span = LOOKDEV_SPAN, labels, tags, stateAt = deskStateAt, printKeep }: DeskFrameProps) {
   const { fonts, ready } = useFilmFonts();
   const print = useFont(PRINT_FONT);
   const all = ready && print.ready;
@@ -52,7 +54,7 @@ export function DeskFrame({ f, angle, bloom, objects, footprints, poseAt, span =
     <AbsoluteFill style={{ background: DESK_HEX.base }}>
       {all && (
         <Stage3D shadows={false} antialias={false} camera={{ fov: FOV, near: NEAR, far: FAR, position: [pose.pos[0], pose.pos[1], pose.pos[2]] }}>
-          <DeskWorld s={s} pose={pose} bloom={bloom} printFamily={print.family} sansFamily={fonts.sans} footprints={footprints}>
+          <DeskWorld s={s} pose={pose} bloom={bloom} printFamily={print.family} sansFamily={fonts.sans} footprints={footprints} printKeep={printKeep}>
             {objects(s)}
           </DeskWorld>
         </Stage3D>

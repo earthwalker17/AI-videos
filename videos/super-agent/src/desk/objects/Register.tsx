@@ -12,11 +12,12 @@
  * - the pilot jewel: lit, never blooming.
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
-import { CircleGeometry, Matrix4, Path, Shape, type BufferGeometry } from 'three';
+import { CircleGeometry, Matrix4, Path, Shape, type BufferGeometry, type Material } from 'three';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
 import { Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
-import { CACHE_WINDOW, CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
+import { CACHE_WINDOW, CELLS_X, CROSS, DECK, DECK_PLATE, DRAWER, DRAWER_OPEN_C, FANFOLD, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
 import { PRINT_SIZE } from '../gl/text.ts';
+import { FiledTabs } from './Cache.tsx';
 import { DETENT, EVENTS_B, EVENTS_D, closeAt, loupeAt, type DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
@@ -483,7 +484,65 @@ function LoupeSwing({ a, lens, children }: { a: number; lens: BufferGeometry; ch
   );
 }
 
-export function Register({ s }: { s: DeskState }) {
+/**
+ * The Register's pose during the turn (desk/turn.ts): the deck rolling in and lifting on its legs (which the
+ * turn draws, telescoping), the parts that dock on it, the tape's run and print, the jewel's light. The reel's
+ * pack, hub and spokes are the turn's coil until the lock, so the Register leaves them out; the log's history
+ * (the fanfold, the spilled tabs) does not exist yet.
+ */
+export interface RegisterTurn {
+  deck: { dy: number; dz: number; tilt: readonly [number, number] };
+  /**
+   * The parts as they assemble, all riding in with the deck: the throat and its gauge raised from under the deck's
+   * west end (z, 0 seated), the print head hinged up from lying flat (radians about its west edge), the index arm and
+   * the loupe swung in (radians added to their angles), the ramp lowered like a drawbridge (radians), the Continuous
+   * plate turned over on its long axis (radians: it rides in face down, its graphite back up)
+   */
+  parts: { throat: number; head: number; index: number; loupe: number; ramp: number; plate: number };
+  /** the flat run's material, or null while the turn lays the leader itself */
+  tape: Material | null;
+  hammer: number;
+  /** the pilot jewel's light (0 dark .. 1 lit) */
+  jewel: number;
+}
+
+const DECK_C: P2 = [(DECK.x0 + DECK.x1) / 2, (DECK.y0 + DECK.y1) / 2];
+/** Everything on the deck, posed by the turn (as it is without one). */
+export function DeckPose({ pose, children }: { pose?: RegisterTurn['deck']; children: ReactNode }) {
+  if (!pose) return <>{children}</>;
+  return (
+    <group position={[DECK_C[0], DECK_C[1] + pose.dy, pose.dz]} rotation={[pose.tilt[0], pose.tilt[1], 0]}>
+      <group position={[-DECK_C[0], -DECK_C[1], 0]}>{children}</group>
+    </group>
+  );
+}
+/** A part raised or lowered into its seat (as it is without a height). */
+function Lift({ z, children }: { z?: number; children: ReactNode }) {
+  if (z === undefined) return <>{children}</>;
+  return <group position={[0, 0, z]}>{children}</group>;
+}
+/** The Continuous plate turned over about its long axis (as it is without an angle). */
+function Flip({ angle, children }: { angle?: number; children: ReactNode }) {
+  if (angle === undefined) return <>{children}</>;
+  const [cx, cy] = rectC(TRAIT_PLATE.box);
+  const cz = (TRAIT_PLATE.z[0] + TRAIT_PLATE.z[1]) / 2 + 1;
+  return (
+    <group position={[cx, cy, cz]} rotation={[angle, 0, 0]}>
+      <group position={[-cx, -cy, -cz]}>{children}</group>
+    </group>
+  );
+}
+/** A part turned about a hinge along y at (x, z) (as it is without an angle). */
+export function Hinge({ angle, x, z, children }: { angle?: number; x: number; z: number; children: ReactNode }) {
+  if (angle === undefined) return <>{children}</>;
+  return (
+    <group position={[x, 0, z]} rotation={[0, angle, 0]}>
+      <group position={[-x, 0, -z]}>{children}</group>
+    </group>
+  );
+}
+
+export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
   const m = useDeskMats();
   const g = useRegisterGeometry();
   const C = s.cache;
@@ -497,14 +556,16 @@ export function Register({ s }: { s: DeskState }) {
     const bare = m.printed.tapeBlank.map;
     if (bare) bare.offset.x = -STUB_STEP_U * (C?.tape ?? 0);
   }, [m, s.tape, s.next.tape, C?.tape]);
-  const tapeMat = C ? m.printed.tapeBlank : s.f >= EVENTS_D.stampIn + 1 ? m.printed.tape2 : s.f >= EVENTS_B.stampIn + 1 ? m.printed.tape : m.printed.tapeBefore;
+  const T = turn;
+  const tapeMat = T ? T.tape : C ? m.printed.tapeBlank : s.f >= EVENTS_D.stampIn + 1 ? m.printed.tape2 : s.f >= EVENTS_B.stampIn + 1 ? m.printed.tape : m.printed.tapeBefore;
   const reelTurn = s.reel + s.next.reel + (C?.reel ?? 0);
-  const hammer = Math.max(s.stamp, s.next.stamp, C?.stamp ?? 0);
+  const hammer = T ? T.hammer : Math.max(s.stamp, s.next.stamp, C?.stamp ?? 0);
   return (
     <group>
       {/* the gantry */}
-      <mesh geometry={g.legs} material={m.graphite} />
-      <mesh geometry={g.feet} material={m.graphiteDark} />
+      {!T && <mesh geometry={g.legs} material={m.graphite} />}
+      {!T && <mesh geometry={g.feet} material={m.graphiteDark} />}
+      <DeckPose pose={T?.deck}>
       <mesh geometry={g.rails} material={m.graphite} />
       <mesh geometry={g.cross} material={m.graphiteDark} />
       <mesh geometry={g.plate} material={m.graphiteDeck} />
@@ -515,15 +576,15 @@ export function Register({ s }: { s: DeskState }) {
           {(n) => (
             <>
               <mesh geometry={g.flange} material={n.graphiteDark} />
-              <mesh geometry={g.pack} material={n.paperShade} />
-              <group position={[REEL.x, REEL.y, 0]} rotation={[0, 0, -0.26 * reelTurn]}>
+              {!T && <mesh geometry={g.pack} material={n.paperShade} />}
+              {!T && <group position={[REEL.x, REEL.y, 0]} rotation={[0, 0, -0.26 * reelTurn]}>
                 <group position={[-REEL.x, -REEL.y, 0]}>
                   <mesh geometry={g.packTop} material={n.printed.reelTop} />
                   <mesh geometry={g.hub} material={n.enamel} />
                   <mesh geometry={g.hubSlot} material={n.graphiteDark} />
                   <mesh geometry={g.spokes} material={n.enamel} />
                 </group>
-              </group>
+              </group>}
             </>
           )}
         </WithMats>
@@ -532,8 +593,8 @@ export function Register({ s }: { s: DeskState }) {
       <mesh geometry={g.frameCaps} material={m.enamelShade} />
       <mesh geometry={g.bosses} material={m.enamel} />
       {/* the tape, the window and its lamp */}
-      <mesh geometry={g.tapeFlat} material={tapeMat} />
-      <mesh geometry={g.tapeRise} material={m.paper} />
+      {tapeMat && <mesh geometry={g.tapeFlat} material={tapeMat} />}
+      {tapeMat && <mesh geometry={g.tapeRise} material={m.paper} />}
       <mesh geometry={g.win} material={m.graphite} />
       {/* the window's bars; in still (c) they slide with the shrinking cards (objects/Cache.tsx) */}
       {!C && <mesh geometry={g.bars} material={m.enamelShade} />}
@@ -543,12 +604,17 @@ export function Register({ s }: { s: DeskState }) {
       <mesh geometry={g.lampArms} material={m.graphite} />
       <mesh geometry={g.lampFeet} material={m.graphiteDark} />
       {/* the throat, the print head */}
+      <Hinge angle={T?.parts.head} x={PRINT_HEAD.box.x0} z={DECK.top}>
       <mesh geometry={g.head} material={m.graphite} />
       <mesh geometry={g.headCap} material={m.enamel} />
       <mesh geometry={g.headHammer} material={m.steel} position={[0, 0, -9 * hammer]} />
+      </Hinge>
+      <Lift z={T?.parts.throat}>
       <mesh geometry={g.throat} material={m.graphiteDark} />
       <mesh geometry={g.cheeks} material={m.enamel} />
       <mesh geometry={g.collar} material={m.steel} />
+      </Lift>
+      <Lift z={T?.parts.throat}>
       <Step on={isStepped(s.step, 'gauge')}>
         <WithMats>
           {(n) => (
@@ -561,6 +627,7 @@ export function Register({ s }: { s: DeskState }) {
           )}
         </WithMats>
       </Step>
+      </Lift>
       {/* the Slow Path: the loupe over the pinned policy card (stepped down in C12) */}
       <Step on={isStepped(s.step, 'policy')}>
         <WithMats>
@@ -569,7 +636,7 @@ export function Register({ s }: { s: DeskState }) {
               <mesh geometry={g.policyBase} material={n.graphiteDark} />
               <mesh geometry={g.policyCard} material={n.printed.policy} />
               <mesh geometry={g.pin} material={n.enamel} />
-              <LoupeSwing a={s.next.loupe} lens={g.lens}>
+              <LoupeSwing a={T ? s.next.loupe + T.parts.loupe : s.next.loupe} lens={g.lens}>
                 <mesh geometry={g.loupeRing} material={n.steel} />
                 <mesh geometry={g.lens} material={n.printed.lens} />
                 <mesh geometry={g.loupeArm} material={n.graphite} />
@@ -580,16 +647,18 @@ export function Register({ s }: { s: DeskState }) {
       </Step>
       {/* the index arm on its detent plate */}
       <mesh geometry={g.plateGeo} material={m.enamelShade} />
-      <group position={[INDEX.pivot[0], INDEX.pivot[1], 0]} rotation={[0, 0, s.arm]}>
+      <group position={[INDEX.pivot[0], INDEX.pivot[1], 0]} rotation={[0, 0, T ? s.arm + T.parts.index : s.arm]}>
         <mesh geometry={g.arm} material={m.graphite} />
         <mesh geometry={g.armTip} material={m.enamel} />
       </group>
       <mesh geometry={g.boss} material={m.enamel} />
-      {/* the spill drawer, the mouth */}
-      <mesh geometry={g.drawerBox} material={m.graphiteDark} />
-      <mesh geometry={g.drawerFront} material={m.enamel} />
-      <mesh geometry={g.drawerHandle} material={m.steel} />
-      <mesh geometry={g.tabs} material={m.paper} />
+      {/* the spill drawer (in still (c) it pulls open to take the request's tab) with its filed pointer tabs, the mouth */}
+      <group position={[0, -DRAWER_OPEN_C * (C?.drawer ?? 0), 0]}>
+        <mesh geometry={g.drawerBox} material={m.graphiteDark} />
+        <mesh geometry={g.drawerFront} material={m.enamel} />
+        <mesh geometry={g.drawerHandle} material={m.steel} />
+        {!T && <FiledTabs />}
+      </group>
       <mesh geometry={g.hopper} material={m.enamelShade} />
       {/* the sealed shell key */}
       <Step on={isStepped(s.step, 'lock')}>
@@ -606,9 +675,10 @@ export function Register({ s }: { s: DeskState }) {
         </WithMats>
       </Step>
       {/* the pilot jewel */}
-      <mesh geometry={g.jewel} material={m.jewel} />
+      <mesh geometry={g.jewel} material={T && T.jewel < 0.5 ? m.graphiteDark : m.jewel} />
       <mesh geometry={g.bezel} material={m.steel} />
       {/* the fanfold under the deck */}
+      {!T && (
       <Step on={isStepped(s.step, 'fanfold')}>
         <WithMats>
           {(n) => (
@@ -621,7 +691,9 @@ export function Register({ s }: { s: DeskState }) {
           )}
         </WithMats>
       </Step>
+      )}
       {/* the Continuous plate on the front apron */}
+      <Flip angle={T?.parts.plate}>
       <Step on={isStepped(s.step, 'plate')}>
         <WithMats>
           {(n) => (
@@ -634,9 +706,13 @@ export function Register({ s }: { s: DeskState }) {
           )}
         </WithMats>
       </Step>
+      </Flip>
       {/* the dispatch ramp */}
+      <Hinge angle={T?.parts.ramp} x={RAMP.x} z={RAMP.top}>
       <mesh geometry={g.rampSheet} material={m.enamelShade} />
       <mesh geometry={g.rampCheeks} material={m.steel} />
+      </Hinge>
+      </DeckPose>
     </group>
   );
 }

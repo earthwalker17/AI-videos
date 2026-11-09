@@ -63,10 +63,12 @@ export function projectBox(pose: CamPose, pts: readonly P3[]): { x0: number; y0:
 
 /**
  * The close on the Register's throat and reading window (STORYBOARD 5.3-6.4, still (c) at f3150):
- * 2.0x, the window on the upper-left third, the mouth and the spill drawer under it, all above the
- * notes band (TREATMENT Lookdev (c)).
+ * 2.4x, so the record, the stub row, the mouth and the spill drawer fill the upper-left two-thirds
+ * above the notes band and the bug bay leaves the frame (its pins and folder are past the east
+ * edge). 2.4x is past TREATMENT's 1.6-2.2x close range: a framing decision for the user (lookdev
+ * round 2, the (c) and (d) polish).
  */
-export const FRAMING_C: Framing = { x: 10, y: 190, zoom: 2.0 };
+export const FRAMING_C: Framing = { x: -90, y: 165, zoom: 2.4 };
 
 /**
  * The camera's moves from the turn on (film frames >= 1400; act one's keys, before 1400, are act

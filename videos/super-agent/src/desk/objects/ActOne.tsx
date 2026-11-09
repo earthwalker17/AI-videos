@@ -20,6 +20,7 @@ import { BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, Path, 
 import { FOLDER_PRINT, HEAP_CLOCKS, LOOP_NOTES } from '../../print.ts';
 import { COVER_Z, FLAG, FOLDERS, cardEast, HEAP, PEN, PIECE, REQUEST_A, SHEET, SHEET_INSET, SHEET_PRINT, TAB, flagHinge, flagLocal, loopNormal, loopPoint, penLocal, penPivot, stackTop, tabAt, type ActOneState, type CardKind, type FolderLayout, type FolderState, type LoopPose } from '../actOne.ts';
 import { cylinderZ, extrude, merge, slab, tube } from '../geom.ts';
+import { PRESS_DEPTH } from '../turn.ts';
 import { HEX, paper, whiteTexture } from '../gl/materials.ts';
 import { INK, print, texture, tooth } from '../gl/text.ts';
 import { useDeskSets, useDeskMats } from '../kit.tsx';
@@ -32,12 +33,12 @@ const FOLDER_HEX = {
   cold: { sheet: '#88837A', cover: '#76726A' },
 } as const;
 /** The tape's paper and its tabs (an index stock a step darker). */
-const TAPE_HEX = { tape: '#B2AC9F', tab: '#9A9488' } as const;
+export const TAPE_HEX = { tape: '#B2AC9F', tab: '#9A9488' } as const;
 /** Task card sizes (folder-local, u): a notched chat slip, a punched CI card with a clipped corner. */
 const CARD: Record<CardKind, P2> = { chat: [66, 28], ci: [58, 36] };
 
 /** A slip's outline centred on the origin: a chat slip's notched east end, a CI card's clipped north-west corner. */
-function slipShape(kind: CardKind, w: number, d: number): Shape {
+export function slipShape(kind: CardKind, w: number, d: number): Shape {
   const s = new Shape();
   const x = w / 2;
   const y = d / 2;
@@ -60,7 +61,7 @@ function slipShape(kind: CardKind, w: number, d: number): Shape {
 }
 
 /** Map a flat piece's UVs to its own bounds (the print lies on its top face). */
-function fitUv(g: BufferGeometry, w: number, d: number): BufferGeometry {
+export function fitUv(g: BufferGeometry, w: number, d: number): BufferGeometry {
   const pos = g.getAttribute('position');
   const uv = new Float32Array(pos.count * 2);
   for (let i = 0; i < pos.count; i++) {
@@ -72,12 +73,12 @@ function fitUv(g: BufferGeometry, w: number, d: number): BufferGeometry {
 }
 
 /** A thin paper piece of a kind, its print on top. */
-const piece = (kind: CardKind, w: number, d: number, t = 0.8): BufferGeometry => fitUv(extrude(slipShape(kind, w, d), 0, t, 0.25), w, d);
+export const piece = (kind: CardKind, w: number, d: number, t = 0.8): BufferGeometry => fitUv(extrude(slipShape(kind, w, d), 0, t, 0.25), w, d);
 
 // ------------------------------------------------------------------------------------------------
 // Printed surfaces
 
-interface ActOnePrint {
+export interface ActOnePrint {
   /** each folder's top sheet, its task card */
   top: Texture[];
   card: Texture[];
@@ -96,7 +97,7 @@ function punches(g: CanvasRenderingContext2D, seed: number, x0: number, y0: numb
   for (let r = 0; r < 2; r++) for (let i = 0; i < cols; i++) if (rand(0x0c1, seed, r * 31 + i) < 0.62) g.fillRect(x0 + i * pitch, y0 + r * 9, 3, 6);
 }
 
-function makeActOnePrint(family: string, aniso: number, tapeLen: number, tapeNotes: readonly number[]): ActOnePrint {
+export function makeActOnePrint(family: string, aniso: number, tapeLen: number, tapeNotes: readonly number[]): ActOnePrint {
   const top = FOLDERS.map((fl) => {
     const [w, h] = sheetSize(fl);
     return texture(
@@ -161,11 +162,11 @@ function makeActOnePrint(family: string, aniso: number, tapeLen: number, tapeNot
 // The notes loop
 
 /** The loop's span of parameter angle from the clip: a little over a turn when shut (the ends overlap under the clip), short of one when open. */
-const loopSpan = (L: LoopPose): number => Math.PI * 2 + 0.1 * L.closed - 0.4 * (1 - L.closed);
+export const loopSpan = (L: LoopPose): number => Math.PI * 2 + 0.1 * L.closed - 0.4 * (1 - L.closed);
 const LOOP_N = 260;
 
 /** Arc length along the loop from the clip to each parameter angle (samples). */
-function loopArc(L: LoopPose): { t: number[]; s: number[]; len: number } {
+export function loopArc(L: LoopPose): { t: number[]; s: number[]; len: number } {
   const span = loopSpan(L);
   const t: number[] = [];
   const s: number[] = [];
@@ -245,7 +246,7 @@ function tabsGeometry(L: LoopPose): BufferGeometry {
 }
 
 /** The enamel clip that closes the loop: a body over the overlapping ends, a graphite spine, two wire arms folded outward. */
-function clipGeometry(L: LoopPose): { body: BufferGeometry; spine: BufferGeometry; wire: BufferGeometry } {
+export function clipGeometry(L: LoopPose): { body: BufferGeometry; spine: BufferGeometry; wire: BufferGeometry } {
   const p = loopPoint(L, L.clipAt + 0.05);
   const n = loopNormal(L, L.clipAt + 0.05);
   const ang = Math.atan2(n[1], n[0]);
@@ -431,7 +432,7 @@ interface FolderMats {
 
 const mix = (a: string, b: string, t: number): Color => new Color(a).lerp(new Color(b), t);
 
-function Folder({ fl, s, lit, mats }: { fl: FolderLayout; s: FolderState; lit: number; mats: FolderMats }) {
+function Folder({ fl, s, lit, mats, press = 0 }: { fl: FolderLayout; s: FolderState; lit: number; mats: FolderMats; press?: number }) {
   const m = useDeskMats();
   const g = useMemo(() => folderGeometry(fl), [fl]);
   const pen = useMemo(() => penGeometry(fl, s), [fl, s]);
@@ -446,8 +447,9 @@ function Folder({ fl, s, lit, mats }: { fl: FolderLayout; s: FolderState; lit: n
     mats.cover.color.copy(cover);
     mats.card.color.copy(sheet).lerp(new Color(HEX.paperLit), 0.12 * (1 - lit));
   }, [mats, s.warmth, lit]);
-  if (s.present <= 0) return null;
-  const drop = (1 - s.present) * 60;
+  if (s.present <= 0 || press >= 1) return null;
+  // pressed into the desk at the turn: it sinks below the slate (desk/turn.ts PRESS_DEPTH), leaving its imprint
+  const drop = (1 - s.present) * 60 - PRESS_DEPTH * press;
   return (
     <group position={[fl.c[0], fl.c[1], drop]} rotation={[0, 0, fl.rot]}>
       <mesh geometry={g.cover} material={mats.cover} />
@@ -476,7 +478,7 @@ function Folder({ fl, s, lit, mats }: { fl: FolderLayout; s: FolderState; lit: n
 // The heap and the request
 
 /** The request, creased while buried: its body (the beetle cut through at the west end, under the heap) and the east flap, folded up along the crease. */
-function requestGeometry(): { body: BufferGeometry; flap: BufferGeometry; crease: BufferGeometry } {
+export function requestGeometry(): { body: BufferGeometry; flap: BufferGeometry; crease: BufferGeometry } {
   const R = REQUEST_A;
   const hl = R.l / 2;
   const hw = R.w / 2;
@@ -568,17 +570,18 @@ function NotesLoop({ a, tape }: { a: ActOneState; tape: MeshStandardMaterial }) 
 /** How lit each folder is: the lamp's aim near its centre. */
 const litOf = (a: ActOneState, fl: FolderLayout): number => Math.exp(-((a.lamp.aim[0] - fl.c[0]) ** 2 + (a.lamp.aim[1] - fl.c[1]) ** 2) / (2 * 50 * 50));
 
-/** Act one's own objects (the desk and feeders pose themselves). */
-export function ActOneObjects({ a, printFamily }: { a: ActOneState; printFamily: string }) {
+/** Where each folder's note is printed along the tape (u from the clip): one per session, evenly, clear of the clip's overlap and of the east point (where your label's leader crosses). */
+export const loopNotes = (len: number): number[] => FOLDERS.map((_, i) => 60 + ((len - 120) * (i + 1)) / FOLDERS.length - 40);
+
+/**
+ * Act one's own objects (the desk and feeders pose themselves). The turn (desk/turn.ts) presses the folders into the
+ * desk (`press`, 0..1 each) and draws the notes loop itself (`loop` false).
+ */
+export function ActOneObjects({ a, printFamily, press, loop = true }: { a: ActOneState; printFamily: string; press?: readonly number[]; loop?: boolean }) {
   const gl = useThree((s) => s.gl);
   const L0 = a.loop;
   const arc = useMemo(() => loopArc(L0), [L0]);
-  const notes = useMemo(
-    () =>
-      // one note per session, evenly along the tape, clear of the clip's overlap and of the east point (where your label's leader crosses)
-      FOLDERS.map((_, i) => 60 + ((arc.len - 120) * (i + 1)) / FOLDERS.length - 40),
-    [L0, arc],
-  );
+  const notes = useMemo(() => loopNotes(arc.len), [arc]);
   const print = useMemo(() => makeActOnePrint(printFamily, Math.min(8, gl.capabilities.getMaxAnisotropy()), Math.ceil(arc.len), notes), [printFamily, gl, arc.len, notes]);
   const mats = useMemo(() => {
     const white = whiteTexture();
@@ -598,9 +601,9 @@ export function ActOneObjects({ a, printFamily }: { a: ActOneState; printFamily:
   return (
     <>
       {FOLDERS.map((fl, i) => (
-        <Folder key={fl.n} fl={fl} s={a.folders[i]} lit={litOf(a, fl)} mats={mats.folders[i]} />
+        <Folder key={fl.n} fl={fl} s={a.folders[i]} lit={litOf(a, fl)} mats={mats.folders[i]} press={press?.[i]} />
       ))}
-      <NotesLoop a={a} tape={mats.tape} />
+      {loop && <NotesLoop a={a} tape={mats.tape} />}
       <Heap a={a} print={print} />
     </>
   );

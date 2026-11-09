@@ -143,16 +143,6 @@ export const SHEET = 0.8;
 /** The dispatch ramp: a quarter-pipe off the deck's east rail down to the desk, where the grooves begin. */
 export const RAMP = { y0: 170, y1: 250, top: 120, lip: 70, x: DECK.x1, foot: DECK.x1 + 70 } as const;
 
-/** Act-one folder imprints pressed into the desk under the deck (history, at −2). */
-export const IMPRINTS: readonly { c: P2; w: number; d: number; rot: number }[] = [
-  { c: [-260, 360], w: 130, d: 96, rot: 0.06 },
-  { c: [-110, 412], w: 136, d: 100, rot: -0.03 },
-  { c: [60, 430], w: 128, d: 94, rot: 0.05 },
-  { c: [215, 400], w: 132, d: 98, rot: -0.07 },
-  { c: [-190, 205], w: 126, d: 92, rot: -0.04 },
-  { c: [150, 230], w: 134, d: 96, rot: 0.03 },
-];
-
 // ------------------------------------------------------------------------------------------------
 // The Workers: one class of walled bay, each with its own superstructure, all under 80
 
@@ -387,8 +377,28 @@ export const GROOVE_FRESH: readonly P2[] = [[RAMP.foot + 4, (RAMP.y0 + RAMP.y1) 
 // ------------------------------------------------------------------------------------------------
 // Still (c), context as a cache (film f3150, STORYBOARD 6.3): the request's report at the window
 
-/** The report card of the request's bay (one family with the test card), and where it leaves the bay. */
-export const CARD_C = { w: 98, d: 68, header: 0.4, from: [404, 66, 40] as P3, apex: 60 } as const;
+/**
+ * The report card of the request's bay (one family with the test card), and where it leaves the bay.
+ * Its header strip (the top half) carries the record's header and its three summary lines; the body
+ * (the bottom half) is the rest, which folds along its middle into an 80 x 18 u pointer tab.
+ */
+export const CARD_C = { w: 80, d: 72, header: 0.5, from: [404, 66, 40] as P3, apex: 60 } as const;
+/** The folded pointer tab: the card's width, a quarter of its depth (the body folded once along its middle). */
+export const TAB_C = { w: CARD_C.w, d: (CARD_C.d * (1 - CARD_C.header)) / 2 } as const;
+/**
+ * The older pointer tabs filed in the spill drawer (front to back): folded tabs of the same family,
+ * each standing on its crease and leaning back on the one behind at its own angle, each with the
+ * mark of what it points to (no numbers). y: the crease line; lean: radians from the drawer floor;
+ * turn: about z; dx: off the drawer's centre line; mark at the tab's west or east end.
+ */
+export const FILED_TABS: readonly { kind: 'ci' | 'chat' | 'test' | 'docs'; y: number; lean: number; turn: number; dx: number; w: number; end: 'w' | 'e' }[] = [
+  { kind: 'test', y: 109, lean: 0.95, turn: 0.035, dx: -2, w: 78, end: 'e' },
+  { kind: 'chat', y: 116, lean: 1.04, turn: -0.05, dx: 3, w: 76, end: 'w' },
+  { kind: 'docs', y: 123, lean: 0.9, turn: 0.07, dx: -3, w: 79, end: 'e' },
+  { kind: 'ci', y: 130, lean: 1.0, turn: -0.025, dx: 2, w: 77, end: 'w' },
+];
+/** Still (c): how far the spill drawer pulls open to take the request's tab (the test bay has sunk by then, so it clears the tower). */
+export const DRAWER_OPEN_C = 22;
 /**
  * The window in the close shot: the request's inline record (its header and a three-line summary)
  * fills the newest cell, widened as the older cards shrink to 18 u stubs and pack east; a fifth

@@ -35,6 +35,8 @@ export interface YouPose {
   held: { key: number; glass: number; strut: number };
   /** the in-tray stands on the desk (it comes with the Router's replies, after the turn) */
   inTray: boolean;
+  /** the earlier reply lies in it (default: yes; the turn's in-tray holds only Fix B's replies, which it draws itself) */
+  inTraySlip?: boolean;
 }
 
 /** Your desk after the turn (the act-two pose every style frame from (b) on draws). */

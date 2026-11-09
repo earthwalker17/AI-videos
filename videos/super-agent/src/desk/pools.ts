@@ -31,10 +31,14 @@ export const tint = (hex: string, k: number): P3 => {
 };
 
 /** The synthesis's light colours. */
+/** The emitters' levels (HDR: above 1.0 blooms); objects/*.tsx draw with them (kit.tsx). */
+export const EMIT = { slot: 9, slotDocs: 0.9, transit: 7, bulbMax: 1.1, jewel: 0.85 } as const;
+
 export const LIGHT_HEX = { yours: '#FFF1E0', reading: '#F4F5F2', work: '#EEF3F0' } as const;
 
-/** Still (c): the reading pool's centre on the inline record. */
+/** Still (c): the reading pool's centre on the inline record, and its strength: capped so the record's paper peaks at lit paper (#E4DFD3, Y about 208), its warmth and fibre kept. */
 const CACHE_POOL_X = -200;
+const CACHE_POOL_K = 1.35;
 
 export function poolsAt(s: DeskState): Pool[] {
   const cellY = (TAPE.y0 + TAPE.y1) / 2;
@@ -43,9 +47,9 @@ export function poolsAt(s: DeskState): Pool[] {
   const pools: Pool[] = [
     // the Register's hooded reading lamp, on the window (it never blooms: a pool only); in still (c) its light
     // gathers on the inline record (the hood is over the newest cells), so the stubs east of it sit a step below
-    s.cache ? { c: [CACHE_POOL_X, cellY], z: [118, 170], sigma: [96, 40], rgb: tint(LIGHT_HEX.reading, 2.4) } : { c: [newest + 70, cellY], z: [118, 170], sigma: [130, 40], rgb: tint(LIGHT_HEX.reading, 2.4) },
+    s.cache ? { c: [CACHE_POOL_X, cellY], z: [118, 170], sigma: [96, 40], rgb: tint(LIGHT_HEX.reading, CACHE_POOL_K * s.cache.lamp) } : { c: [newest + 70, cellY], z: [118, 170], sigma: [130, 40], rgb: tint(LIGHT_HEX.reading, 2.4) },
     // the stamp-in: the newest cell lights as the report's header prints into it
-    { c: [newest, cellY], z: [118, 140], sigma: [40, 30], rgb: tint(LIGHT_HEX.reading, 1.6 * s.cellLit) },
+    { c: [newest, cellY], z: [118, 140], sigma: [40, 30], rgb: tint(LIGHT_HEX.reading, s.cache ? 0 : 1.6 * s.cellLit) },
     // your lamp on your in-tray, where the reply lands: its maximum on the tray, a step brighter once it has
     { c: LAMP_AIM, z: [0, 140], sigma: [74, 66], rgb: tint(LIGHT_HEX.yours, 4.2 * s.lamp) },
     // the bug bay's work slot: cast forward (south) from the slot onto its bench, no halo round the walls

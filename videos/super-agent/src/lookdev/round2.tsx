@@ -20,6 +20,7 @@ import { Composition, registerRoot, useCurrentFrame } from 'remotion';
 import { FILM_FRAMES, FPS, LEADER_FRAMES } from '../cues.ts';
 import { cameraAt, type Angle } from '../desk/camera.ts';
 import { ActOneFrame } from '../desk/ActOneFrame.tsx';
+import { TurnFrame } from '../desk/TurnFrame.tsx';
 import { SPAN_D, poseD, summaryAt, summaryDeskState } from '../desk/summary.ts';
 import { PRINT_FONT } from '../desk/gl/text.ts';
 import { Proposed } from '../desk/objects/Proposed.tsx';
@@ -28,6 +29,9 @@ import { DeskFrame } from '../desk/DeskFrame.tsx';
 import { World } from '../desk/objects/World.tsx';
 import type { TagSpec } from '../desk/Overlay.tsx';
 import { WORDS } from '../cues.ts';
+import { keepClose, keepNone } from '../desk/marks.ts';
+import { ROLE_LABELS, type RoleLabel } from '../desk/Overlay.tsx';
+import { BAYS, rectC } from '../desk/layout.ts';
 
 function StyleB({ angle, bloom }: { angle: Angle; bloom: boolean }) {
   const f = useCurrentFrame() - LEADER_FRAMES;
@@ -66,6 +70,9 @@ export const StillAGround15 = () => <StillA objects={false} />;
 /** The print face's CSS family (the kit's useFont registers it as `"AIV <family>"`). */
 const PRINT_CSS = `"AIV ${PRINT_FONT.family}"`;
 
+/** Still (d)'s labels: "Worker" names the request's bay, where the route ends (its leader on W-07's south wall); "Router" and "you" as in the film. */
+const LABELS_D: readonly RoleLabel[] = ROLE_LABELS.map((l) => (l.text === WORDS.worker.en ? { ...l, foot: [rectC(BAYS.bug.box)[0] - 30, BAYS.bug.box.y0 + 3, 20], dx: -60, dy: 70, anchor: 'end' } : l));
+
 function StillD({ objects }: { objects: boolean }) {
   const f = useCurrentFrame() - LEADER_FRAMES;
   return (
@@ -76,11 +83,13 @@ function StillD({ objects }: { objects: boolean }) {
       poseAt={poseD}
       span={SPAN_D}
       stateAt={summaryDeskState}
+      printKeep={keepNone}
+      labels={LABELS_D}
       objects={(s) =>
         objects ? (
           <>
             <World s={s} />
-            <Proposed printFamily={PRINT_CSS} />
+            <Proposed />
             <Trace a={summaryAt(s.f)} printFamily={PRINT_CSS} />
           </>
         ) : null
@@ -94,14 +103,25 @@ export const StillDGround15 = () => <StillD objects={false} />;
 /** Act two's frames this world is posed for (the turn to the close's ease-out). */
 const SPAN_C: readonly [number, number] = [2100, 3440];
 /** The cache tag (cues.ts tag-cache): under the window on the dark deck plate, its leader ending on the inline record it qualifies. */
-const TAGS_C: readonly TagSpec[] = [{ cue: 'tag-cache', words: WORDS.tagCache, at: [772, 530], anchor: 'start', foot: [-112, 196, 123] }];
+const TAGS_C: readonly TagSpec[] = [{ cue: 'tag-cache', words: WORDS.tagCache, at: [1050, 470], anchor: 'start', foot: [-112, 196, 123] }];
 
 function StillC({ angle, bloom, objects = true }: { angle: Angle; bloom: boolean; objects?: boolean }) {
   const f = useCurrentFrame() - LEADER_FRAMES;
-  return <DeskFrame f={f} angle={angle} bloom={bloom} poseAt={cameraAt} span={SPAN_C} labels={[]} tags={TAGS_C} objects={(s) => (objects ? <World s={s} /> : null)} />;
+  return <DeskFrame f={f} angle={angle} bloom={bloom} poseAt={cameraAt} span={SPAN_C} labels={[]} tags={TAGS_C} printKeep={keepClose} objects={(s) => (objects ? <World s={s} /> : null)} />;
 }
 export const StillC15 = () => <StillC angle={15} bloom />;
 export const DeskGroundC15 = () => <StillC angle={15} bloom objects={false} />;
+
+/**
+ * MT2, the turn (film f1400–1660, composition frames 1415–1675; desk/turn.ts), 15°, bloom on, through the film's
+ * camera. A span encode is capped at 240 frames, so it renders in two spans:
+ *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition MT2 --frames 1415-1544 --span --encode --inner 3 --label r2-mt2
+ *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition MT2 --frames 1545-1675 --span --encode --inner 3 --label r2-mt2-b
+ */
+function MT2() {
+  const f = useCurrentFrame() - LEADER_FRAMES;
+  return <TurnFrame f={f} angle={15} bloom />;
+}
 
 const LENGTH = LEADER_FRAMES + FILM_FRAMES;
 
@@ -120,6 +140,7 @@ export function Round2Root() {
       <Composition id="StillAGround15" component={StillAGround15} width={1920} height={1080} fps={FPS} durationInFrames={LENGTH} />
       <Composition id="StillD15" component={StillD15} width={1920} height={1080} fps={FPS} durationInFrames={LENGTH} />
       <Composition id="StillDGround15" component={StillDGround15} width={1920} height={1080} fps={FPS} durationInFrames={LENGTH} />
+      <Composition id="MT2" component={MT2} width={1920} height={1080} fps={FPS} durationInFrames={LENGTH} />
     </>
   );
 }

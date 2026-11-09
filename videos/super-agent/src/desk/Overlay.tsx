@@ -35,6 +35,9 @@ export interface RoleLabel {
   dx: number;
   dy: number;
   anchor: 'start' | 'end';
+  /** entering (the turn): the hairline drawn so far from the foot (0..1), then the label wiped in left to right (0..1); absent: landed */
+  leader?: number;
+  wipe?: number;
 }
 
 export const ROLE_LABELS: readonly RoleLabel[] = [
@@ -85,6 +88,28 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
           const foot = project(pose, l.foot);
           const w = lineWidth(l.text, { family: fonts.sans, weight: TYPE.label.weight, size });
           const { a, b, x, y } = leaderOf(foot, l, w, size);
+          if (l.leader !== undefined || l.wipe !== undefined) {
+            // entering: the leader draws from the foot, then the label wipes in (left to right) from its leader's end
+            const k = l.leader ?? 1;
+            const x0 = l.anchor === 'start' ? x - 8 : x - w - 8;
+            const id = `wipe-label-${l.text.replace(/[^a-z]/gi, '')}`;
+            return (
+              <g key={l.text}>
+                <defs>
+                  <clipPath id={id}>
+                    <rect x={x0} y={y - size * 1.4} width={(w + 16) * (l.wipe ?? 1)} height={size * 2} />
+                  </clipPath>
+                </defs>
+                <line x1={a[0]} y1={a[1]} x2={a[0] + (b[0] - a[0]) * k} y2={a[1] + (b[1] - a[1]) * k} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />
+                <circle cx={a[0]} cy={a[1]} r={4} fill={TEXT_HEX.en} />
+                {(l.wipe ?? 1) > 0 && (
+                  <g clipPath={`url(#${id})`}>
+                    <Label x={x} y={y} text={l.text} family={fonts.sans} size={size} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={l.anchor} />
+                  </g>
+                )}
+              </g>
+            );
+          }
           return (
             <g key={l.text}>
               <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />

@@ -126,9 +126,25 @@ function useChuteGeometry() {
   }, []);
 }
 
-export function Chute() {
+/** The reply chute; during the turn its posts telescope down to the desk as it lowers (`posts`, 0..1; desk/turn.ts). */
+/** Where the chute's posts meet its trough (they telescope down from here). */
+const POST_TOP = 92;
+
+export function Chute({ posts }: { posts?: number } = {}) {
   const m = useDeskMats();
   const g = useChuteGeometry();
+  if (posts !== undefined)
+    return (
+      <group>
+        <mesh geometry={g.trough} material={m.graphite} />
+        <mesh geometry={g.lips} material={m.steel} />
+        {posts > 0.02 && (
+          <group position={[0, 0, POST_TOP]} scale={[1, 1, posts]}>
+            <mesh geometry={g.posts} material={m.graphite} position={[0, 0, -POST_TOP]} />
+          </group>
+        )}
+      </group>
+    );
   return (
     <group>
       <mesh geometry={g.trough} material={m.graphite} />

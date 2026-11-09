@@ -351,10 +351,10 @@ function strutPlacement(pose: YouPose): { p: P3; q: Quaternion; len: number } {
   return { p: a, q: new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d.normalize()), len: Math.round(len * 4) / 4 };
 }
 
-export function YourDesk({ s }: { s: DeskState }) {
+export function YourDesk({ s, pose: given }: { s: DeskState; pose?: YouPose }) {
   const m = useDeskMats();
   const g = useYouGeometry();
-  const pose = useMemo(() => youPoseAt(s.f), [s.f]);
+  const pose = useMemo(() => given ?? youPoseAt(s.f), [given, s.f]);
   const lampG = useLampGeometry(pose.lamp);
   const strut = strutPlacement(pose);
   const strutG = useStrutGeometry(strut.len);
@@ -426,7 +426,7 @@ export function YourDesk({ s }: { s: DeskState }) {
       {pose.inTray && (
         <>
           <mesh geometry={g.inTray} material={m.enamelShade} />
-          <mesh geometry={g.slip1} material={m.printed.inTray[0]} />
+          {pose.inTraySlip !== false && <mesh geometry={g.slip1} material={m.printed.inTray[0]} />}
         </>
       )}
     </group>

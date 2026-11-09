@@ -12,7 +12,8 @@
  */
 import { Curve, NOISE_GLSL } from '@aiv/remotion-kit';
 import { Color, ShaderMaterial, Vector2, Vector4 } from 'three';
-import { GROOVES, GROOVE_FRESH, GROOVE_HALF_W, IMPRINTS, KEY, type P2 } from '../layout.ts';
+import { IMPRINTS } from '../beat3.ts';
+import { GROOVES, GROOVE_FRESH, GROOVE_HALF_W, KEY, type P2 } from '../layout.ts';
 import { linearOf } from '../pools.ts';
 import { LIGHT_GLSL, LIGHT_UNIFORMS } from './light.ts';
 
@@ -145,7 +146,8 @@ float imprintShade(vec2 p) {
     float face = dot(-gr, uLight);
     float edge = 1.0 - smoothstep(0.0, 2.2, abs(d + 1.2));
     float inside = 1.0 - smoothstep(-1.0, 1.0, d);
-    s += inside * -0.025 + edge * (face > 0.0 ? 0.05 * face : 0.07 * face);
+    // how deep it is pressed (the turn presses the folders in; 1 once they are history)
+    s += uImpRot[i].w * (inside * -0.025 + edge * (face > 0.0 ? 0.05 * face : 0.07 * face));
   }
   return s;
 }
@@ -194,7 +196,7 @@ export function makeDeskMaterial(): ShaderMaterial {
       uGrooveCut: DESK_GROOVE_CUT,
       uHole: DESK_HOLES,
       uImp: { value: IMPRINTS.map((m) => new Vector4(m.c[0], m.c[1], m.w / 2, m.d / 2)) },
-      uImpRot: { value: IMPRINTS.map((m) => new Vector4(Math.cos(m.rot), Math.sin(m.rot), 10, 0)) },
+      uImpRot: { value: IMPRINTS.map((m) => new Vector4(Math.cos(m.rot), Math.sin(m.rot), 10, 1)) },
     },
   });
 }

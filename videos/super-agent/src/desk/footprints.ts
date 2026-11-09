@@ -123,16 +123,22 @@ function testsFootprints(): Footprint[] {
   return [...bayFootprints(BAYS.tests), circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1)];
 }
 
-/** Every footprint that does not move in this lookdev (the layout's); `testsSink`: the finished test bay sunk into its hatch (0..1). */
-export function staticFootprints(testsSink = 0): Footprint[] {
+/**
+ * The Register's footprints, in the layout's order: the deck's canopy, its legs, rails, cross members and plate, the
+ * reel and its frame, the head, throat, window and reading lamp, the drawer, mouth and lock, the fanfold, the trait
+ * plate and the ramp. The turn (desk/turn.ts) leaves out what it draws itself.
+ */
+export function registerFootprints(o: { legs?: boolean; fanfold?: boolean; trait?: boolean } = {}): Footprint[] {
+  o = { legs: true, fanfold: true, trait: true, ...o };
   const fp: Footprint[] = [];
   // under the deck the desk sees less sky: the deck's outline as a canopy
   fp.push({ kind: 'canopy', c: [(DECK.x0 + DECK.x1) / 2, (DECK.y0 + DECK.y1) / 2], h: [(DECK.x1 - DECK.x0) / 2 - 10, (DECK.y1 - DECK.y0) / 2 - 10], z: DECK.railZ0, strength: 0.6 });
   // the Register: splayed legs, rails, cross members, the plate, the reel and its frame, the head, the window, the lamp
-  for (const l of LEG_STRUTS) {
-    fp.push(segFp(l.top, [l.foot[0], l.foot[1], 0], LEG_R));
-    fp.push(circleFp(l.foot, 14, 0, 4, 1));
-  }
+  if (o.legs)
+    for (const l of LEG_STRUTS) {
+      fp.push(segFp(l.top, [l.foot[0], l.foot[1], 0], LEG_R));
+      fp.push(circleFp(l.foot, 14, 0, 4, 1));
+    }
   const r = DECK.rail;
   fp.push(rectFp({ x0: DECK.x0, x1: DECK.x1, y0: DECK.y0, y1: DECK.y0 + r }, DECK.railZ0, DECK.top, 0));
   fp.push(rectFp({ x0: DECK.x0, x1: DECK.x1, y0: DECK.y1 - r, y1: DECK.y1 }, DECK.railZ0, DECK.top, 0));
@@ -160,11 +166,18 @@ export function staticFootprints(testsSink = 0): Footprint[] {
   fp.push(rectFp(MOUTH.box, MOUTH.z[0], MOUTH.z[1], 0));
   fp.push(rectFp(LOCK.box, LOCK.z[0], LOCK.z[1], 0.6));
   fp.push(segFp([LOCK.key.x0, LOCK.key.y, LOCK.key.z], [LOCK.key.x1 + 2 * LOCK.key.bowR, LOCK.key.y, LOCK.key.z], 6));
-  fp.push(rectFp(FANFOLD.box, 0, FANFOLD.sheets * SHEET + 2, 1, 2));
-  fp.push(rectFp(TRAIT_PLATE.box, TRAIT_PLATE.z[0], TRAIT_PLATE.z[1], 0, 4));
+  if (o.fanfold) fp.push(rectFp(FANFOLD.box, 0, FANFOLD.sheets * SHEET + 2, 1, 2));
+  if (o.trait) fp.push(rectFp(TRAIT_PLATE.box, TRAIT_PLATE.z[0], TRAIT_PLATE.z[1], 0, 4));
   // the ramp's curved sheet, as a sloped plate from the east rail down to its foot
   const rampY = (RAMP.y0 + RAMP.y1) / 2;
   fp.push(segFp([RAMP.x, rampY, RAMP.top], [RAMP.foot - 14, rampY, 4], (RAMP.y1 - RAMP.y0) / 2));
+  return fp;
+}
+
+/** Every footprint that does not move in this lookdev (the layout's); `testsSink`: the finished test bay sunk into its hatch (0..1). */
+export function staticFootprints(testsSink = 0): Footprint[] {
+  const fp: Footprint[] = [];
+  fp.push(...registerFootprints());
   // the bays: every one under 80
   if (testsSink > 0) {
     for (const b of Object.values(BAYS)) if (b.id !== 'tests') fp.push(...bayFootprints(b));
@@ -222,9 +235,9 @@ export function movingFootprints(s: DeskState): Footprint[] {
   if (c && (c.docked || c.drop > 0)) {
     const t = c.drop;
     const [x, y, z] = t > 0 ? [MOUTH.land[0] + (TAB_REST_C[0] - MOUTH.land[0]) * t, MOUTH.land[1] + (TAB_REST_C[1] - MOUTH.land[1]) * t, MOUTH.land[2] + (TAB_REST_C[2] - MOUTH.land[2]) * t] : MOUTH.land;
-    const half = c.fold > 0.5 || t > 0 ? CARD_C.w / 4 : CARD_C.w / 2;
-    // folded, the tab lies over the body's east half
-    fp.push({ kind: 'rect', c: [x + (CARD_C.w / 2 - half), y - 6], h: [half, CARD_C.d * 0.3], r: 3, rot: 0, z0: z - 3, z1: z + 3, contact: 0 });
+    // the body (the card's bottom half), folded along its middle into the tab (a quarter of the card's depth)
+    const half = c.fold > 0.5 || t > 0 ? CARD_C.d / 8 : CARD_C.d / 4;
+    fp.push({ kind: 'rect', c: [x, y - CARD_C.d / 4 + half], h: [CARD_C.w / 2, half], r: 3, rot: 0, z0: z - 3, z1: z + 3, contact: t >= 1 ? 0.5 : 0 });
   }
   if (s.slip && s.slip.s < 1 && s.slip.emerge >= 1) {
     const pose = slipPose(s.slip.s);

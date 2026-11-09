@@ -8,13 +8,17 @@ import { clamp, easings } from '@aiv/core';
 import type { CamPose } from '@aiv/remotion-kit';
 import { cue } from '../cues.ts';
 import { deskCamera, type Angle, type Framing } from './camera.ts';
-import { BAYS, CHUTE, FEEDERS, GATE, GROOVES, MOUTH, REEL, SPIKE, THROAT, YOU, rectC, type P2, type P3, type Rect } from './layout.ts';
+import { BAYS, BELT, BENCH, CARD_C, CHUTE, DECK, FEEDERS, GATE, GROOVES, MOUTH, RAMP, SPIKE, THROAT, WINDOW, YOU, rectC, type P2, type P3 } from './layout.ts';
 import { deskStateAt, type DeskState } from './state.ts';
 
 /** The frames the summary's world is posed for (the sign-off, the rest, the idea labels). */
 export const SPAN_D: readonly [number, number] = [5400, 5720];
-/** The whole desk at 0.5×, settled by f5520 (the bar 69 ease-out), the vellum parts east of the system in view. */
-export const FRAMING_D: Framing = { x: 120, y: 90, zoom: 0.5 };
+/**
+ * The whole desk, settled by f5520 (the bar 69 ease-out), the vellum parts east of the system in view.
+ * Tightened from the storyboard's 0.5× to 0.64× so the system fills the frame (a framing decision the
+ * brief accepts): every part, the Watchdog and "you · 你" included, inside title-safe.
+ */
+export const FRAMING_D: Framing = { x: 85, y: 20, zoom: 0.64 };
 export const poseD = (_f: number, angle: Angle): CamPose => deskCamera(FRAMING_D, angle);
 
 // ------------------------------------------------------------------------------------------------
@@ -45,78 +49,124 @@ export function summaryAt(f: number): SummaryState {
 /** The desk's state at the sign-off: every bay capped and stepped down, their work lights out. */
 export function summaryDeskState(f: number): DeskState {
   const s = deskStateAt(f);
-  return { ...s, testsLight: 0, testsStep: 1, bugLight: 0, next: { ...s.next, light: 0 }, step: { amount: 1, ids: ['docsBay', 'bugBay'] } };
+  return {
+    ...s,
+    testsLight: 0,
+    testsStep: 1,
+    bugLight: 0,
+    // the request's bay finished in bar 68: every pin passed, dead still
+    pins: s.pins.map(() => 1),
+    next: { ...s.next, light: 0 },
+    // every bay stepped down (W-10 too), and the Thread cord with them, so the route reads first
+    step: { amount: 1, ids: ['docsBay', 'bugBay', 'freshBay', 'cord'] },
+    // the Register's hooded lamp no longer lights the window: the one lit paper is the slip your stamp signed
+    cache: s.cache ? { ...s.cache, lamp: 0.25 } : null,
+  };
 }
 
 // ------------------------------------------------------------------------------------------------
-// The route, as the request took it (world points, just above what it passes over)
+// The route, as the request took it: inked into the beds of the channels it used (world points just
+// above each bed), never across print, and the two flights it made as arcs
 
-const doorOf = (b: { door: readonly [number, number]; box: Rect }): P2 => [(b.door[0] + b.door[1]) / 2, b.box.y1 + 4];
-const spout: P3 = [rectC(FEEDERS.chat)[0] + 90, rectC(FEEDERS.chat)[1] - 4, 18];
+const along = (a: P3, b: P3, n: number, lift = 0): P3[] => Array.from({ length: n }, (_, i) => {
+  const t = (i + 1) / n;
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t + lift];
+});
+const arc = (a: P3, b: P3, apex: number, n: number): P3[] => Array.from({ length: n }, (_, i) => {
+  const t = (i + 1) / n;
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t + 4 * apex * t * (1 - t)];
+});
+const spout: P3 = [rectC(FEEDERS.chat)[0] + 70, rectC(FEEDERS.chat)[1] - 6, 4];
 const req = BAYS.bug;
+/** The bug bay's bench: its north edge (layout.ts BENCH). */
+const BENCH_N = BENCH.top.y1;
+/** The stub row's south edge: the top of the window frame's south bar, clear of every cell's print. */
+const ROW_EDGE_Y = WINDOW.frame.y0 + WINDOW.bar / 2;
+const RAIL_Y = DECK.y0 + 9;
+const gate: P3 = [GATE.bar.x0 - 4, (GATE.bar.y0 + GATE.bar.y1) / 2 - 12, 2];
+const beltIn: P3 = [BELT.from[0], BELT.from[1], BELT.from[2] + 2];
+const beltOut: P3 = [BELT.to[0], BELT.to[1], BELT.to[2] + 2];
+const head: P3 = [THROAT.box.x1 + 4, ROW_EDGE_Y + 4, WINDOW.z[1] + 1];
+const rowEnd: P3 = [WINDOW.frame.x1 - 4, ROW_EDGE_Y, WINDOW.z[1] + 1];
+const railW: P3 = [WINDOW.frame.x1 + 16, RAIL_Y, DECK.top + 1.5];
+const railE: P3 = [RAMP.x - 9, RAIL_Y, DECK.top + 1.5];
+/** Down the ramp's quarter pipe near its south cheek (centre (lip, lip), radius lip: surface z at u out from the rail). */
+const RAMP_Y = (RAMP.y0 + RAMP.y1) / 2;
+const rampAt = (u: number): P3 => [RAMP.x + u, RAMP_Y, RAMP.lip - Math.sqrt(Math.max(0, RAMP.lip ** 2 - (u - RAMP.lip) ** 2)) + 1.5];
+const groove = GROOVES.bug.map((p): P3 => [p[0], p[1], 1.2]);
 export const ROUTE_OUT: readonly P3[] = [
   spout,
-  [-760, 390, 8],
-  [-640, 330, 10],
-  [GATE.bar.x0 - 6, (GATE.bar.y0 + GATE.bar.y1) / 2 - 20, GATE.h + 6],
-  [-470, 258, 68],
-  [THROAT.box.x0 + 10, rectC(THROAT.box)[1], THROAT.z[1] + 6],
-  [-250, 226, 136],
-  [40, 230, 136],
-  [250, 212, 116],
-  [GROOVES.bug[0][0], GROOVES.bug[0][1], 8],
-  [GROOVES.bug[1][0], GROOVES.bug[1][1], 6],
-  [GROOVES.bug[2][0], GROOVES.bug[2][1], 6],
-  [doorOf(req)[0], doorOf(req)[1], 10],
-  [rectC(req.box)[0] + 10, rectC(req.box)[1] + 20, 70],
+  // along the feed, then over the gate's fingers and up the intake conveyor's bed
+  [-760, 384, 3],
+  [-650, 334, 3],
+  gate,
+  beltIn,
+  ...along(beltIn, beltOut, 4),
+  // through the throat, then east along the stub row's edge, never through its print
+  [THROAT.box.x0 + 10, rectC(THROAT.box)[1] - 20, THROAT.z[1] + 2],
+  head,
+  ...along(head, rowEnd, 3),
+  // down to the deck's south rail, east along its top to the dispatch ramp
+  railW,
+  ...along(railW, railE, 2),
+  // round the corner along the east rail's top to the ramp's lip, down its quarter pipe's middle, along the bug bay's groove to its door
+  [RAMP.x - 9, RAMP_Y, DECK.top + 1.5],
+  [RAMP.x + 1, RAMP_Y, DECK.top + 1],
+  ...[0.5, 6, 14, 24, 36, 50, 64].map(rampAt),
+  ...groove,
+  // in along the bay's west side, onto the bench west of its pins and onto the request's folder
+  [req.box.x0 + 40, req.box.y1 - 40, BENCH.z[1] - 2],
+  [BENCH.top.x0 + 6, BENCH_N - 18, BENCH.z[1] + 1.5],
+  [BENCH.top.x0 + 34, BENCH_N - 52, BENCH.z[1] + 8.5],
 ];
+/** The report port: the bay's work slot, where its report card leaves (state.ts CARD_C.from). */
+export const REPORT_PORT: P3 = [CARD_C.from[0], CARD_C.from[1], 32];
+const mouth: P3 = [MOUTH.land[0], MOUTH.land[1], MOUTH.land[2] + 6];
+const chuteIn: P3 = [CHUTE[0][0] + 6, CHUTE[0][1] + 4, CHUTE[0][2] + 3];
+const tray = YOU.inTray;
 export const ROUTE_HOME: readonly P3[] = [
-  ROUTE_OUT[ROUTE_OUT.length - 1],
-  [300, 60, 112],
-  [40, 80, 134],
-  [MOUTH.land[0], MOUTH.land[1], MOUTH.land[2] + 10],
-  [CHUTE[0][0] + 6, CHUTE[0][1] + 8, CHUTE[0][2] + 10],
-  ...CHUTE.slice(1).map((p): P3 => [p[0], p[1], p[2] + 8]),
-  [rectC(YOU.inTray)[0], rectC(YOU.inTray)[1] + 6, YOU.top + 12],
+  REPORT_PORT,
+  // the report's flight up to the mouth (an arc), then to the chute's head under the index arm
+  ...arc(REPORT_PORT, mouth, 140, 16),
+  [-290, 104, 116],
+  chuteIn,
+  // down the reply chute's bed and into your in-tray, stopping at its north edge beside the slip, never across its ID
+  ...CHUTE.slice(1).map((p): P3 => [p[0], p[1], p[2] + 7]),
+  [tray.x0 + 22, tray.y1 + 2, YOU.top + 9],
 ];
 
 // ------------------------------------------------------------------------------------------------
 // East of the system, in vellum (proposed: STORYBOARD 9.1, 9.2) beside built graphite machines
 
-/** The graphite machines a cloud loop would keep running (built), north to south, each with its daemon clip (vellum) beside it, on the loop's side. */
+/**
+ * The graphite machines a cloud loop would keep running (built), north to south, each its own
+ * silhouette: a rack server (slot lines), a tower workstation (its vent column), a closed laptop (its
+ * hinge). Each has its daemon clip (vellum) beside it on the loop's side; they stand at unequal
+ * distances from the loop, so no two tethers are alike.
+ */
 export const MACHINES: readonly { kind: 'server' | 'workstation' | 'laptop'; c: P2; w: number; d: number; h: number }[] = [
-  { kind: 'server', c: [1250, 290], w: 130, d: 96, h: 46 },
-  { kind: 'workstation', c: [1250, 70], w: 110, d: 120, h: 70 },
-  { kind: 'laptop', c: [1250, -150], w: 140, d: 96, h: 10 },
+  { kind: 'server', c: [1180, 300], w: 150, d: 92, h: 44 },
+  { kind: 'workstation', c: [1290, 86], w: 64, d: 118, h: 112 },
+  { kind: 'laptop', c: [1150, -150], w: 150, d: 100, h: 13 },
 ];
-export const CLIP_DX = -98;
-/** The vellum sheets laid flat: the plan of the deck, the state cabinet, the cloud loop with its tethers to each clip. */
+export const CLIP_DX = -110;
+/** The vellum sheets laid flat: the plan of the deck, the state cabinet, the cloud loop (an open ring track) with its tethers to each clip. */
 export const VELLUM = {
-  plan: { c: [960, 500] as P2, w: 260, d: 170 },
-  cabinet: { c: [930, -210] as P2, w: 190, d: 150 },
-  loop: { c: [820, 70] as P2, a: 100, b: 100 },
+  plan: { c: [930, 470] as P2, w: 240, d: 160 },
+  cabinet: { c: [900, -230] as P2, w: 180, d: 140 },
+  loop: { c: [800, 90] as P2, a: 92, b: 92 },
 } as const;
-/** The Watchdog: a vellum inspection station outside the engraved system boundary, its sightline on the bays. */
-export const WATCHDOG = { c: [660, -440] as P2, r: 70, look: [360, -60] as P2 } as const;
-/** The engraved boundary: an arc round the system's south-east corner, the Watchdog outside it. */
-export const BOUNDARY: readonly P2[] = [
-  [-160, -370],
-  [240, -340],
-  [520, -280],
-  [640, -170],
-  [680, -40],
-];
-/** Pencil "?" marks (open problems: STORYBOARD 10.1–10.3), at least 64 px at 1× (so 80 u: 40 px at 0.5×). */
+/** The Watchdog: a vellum inspection station outside the system, south-east of the bays, its sightline reaching in to them. */
+export const WATCHDOG = { c: [700, -430] as P2, r: 66, look: [380, -70] as P2 } as const;
+/** Pencil "?" marks (open problems: STORYBOARD 10.1–10.3), at least 64 px on screen (104 u at 0.64×). */
 export const QUERIES: readonly { at: P3; size: number }[] = [
   // beside the vellum tethers (a hijacked loop could reach every machine)
-  { at: [1100, 190, 1], size: 84 },
-  // on the reel's outer windings (memory over months)
-  { at: [REEL.x + REEL.r - 18, REEL.y + 40, 152], size: 72 },
-  // on the split reel (shard the Router)
-  { at: [REEL.x - 40, REEL.y + 130, 152], size: 72 },
-  // on the docs bay's door, where a handle would be (stepping in mid-task)
-  { at: [rectC(BAYS.docs.box)[0] + 20, BAYS.docs.box.y0 + 20, 32], size: 72 },
+  { at: [1020, 210, 1], size: 104 },
+  // beside the handle outline on the docs bay (stepping in mid-task), off its nameplate
+  { at: [BAYS.docs.box.x0 + 150, BAYS.docs.box.y0 + 64, 34], size: 104 },
 ];
+/** The pencil handle outline a running bay lacks (stepping in), on the docs bay's south wall, west of its nameplate's centre. */
+export const HANDLE = { c: [BAYS.docs.box.x0 + 74, BAYS.docs.box.y0 + 17] as P2, w: 66, d: 28 } as const;
 /** Where the chores docked as they were handed over: the key on the intake's gate, the sand-glass on the bug bay's job rail, the strut on the vellum loop. */
 export const DOCKED = {
   key: [GATE.bar.x1 + 8, GATE.bar.y1 + 30, 2] as P3,

@@ -416,17 +416,20 @@ function FreshParts({ m }: { m: DeskMats }) {
  */
 export function FreshBay({ s }: { s: DeskState }) {
   const n = s.next;
-  const m = useDeskMats();
+  const sets = useDeskSets();
   useLayoutEffect(() => {
-    // dark until the folder is in, then it ignites (spring-effects): a live process, it blooms
-    m.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 + (EMIT.slot - 0.12) * n.light);
-  }, [m, n.light]);
+    // dark until the folder is in, then it ignites (spring-effects): a live process, it blooms (stepped down too: the same level)
+    for (const set of [sets.full, sets.stepped]) set.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 + (EMIT.slot - 0.12) * n.light);
+  }, [sets, n.light]);
   if (n.hatch <= 0) return null;
+  // stepped down with the other bays at the summary (desk/summary.ts)
   return (
-    <group position={[0, 0, -HATCH_DEPTH * (1 - n.rise)]}>
-      <BayBase b={FRESH} slot="slotFresh" door={n.door}>
-        <FreshParts m={m} />
-      </BayBase>
-    </group>
+    <Step on={isStepped(s.step, 'freshBay')}>
+      <group position={[0, 0, -HATCH_DEPTH * (1 - n.rise)]}>
+        <BayBase b={FRESH} slot="slotFresh" door={n.door}>
+          <WithMats>{(mm) => <FreshParts m={mm} />}</WithMats>
+        </BayBase>
+      </group>
+    </Step>
   );
 }

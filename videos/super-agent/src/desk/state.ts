@@ -24,9 +24,9 @@
  */
 import { clamp, easings } from '@aiv/core';
 import { Curve } from '@aiv/remotion-kit';
-import { spring } from 'remotion';
+import { Easing, spring } from 'remotion';
 import { BEAT, FPS } from '../cues.ts';
-import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, rectC, towerTop, type P2, type P3 } from './layout.ts';
+import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, DRAWER_OPEN_C, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, rectC, towerTop, type P2, type P3 } from './layout.ts';
 
 /** Remotion spring configs from the synthesis's tokens (mass 1, c = 2ζ√k). Remotion's default spring is never used. */
 export const SPRING = {
@@ -93,7 +93,7 @@ export const LAMP_DIMS = 2340;
 export const LAMP_STEPS = { dim: 0.62, up: 0.9 } as const;
 
 /** What steps down during a beat: everything not in its action. */
-export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'cord' | 'reel' | 'lock' | 'gauge';
+export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge';
 /** No Thread cord before C17's beat: it first pays out at 7.1 (f3440); before that a Thread is a row on the tape (design D1). */
 export const CORD_FROM = 3440;
 /**
@@ -490,36 +490,36 @@ export function loupeAt(a: number): P2 {
 
 // ------------------------------------------------------------------------------------------------
 // Still (c), context as a cache (film f3150; STORYBOARD 6.3, TREATMENT Lookdev (c)): the request's
-// bay sends a progress report up. At the mouth its header strip tears off and slides into the head
-// while the older cards in the window shrink to stubs and pack east (the tape moving with the
-// reel); the head prints the header and a three-line summary inline; the stubs dim one step; the
-// body folds along a crease into a pointer tab that drops into the spill drawer. At f3150 the reel
-// is still and the fold is the only motion.
+// bay sends a progress report up. At the mouth its header strip, which carries the record's header and
+// its three summary lines, tears off along its perforation, flies to the print head and feeds down
+// through the slot in the head's cap; meanwhile the older cards in the window shrink to stubs and pack
+// east (the reel stays still: TREATMENT (c), one mechanism moving). The head drops and the record
+// stamps in with a 3 f ink spread; the stubs dim one step. The body folds along its crease into a
+// pointer tab, which drops into the spill drawer and lands on spring-dock in front of the older tabs.
+// By f3150 the tab is seated and the frame holds.
 
 export const EVENTS_C = {
   /** from here the window holds the cache's cells (the batching beats before it are not built) */
   from: 3000,
-  /** the card rises out of the request bay's work slot (4 f), then flies 18 f under the transit light into the mouth */
-  cardOut: 3106,
-  cardEject: 3110,
+  /** the card rises out of the request bay's work slot (4 f), then flies 18 f under the transit light into the mouth (ejecting on the beat) */
+  cardOut: 3076,
+  cardEject: 3080,
   cardFly: 18,
-  /** the older cards shrink to stubs as the reel detents and drives the tape: oldest first (they lead, so no two
-   * ever overlap), 1 f apart, 6 f each, all packed before the head prints into the cell they leave */
-  shrink: 3129,
+  /** the older cards shrink to stubs: oldest first (they lead, so no two ever overlap), 1 f apart, 6 f each, all packed before the head prints */
+  shrink: 3099,
   shrinkFrames: 6,
   shrinkStagger: 1,
-  reelDetent: 3129,
-  tapeFrames: 9,
-  /** the header strip tears off along its perforation and slides into the head (6 f) */
-  header: 3133,
+  /** the header strip tears off along its perforation, flies to the head (6 f) and feeds down through the slot in its cap (4 f) */
+  header: 3100,
   headerFrames: 6,
-  /** the head drops (4 f) and the record prints inline (its ink over 3 f); the stubs dim one step (4 f) */
-  stampIn: 3140,
-  dim: 3142,
-  /** the body folds along its crease (8 f), the tab drops into the drawer (6 f) and settles */
-  fold: 3145,
+  slotFrames: 4,
+  /** the head drops (4 f) and the record stamps in with a 3 f ink spread; the stubs dim one step (4 f) */
+  stampIn: 3110,
+  dim: 3112,
+  /** on the downbeat the body folds along its crease (8 f); a 2 f hold; the tab drops into the drawer (6 f, the move curve) and lands on spring-dock */
+  fold: 3120,
   foldFrames: 8,
-  tabDrop: 3155,
+  tabDrop: 3130,
   tabFrames: 6,
 } as const;
 
@@ -531,22 +531,27 @@ export interface CacheState {
   transit: number;
   /** at the mouth: settling on spring-dock, its header strip still on it until it tears off */
   docked: { settle: number; headerOn: boolean } | null;
-  /** the header strip, mouth to head (0..1); null when not travelling */
-  header: number | null;
-  /** the head's drop, the record's ink (0..1) */
+  /** the header strip: its flight from the mouth to over the head (0..1), then its feed down through the slot (0..1); null when not travelling */
+  strip: { fly: number; feed: number } | null;
+  /** the head's drop; the record's ink spread (0..1 over 3 f: each third a stage, never an alpha fade) */
   stamp: number;
   ink: number;
   /** each older card's shrink to its stub (0..1), newest first */
   shrink: number[];
-  /** the tape's advance and the reel's detent (0..1) */
+  /** the tape's advance and the reel's detent: none in (c), the reel stays still */
   tape: number;
   reel: number;
   /** the stubs' one-step dim (0..1) */
   dim: number;
-  /** the body's fold (0 flat .. 1 folded over), the tab's drop (0..1), its settle once landed in the drawer */
+  /** the body's fold (0 flat .. 1 folded over), the tab's drop (0..1, eased), its spring-dock settle once landed and its landing squash (0..1) */
   fold: number;
   drop: number;
   landed: number | null;
+  squash: number;
+  /** the hooded reading lamp's pool on the record: 1 lights it to lit paper (still (c)); lower leaves it idle paper (the summary) */
+  lamp: number;
+  /** the spill drawer pulling open to take the tab (0..1 of layout.ts DRAWER_OPEN_C, spring-detent) */
+  drawer: number;
 }
 
 /**
@@ -565,8 +570,15 @@ export function cardArcC(s: number): P3 {
   return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u + 4 * CARD_C.apex * u * (1 - u)];
 }
 
-/** Where the folded tab comes to rest in the spill drawer: lying on the filed tabs, its ID up. */
-export const TAB_REST_C: P3 = [rectC(DRAWER.box)[0] - 22, DRAWER.box.y0 + 16, DRAWER.z[0] + 23];
+/**
+ * Where the folded tab comes to rest in the spill drawer: its crease (the tab's south edge) on the
+ * filed tabs in front, its face leaning back toward the key and the camera, the ID upright; the face
+ * stands above the drawer's front so the ID reads (TREATMENT Lookdev (c)).
+ */
+export const TAB_REST_C: P3 = [rectC(DRAWER.box)[0] - 3, DRAWER.box.y0 + 5.5 - DRAWER_OPEN_C, DRAWER.z[0] + 4];
+/** The tab's lean at rest (about x, its north edge up on the filed tab behind it) and its small turn (about z), radians. */
+export const TAB_LEAN_C = 0.38;
+export const TAB_TURN_C = -0.03;
 
 /** Still (c)'s report at film frame f (pure); null before the cache's cells are in the window. */
 export function cacheAt(f: number): CacheState | null {
@@ -579,15 +591,29 @@ export function cacheAt(f: number): CacheState | null {
   const transit = card ? clamp(flown / 4) * clamp((E.cardFly - flown) / 4) : 0;
   const dockAt = E.cardEject + E.cardFly;
   const docked = f >= dockAt && f <= E.tabDrop ? { settle: springAt(f, dockAt, SPRING.dock), headerOn: f < E.header } : null;
-  const header = f >= E.header && f < E.header + E.headerFrames ? sine((f - E.header) / E.headerFrames) : null;
+  const feedEnd = E.header + E.headerFrames + E.slotFrames;
+  const strip = f >= E.header && f < feedEnd ? { fly: MOVE((f - E.header) / E.headerFrames), feed: clamp((f - E.header - E.headerFrames) / E.slotFrames) } : null;
   const stamp = clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2));
-  const ink = clamp((f - E.stampIn - 1) / 3);
+  const ink = clamp((f - E.stampIn) / 3);
   const shrink = [0, 1, 2, 3, 4].map((i) => sine((f - E.shrink - (4 - i) * E.shrinkStagger) / E.shrinkFrames));
-  const tape = sine((f - E.reelDetent) / E.tapeFrames);
-  const reel = springAt(f, E.reelDetent, SPRING.detent);
   const dim = sine((f - E.dim) / 4);
   const fold = sine((f - E.fold) / E.foldFrames);
   const drop = clamp((f - E.tabDrop) / E.tabFrames);
-  const landed = f >= E.tabDrop + E.tabFrames ? springAt(f, E.tabDrop + E.tabFrames, SPRING.dock) : null;
-  return { out, card, transit, docked, header, stamp, ink, shrink, tape, reel, dim, fold, drop, landed };
+  const landAt = E.tabDrop + E.tabFrames;
+  // a hold is dead still: 12 f after the landing the spring is within 2e-3 of rest (far under a pixel), so it rests exactly
+  const landed = f >= landAt ? (f - landAt >= SETTLED ? 1 : springAt(f, landAt, SPRING.dock)) : null;
+  // the landing's squash: 3% at contact, gone over 4 f
+  const squash = f < landAt ? 0 : Math.max(0, 1 - (f - landAt) / 4) * Math.min(1, (f - landAt + 1) / 1.5);
+  // the drawer pulls open on the fold's downbeat, ready before the tab drops
+  const drawer = f - E.fold >= SETTLED ? 1 : springAt(f, E.fold, SPRING.detent);
+  return { out, card, transit, docked, strip, stamp, ink, shrink, tape: 0, reel: 0, dim, fold, drop, landed, squash, lamp: 1, drawer };
+}
+
+/** Frames after which a cache spring rests exactly (no sub-pixel creep in a hold). */
+const SETTLED = 12;
+
+/** The film's move curve, bezier(.2, 0, 0, 1) (TREATMENT Motion grammar), clamped to 0..1. */
+const MOVE_CURVE = Easing.bezier(0.2, 0, 0, 1);
+function MOVE(t: number): number {
+  return MOVE_CURVE(clamp(t));
 }

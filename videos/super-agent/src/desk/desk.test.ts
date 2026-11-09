@@ -313,27 +313,38 @@ describe('MT1 after the reply: the next dispatch (state.ts EVENTS_D)', () => {
 
 describe('still C: context as a cache (state.ts EVENTS_C)', () => {
   const C = deskStateAt(ROUND2.stillC);
-  it('runs in cause order: rise, fly, dock, shrink with the reel, header, stamp, dim, fold, drop', () => {
+  it('runs in cause order: rise, fly, dock, shrink, the strip to the head, stamp, dim, fold, drop', () => {
     const E = EVENTS_C;
-    const order = [E.cardOut, E.cardEject, E.cardEject + E.cardFly, E.shrink, E.header, E.stampIn, E.dim, E.fold, E.tabDrop];
-    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThan(order[i - 1]);
-    // the tape moves with the reel, never before it
-    expect(E.reelDetent).toBe(E.shrink);
+    const order = [E.cardOut, E.cardEject, E.cardEject + E.cardFly, E.shrink, E.header, E.header + E.headerFrames + E.slotFrames, E.stampIn, E.dim, E.fold, E.tabDrop];
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBeGreaterThanOrEqual(order[i - 1]);
+    // the strip is inside the head before it prints; the drawer is open before the tab drops
+    expect(E.header + E.headerFrames + E.slotFrames).toBeLessThanOrEqual(E.stampIn);
+    expect(deskStateAt(E.tabDrop).cache!.drawer).toBeGreaterThan(0.98);
   });
-  it('holds at f3150: the reel still, the record inked, the stubs shrunk and dimmed, the body mid-fold', () => {
+  it('stamps the record in over 3 f of ink stages, never before the head drops', () => {
+    const E = EVENTS_C;
+    expect(deskStateAt(E.stampIn).cache!.ink).toBe(0);
+    expect(deskStateAt(E.stampIn + 3).cache!.ink).toBe(1);
+  });
+  it('holds at f3150: the reel still, the record inked, the stubs shrunk and dimmed, the tab seated in the drawer', () => {
     const c = C.cache!;
-    expect(c.reel).toBeGreaterThan(0.99);
-    expect(deskStateAt(ROUND2.stillC + 1).cache!.reel).toBeCloseTo(c.reel, 3);
+    for (let f = EVENTS_C.from; f <= ROUND2.stillC; f++) expect(deskStateAt(f).cache!.reel).toBe(0);
     expect(c.ink).toBe(1);
     for (const k of c.shrink) expect(k).toBe(1);
     expect(c.dim).toBe(1);
-    expect(c.fold).toBeGreaterThan(0.4);
-    expect(c.fold).toBeLessThan(0.9);
-    expect(c.drop).toBe(0);
+    expect(c.fold).toBe(1);
+    expect(c.drop).toBe(1);
+    expect(c.drawer).toBeGreaterThan(0.999);
+    expect(c.landed).toBeGreaterThan(0.995);
+    expect(c.landed).toBeLessThan(1.005);
+    expect(c.squash).toBe(0);
     expect(c.card).toBeNull();
+    expect(c.strip).toBeNull();
     expect(c.transit).toBe(0);
+    // a hold: the next frame differs by less than a hundredth of a unit
+    expect(Math.abs(deskStateAt(ROUND2.stillC + 1).cache!.landed! - c.landed!)).toBeLessThan(0.002);
   });
-  it('closes the camera on the window from bar 34 and holds it at 2.0x', () => {
+  it('closes the camera on the window from bar 34 and holds it', () => {
     expect(closeAt(ROUND2.stillC)).toBe(1);
     expect(closeAt(ROUND2.stillB)).toBeCloseTo(0, 9);
     const pose = cameraAt(ROUND2.stillC, 15);

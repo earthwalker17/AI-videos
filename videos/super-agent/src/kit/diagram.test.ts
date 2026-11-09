@@ -159,13 +159,11 @@ describe('offsetRoute', () => {
     const b = routePath(o.points, o.radii);
     const la = getLength(a);
     const lb = getLength(b);
+    // the original path sampled once (each pointAt parses the path again)
+    const along = Array.from({ length: 2001 }, (_, j) => pointAt(a, (la * j) / 2000));
     for (let k = 0; k <= 40; k++) {
       const p = pointAt(b, (lb * k) / 40);
-      let best = Infinity;
-      for (let j = 0; j <= 2000; j++) {
-        const q = pointAt(a, (la * j) / 2000);
-        best = Math.min(best, Math.hypot(p.x - q.x, p.y - q.y));
-      }
+      const best = Math.min(...along.map((q) => Math.hypot(p.x - q.x, p.y - q.y)));
       expect(best).toBeCloseTo(Math.abs(d), 0);
     }
     // right turn then left turn: the right side (d < 0) is inside the first, outside the second

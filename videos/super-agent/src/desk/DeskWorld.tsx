@@ -52,18 +52,22 @@ function LightState({ s, footprints, pools }: { s: DeskState; footprints?: Footp
 /** The desk's history marks: the grooves (whole hand-overs) and act one's pressed folders. Neither exists yet in act one. */
 export interface DeskMarks {
   grooves: boolean;
-  imprints: boolean;
+  /** all (true), none (false), or how deep each folder is pressed so far (0..1, as beat3.ts IMPRINTS: the turn presses them in) */
+  imprints: boolean | readonly number[];
 }
 
 function Ground({ marks }: { marks?: DeskMarks }) {
   const geometry = useMemo(() => new PlaneGeometry(9000, 7000), []);
   const material = useMemo(() => makeDeskMaterial(), []);
   // a mark that is absent moves out of every lookup (the shader is unchanged): grooves get empty boxes, imprints sit far off
-  const original = useMemo(() => ({ box: material.uniforms.uGrooveBox.value as Vector4[], imp: material.uniforms.uImp.value as Vector4[] }), [material]);
+  const original = useMemo(() => ({ box: material.uniforms.uGrooveBox.value as Vector4[], imp: material.uniforms.uImp.value as Vector4[], rot: material.uniforms.uImpRot.value as Vector4[] }), [material]);
+  const depths = Array.isArray(marks?.imprints) ? (marks.imprints as readonly number[]) : null;
   useLayoutEffect(() => {
     material.uniforms.uGrooveBox.value = marks?.grooves === false ? original.box.map(() => new Vector4(1e6, 1e6, -1e6, -1e6)) : original.box;
     material.uniforms.uImp.value = marks?.imprints === false ? original.imp.map(() => new Vector4(1e6, 1e6, 1, 1)) : original.imp;
-  }, [material, original, marks?.grooves, marks?.imprints]);
+    // pressed part way: each imprint's depth rides in its rotation vector's w (gl/desk.ts)
+    material.uniforms.uImpRot.value = depths ? original.rot.map((r, i) => new Vector4(r.x, r.y, r.z, depths[i] ?? 1)) : original.rot;
+  }, [material, original, marks?.grooves, marks?.imprints, depths]);
   useLayoutEffect(
     () => () => {
       geometry.dispose();
@@ -89,9 +93,11 @@ export interface DeskWorldProps {
   pools?: Pool[];
   /** which history marks the desk shows (default: all) */
   marks?: DeskMarks;
+  /** which strings the printed textures print (default all; gl/text.ts makePrintTextures) */
+  printKeep?: (text: string) => boolean;
 }
 
-export function DeskWorld({ s, pose, bloom, printFamily, sansFamily, children, footprints, pools, marks }: DeskWorldProps) {
+export function DeskWorld({ s, pose, bloom, printFamily, sansFamily, children, footprints, pools, marks, printKeep }: DeskWorldProps) {
   return (
     <>
       <color attach="background" args={[DESK_HEX.base]} />
@@ -100,7 +106,7 @@ export function DeskWorld({ s, pose, bloom, printFamily, sansFamily, children, f
       <hemisphereLight position={[0, 0, 1]} args={[LIGHTS.sky, LIGHTS.ground, LIGHTS.fill]} />
       <LightState s={s} footprints={footprints} pools={pools} />
       <Ground marks={marks} />
-      <DeskKit printFamily={printFamily} sansFamily={sansFamily} step={s.step.amount} stepLate={s.testsStep}>
+      <DeskKit printFamily={printFamily} sansFamily={sansFamily} step={s.step.amount} stepLate={s.testsStep} printKeep={printKeep}>
         {children}
       </DeskKit>
       <PostChain effects={bloom ? effectsWithBloom : effectsNoBloom} afterToneMapping={afterToneMapping} toneMapping={ToneMappingMode.NEUTRAL} multisampling={4} />

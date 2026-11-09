@@ -208,13 +208,22 @@ function useBeltGeometry() {
   }, []);
 }
 
-export function Feeders({ s }: { s: DeskState }) {
+/** The turn's pose of the feeders (desk/turn.ts): the spool dropping in (u above its seat, null: not there), mail and calendar pressed flat into vellum (0..1). */
+export interface FeedersTurn {
+  spool: number | null;
+  mail: number;
+  calendar: number;
+}
+
+export function Feeders({ s, turn }: { s: DeskState; turn?: FeedersTurn }) {
   const g = useFeederGeometry();
   // the conversation spool belongs to the Threads: it is not on the desk in act one (nor are the mail
   // and calendar drawings: those feeders are generic until the turn), and it carries
   // no vermilion winding until the request's Thread first pays out (state.ts CORD_FROM, design D1)
-  const spool = s.f >= ACT_ONE_END;
+  const spool = turn ? turn.spool !== null : s.f >= ACT_ONE_END;
   const wound = s.f >= CORD_FROM;
+  // the turn: the generic boxes press flat (their height scales to nothing) onto the vellum drawings under them
+  const flat = (k: number) => Math.max(1 - k, 1e-3);
   return (
     <Step on={isStepped(s.step, 'intake')}>
       <WithMats>
@@ -226,20 +235,44 @@ export function Feeders({ s }: { s: DeskState }) {
             <mesh geometry={g.spout} material={m.enamelShade} />
             <mesh geometry={g.slip} material={m.printed.chat} />
             {spool && (
-              <>
+              <group position={[0, 0, turn?.spool ?? 0]}>
                 <mesh geometry={g.spoolPost} material={m.graphite} />
                 <mesh geometry={g.flanges} material={m.enamel} />
                 <mesh geometry={g.barrel} material={m.graphiteDark} />
                 {wound && <mesh geometry={g.wound} material={m.cordVermilion} />}
                 <mesh geometry={g.spoolCap} material={m.steel} />
-              </>
+              </group>
             )}
             <mesh geometry={g.ciBody} material={m.enamel} />
             <mesh geometry={g.cards} material={m.paperLit} />
             <mesh geometry={g.topCard} material={m.printed.ciCard} />
             <mesh geometry={g.ciMouth} material={m.enamelShade} />
             <mesh geometry={g.ciCard} material={m.printed.ciCard} />
-            {spool ? (
+            {turn ? (
+              <>
+                {turn.mail > 0 && <mesh geometry={g.mail} material={m.vellumMail} />}
+                {turn.calendar > 0 && <mesh geometry={g.calendar} material={m.vellumCalendar} />}
+                {turn.mail < 1 && (
+                  <group scale={[1, 1, flat(turn.mail)]}>
+                    <mesh geometry={g.generic.box} material={m.graphite} />
+                    <mesh geometry={g.generic.plate} material={m.graphiteDark} />
+                    <mesh geometry={g.generic.slot} material={m.hollow} />
+                    <mesh geometry={g.generic.mouth} material={m.graphite} />
+                    <mesh geometry={g.generic.envelope} material={m.paper} />
+                    <mesh geometry={g.generic.flap} material={m.paperShade} />
+                  </group>
+                )}
+                {turn.calendar < 1 && (
+                  <group scale={[1, 1, flat(turn.calendar)]}>
+                    <mesh geometry={g.generic.base} material={m.graphite} />
+                    <mesh geometry={g.generic.leaves} material={m.paper} />
+                    <mesh geometry={g.generic.binding} material={m.graphiteDark} />
+                    <mesh geometry={g.generic.rings} material={m.steel} />
+                    <mesh geometry={g.generic.leaf} material={m.paper} />
+                  </group>
+                )}
+              </>
+            ) : spool ? (
               <>
                 <mesh geometry={g.mail} material={m.vellumMail} />
                 <mesh geometry={g.calendar} material={m.vellumCalendar} />
@@ -266,15 +299,20 @@ export function Feeders({ s }: { s: DeskState }) {
   );
 }
 
-export function Gate({ s }: { s: DeskState }) {
+/** The gate and the belt; during the turn each drops in from above (u over its seat; null: not there yet). */
+export function Gate({ s, drop }: { s: DeskState; drop?: { gate: number | null; belt: number | null } }) {
   const g = useGateGeometry();
   const b = useBeltGeometry();
+  if (drop && drop.gate === null && drop.belt === null) return null;
+  const at = (z: number | null | undefined) => (drop ? (z === null ? null : [0, 0, z ?? 0] as const) : undefined);
+  const gz = at(drop?.gate);
+  const bz = at(drop?.belt);
   return (
     <>
       <Step on={isStepped(s.step, 'gate')}>
         <WithMats>
           {(m) => (
-            <group>
+            <group position={gz ?? undefined} visible={gz !== null}>
               <mesh geometry={g.gateBar} material={m.graphite} />
               <mesh geometry={g.gateCap} material={m.enamelShade} />
               <mesh geometry={g.fingers} material={m.steel} />
@@ -285,7 +323,7 @@ export function Gate({ s }: { s: DeskState }) {
       <Step on={isStepped(s.step, 'belt')}>
         <WithMats>
           {(m) => (
-            <group>
+            <group position={bz ?? undefined} visible={bz !== null}>
               <mesh geometry={b.belt} material={m.graphiteDark} />
               <mesh geometry={b.rails} material={m.enamelShade} />
               <mesh geometry={b.ribs} material={m.graphite} />

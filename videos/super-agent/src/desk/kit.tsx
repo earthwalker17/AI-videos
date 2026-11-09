@@ -14,7 +14,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import type { WorkerId } from './layout.ts';
 import { HEX, STEP, STEP_LATE, emitter, enamel, graphite, matte, paper, stepColour, vellum, whiteTexture } from './gl/materials.ts';
 import { makePrintTextures, type PrintTextures } from './gl/text.ts';
-import { LIGHT_HEX } from './pools.ts';
+import { EMIT, LIGHT_HEX } from './pools.ts';
 
 export interface DeskMats {
   graphite: MeshStandardMaterial;
@@ -60,6 +60,9 @@ export interface DeskMats {
     folderFresh: MeshStandardMaterial;
     /** still (c): the bare tape, the report card's face and the tab's face (the window's cards draw with their own materials) */
     tapeBlank: MeshStandardMaterial;
+    /** the turn: the tape with its first row, the reel's top before the request's stub */
+    tapeFirst: MeshStandardMaterial;
+    reelTopBare: MeshStandardMaterial;
     cardC: MeshStandardMaterial;
     cardCBack: MeshStandardMaterial;
     /** the close shot's fine print, laid over the micro-print and cross-faded in (objects/Dispatch.tsx DeskUniforms sets the opacity) */
@@ -130,8 +133,7 @@ export function Step({ on, children }: { on: boolean | 'late' | 'own'; children:
   return <StepContext.Provider value={on}>{children}</StepContext.Provider>;
 }
 
-/** The emitters' levels (HDR: above 1.0 blooms). */
-export const EMIT = { slot: 9, slotDocs: 0.9, transit: 7, bulbMax: 1.1, jewel: 0.85 } as const;
+export { EMIT } from './pools.ts';
 
 /** The enamel's room light, prefiltered once (not scene.environment: only enamel reflects it). */
 function useEnamelEnv(): Texture {
@@ -206,6 +208,8 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
       chatNext: P(t.chatNext, HEX.paper),
       folderFresh: P(t.folderFresh, HEX.paper),
       tapeBlank: P(t.tapeBlank, HEX.paper),
+      tapeFirst: P(t.tapeFirst, HEX.paper),
+      reelTopBare: P(t.reelTopBare, '#FFFFFF'),
       cardC: P(t.cardC, HEX.paperLit),
       cardCBack: P(t.cardCBack, HEX.paperLit),
       fanfoldFine: fine(P(t.fanfoldFine, HEX.paper)),
@@ -225,15 +229,15 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
   };
 }
 
-export function DeskKit({ printFamily, sansFamily, step, stepLate = 0, children }: { printFamily: string; sansFamily: string; step: number; stepLate?: number; children: ReactNode }) {
+export function DeskKit({ printFamily, sansFamily, step, stepLate = 0, printKeep, children }: { printFamily: string; sansFamily: string; step: number; stepLate?: number; printKeep?: (text: string) => boolean; children: ReactNode }) {
   const gl = useThree((s) => s.gl);
   const env = useEnamelEnv();
   const sets = useMemo(() => {
     const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
-    const t = makePrintTextures(printFamily, sansFamily, aniso);
+    const t = makePrintTextures(printFamily, sansFamily, aniso, printKeep);
     const white = whiteTexture();
     return { full: buildSet(t, env, white, false), stepped: buildSet(t, env, white, true), late: buildSet(t, env, white, 'late'), own: buildSet(t, env, white, 'own'), textures: t };
-  }, [gl, env, printFamily, sansFamily]);
+  }, [gl, env, printFamily, sansFamily, printKeep]);
   // the stepped set's shared step amount, set before the frame is drawn
   useLayoutEffect(() => {
     STEP.stepped.value = step;

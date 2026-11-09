@@ -106,7 +106,7 @@ export const NEXT_WORD = 'ask';
 export const REPORT_C = {
   id: '#0405',
   summary: ['lock race', 'patch ready', 'pins pass'],
-  body: ['trace', 'diff', 'log', 'notes'],
+  body: ['trace', 'diff', 'log', 'repro'],
 } as const;
 export const CACHE_CELLS = [
   { kind: 'ci', request: false },
