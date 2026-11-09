@@ -13,8 +13,9 @@ import { ToneMappingMode } from 'postprocessing';
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { PlaneGeometry, Vector4, type PerspectiveCamera } from 'three';
 import type { CamPose } from '@aiv/remotion-kit';
-import { DESK_HEX, makeDeskMaterial } from './gl/desk.ts';
+import { DESK_GROOVE_CUT, DESK_HEX, DESK_HOLES, HOLE_SHUT, makeDeskMaterial } from './gl/desk.ts';
 import { setLight } from './gl/light.ts';
+import { STEP, STEP_LATE, STEP_OWN } from './gl/materials.ts';
 import { afterToneMapping, effectsNoBloom, effectsWithBloom } from './gl/post.ts';
 import { FAR, NEAR } from './camera.ts';
 import { footprintsAt, type Footprint } from './footprints.ts';
@@ -38,6 +39,23 @@ function Rig({ pose }: { pose: CamPose }) {
     camera.lookAt(pose.look[0], pose.look[1], pose.look[2]);
     camera.updateMatrixWorld();
   }, [camera, pose]);
+  return null;
+}
+
+/**
+ * The shared module-level uniforms (the desk's hatches and groove cuts, the step ramps) back at their defaults when a
+ * world mounts, before any object writes its own. Main's FilmFrame mounts a fresh world per segment, so a page that
+ * crossed a segment boundary draws exactly what a fresh page starting there does; on a fresh page this writes the
+ * values the modules already hold. The kit's material sets are rebuilt with each world, so they need no reset.
+ */
+function ResetShared() {
+  useLayoutEffect(() => {
+    for (let i = 0; i < DESK_HOLES.value.length; i++) DESK_HOLES.value[i] = HOLE_SHUT();
+    DESK_GROOVE_CUT.value.splice(0, DESK_GROOVE_CUT.value.length, 1, 1, 1, 0);
+    STEP.stepped.value = 0;
+    STEP_LATE.value = 0;
+    STEP_OWN.value = 0;
+  }, []);
   return null;
 }
 
@@ -101,6 +119,7 @@ export function DeskWorld({ s, pose, bloom, printFamily, sansFamily, children, f
   return (
     <>
       <color attach="background" args={[DESK_HEX.base]} />
+      <ResetShared />
       <Rig pose={pose} />
       <directionalLight position={[KEY[0], KEY[1], KEY[2]]} intensity={LIGHTS.key} color="#FFFFFF" />
       <hemisphereLight position={[0, 0, 1]} args={[LIGHTS.sky, LIGHTS.ground, LIGHTS.fill]} />

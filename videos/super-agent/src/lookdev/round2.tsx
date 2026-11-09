@@ -16,23 +16,17 @@
  * N5 and the cache tag; DeskGroundC15 is its objects-free twin:
  *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillC15 --frames 3165 --label r2-c15
  */
-import { useMemo } from 'react';
 import { Composition, registerRoot, useCurrentFrame } from 'remotion';
 import { FILM_FRAMES, FPS, LEADER_FRAMES } from '../cues.ts';
 import { cameraAt, type Angle } from '../desk/camera.ts';
 import { ActOneFrame } from '../desk/ActOneFrame.tsx';
 import { TurnFrame } from '../desk/TurnFrame.tsx';
-import { SPAN_D, poseD, summaryAt, summaryDeskState, summaryLabelAt } from '../desk/summary.ts';
-import { PRINT_FONT } from '../desk/gl/text.ts';
-import { Proposed } from '../desk/objects/Proposed.tsx';
-import { Trace } from '../desk/objects/Trace.tsx';
 import { DeskFrame } from '../desk/DeskFrame.tsx';
 import { World } from '../desk/objects/World.tsx';
 import type { TagSpec } from '../desk/Overlay.tsx';
 import { WORDS } from '../cues.ts';
-import { keepClose, keepTeaching, keepTexture } from '../desk/marks.ts';
-import { ROLE_LABELS, type RoleLabel } from '../desk/Overlay.tsx';
-import { BAYS, DECK, rectC } from '../desk/layout.ts';
+import { keepClose, keepTeaching } from '../desk/marks.ts';
+import { SummaryFrame } from '../desk/FilmFrame.tsx';
 
 function StyleB({ angle, bloom }: { angle: Angle; bloom: boolean }) {
   const f = useCurrentFrame() - LEADER_FRAMES;
@@ -68,52 +62,9 @@ export const StillAGround15 = () => <StillA objects={false} />;
  *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillD15 --frames 5535 --label r2-d15
  * StillDGround15 is its objects-free twin (the silhouette sheet).
  */
-/** The print face's CSS family (the kit's useFont registers it as `"AIV <family>"`). */
-const PRINT_CSS = `"AIV ${PRINT_FONT.family}"`;
-
-/**
- * Still (d)'s labels. "Router" names the whole machine from the deck's west rail and sits west of it, in
- * the clear band under the Thread cord (its leader never crosses the cord); "Worker" names the request's
- * bay, where the route ends, its foot inside W-07's nameplate band and the label straight under the bay;
- * "you" as in the film. Round the camera's ease-out they leave and re-enter (desk/summary.ts summaryLabelAt).
- */
-const LABELS_D: readonly RoleLabel[] = ROLE_LABELS.map((l) =>
-  l.text === WORDS.worker.en
-    ? { ...l, foot: [rectC(BAYS.bug.box)[0] + 5, BAYS.bug.box.y0 + BAYS.bug.southWall / 2, BAYS.bug.wallH + 0.4], dx: 6, dy: 104, anchor: 'start' }
-    : l.text === WORDS.router.en
-      ? { ...l, foot: [DECK.x0 + DECK.rail / 2, 300, DECK.top], dx: -36, dy: -54, anchor: 'end' }
-      : l,
-);
-const labelsDAt = (f: number): RoleLabel[] =>
-  LABELS_D.flatMap((l, i) => {
-    const a = summaryLabelAt(f, i);
-    return a ? [{ ...l, ...a }] : [];
-  });
-
 function StillD({ objects }: { objects: boolean }) {
   const f = useCurrentFrame() - LEADER_FRAMES;
-  const labels = useMemo(() => labelsDAt(Math.min(Math.max(f, SPAN_D[0]), SPAN_D[1])), [f]);
-  return (
-    <DeskFrame
-      f={f}
-      angle={15}
-      bloom
-      poseAt={poseD}
-      span={SPAN_D}
-      stateAt={summaryDeskState}
-      printKeep={keepTexture}
-      labels={labels}
-      objects={(s) =>
-        objects ? (
-          <>
-            <World s={s} />
-            <Proposed />
-            <Trace a={summaryAt(s.f)} printFamily={PRINT_CSS} />
-          </>
-        ) : null
-      }
-    />
-  );
+  return <SummaryFrame f={f} objects={objects} />;
 }
 export const StillD15 = () => <StillD objects />;
 export const StillDGround15 = () => <StillD objects={false} />;

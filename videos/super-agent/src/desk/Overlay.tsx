@@ -1,6 +1,6 @@
 /**
  * The Register Desk's DOM text layer: every line meant to be read, over the WebGL world
- * (docs/ARCHITECTURE.md decision 30). The notes come from the cue sheet (film/onScreen.ts
+ * (docs/ARCHITECTURE.md decision 30). The notes come from the cue sheet (desk/onScreen.ts
  * narrationAt), set in the kit's NotesBlock lower left; the role labels ("Router", "Worker",
  * "you · 你") sit on hairline leaders whose feet are projected through the same camera pose as the
  * world (camera.ts `project`), so they land on their objects at either pitch. All text in
@@ -9,7 +9,7 @@
 import type { CamPose } from '@aiv/remotion-kit';
 import { AbsoluteFill } from 'remotion';
 import { WORDS, cue } from '../cues.ts';
-import { cueReveal, narrationAt } from '../film/onScreen.ts';
+import { cueReveal, narrationAt } from './onScreen.ts';
 import { GREY_TEXT, Label, NotesBlock, lineWidth, type TextLook } from '../kit/text.tsx';
 import type { FilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
@@ -74,6 +74,11 @@ export interface TagSpec {
   at: readonly [number, number];
   anchor: 'start' | 'end';
   foot: P3;
+  /**
+   * A camera move inside the tag's window (the cache tag over bar 42's ease-out): the text stays dead still where it
+   * is, and from this film frame its leader retracts into the text over 6 f, so no hairline is dragged by the move.
+   */
+  leaderUntil?: number;
 }
 /** The zh line's baseline under the EN line's, and where the leader leaves the text block. */
 export const TAG_GAP = 50;
@@ -131,9 +136,15 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         const wZh = lineWidth(t.words['zh-Hans'], { family: fonts.sans, weight: TYPE.label.cjkWeight, size: tsize });
         const w = Math.max(wEn, wZh) + 8;
         const x0 = t.anchor === 'start' ? t.at[0] - 4 : t.at[0] - w + 4;
-        // the leader leaves the block's edge nearest the foot, between its two lines
-        const lx = foot[0] < x0 ? x0 - 8 : x0 + w + 8;
-        const ly = t.at[1] + TAG_GAP / 2 - 12;
+        // the leader leaves the block's edge nearest the foot: a side, between its two lines, or (a foot under or over
+        // the block) its bottom or top edge straight above or below the foot
+        const over = foot[0] > x0 - 8 && foot[0] < x0 + w + 8;
+        const lx = over ? foot[0] : foot[0] < x0 ? x0 - 8 : x0 + w + 8;
+        const ly = over ? (foot[1] > t.at[1] ? t.at[1] + TAG_GAP + 20 : t.at[1] - 40) : t.at[1] + TAG_GAP / 2 - 12;
+        // the leader grows out of its foot with the wipe; under a camera move it retracts into the text (leaderUntil)
+        const grow = Math.min(1, r.wipe * 1.6);
+        const keep = t.leaderUntil === undefined ? 1 : 1 - Math.min(1, Math.max(0, (f - t.leaderUntil) / 6));
+        const from: readonly [number, number] = keep < 1 ? [lx + (foot[0] - lx) * keep, ly + (foot[1] - ly) * keep] : foot;
         return (
           <svg key={t.cue} width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity }}>
             <defs>
@@ -141,8 +152,8 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
                 <rect x={x0 - 4} y={t.at[1] - 60} width={(w + 8) * r.wipe} height={TAG_GAP + 90} />
               </clipPath>
             </defs>
-            <line x1={foot[0]} y1={foot[1]} x2={foot[0] + (lx - foot[0]) * Math.min(1, r.wipe * 1.6)} y2={foot[1] + (ly - foot[1]) * Math.min(1, r.wipe * 1.6)} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />
-            <circle cx={foot[0]} cy={foot[1]} r={4} fill={TEXT_HEX.en} />
+            {keep > 0 && <line x1={from[0]} y1={from[1]} x2={foot[0] + (lx - foot[0]) * grow} y2={foot[1] + (ly - foot[1]) * grow} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />}
+            {keep >= 1 && <circle cx={foot[0]} cy={foot[1]} r={4} fill={TEXT_HEX.en} />}
             <g clipPath={`url(#wipe-${t.cue})`}>
               <Label x={t.at[0]} y={t.at[1]} text={t.words.en} family={fonts.sans} size={tsize} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={t.anchor} />
               <Label x={t.at[0]} y={t.at[1] + TAG_GAP} text={t.words['zh-Hans']} family={fonts.sans} size={tsize} weight={TYPE.label.cjkWeight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.zh} anchor={t.anchor} />
