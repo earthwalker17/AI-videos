@@ -16,22 +16,22 @@ import { FIX_A, FIX_B, WORDS } from '../cues.ts';
 import { useFilmFonts } from '../look/fonts.ts';
 import { TYPE } from '../look/tokens.ts';
 import { ACT_ONE_END, YOU_SHIFT_A, actOneAt, actOneFootprints, actOnePools, youLabelAt } from './actOne.ts';
-import { TRAY_CARD, fixAAt, fixAFootprints, fixBAt, fixBFootprints } from './beat3.ts';
-import { cameraAt, FAR, FOV, NEAR, project, type Angle } from './camera.ts';
+import { fixAAt, fixAFootprints, fixBAt, fixBFootprints } from './beat3.ts';
+import { cameraAt, FAR, FOV, NEAR, type Angle } from './camera.ts';
 import { DeskWorld } from './DeskWorld.tsx';
 import { DESK_HEX } from './gl/desk.ts';
 import { STEP_OWN } from './gl/materials.ts';
 import { PRINT_FONT } from './gl/text.ts';
-import { YOU, type P3 } from './layout.ts';
-import { ActOneObjects, FollowUpCard } from './objects/ActOne.tsx';
+import { YOU } from './layout.ts';
+import { ActOneObjects } from './objects/ActOne.tsx';
 import { Feeders } from './objects/Intake.tsx';
 import { CARD_HEX, CardText, CardWorld, cardAt, cardFootprint, type CardSpec } from './objects/TitleCard.tsx';
-import { FixA, FixB, GREY_LIGHT } from './objects/Turn.tsx';
+import { FixA, FixB } from './objects/Turn.tsx';
 import { YourDesk } from './objects/YourDesk.tsx';
 import { Overlay, type RoleLabel } from './Overlay.tsx';
 import { Step } from './kit.tsx';
 import { deskStateAt, type DeskState } from './state.ts';
-import { fixATurnAt, fixBTurnAt, loopTurnAt, shiftAt, type FixATurn, type FixBTurn, type Press } from './turn.ts';
+import type { Press } from './turn.ts';
 
 /**
  * "you · 你": a hairline from your in-tray's east wall (it ends on a body of your desk) out past the loop to clear ground,
@@ -42,8 +42,8 @@ export const ACT_ONE_LABELS: readonly RoleLabel[] = [{ text: `${WORDS.you.en} ·
 
 /**
  * The title card (STORYBOARD 1.2): lower-left, inside title-safe, over the notes band (free from C1's fade at f140 to
- * C2's wipe at f400), clear of your desk at 1.2x (the frame opens on your lamp, laptop and empty chore tray). It slides
- * in on bar 2's last beat and lands on the thump (`title-thump`, f160) as the camera starts to ease out; the title
+ * C2's wipe at f400), clear of your desk at 1.2x (the frame opens on your lamp, laptop and empty chore tray). Posted in
+ * once C1 has gone, it lands on the thump (`title-thump`, f160) as the camera starts to ease out; the title
  * wipes in on `title`, the credit on `credit`; both fade by f380, and the card lifts and slides away.
  */
 const [TITLE_EN_1, TITLE_EN_2] = [WORDS.title.en.slice(0, WORDS.title.en.indexOf(' the ')), WORDS.title.en.slice(WORDS.title.en.indexOf(' the ') + 1)];
@@ -53,9 +53,11 @@ const CREDIT_ZH = WORDS.credit['zh-Hans'];
 const CREDIT_ZH_CUT = CREDIT_ZH.indexOf('·') + 1;
 export const TITLE_CARD: CardSpec = {
   rect: { x: 96, y: 446, w: 656, h: 580 },
-  frames: { enter: 138, land: 160, leave: 380, gone: 392 },
+  // posted in once C1 has gone (f140): an 11 f arc, a 4 f lift, a 4 f drop onto the thump (TitleCard.tsx CARD_POST)
+  frames: { enter: 141, land: 160, leave: 380, gone: 392 },
   mark: 'No.',
-  hole: { x: 600, y: 48, r: 13 },
+  // top left: over bare slate west of the feeders in the hook, so the desk shows through it
+  hole: { x: 46, y: 48, r: 13 },
   lines: [
     { text: TITLE_EN_1, size: TYPE.titleEn.size, weight: TYPE.titleEn.weight, color: CARD_HEX.ink, x: 52, y: 150, cue: 'title' },
     { text: TITLE_EN_2, size: TYPE.titleEn.size, weight: TYPE.titleEn.weight, color: CARD_HEX.ink, x: 52, y: 246, cue: 'title' },
@@ -67,15 +69,12 @@ export const TITLE_CARD: CardSpec = {
   ],
 };
 
-/** The turn's own Fix A and Fix B at f1400, which beat 3 runs up to (desk/beat3.ts fixAAt, fixBAt); made once, on first use. */
-let atTurn: { a: FixATurn; b: FixBTurn } | null = null;
-const turnFixes = () => (atTurn ??= { a: fixATurnAt(1400, loopTurnAt(1400)), b: fixBTurnAt(1400, shiftAt) });
-export const fixAOf = (f: number) => fixAAt(f, turnFixes().a);
-export const fixBOf = (f: number) => fixBAt(f, turnFixes().b);
+/** Beat 3's Fix A and Fix B (desk/beat3.ts): pure schedules of the film frame, which the turn takes over from f1400. */
+export const fixAOf = (f: number) => fixAAt(f);
+export const fixBOf = (f: number) => fixBAt(f);
 
-/** Fix A's folder in the turn's pose at f1400 (not yet pressed), and the queue-only instances' (no folder drawn). */
+/** Fix A's folder before the turn presses it. */
 const UNPRESSED: Press = { k: 0, scaleZ: 1, tilt: 0, sink: 0 };
-const NO_FOLDER: Press = { k: 1, scaleZ: 0.06, tilt: 0.06, sink: 0 };
 
 /** Act one's footprints at a frame: the world's, the title card's, Fix A's and Fix B's in beat 3 (at most MAX_FOOTPRINTS: actOne.test.ts). */
 export function actOneFrameFootprints(f: number, pose: CamPose) {
@@ -83,11 +82,7 @@ export function actOneFrameFootprints(f: number, pose: CamPose) {
   const fp = actOneFootprints(a);
   const card = cardFootprint(TITLE_CARD, cardAt(TITLE_CARD, f), pose);
   if (card) fp.push(card);
-  const inFrame = (p: P3) => {
-    const s = project(pose, p);
-    return s[0] > -60 && s[0] < 1980 && s[1] > -60 && s[1] < 1140;
-  };
-  if (f >= FIX_A.in) fp.push(...fixAFootprints(fixAOf(f), inFrame));
+  if (f >= FIX_A.in) fp.push(...fixAFootprints(fixAOf(f)));
   if (f >= FIX_B.in) fp.push(...fixBFootprints(fixBOf(f)));
   return fp;
 }
@@ -138,21 +133,15 @@ export function ActOneFrame({ f, angle, bloom, objects = true }: ActOneFrameProp
                 <ActOneObjects a={a} printFamily={print.family} />
                 <CardWorld spec={TITLE_CARD} f={wf} pose={pose} printFamily={print.family} />
                 {fa && (
-                  <group position={[0, -fa.rise, 0]}>
-                    <Step on={a.stepA > 0 ? 'late' : false}>
-                      <FixA fixA={fa.main} pressA={UNPRESSED} />
-                      <FixA fixA={fa.extras[0]} pressA={NO_FOLDER} />
-                      <FixA fixA={fa.extras[1]} pressA={NO_FOLDER} />
-                    </Step>
-                  </group>
+                  // Fix A steps down on its own ramp (STEP_LATE: actOne.ts actOneStepA) while the focus is on Fix B (3.2)
+                  <Step on='late'>
+                    <FixA fixA={fa} pressA={UNPRESSED} />
+                  </Step>
                 )}
                 {fb && (
-                  <>
-                    <group position={[fb.rise, 0, 0]}>
-                      <FixB fixB={fb.b} f={wf} />
-                    </group>
-                    {fb.followUp && <FollowUpCard p={fb.followUp.p} rot={fb.followUp.rot} tilt={fb.followUp.tilt} w={TRAY_CARD.w} d={TRAY_CARD.d} hex={GREY_LIGHT} />}
-                  </>
+                  <group position={[fb.rise, 0, 0]}>
+                    <FixB fixB={fb.b} f={wf} tear={fb.tear} followUp={fb.followUp} />
+                  </group>
                 )}
               </>
             )}

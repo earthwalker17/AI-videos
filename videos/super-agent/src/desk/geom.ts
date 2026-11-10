@@ -256,3 +256,47 @@ export function fitUv(g: BufferGeometry, w: number, d: number): BufferGeometry {
 
 /** A thin paper piece of a kind, its print on top. */
 export const piece = (kind: SlipKind, w: number, d: number, t = 0.8): BufferGeometry => fitUv(extrude(slipShape(kind, w, d), 0, t, 0.25), w, d);
+
+/**
+ * A rectangle centred on the origin with torn edges (grey stock: the road not taken has a torn, never a dashed, edge):
+ * each torn side is walked every `pitch` u, each point bitten in by up to `amp` u (seeded, so no two tear alike).
+ * `sides`: which of n, e, s, w are torn (the rest stay cut straight).
+ */
+export function tornShape(w: number, d: number, seed: number, sides = 'nesw', amp = 1.6, pitch = 5): Shape {
+  const s = new Shape();
+  const x = w / 2;
+  const y = d / 2;
+  const bite = (i: number): number => amp * (((Math.imul(i * 7919 + seed * 104729 + 17, 2654435761) >>> 0) % 1000) / 1000);
+  const corners: [number, number][] = [
+    [-x, -y],
+    [x, -y],
+    [x, y],
+    [-x, y],
+  ];
+  // the sides in winding order: south (west to east), east (south to north), north (east to west), west (north to south)
+  const sideKey = ['s', 'e', 'n', 'w'];
+  const inward: [number, number][] = [
+    [0, 1],
+    [-1, 0],
+    [0, -1],
+    [1, 0],
+  ];
+  let k = 0;
+  s.moveTo(corners[0][0], corners[0][1]);
+  for (let e = 0; e < 4; e++) {
+    const a = corners[e];
+    const b = corners[(e + 1) % 4];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (sides.includes(sideKey[e])) {
+      const n = Math.max(2, Math.round(len / pitch));
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        const m = bite(k++);
+        s.lineTo(a[0] + (b[0] - a[0]) * t + inward[e][0] * m, a[1] + (b[1] - a[1]) * t + inward[e][1] * m);
+      }
+    }
+    s.lineTo(b[0], b[1]);
+  }
+  s.closePath();
+  return s;
+}

@@ -371,9 +371,10 @@ export const CARD_FILE = { x0: 552, x1: 668, y: -30, z: 44, r: 32, core: 11, car
 export const DISPATCH = { w: 86, d: 58, dock: [564, 42, 7.6] as P3 } as const;
 /**
  * The dispatch housing under the deck's east end, behind the ramp's face: the folder waits in it and is
- * pushed out through the slit in the ramp's face onto the quarter pipe. Its top is just under the rails.
+ * pushed out through the slit in the ramp's face onto the quarter pipe. Its top is just under the rails. It is long
+ * enough to hold the request whole (114 u) before it is pushed out (beat 4's bug dispatch), so nothing of it shows early.
  */
-export const DISPATCH_HOUSING = { box: { x0: 190, x1: RAMP.x, y0: 174, y1: 246 } as Rect, z: [62, 119] as const, slit: { y0: 178, y1: 242, z0: 69, z1: 79 } } as const;
+export const DISPATCH_HOUSING = { box: { x0: 160, x1: RAMP.x, y0: 174, y1: 246 } as Rect, z: [62, 119] as const, slit: { y0: 178, y1: 242, z0: 69, z1: 79 } } as const;
 /** Where the folder waits (in the housing, its leading edge at the slit), and the slit it is pushed out through. */
 export const FOLDER_SLOT: P3 = [RAMP.x - DISPATCH.w / 2 - 1, (RAMP.y0 + RAMP.y1) / 2, 73];
 export const FOLDER_OUT: readonly P3[] = [[RAMP.x + 1, (RAMP.y0 + RAMP.y1) / 2, 72.5]];

@@ -13,10 +13,11 @@
  * plate, the sand-glass on the bug bay's job rail with the Productive plate); the fast gate's spike with
  * the noise it dropped; the request's bay capped, its work light out.
  */
+import { clamp, easings } from '@aiv/core';
 import type { Curve } from '@aiv/remotion-kit';
 import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
-import { BufferAttribute, BufferGeometry, CircleGeometry, DataTexture, LinearFilter, SRGBColorSpace, Shape } from 'three';
+import { BufferAttribute, BufferGeometry, CircleGeometry, DataTexture, LinearFilter, LinearMipmapLinearFilter, SRGBColorSpace, Shape } from 'three';
 import { LIGHTS } from '../DeskWorld.tsx';
 import { cylinderZ, disc, extrude, latheZ, merge, plane, slab, tube } from '../geom.ts';
 import { HEX, matte, paper } from '../gl/materials.ts';
@@ -24,12 +25,12 @@ import { ID_EM, INK, print, texture } from '../gl/text.ts';
 import { useDeskMats, useDeskSets } from '../kit.tsx';
 import { BAYS, KEY, YOU, rectC, type P3 } from '../layout.ts';
 import { poolsAt } from '../pools.ts';
-import { DOCKED, JOB_RAIL, LEGS, TRACE_INK, inkHold, inkLight, legAt, summaryDeskState, traceWidthAt, type SummaryState } from '../summary.ts';
+import { DOCKED, JOB_RAIL, LEGS, STAMP, TRACE_INK, inkHold, inkLight, legAt, rampEdgeZ, summaryDeskState, traceWidthAt, type SummaryState } from '../summary.ts';
 
 /** The reply the stamp signs off: the request's (the teaching chain's ID, as a mark at 0.5×). */
 const SLIPS_D = { reply: '#0405' } as const;
-/** Quads per leg, by arc length (about 3 u each: the curve's tightest bends stay round at 1×). */
-const SEG = 520;
+/** Quads per leg, by arc length (about 1.6 u each: shorter than the nib's radius, so the ribbon's end hides under it). */
+const SEG = 1040;
 /** The light the ink takes from the key and the fill alone, against which a light pool's lift is held (summary.ts inkHold). */
 const INK_K = inkLight(LIGHTS.key, LIGHTS.fill, KEY);
 /** The lamp-lit slip's albedo: under your lamp's warm white it lands on lit paper (#E4DFD3), never amber. */
@@ -68,7 +69,8 @@ function ribbon(leg: Curve<P3>, n: number): BufferGeometry {
       const o = (i * 2 + k) * 3;
       pos[o] = p[0] + side[0] * w * sgn;
       pos[o + 1] = p[1] + side[1] * w * sgn;
-      pos[o + 2] = p[2];
+      // on the ramp's curved bed each edge lies on the bed itself (a flat ribbon across its slope would half sink into it)
+      pos[o + 2] = rampEdgeZ(p, pos[o]) ?? p[2];
       nor[o + 2] = 1;
       uv[(i * 2 + k) * 2] = t;
       uv[(i * 2 + k) * 2 + 1] = k;
@@ -120,10 +122,72 @@ function fillMeniscus(t: DataTexture, hold: Float32Array): void {
   t.needsUpdate = true;
 }
 
-/** The point, width and arc fraction of a leg drawn to `a` (the draw range rounds to whole quads). */
+/** The point, width and arc fraction of a leg drawn to `a` (the head's exact point: the ribbon's whole quads end under its nib). */
 function headOf(leg: Curve<P3>, a: number): { p: P3; w: number; t: number } {
-  const t = Math.round(a * SEG) / SEG;
-  return { p: legAt(leg, t), w: traceWidthAt(t), t };
+  return { p: legAt(leg, a), w: traceWidthAt(a), t: a };
+}
+/** How far the pen's first blot has spread as a leg sets out: its tail and nib grow with the first 1.5 widths drawn. */
+const touchDown = (leg: Curve<P3>, a: number): number => easings.inOutSine(clamp((a * leg.length) / (1.5 * traceWidthAt(0))));
+
+/**
+ * Your stamp's green on the reply: a ring and a tick (MARK texels, the mark 34 u square), inked by a radial front
+ * from its centre as the ink spreads from the contact (summary.ts inkAt): a mask, never a fade. Its texels are the
+ * film's green, which the material's green tints again (as the signed-off canvas mark was drawn); the ink's own
+ * edges are antialiased over one texel.
+ */
+const MARK_RGB = [1, 3, 5].map((i) => parseInt(HEX.green.slice(i, i + 2), 16));
+const MARK = 64;
+const MARK_COVER = (() => {
+  const c = new Float32Array(MARK * MARK);
+  const k = MARK / 40;
+  const ring = { r: 16 * k, w: 1.7 * k };
+  const tick: [number, number][] = [
+    [11 * k, 21 * k],
+    [17 * k, 27 * k],
+    [29 * k, 13 * k],
+  ];
+  const seg = (px: number, py: number, a: [number, number], b: [number, number]) => {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / (dx * dx + dy * dy));
+    return Math.hypot(px - a[0] - dx * t, py - a[1] - dy * t);
+  };
+  for (let r = 0; r < MARK; r++) {
+    // row 0 is the texture's bottom (v = 0): the canvas the mark was drawn on ran y down from its top
+    const y = MARK - (r + 0.5);
+    for (let x = 0; x < MARK; x++) {
+      const px = x + 0.5;
+      const ringD = Math.abs(Math.hypot(px - MARK / 2, y - MARK / 2) - ring.r) - ring.w;
+      const tickD = Math.min(seg(px, y, tick[0], tick[1]), seg(px, y, tick[1], tick[2])) - ring.w;
+      c[r * MARK + x] = clamp(0.5 - Math.min(ringD, tickD));
+    }
+  }
+  return c;
+})();
+/** The farthest inked texel from the mark's centre: the front's reach at a full spread. */
+const MARK_REACH = 16 * (MARK / 40) + 1.7 * (MARK / 40) + 1;
+function markTexture(): DataTexture {
+  const t = new DataTexture(new Uint8Array(MARK * MARK * 4), MARK, MARK);
+  t.colorSpace = SRGBColorSpace;
+  t.magFilter = LinearFilter;
+  t.minFilter = LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  return t;
+}
+function fillMark(t: DataTexture, ink: number): void {
+  const data = t.image.data as Uint8Array;
+  const front = ink * MARK_REACH;
+  for (let r = 0; r < MARK; r++) {
+    for (let x = 0; x < MARK; x++) {
+      const d = Math.hypot(x + 0.5 - MARK / 2, r + 0.5 - MARK / 2);
+      const o = (r * MARK + x) * 4;
+      data[o] = MARK_RGB[0];
+      data[o + 1] = MARK_RGB[1];
+      data[o + 2] = MARK_RGB[2];
+      data[o + 3] = Math.round(255 * MARK_COVER[r * MARK + x] * clamp(front - d + 0.5));
+    }
+  }
+  t.needsUpdate = true;
 }
 /** A round dot (a leg's tail or its nib) that samples its leg's map at one arc fraction (its meniscus across it). */
 const dotAt = (g: BufferGeometry, t: number): void => {
@@ -220,13 +284,12 @@ export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string
   const g = useMemo(() => {
     const route = (leg: Curve<P3>) => ribbon(leg, SEG);
     const I = YOU.inTray;
-    const sx = I.x0 - 34;
-    const sy = rectC(I)[1] + 6;
-    // the stamp: a rubber pad, a graphite stem, an enamel knob (it rests beside the in-tray)
-    const stamp = { pad: slab({ x0: sx - 18, x1: sx + 18, y0: sy - 14, y1: sy + 14 }, YOU.top, YOU.top + 8, 3, 1.2), stem: cylinderZ(5, YOU.top + 8, YOU.top + 34, sx, sy, 16), knob: disc(11, YOU.top + 34, YOU.top + 42, { cx: sx, cy: sy, bevel: 3 }) };
+    // the stamp: a rubber pad (its face a little wider than the mark it prints), a graphite stem, an enamel knob; built
+    // about its pad's underside, posed each frame (summary.ts stampAt: at rest beside the in-tray, or pressing the reply)
+    const stamp = { pad: slab({ x0: -18, x1: 18, y0: -16, y1: 16 }, 0, 8, 3, 1.2), stem: cylinderZ(5, 8, 34, 0, 0, 16), knob: disc(11, 34, 42, { cx: 0, cy: 0, bevel: 3 }) };
     // the request's reply (#0405), on top in the tray, and its green: a ring and a tick at its east end
     const reply = plane(REPLY_D.l, REPLY_D.w, rectC(I)[0], I.y1 - 44, YOU.top + 7.2, 0.06);
-    const mark = plane(34, 34, rectC(I)[0] + 28, I.y1 - 62, YOU.top + 7.6, 0.06);
+    const mark = plane(34, 34, STAMP.mark[0], STAMP.mark[1], YOU.top + 7.6, 0.06);
     // the fast gate's spike and the noise it dropped
     const [kx, ky] = DOCKED.spike;
     const spike = merge([disc(20, 0, 4, { cx: kx, cy: ky, bevel: 1.2 }), cylinderZ(2.6, 4, 84, kx, ky, 12, 0.4)]);
@@ -296,25 +359,10 @@ export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string
         },
         an,
       );
+    const mark = markTexture();
+    mark.anisotropy = an;
     return {
-      mark: texture(
-        40,
-        40,
-        (c) => {
-          c.strokeStyle = HEX.green;
-          c.lineWidth = 3.4;
-          c.beginPath();
-          c.arc(20, 20, 16, 0, Math.PI * 2);
-          c.stroke();
-          c.beginPath();
-          c.moveTo(11, 21);
-          c.lineTo(17, 27);
-          c.lineTo(29, 13);
-          c.stroke();
-        },
-        an,
-        'transparent',
-      ),
+      mark,
       reply: texture(REPLY_D.l, REPLY_D.w, (c) => print(c, printFamily, SLIPS_D.reply, 7, 32, ID_EM, 700, INK), an),
       proactive: plate('key'),
       productive: plate('glass'),
@@ -362,36 +410,40 @@ export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string
   useLayoutEffect(() => {
     for (const set of [sets.full, sets.stepped]) set.slotBug.color.set('#2A2D2C');
   }, [sets]);
-  // the tail where each leg set out, and its nib at the drawing head (a hair wider while it draws: the ink's bead)
-  const legs = (['out', 'home'] as const).map((k) => ({ k, on: a[k], tail: headOf(LEGS[k], 0), head: headOf(LEGS[k], a[k]), mat: inks[k], dots: g.dots[k] }));
+  // the green's spread on the reply: its radial front refills the mark's texels only while it moves
+  useLayoutEffect(() => fillMark(tex.mark, a.ink), [tex, a.ink]);
+  // the tail where each leg set out, and its nib at the drawing head: both grow from the pen's first blot as the leg sets
+  // out, and the nib is a hair wider while it draws (the ink's bead), sinking to the run's width over 2 f once it stops
+  const legs = (['out', 'home'] as const).map((k) => ({ k, on: a[k], grow: touchDown(LEGS[k], a[k]), bead: 1 + 0.12 * a.bead[k], tail: headOf(LEGS[k], 0), head: headOf(LEGS[k], a[k]), mat: inks[k], dots: g.dots[k] }));
   useLayoutEffect(() => {
     for (const l of legs) {
       dotAt(l.dots[0], l.tail.t);
       dotAt(l.dots[1], l.head.t);
     }
   });
+  const sp = a.stamp;
   return (
     <group>
       {a.out > 0 && <mesh geometry={g.out} material={inks.out} renderOrder={1} />}
       {a.home > 0 && <mesh geometry={g.home} material={inks.home} renderOrder={1} />}
       {legs.map((l) => {
         if (l.on <= 0) return null;
-        const bead = l.on < 1 ? 1.12 : 1;
         return (
           <group key={l.k}>
-            <mesh geometry={l.dots[0]} material={l.mat} position={[l.tail.p[0], l.tail.p[1], l.tail.p[2] + 0.02]} scale={[l.tail.w, l.tail.w, 1]} renderOrder={1} />
-            <mesh geometry={l.dots[1]} material={l.mat} position={[l.head.p[0], l.head.p[1], l.head.p[2] + 0.03]} scale={[l.head.w * bead, l.head.w * bead, 1]} renderOrder={1} />
+            <mesh geometry={l.dots[0]} material={l.mat} position={[l.tail.p[0], l.tail.p[1], l.tail.p[2] + 0.02]} scale={[l.tail.w * l.grow, l.tail.w * l.grow, 1]} renderOrder={1} />
+            <mesh geometry={l.dots[1]} material={l.mat} position={[l.head.p[0], l.head.p[1], l.head.p[2] + 0.03]} scale={[l.head.w * l.bead * l.grow, l.head.w * l.bead * l.grow, 1]} renderOrder={1} />
           </group>
         );
       })}
       <mesh geometry={g.cap} material={sets.stepped.enamelShade} />
-      <group position={[0, 0, a.stamp * -6]}>
+      {/* the stamp, squashed about its pad's underside as its rubber takes the press (its volume kept) */}
+      <group position={sp.p} rotation={[0, 0, sp.turn]} scale={[1 + sp.squash / 2, 1 + sp.squash / 2, 1 - sp.squash]}>
         <mesh geometry={g.stamp.pad} material={m.rubber} />
         <mesh geometry={g.stamp.stem} material={m.graphite} />
         <mesh geometry={g.stamp.knob} material={m.enamel} />
       </group>
       <mesh geometry={g.reply} material={mats.reply} />
-      {a.ink > 0 && <mesh geometry={g.mark} material={mats.mark} renderOrder={2} />}
+      <mesh geometry={g.mark} material={mats.mark} renderOrder={2} />
       <mesh geometry={g.spike} material={m.steel} />
       <mesh geometry={g.impaled} material={m.paperShade} />
       <mesh geometry={g.key} material={m.steel} />

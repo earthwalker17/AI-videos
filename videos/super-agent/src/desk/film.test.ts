@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BEAT_4, FILM_FRAMES, WORDS } from '../cues.ts';
 import { ROUND2 } from '../lookdev/frames.ts';
-import { ACT2_TAGS, SEGMENTS, act2LabelsAt, keepFilm, segmentAt, segmentSpan } from './film.ts';
+import { ACT2_TAGS, SEGMENTS, TAG_BUILT_LINES, act2LabelsAt, keepFilm, segmentAt, segmentSpan } from './film.ts';
 import { keepTeaching } from './marks.ts';
-import { ROLE_LABELS } from './Overlay.tsx';
+import { ROLE_LABELS, TAG_GAP } from './Overlay.tsx';
 import { TURN_SPAN } from './turn.ts';
 
 describe('the film’s segments', () => {
@@ -46,6 +46,15 @@ describe('act two’s DOM layer', () => {
 
   it('places act two’s three tags', () => {
     expect(ACT2_TAGS.map((t) => t.cue)).toEqual(['tag-built', 'tag-gate', 'tag-cache']);
+  });
+
+  it('sets the built tag on lines broken where its own words break, never re-worded, clear of the notes band', () => {
+    expect(TAG_BUILT_LINES.en.join(' ')).toBe(WORDS.tagBuilt.en);
+    expect(TAG_BUILT_LINES.zh.join('')).toBe(WORDS.tagBuilt['zh-Hans']);
+    const t = ACT2_TAGS.find((x) => x.cue === 'tag-built')!;
+    expect(t.lines).toBe(TAG_BUILT_LINES);
+    // its last line's baseline far above the notes (they start at y 880)
+    expect(t.at[1] + (t.lines!.en.length + t.lines!.zh.length - 1) * TAG_GAP).toBeLessThan(400);
   });
 
   it('prints still (b)’s strings as keepTeaching did', () => {

@@ -383,16 +383,16 @@ describe('MT1 after the reply: the next dispatch (state.ts EVENTS_D)', () => {
     ])
       expect(a[1] + (u * SLIP.l * dy) / 2 + (v * SLIP.w * dx) / 2).toBeGreaterThan(DECK.y0);
   });
-  it('keeps the cells of the window continuous through both stamp-ins: the ink spreads over 3 f after the head drops', () => {
-    for (const [stamp, ink] of [
-      [EVENTS_B.stampIn, (f: number) => deskStateAt(f).ink],
-      [EVENTS_D.stampIn, (f: number) => deskStateAt(f).next.ink],
+  it('keeps the cells of the window continuous through both stamp-ins: the ink spreads over 3 f from the head’s contact (the cue frame)', () => {
+    for (const [stamp, ink, head] of [
+      [EVENTS_B.stampIn, (f: number) => deskStateAt(f).ink, (f: number) => deskStateAt(f).stamp],
+      [EVENTS_D.stampIn, (f: number) => deskStateAt(f).next.ink, (f: number) => deskStateAt(f).next.stamp],
     ] as const) {
-      expect(ink(stamp)).toBe(0);
-      expect(ink(stamp + 1)).toBe(0);
-      expect(ink(stamp + 2)).toBeCloseTo(1 / 3, 6);
-      expect(ink(stamp + 3)).toBeCloseTo(2 / 3, 6);
-      expect(ink(stamp + 4)).toBe(1);
+      expect(ink(stamp - 1)).toBe(0);
+      expect(head(stamp)).toBe(1);
+      expect(ink(stamp)).toBeCloseTo(1 / 3, 6);
+      expect(ink(stamp + 1)).toBeCloseTo(2 / 3, 6);
+      expect(ink(stamp + 2)).toBe(1);
     }
   });
   it('turns the arm to the fresh bay after the stamp-in and settles it before the folder moves', () => {

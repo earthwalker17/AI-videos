@@ -17,7 +17,7 @@
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { Shape, type BufferGeometry, type Texture } from 'three';
 import { cylinderZ, disc, dome, extrude, merge, piece, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
-import { paper } from '../gl/materials.ts';
+import { matte, paper } from '../gl/materials.ts';
 import { texture, tooth } from '../gl/text.ts';
 import { Step, WithMats, isStepped } from '../kit.tsx';
 import type { Press } from '../turn.ts';
@@ -29,11 +29,37 @@ const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r
 const lerp3 = (a: P3, b: P3, t: number): P3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 /**
- * A chat slip's print: the paper's tooth only, its specks seeded so no two slips print alike. The slip's mark is its
- * cut, the notch at its leading end (geom.ts slipShape, gl/text.ts cargoMark): a bubble or rules of "message" read as
- * glyph-line text (BANNED; the critic's P0 on (b) and MT1), and texture print would fall under 18 px at 0.64x.
+ * A speech bubble as one filled shape (a rounded body and its tail, never rules inside: glyph-line "text" is BANNED, the
+ * critic's P0 on (b) and MT1). `x, y` its body's top-left, `bh` its body's height; the tail drops from the body's
+ * lower-left toward the slip's west end.
  */
-export function chatSlipPrint(g: CanvasRenderingContext2D, w: number, h: number, seed = 0): void {
+export function bubbleMark(g: CanvasRenderingContext2D, x: number, y: number, bh: number, color = '#3E3D3A'): void {
+  const bw = bh * 1.32;
+  const r = bh * 0.34;
+  g.fillStyle = color;
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.lineTo(x + bw - r, y);
+  g.quadraticCurveTo(x + bw, y, x + bw, y + r);
+  g.lineTo(x + bw, y + bh - r);
+  g.quadraticCurveTo(x + bw, y + bh, x + bw - r, y + bh);
+  g.lineTo(x + bh * 0.62, y + bh);
+  g.lineTo(x + bh * 0.12, y + bh * 1.32);
+  g.lineTo(x + bh * 0.3, y + bh);
+  g.lineTo(x + r, y + bh);
+  g.quadraticCurveTo(x, y + bh, x, y + bh - r);
+  g.lineTo(x, y + r);
+  g.quadraticCurveTo(x, y, x + r, y);
+  g.closePath();
+  g.fill();
+}
+
+/**
+ * A chat slip's print: the paper's tooth, its specks seeded so no two slips print alike, and the chat family's mark (the
+ * spout's own slip in signed-off still (b)): one filled speech bubble near its west end, half the slip's height or more,
+ * so it reads at 24 px or more where a slip is meant to be read (the notch at its leading end is its cut).
+ */
+export function chatSlipPrint(g: CanvasRenderingContext2D, w: number, h: number, seed = 0, mark = true): void {
   tooth(g, w, h);
   g.fillStyle = 'rgba(70,64,54,0.10)';
   const n = Math.round((w * h) / 40);
@@ -42,6 +68,9 @@ export function chatSlipPrint(g: CanvasRenderingContext2D, w: number, h: number,
     const b = Math.imul(i + 13 + seed * 104729, 2246822519) >>> 0;
     g.fillRect(((a % 10007) / 10007) * w, ((b % 10009) / 10009) * h, 0.7, 0.7);
   }
+  if (!mark) return;
+  const bh = h * 0.5;
+  bubbleMark(g, Math.max(3, h * 0.16), h * 0.16, bh);
 }
 
 /** A calendar leaf's print: a header bar and a 7 × 4 grid of day cells, one ringed (marks, never dates). */
@@ -346,14 +375,21 @@ export interface FeedersTurn {
 export function Feeders({ s, turn }: { s: DeskState; turn?: FeedersTurn }) {
   const g = useFeederGeometry();
   const tex = useFeederPrint();
-  // their own prints, in both sets (a stepped intake steps them down with the kit's)
+  // their own prints and the mail slot's dark, in every mode the kit steps (full, the beat's, its own ramp, the late
+  // one): each binds that mode's step amount, so the intake steps down by its amount over the ramp, never by swapping
+  // to a set at another amount in one frame (the summary critic's P0: the spout's mouth popped)
   const sets = useMemo(() => {
-    const make = (stepped: boolean) => ({ slip: paper(tex.slip, undefined, { stepped }), roll: paper(tex.roll, undefined, { stepped }), leaf: paper(tex.leaf, '#A29C90', { stepped }) });
-    return { full: make(false), stepped: make(true) };
+    const make = (stepped: boolean | 'own' | 'late') => ({
+      slip: paper(tex.slip, undefined, { stepped }),
+      roll: paper(tex.roll, undefined, { stepped }),
+      leaf: paper(tex.leaf, '#A29C90', { stepped }),
+      slot: matte('#161817', 1, 0, stepped),
+    });
+    return { full: make(false), stepped: make(true), own: make('own'), late: make('late') };
   }, [tex]);
-  useLayoutEffect(() => () => [...Object.values(sets.full), ...Object.values(sets.stepped)].forEach((m) => m.dispose()), [sets]);
+  useLayoutEffect(() => () => Object.values(sets).forEach((set) => Object.values(set).forEach((m) => m.dispose())), [sets]);
   const on = isStepped(s.step, 'intake');
-  const mats = on ? sets.stepped : sets.full;
+  const mats = on === 'own' ? sets.own : on ? sets.stepped : sets.full;
   // the conversation spool belongs to the Threads: it is not on the desk in act one (nor are the mail and calendar
   // drawings: those feeders are generic until the turn); its cord is graphite until the request's Thread first pays
   // out (state.ts CORD_FROM, design D1), then vermilion
@@ -378,7 +414,7 @@ export function Feeders({ s, turn }: { s: DeskState; turn?: FeedersTurn }) {
               <mesh geometry={g.generic.box} material={m.graphite} />
               <mesh geometry={g.generic.plate} material={m.graphiteDark} />
               <mesh geometry={g.generic.flapV} material={m.graphite} />
-              <mesh geometry={g.generic.slot} material={m.hollow} />
+              <mesh geometry={g.generic.slot} material={mats.slot} />
               <mesh geometry={g.generic.mouth} material={m.graphite} />
               <mesh geometry={g.generic.envelope} material={m.paper} />
               <mesh geometry={g.generic.flap} material={m.paperShade} />

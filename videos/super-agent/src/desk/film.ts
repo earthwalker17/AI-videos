@@ -17,7 +17,7 @@ import { clamp } from '@aiv/core';
 import { BEAT_4, FILM_FRAMES, WORDS } from '../cues.ts';
 import { ACT_ONE_END } from './actOne.ts';
 import { CAMERA_MOVES } from './camera.ts';
-import { BAYS, DECK, GATE, rectC } from './layout.ts';
+import { BAYS, DECK, GATE, REEL_FRAME, REEL_FRAME_Z, rectC } from './layout.ts';
 import { REPORT_C } from '../print.ts';
 import type { PrintMode } from './marks.ts';
 import { ROLE_LABELS, type RoleLabel, type TagSpec } from './Overlay.tsx';
@@ -82,17 +82,23 @@ export function act2LabelsAt(f: number): RoleLabel[] {
   return out;
 }
 
+/** The built tag's lines: its EN and zh broken where their own phrases break (film.test.ts holds them equal to the cue's words). */
+export const TAG_BUILT_LINES = { en: ['two levels: built', 'in the public', 'research prototype'], zh: ['双层架构：', '公开研究原型已实现'] } as const;
+
 /**
  * Act two's tags, each on its cue's window, its leader ending on the body it qualifies (design D3). Placements are
  * set against the act-two framings and checked on renders (session 4):
- * - the built tag (C11) in the clear band under the bays, its leader straight up the gap between the docs galley and the
- *   bug bay to the deck's south rail (the two levels' seam), crossing no bay (design D3);
+ * - the built tag (C11) on the clear ground north-east of the deck, inside title-safe, set on three short lines and two
+ *   (its 50-character EN line would run off the frame there; every line ends clear of the lock and its key on the frame's
+ *   corner), its short leader level from the block to the reel frame's east post under the lock (the upper level's own
+ *   body, never along the key; the lower level is in plain view under it), clear of the notes band, so the frame's foot
+ *   never becomes a wall of text (the C11 critic);
  * - the gate tag (N3, C14) over the feeders, its leader down to the gate's bar;
  * - the cache tag (N5, N6) in the close as in still (c); its text stays put through the bar-42 ease-out while its
  *   leader retracts.
  */
 export const ACT2_TAGS: readonly TagSpec[] = [
-  { cue: 'tag-built', words: WORDS.tagBuilt, at: [1824, 812], anchor: 'end', foot: [214, DECK.y0 + DECK.rail / 2, DECK.top] },
+  { cue: 'tag-built', words: WORDS.tagBuilt, at: [1824, 96], anchor: 'end', foot: [REEL_FRAME[2].x0 + 8, 330, REEL_FRAME_Z[1] + 4], lines: TAG_BUILT_LINES },
   { cue: 'tag-gate', words: WORDS.tagGate, at: [112, 70], anchor: 'start', foot: [rectC(GATE.bar)[0], GATE.bar.y1 - 8, GATE.h] },
   { cue: 'tag-cache', words: WORDS.tagCache, at: [1050, 432], anchor: 'start', foot: [-112, 196, 123], leaderUntil: EASE_OUT.from },
 ];

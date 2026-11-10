@@ -13,8 +13,8 @@ import { SHADOW_K, shadowOffset, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUT
 import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT_SLIP, REQUEST, SINK, type BayId } from './layout.ts';
 import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, CORD_FROM, DOCK_B, hammerOffset, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
 import { CHORES, TRAY_Z, YOU_POSE_B, strutOnLid, type YouPose } from './you.ts';
-import { ciHopperFootprints, youPoseAt } from './actOne.ts';
-import { CARD_SPOT, HEAP_HATCH, WORK_DEPTH as WORK_DEPTH_FP, cardPose, type Beat4State, type CardState } from './beat4.ts';
+import { HEAP, PIECE, ciHopperFootprints, youPoseAt } from './actOne.ts';
+import { CARD_SPOT, REQUEST_HEAP, WORK_DEPTH as WORK_DEPTH_FP, cardPose, heapPieceAt, ON_REQUEST, type Beat4State, type CardState, type HeapState } from './beat4.ts';
 
 /** At most this many footprints reach the GPU (the uniform array's size). */
 export const MAX_FOOTPRINTS = 128;
@@ -59,8 +59,8 @@ export function bayWalls(b: BayLayout): Rect[] {
 /** The closed door plate in the north wall's gap (a little lower than the wall). */
 export const bayDoor = (b: BayLayout): Rect => ({ x0: b.door[0], x1: b.door[1], y0: b.box.y1 - b.wall + 2, y1: b.box.y1 - 2 });
 
-function bayFootprints(b: BayLayout): Footprint[] {
-  return [...bayShellFootprints(b), ...bayWorkOf(b)];
+function bayFootprints(b: BayLayout, door = 0): Footprint[] {
+  return [...bayShellFootprints(b, door), ...bayWorkOf(b)];
 }
 /** A bay's shell: its walls (the north one split round its door) and its door, shut or lifted (`door`, 0..1 of its lift). */
 export function bayShellFootprints(b: BayLayout, door = 0): Footprint[] {
@@ -79,10 +79,11 @@ function superFootprints(id: BayId): Footprint[] {
  * A beat-4 bay at its dispatch (desk/beat4.ts): its shell, and its work once its hatch is open, at its height as it rises
  * (what is still under the slate casts nothing on it; its contact closes in as it settles).
  */
-export function dispatchedBayFootprints(id: BayId, d: { hole: boolean; rise: number; door: number; contact: number }, depth: number): Footprint[] {
+export function dispatchedBayFootprints(id: BayId, d: { hole: boolean; hatch: number; rise: number; door: number; contact: number }, depth: number): Footprint[] {
   const b = BAYS[id];
   const fp = bayShellFootprints(b, d.door);
-  if (!d.hole && d.rise <= 0) return fp;
+  // closed: its shell round its lid (the lid lies flush, under the slate's surface, and casts nothing)
+  if (d.hatch <= 0 && d.rise <= 0) return fp;
   const work = [...bayWorkOf(b), ...superFootprints(id)].map((x) => (x.kind === 'rect' || x.kind === 'circle' ? { ...x, contact: x.contact * d.contact } : x));
   fp.push(...shiftFootprints(work, -depth * (1 - Math.min(1, d.rise))));
   if (d.hole) fp.push(...pitFootprints(b.box));
@@ -227,8 +228,8 @@ export function staticFootprints(testsSink = 0, you: YouPose = YOU_POSE_B, b4?: 
     fp.push(...dispatchedBayFootprints(id, b4![id], WORK_DEPTH_FP[id]));
   }
   if (testsSink > 0) {
-    for (const b of Object.values(BAYS)) if (b.id !== 'tests' && working(b.id as BayId)) fp.push(...bayFootprints(b));
-  } else for (const b of Object.values(BAYS)) if (working(b.id as BayId)) fp.push(...bayFootprints(b));
+    for (const b of Object.values(BAYS)) if (b.id !== 'tests' && working(b.id as BayId)) fp.push(...bayFootprints(b, b4?.[b.id as BayId].door ?? 0));
+  } else for (const b of Object.values(BAYS)) if (working(b.id as BayId)) fp.push(...bayFootprints(b, b4?.[b.id as BayId].door ?? 0));
   if (working('bug')) {
     fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1], 0.4));
     fp.push(rectFp(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 0.7));
@@ -303,13 +304,20 @@ export function movingFootprints(s: DeskState): Footprint[] {
   // beat 4: the request on its ride, the arrivals on the intake, the counterfactual cards over the slate, the heap's pit
   const b4 = s.b4;
   const r = b4.request.pose;
-  if (r) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [REQUEST.l / 2, REQUEST.w / 2], r: 2, rot: r.heading, z0: r.p[2] - 0.4, z1: r.p[2] + 0.6, contact: r.p[2] < 3 ? 0.4 : 0 });
+  if (r) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [REQUEST.l / 2, REQUEST.w / 2], r: 2, rot: r.heading, z0: r.p[2] - 0.4, z1: r.p[2] + 0.6, contact: carrierContact(r.p[2]) });
   for (const a of b4.arrivals) fp.push({ kind: 'rect', c: [a.pose.p[0], a.pose.p[1]], h: a.kind === 'ci' ? [42, 25] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: a.pose.heading, z0: a.pose.p[2] - 0.4, z1: a.pose.p[2] + 0.4, contact: 0 });
-  for (const c of [b4.cards.split, b4.cards.ghost]) {
-    const cf = c ? cardFootprint(c) : null;
+  for (const c of b4.carriers) {
+    if (c.docked) continue;
+    const [hl, hw] = c.kind === 'ci' ? [42, 25] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2];
+    fp.push({ kind: 'rect', c: [c.pose.p[0], c.pose.p[1]], h: [hl, hw], r: 2, rot: c.pose.heading, z0: c.pose.p[2] - 0.4, z1: c.pose.p[2] + 0.4, contact: carrierContact(c.pose.p[2]) });
+  }
+  for (const which of ['split', 'ghost'] as const) {
+    const c = b4.cards[which];
+    const cf = c ? cardFootprint(c, which) : null;
     if (cf) fp.push(cf);
   }
-  if (b4.heap.hole) fp.push(...pitFootprints(HEAP_HATCH.box));
+  // the old heap, settling and pressed flat into the slate as history (desk/beat4.ts heapPieceAt)
+  fp.push(...heapFootprintsAt(b4.heap));
   // still (c): the report in flight, its body at the mouth, the tab dropping into the drawer
   const c = s.cache;
   if (c?.card) fp.push({ kind: 'rect', c: [c.card.pos[0], c.card.pos[1]], h: [CARD_C.w / 2, CARD_C.d / 2], r: 4, rot: 0, z0: c.card.pos[2] - 1, z1: c.card.pos[2] + 1, contact: 0 });
@@ -327,12 +335,63 @@ export function movingFootprints(s: DeskState): Footprint[] {
   return fp;
 }
 
+/** A carrier's contact shadow by its height over the slate: full riding its groove (1.4 u), gone 5 u up (it closes in and opens out as it lands and lifts, never in one frame). */
+const carrierContact = (z: number): number => 0.4 * Math.min(1, Math.max(0, (5 - z) / 3.6));
+
+/** Whether every corner of heap piece i lies under a piece that landed after it (its shadow lies under that piece). */
+function heapCovered(i: number): boolean {
+  const corners = (j: number): P2[] => {
+    const p = HEAP[j];
+    const [w, d] = PIECE[p.kind];
+    const c = Math.cos(p.rot);
+    const s = Math.sin(p.rot);
+    return [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ].map(([a, b]) => [p.c[0] + (a * w * c) / 2 - (b * d * s) / 2, p.c[1] + (a * w * s) / 2 + (b * d * c) / 2] as P2);
+  };
+  const inside = (q: P2, j: number): boolean => {
+    const p = HEAP[j];
+    const [w, d] = PIECE[p.kind];
+    const dx = q[0] - p.c[0];
+    const dy = q[1] - p.c[1];
+    const u = dx * Math.cos(p.rot) + dy * Math.sin(p.rot);
+    const v = -dx * Math.sin(p.rot) + dy * Math.cos(p.rot);
+    return Math.abs(u) <= w / 2 && Math.abs(v) <= d / 2;
+  };
+  const cs = corners(i);
+  for (let j = i + 1; j < HEAP.length; j++) if (cs.every((q) => inside(q, j))) return true;
+  return false;
+}
+/**
+ * The old heap's footprints after act one (the turn and act two; desk/beat4.ts heapAt): every piece not wholly under a
+ * later one, its height as it settles and presses flat into the slate, its contact a little lighter once pressed.
+ */
+export function heapFootprintsAt(h: HeapState): Footprint[] {
+  const fp: Footprint[] = [];
+  if (!h.cast) return fp;
+  const onReq = REQUEST_HEAP.z + ON_REQUEST;
+  // pressing flat, each piece's shadow draws in under it (its outline inset by the penumbra's half, its contact gone), so
+  // when the pressed heap stops casting nothing shows the change
+  const k = Math.min(1, Math.max(0, h.press));
+  HEAP.forEach((p, i) => {
+    if (heapCovered(i)) return;
+    const [w, d] = PIECE[p.kind];
+    const q = heapPieceAt(p.z, Math.abs(p.z - onReq) < 1e-6, h);
+    const inset = 5 * k;
+    fp.push({ kind: 'rect', c: p.c, h: [Math.max(1, w / 2 - inset), Math.max(1, d / 2 - inset)], r: 2, rot: p.rot, z0: q.z - 0.3, z1: q.z + 0.5 * q.k, contact: 0.45 * (1 - k) });
+  });
+  return fp;
+}
+
 /**
  * A counterfactual card hovering over the slate (desk/beat4.ts cardAt, CARD_SPOT): its outline, as a thin plate just
  * under its lowest edge (so it shades the slate under it and never its own face); nothing while it is under the slate.
  */
-export function cardFootprint(c: CardState): Footprint | null {
-  const p = cardPose(c);
+export function cardFootprint(c: CardState, which: 'split' | 'ghost'): Footprint | null {
+  const p = cardPose(c, which);
   const low = p.c[2] - (CARD_SPOT.h / 2) * Math.sin(p.tilt);
   if (low < 1) return null;
   return { kind: 'rect', c: [p.c[0], p.c[1]], h: [(CARD_SPOT.w / 2) * p.scale, Math.max(2, (CARD_SPOT.h / 2) * Math.cos(p.tilt)) * p.scale], r: 4, rot: 0, z0: low - 1.5, z1: low - 0.5, contact: 0 };

@@ -8,6 +8,7 @@
  * to the albedo. Pure.
  */
 import { BAYS, CELLS_X, FRESH, TAPE, rectC, type Pool, type P3 } from './layout.ts';
+import { CARD_AT, cardIn, cardPose } from './beat4.ts';
 import { LAMP_AIM, type DeskState } from './state.ts';
 
 /** At most this many pools (the uniform array's size). */
@@ -58,10 +59,24 @@ export function poolsAt(s: DeskState): Pool[] {
     { c: [rectC(BAYS.tests.slot)[0] + 20, rectC(BAYS.tests.slot)[1] - 30], z: [0, 60], sigma: [56, 44], rgb: tint(LIGHT_HEX.work, 0.6 * s.testsLight) },
     // MT1: the fresh bay's work light, ignited once the folder is in (dark before, so its pool adds nothing)
     { c: [rectC(FRESH.slot)[0], FRESH.slot.y0 - 34], z: [-60, 70], sigma: [52, 34], rgb: tint(LIGHT_HEX.work, 1.0 * s.next.light) },
+    // beat 4: a counterfactual card while it is up, the beat's focus: the reading light on it alone (its heights only), riding in and out with it
+    cardPool(s),
   ];
   if (pools.length > MAX_POOLS) throw new Error(`desk: ${pools.length} pools, over ${MAX_POOLS}`);
   return pools;
 }
+
+/** The light on a counterfactual card while it is up (desk/beat4.ts cardPose): at its centre, on its heights only; dark while none is. */
+function cardPool(s: DeskState): Pool {
+  const { split, ghost } = s.b4.cards;
+  const which = split ? 'split' : 'ghost';
+  const c = split ?? ghost;
+  const k = cardIn(c);
+  const at = c ? cardPose(c, which).c : CARD_AT.split.at;
+  return { c: [at[0], at[1]], z: [205, 290], sigma: [180, 120], rgb: tint(LIGHT_HEX.reading, CARD_LIGHT * k) };
+}
+/** The card's light: its stock lit to a light grey stock, the frame's brightest paper while the rest is stepped down. */
+const CARD_LIGHT = 1.35;
 
 /** Three vec4 per pool, for `uniform vec4 uPool[3 * MAX_POOLS]`: (cx, cy, zmin, zmax), (sx, sy, 0, 0), (r, g, b, 0). */
 export function packPools(pools: readonly Pool[], out: Float32Array = new Float32Array(MAX_POOLS * 12)): Float32Array {

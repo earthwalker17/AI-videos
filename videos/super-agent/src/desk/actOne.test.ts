@@ -9,12 +9,14 @@ import {
   ARRIVE,
   CHORE_ARC,
   CHORE_POSTS,
-  EVENT_LEAD,
+  CLIP_AFTER,
+  EVENT_ARC,
   FEEDER_OF,
   FLAG,
   FLAG_UP,
   FLIGHT,
   FOLDERS,
+  GENERIC_FEEDERS,
   HEAP,
   LOOP_A,
   MOUTH,
@@ -29,8 +31,11 @@ import {
   actOneFootprints,
   actOnePools,
   aimOf,
+  boardAt,
+  boardThrown,
   cardWorld,
   choreFlightAt,
+  eventLands,
   eventSlipAt,
   flagTop,
   folderPoint,
@@ -43,13 +48,14 @@ import {
   stackTop,
   tabAt,
   trayNudgeAt,
+  YOU_LABEL_OUT,
   youLabelAt,
   youPoseA,
   youPoseAt,
 } from './actOne.ts';
 import { ACT_ONE_MOVE, FRAMING_A, FRAMING_HOOK, cameraAt, deskCamera, framingAt, project, screenToDesk } from './camera.ts';
-import { loopNotes } from './objects/ActOne.tsx';
-import { CARD_HEX, cardAt } from './objects/TitleCard.tsx';
+import { loopArc, loopNotesAt } from './objects/ActOne.tsx';
+import { CARD_HEX, CARD_POST, cardAt, cardQuad } from './objects/TitleCard.tsx';
 import { MAX_FOOTPRINTS } from './footprints.ts';
 import { YOU, type P2, type P3 } from './layout.ts';
 import { LAMP_ARMS, LAMP_FOOT_Z, YOU_POSE_B } from './you.ts';
@@ -231,18 +237,35 @@ describe('act one over time (beats 1–2)', () => {
     expect(k).toBeGreaterThan(0);
     expect(at(921).landed).toBeGreaterThan(k);
   });
-  it('spawns F6–F8 from event slips: the slip lands, then the folder unfolds under it, then its tab and note arrive', () => {
+  it('posts F6–F8 whole: the board thrown in from beyond the top edge lands on its cue, its slip lands on it as its card, the clip snaps on', () => {
     for (const n of [6, 7, 8]) {
       const arrive = ARRIVE[n];
       const fl = FOLDERS[n - 1];
-      const slip = eventSlipAt(n, arrive - EVENT_LEAD)!;
-      expect(slip).not.toBeNull();
-      expect(dist([slip.p[0], slip.p[1]], cardWorld(fl).c)).toBeLessThan(1e-6);
-      expect(eventSlipAt(n, arrive)).toBeNull();
       const i = n - 1;
-      expect(at(arrive).folders[i].present).toBe(0);
-      expect(at(arrive + 1).folders[i].present).toBeGreaterThan(0);
-      expect(at(arrive + 1).folders[i].present).toBeLessThan(0.3);
+      const t0 = boardThrown(n);
+      // full scale from the frame it is thrown, from beyond the frame's top edge; never there before
+      expect(at(t0 - 1).folders[i].present).toBe(0);
+      expect(at(t0).folders[i].present).toBe(1);
+      const b0 = boardAt(fl, t0)!;
+      expect(project(pose, [fl.c[0] + b0.off[0], fl.c[1] - fl.d / 2 + b0.off[1], b0.off[2]])[1]).toBeLessThan(0);
+      // it comes down onto its place on its cue (the last frames straight down, so its shadow tightens), squashing as it lands
+      const z = [3, 2, 1].map((k) => boardAt(fl, arrive - k)!.off[2]);
+      expect(z[0]).toBeGreaterThan(z[1]);
+      expect(z[1]).toBeGreaterThan(z[2]);
+      expect(z[2]).toBeGreaterThan(0.5);
+      expect(boardAt(fl, arrive)?.off ?? [0, 0, 0]).toEqual([0, 0, 0]);
+      expect(boardAt(fl, arrive + 2)!.squash).toBeGreaterThan(0);
+      // its event slip is in the air until it lands on the board, then the board draws it as its card: never a frame with neither
+      const s0 = eventLands(n) - EVENT_ARC.arc - 3;
+      for (let f = s0; f <= eventLands(n) + 3; f++) expect(eventSlipAt(n, f) !== null || at(f).folders[i].card, `F${n} f${f}`).toBe(true);
+      expect(eventSlipAt(n, eventLands(n))).toBeNull();
+      const last = eventSlipAt(n, eventLands(n) - 1)!;
+      expect(dist([last.p[0], last.p[1]], cardWorld(fl).c)).toBeLessThan(12);
+      expect(at(eventLands(n) - 1).folders[i].card).toBe(false);
+      // the clip rides open on the board, then slides onto the card and snaps shut (spring-dock)
+      expect(at(arrive + CLIP_AFTER).folders[i].clip).toBe(0);
+      expect(at(arrive + CLIP_AFTER + 2).folders[i].clip).toBeGreaterThan(0);
+      expect(at(arrive + CLIP_AFTER + 14).folders[i].clip).toBeGreaterThan(0.95);
       expect(at(arrive + 2).folders[i].tab).toBe(0);
       expect(at(arrive + 10).folders[i].note).toBe(0);
       expect(at(arrive + 40).folders[i].tab).toBeGreaterThan(0.99);
@@ -265,13 +288,16 @@ describe('act one over time (beats 1–2)', () => {
     expect(trayNudgeAt(CHORE_POSTS.key.lands + 5)).toBeGreaterThan(0);
     expect(trayNudgeAt(CHORE_POSTS.key.lands + 20)).toBe(0);
   });
-  it('never lifts or lowers a pen or a flag in one frame (they move over 4 f, both ways)', () => {
+  it('never lifts or lowers a pen or a flag, nor lights or warms a folder, in one frame (4 f, both ways)', () => {
     for (let f = 0; f < 1419; f++) {
       const a0 = at(f).folders;
       const a1 = at(f + 1).folders;
       a0.forEach((s, i) => {
         expect(Math.abs(a1[i].pen - s.pen), `F${i + 1} pen f${f}`).toBeLessThanOrEqual(0.26);
         expect(Math.abs(a1[i].flag - s.flag), `F${i + 1} flag f${f}`).toBeLessThanOrEqual(0.26);
+        // a folder's lit sheet comes up and goes down over 4 f (the hook's judder, bar 11's strobe)
+        expect(Math.abs(a1[i].lit - s.lit), `F${i + 1} lit f${f}`).toBeLessThanOrEqual(0.3);
+        expect(Math.abs(a1[i].warmth - s.warmth), `F${i + 1} warmth f${f}`).toBeLessThanOrEqual(0.3);
       });
     }
   });
@@ -282,9 +308,13 @@ describe('act one over time (beats 1–2)', () => {
   });
   it('brings your label in only once the camera has settled (beat 2), leader first', () => {
     expect(youLabelAt(399)).toBeNull();
-    expect(youLabelAt(YOU_LABEL_FROM + 3)!.wipe).toBe(0);
+    expect((youLabelAt(YOU_LABEL_FROM + 3) as { wipe: number }).wipe).toBe(0);
     expect(youLabelAt(YOU_LABEL_FROM + 20)).toEqual({ leader: 1, wipe: 1 });
     expect(YOU_LABEL_FROM).toBeGreaterThan(ACT_ONE_MOVE.to);
+    // it leaves as beat 3 begins (6 f, never a slide), clear of Fix B's trays
+    expect(youLabelAt(YOU_LABEL_OUT - 1)).toEqual({ leader: 1, wipe: 1 });
+    expect(youLabelAt(YOU_LABEL_OUT + 3)).toEqual({ opacity: 0.5 });
+    expect(youLabelAt(YOU_LABEL_OUT + 6)).toBeNull();
   });
 });
 
@@ -323,8 +353,31 @@ describe('the title card (1.2)', () => {
   it('lands on the thump and is gone by beat 2, inside title-safe, clear of the notes in C1 and C2', () => {
     const { rect, frames } = TITLE_CARD;
     expect(frames.land).toBe(cue('title-thump').frame);
-    // it may start to slide in as C1 fades, but stays off the frame until the line has gone
-    for (let f = frames.enter; f < cue('c1').end! + TEXT_OUT; f++) expect(cardAt(TITLE_CARD, f).dx + rect.x + rect.w).toBeLessThan(0);
+    // posted in only once C1 has gone, from beyond the frame (every corner of it off the frame as it enters)
+    expect(frames.enter).toBeGreaterThanOrEqual(cue('c1').end! + TEXT_OUT);
+    const corners = (f: number) => {
+      const s = cardAt(TITLE_CARD, f);
+      const q = cardQuad(TITLE_CARD, s, cameraAt(f, 15));
+      return q.outer.map((w) => project(cameraAt(f, 15), [w[0] + s.off[0], w[1] + s.off[1], w[2] + s.off[2]]));
+    };
+    for (const c of corners(frames.enter)) expect(c[1] > 1080 || c[0] < 0).toBe(true);
+    // the request's corner (half buried, a corner showing) stays uncovered while the hook teaches it, up to the thump
+    const R = REQUEST_A;
+    const corner: P3 = [R.c[0] + Math.cos(R.rot) * R.l * 0.45, R.c[1] + Math.sin(R.rot) * R.l * 0.45, requestZ() + 1];
+    const inside = (q: P2, poly: P2[]) => {
+      let on = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++)
+        if (poly[i][1] > q[1] !== poly[j][1] > q[1] && q[0] < ((poly[j][0] - poly[i][0]) * (q[1] - poly[i][1])) / (poly[j][1] - poly[i][1]) + poly[i][0]) on = !on;
+      return on;
+    };
+    for (let f = frames.enter; f <= frames.land; f++) expect(inside(project(cameraAt(f, 15), corner), corners(f)), `f${f}`).toBe(false);
+    // over its place it lifts (the anticipation), then drops onto it on the thump, its shadow tightening frame by frame
+    const z = (f: number) => cardAt(TITLE_CARD, f).off[2];
+    const drop = frames.land - CARD_POST.dropFrames;
+    expect(z(drop)).toBeGreaterThan(z(drop - CARD_POST.liftFrames));
+    for (let f = drop; f < frames.land; f++) expect(z(f + 1)).toBeLessThan(z(f));
+    expect(z(frames.land - 1)).toBeGreaterThan(0);
+    expect(cardAt(TITLE_CARD, frames.land).off).toEqual([0, 0, 0]);
     expect(frames.gone).toBeLessThanOrEqual(cue('c2').frame - TEXT_IN);
     expect(frames.leave).toBeGreaterThanOrEqual(cue('title').end! + TEXT_OUT);
     expect(rect.x).toBeGreaterThanOrEqual(96);
@@ -332,10 +385,9 @@ describe('the title card (1.2)', () => {
     expect(cardAt(TITLE_CARD, frames.enter - 1).present).toBe(false);
     expect(cardAt(TITLE_CARD, frames.land).dx).toBe(0);
     expect(cardAt(TITLE_CARD, frames.gone).present).toBe(false);
-    // it slides in and out from off the frame's west edge (the paper never fades)
-    expect(cardAt(TITLE_CARD, frames.enter).dx + rect.x + rect.w).toBeLessThan(0);
+    // it slides out off the frame's west edge (the paper never fades)
     for (let f = frames.leave; f < frames.gone - 1; f++) expect(cardAt(TITLE_CARD, f + 1).dx).toBeLessThanOrEqual(cardAt(TITLE_CARD, f).dx);
-    expect(cardAt(TITLE_CARD, frames.gone - 1).dx + rect.x + rect.w).toBeLessThan(rect.w * 0.4);
+    expect(cardAt(TITLE_CARD, frames.gone - 1).dx + rect.x + rect.w).toBeLessThan(0);
   });
   it('sets the cue sheet’s words exactly, at the film’s title sizes, on the cues’ windows', () => {
     const lines = TITLE_CARD.lines;
@@ -350,7 +402,7 @@ describe('the title card (1.2)', () => {
     }
   });
   it('hovers clear of everything under it, and holds still on screen while the camera moves', () => {
-    for (const f of [170, 240, 320, 370]) expect(cardAt(TITLE_CARD, f).z).toBeGreaterThan(40);
+    for (const f of [170, 240, 320, 370]) expect(cardAt(TITLE_CARD, f).z - 3).toBeGreaterThan(GENERIC_FEEDERS.mailH + 4);
     expect(cardAt(TITLE_CARD, 240).dx).toBe(0);
     expect(cardAt(TITLE_CARD, 300).dx).toBe(0);
     expect(cardAt(TITLE_CARD, 240).z).toBeCloseTo(cardAt(TITLE_CARD, 300).z, 1);
@@ -372,19 +424,29 @@ describe('still (a)’s critic fixes', () => {
       expect(el[0] > a0[0] && el[0] < a1[0] && el[1] < a0[1] && el[1] > a1[1]).toBe(false);
     }
   });
-  it('sets each tape note at its own folder’s tab, the notes not overlapping', () => {
-    const len = 1519;
-    const notes = loopNotes(len);
-    for (let i = 1; i < notes.length; i++) expect(Math.abs(notes[i] - notes[i - 1])).toBeGreaterThan(80);
-    FOLDERS.forEach((fl) => expect(tabAt(LOOP_A, fl)).toBeGreaterThan(0));
+  it('sets each tape note at its own folder’s tab on every frame (open or shut, slack or tight), the notes not overlapping', () => {
     expect(TAB_SHARE).toHaveLength(FOLDERS.length);
+    for (let f = 0; f < 1400; f += 7) {
+      const L = actOneAt(f).loop;
+      const notes = loopNotesAt(L);
+      const arc = loopArc(L);
+      for (let i = 1; i < notes.length; i++) expect(Math.abs(notes[i] - notes[i - 1])).toBeGreaterThan(70);
+      FOLDERS.forEach((fl, i) => {
+        let t = tabAt(L, fl);
+        while (t < L.clipAt) t += Math.PI * 2;
+        let k = 1;
+        while (k < arc.t.length - 1 && arc.t[k] < t) k++;
+        const s = arc.s[k - 1] + ((arc.s[k] - arc.s[k - 1]) * (t - arc.t[k - 1])) / (arc.t[k] - arc.t[k - 1]);
+        expect(Math.abs(notes[i] - s), `F${fl.n} f${f}`).toBeLessThan(1);
+      });
+    }
   });
   it('keeps every folder’s outline, lifted pen and flag clear of its neighbours (F7 and F8 collided)', () => {
     const outline = (i: number) => {
       const fl = FOLDERS[i];
       const pts: P2[] = [];
       for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) pts.push(folderPoint(fl, [(x * fl.w) / 2, (y * fl.d) / 2]));
-      const pen = penWorld(fl, { warmth: 0, pen: 1, stroke: 1, flag: 1, present: 1, tab: 1, note: 1 });
+      const pen = penWorld(fl, { warmth: 0, pen: 1, stroke: 1, flag: 1, present: 1, lit: 0, card: true, clip: 1, tab: 1, note: 1 });
       pts.push([pen[0], pen[1]]);
       return pts;
     };

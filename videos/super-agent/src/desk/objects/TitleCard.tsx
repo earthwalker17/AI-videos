@@ -7,9 +7,12 @@
  * The card is placed every frame from a fixed screen rectangle through the camera's pose
  * (camera.ts screenToDesk), so it holds dead still on screen while the camera eases out under it
  * and the words on it never move while they are read. It hovers clear of everything under it (the
- * feeders' tops); arriving, it slides in from off the frame's west edge on the move curve, then
- * settles on spring-heavy toward the desk, so only its shadow tightens; leaving, it lifts and
- * slides out on the exit curve. The paper never fades: it is always either in the frame or not.
+ * feeders' tops). Arriving, it is posted into the still hook framing as a body in the world: once C1
+ * has gone it comes in from beyond the frame's south-west edge on a low arc, stops over its place,
+ * lifts a little (its anticipation) and drops onto it on the thump (title-thump, f160), its
+ * footprint shadow tightening over those last 4 frames; from the thump on it is screen-fixed.
+ * Leaving, it lifts and slides out on the exit curve. The paper never fades: it is always either in
+ * the frame or not.
  *
  * Pure placement (`cardAt`, `cardQuad`) and the two layers: `CardWorld` in the WebGL world, `CardText`
  * in a GREY_TEXT layer (every line ≤ 136 px, inside title-safe).
@@ -27,7 +30,6 @@ import { paper } from '../gl/materials.ts';
 import { INK, print, rule, texture, tooth } from '../gl/text.ts';
 import type { Footprint } from '../footprints.ts';
 import type { P2, P3 } from '../layout.ts';
-import { SPRING, springAt } from '../state.ts';
 
 /** One line of lettering on the card: its text, face and size, where its baseline starts (px from the card's top left), the cue it shows on. */
 export interface CardLine {
@@ -63,7 +65,12 @@ export const CARD_HEX = { paper: '#CFC9BB', ink: '#2A2B2A', zh: '#4D4A44' } as c
 /** The card stock's thickness (u). */
 const CARD_T = 3;
 /** How high the card hovers while it slides (clear of the feeders' tops) and where it settles (still clear of them: the mail box is 34 u). */
-export const CARD_Z = { high: 112, rest: 52 } as const;
+export const CARD_Z = { high: 112, rest: 40 } as const;
+/**
+ * The post (world offsets from its place, u): from beyond the frame's south-west edge on a low arc to over its place
+ * (hover above it), a 4 f lift (the anticipation), then a 4 f drop onto it: the contact is the land frame.
+ */
+export const CARD_POST = { from: [-140, -520, 70] as P3, apex: 26, hover: 26, lift: 5, liftFrames: 4, dropFrames: 4 } as const;
 const MOVE = Easing.bezier(0.2, 0, 0, 1);
 const EXIT = Easing.bezier(0.3, 0, 0.8, 0.15);
 const span01 = (f: number, a: number, b: number): number => clamp((f - a) / (b - a));
@@ -71,23 +78,39 @@ const span01 = (f: number, a: number, b: number): number => clamp((f - a) / (b -
 export interface CardState {
   /** the card is in the world */
   present: boolean;
-  /** its screen offset (px; it slides in from and out to the west) and its height over the desk */
+  /** its screen offset (px; it slides out to the west) and its height over the desk at its place */
   dx: number;
   z: number;
+  /** while it is posted in: its offset in the world from its place (u), the camera still */
+  off: P3;
 }
 
 /** Where the card is at film frame f (pure). */
 export function cardAt(spec: CardSpec, f: number): CardState {
   const { enter, land, leave, gone } = spec.frames;
-  if (f < enter || f >= gone) return { present: false, dx: 0, z: CARD_Z.high };
-  const off = -(spec.rect.x + spec.rect.w + 60);
-  // it slides in on the move curve (its first frames barely in: a card this size on the enter curve lands in one frame)
-  if (f < land) return { present: true, dx: off * (1 - MOVE(span01(f, enter, land))), z: CARD_Z.high };
-  if (f < leave) return { present: true, dx: 0, z: CARD_Z.high + (CARD_Z.rest - CARD_Z.high) * springAt(f, land, SPRING.heavy) };
-  // leaving: it lifts (its shadow softening) as it slides out west on the exit curve
-  const k = EXIT(span01(f, leave, gone));
-  const z0 = CARD_Z.high + (CARD_Z.rest - CARD_Z.high) * springAt(leave, land, SPRING.heavy);
-  return { present: true, dx: off * k, z: z0 + (CARD_Z.high - z0) * k };
+  const none: P3 = [0, 0, 0];
+  if (f < enter || f >= gone) return { present: false, dx: 0, z: CARD_Z.rest, off: none };
+  const P = CARD_POST;
+  const drop = land - P.dropFrames;
+  const lift = drop - P.liftFrames;
+  if (f < lift) {
+    // in from beyond the south-west edge, slowing over its place (ease out), a low arc
+    const u = (f - enter) / (lift - enter);
+    const e = 1 - (1 - u) * (1 - u);
+    return { present: true, dx: 0, z: CARD_Z.rest, off: [P.from[0] * (1 - e), P.from[1] * (1 - e), P.hover + (P.from[2] - P.hover) * (1 - e) + 4 * P.apex * u * (1 - u)] };
+  }
+  // the anticipation: it lifts a little over its place
+  if (f < drop) return { present: true, dx: 0, z: CARD_Z.rest, off: [0, 0, P.hover + P.lift * MOVE(span01(f, lift, drop))] };
+  // the drop (slow off, fast in), touching on the land frame: its shadow tightens over these frames
+  if (f < land) {
+    const u = (f - drop) / P.dropFrames;
+    return { present: true, dx: 0, z: CARD_Z.rest, off: [0, 0, (P.hover + P.lift) * (1 - u * u)] };
+  }
+  if (f < leave) return { present: true, dx: 0, z: CARD_Z.rest, off: none };
+  // leaving: it lifts (its shadow softening) as it slides out west on the exit curve, wholly off the frame on its last
+  // frame (it is never in the frame one frame and gone the next)
+  const k = EXIT(span01(f, leave, gone - 1));
+  return { present: true, dx: -(spec.rect.x + spec.rect.w + 60) * k, z: CARD_Z.rest + (CARD_Z.high - CARD_Z.rest) * k, off: none };
 }
 
 /** The card's outline on screen (px): a rounded rectangle, its corners sampled, and the punch hole. */
@@ -128,7 +151,7 @@ export function cardFootprint(spec: CardSpec, s: CardState, pose: CamPose): Foot
   const r = screenToDesk(pose, [x + s.dx + w, y + h / 2], s.z);
   const t = screenToDesk(pose, [x + s.dx + w / 2, y], s.z);
   const b = screenToDesk(pose, [x + s.dx + w / 2, y + h], s.z);
-  return { kind: 'rect', c: [c[0], c[1]], h: [(r[0] - l[0]) / 2, (t[1] - b[1]) / 2], r: 6, rot: 0, z0: s.z - CARD_T, z1: s.z, contact: 0 };
+  return { kind: 'rect', c: [c[0] + s.off[0], c[1] + s.off[1]], h: [(r[0] - l[0]) / 2, (t[1] - b[1]) / 2], r: 6, rot: 0, z0: s.z + s.off[2] - CARD_T, z1: s.z + s.off[2], contact: 0 };
 }
 
 /** The card's solid: its world outline extruded down 0.8 u (paper stock), its top face's print mapped by screen position. */
@@ -150,6 +173,8 @@ function cardGeometry(spec: CardSpec, s: CardState, pose: CamPose): BufferGeomet
     uv.setXY(i, (sp[0] - x - s.dx) / w, 1 - (sp[1] - y) / h);
   }
   uv.needsUpdate = true;
+  // posted in: the same card, carried in the world (the camera is still until it lands)
+  if (s.off[0] || s.off[1] || s.off[2]) g.translate(s.off[0], s.off[1], s.off[2]);
   return g;
 }
 
@@ -163,8 +188,10 @@ function useCardTexture(spec: CardSpec, printFamily: string): Texture {
         h,
         (g) => {
           tooth(g, w, h);
-          print(g, printFamily, spec.mark, 52, 56, 30, 500, INK);
-          rule(g, 52 + spec.mark.length * 18 + 12, 58, 52 + spec.mark.length * 18 + 170, 58, 1.6, '#5E5B55');
+          // the code at the card's top right, its field rule leading in to it (the punch hole is at the top left)
+          const mx = w - 52 - spec.mark.length * 18;
+          print(g, printFamily, spec.mark, mx, 56, 30, 500, INK);
+          rule(g, mx - 170, 58, mx - 12, 58, 1.6, '#5E5B55');
         },
         4,
         '#FFFFFF',
@@ -182,7 +209,7 @@ export function CardWorld({ spec, f, pose, printFamily }: { spec: CardSpec; f: n
   const tex = useCardTexture(spec, printFamily);
   const mat = useMemo(() => paper(tex, CARD_HEX.paper, { roughness: 0.86 }), [tex]);
   useLayoutEffect(() => () => mat.dispose(), [mat]);
-  const geo = useMemo(() => (s.present ? cardGeometry(spec, s, pose) : null), [spec, s.present, s.dx, s.z, pose]);
+  const geo = useMemo(() => (s.present ? cardGeometry(spec, s, pose) : null), [spec, s.present, s.dx, s.z, s.off[0], s.off[1], s.off[2], pose]);
   useLayoutEffect(() => () => geo?.dispose(), [geo]);
   return geo ? <mesh geometry={geo} material={mat} /> : null;
 }
@@ -190,7 +217,8 @@ export function CardWorld({ spec, f, pose, printFamily }: { spec: CardSpec; f: n
 /** The card's lettering (the DOM layer): each line on its cue's window, a 6 f wipe in left to right and a 6 f fade out; it rides the card's slide. */
 export function CardText({ spec, f, family }: { spec: CardSpec; f: number; family: string }) {
   const s = cardAt(spec, f);
-  if (!s.present) return null;
+  // lettering only on the card at rest or leaving (the cues open after the thump)
+  if (!s.present || f < spec.frames.land) return null;
   const { x, y, w } = spec.rect;
   return (
     <svg width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>

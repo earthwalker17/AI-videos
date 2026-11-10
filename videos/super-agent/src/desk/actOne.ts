@@ -146,7 +146,11 @@ export interface LoopPose {
   /** 0 open (the ends apart), 1 clipped shut */
   closed: number;
 }
-export const LOOP_A: LoopPose = { c: YOU_C_A, a: 262, b: 186, n: 2.8, z: 1.4, w: 24, clipAt: (205 * Math.PI) / 180, closed: 1 };
+/**
+ * The clip sits on the loop's west side (187°), above the notes band at the hook's 1.6x, so C1's line never runs into it
+ * (the hook's critic: at 205° it sat in the band beside "You can't.").
+ */
+export const LOOP_A: LoopPose = { c: YOU_C_A, a: 262, b: 186, n: 2.8, z: 1.4, w: 24, clipAt: (187 * Math.PI) / 180, closed: 1 };
 /** Before it tightens (f680) the loop lies slack, this much wider. */
 export const LOOP_SLACK = 26;
 export const TAB = { w: 26, l: 30 } as const;
@@ -176,37 +180,41 @@ export function loopNormal(L: LoopPose, t: number): P2 {
  * crosses it). The points facing each folder crowd F5–F8 into 50 u of tape at the loop's north-east corner, too tight
  * for a note beside each tab.
  */
-export const TAB_ARC = { first: 1330, last: 760 } as const;
-/** The loop's arc length from the clip (counter-clockwise, as the tape runs) at parameter angle t, by integration on the pose. */
-function arcTo(L: LoopPose, t: number): number {
+export const TAB_ARC = { first: 1330, last: 760, from: (205 * Math.PI) / 180 } as const;
+/** The loop's arc length (counter-clockwise, as the tape runs) from parameter angle `from` (default: the clip) to t, by integration on the pose. */
+function arcTo(L: LoopPose, t: number, from: number = L.clipAt): number {
   const N = 720;
   let acc = 0;
-  let prev = loopPoint(L, L.clipAt);
+  let prev = loopPoint(L, from);
   for (let i = 1; i <= N; i++) {
-    const ti = L.clipAt + ((t - L.clipAt) * i) / N;
+    const ti = from + ((t - from) * i) / N;
     const p = loopPoint(L, ti);
     acc += Math.hypot(p[0] - prev[0], p[1] - prev[1]);
     prev = p;
   }
   return acc;
 }
-/** The parameter angle at arc length s from the clip (bisection on the pose's arc). */
-function paramAtArc(L: LoopPose, s: number): number {
-  let lo = L.clipAt;
-  let hi = L.clipAt + Math.PI * 2;
+/** The parameter angle at arc length s from `from` (bisection on the pose's arc). */
+function paramAtArc(L: LoopPose, s: number, from: number): number {
+  let lo = from;
+  let hi = from + Math.PI * 2;
   for (let k = 0; k < 40; k++) {
     const mid = (lo + hi) / 2;
-    if (arcTo(L, mid) < s) lo = mid;
+    if (arcTo(L, mid, from) < s) lo = mid;
     else hi = mid;
   }
   return (lo + hi) / 2;
 }
-/** Each folder's share of the loop's length at its tab (the slack loop is the tight one scaled, so a share holds for both). */
+/** Where each tab stands (parameter angle): its arc length is measured from TAB_ARC.from, so the tabs keep still (a)'s places wherever the clip is. */
+const TAB_T: readonly number[] = FOLDERS.map((_, i) => paramAtArc(LOOP_A, TAB_ARC.first + ((TAB_ARC.last - TAB_ARC.first) * i) / (FOLDERS.length - 1), TAB_ARC.from));
+/**
+ * Each folder's share of the tape's length at its tab, from the clip (where the tape and its print start): its note is
+ * printed at this share of the tape (the slack loop is the tight one scaled, so a share holds for both).
+ */
 export const TAB_SHARE: readonly number[] = (() => {
   const len = arcTo(LOOP_A, LOOP_A.clipAt + Math.PI * 2);
-  return FOLDERS.map((_, i) => (TAB_ARC.first + ((TAB_ARC.last - TAB_ARC.first) * i) / (FOLDERS.length - 1)) / len);
+  return TAB_T.map((t) => arcTo(LOOP_A, t < LOOP_A.clipAt ? t + Math.PI * 2 : t) / len);
 })();
-const TAB_T: readonly number[] = TAB_SHARE.map((k) => paramAtArc(LOOP_A, k * arcTo(LOOP_A, LOOP_A.clipAt + Math.PI * 2)));
 /** The parameter angle where each folder's tab sits on the loop (the same angle on the slack and the tight loop). */
 export const tabAt = (L: LoopPose, fl: FolderLayout): number => {
   void L;
@@ -279,7 +287,7 @@ export interface HeapPiece {
   apex: number;
 }
 /** The request: 1.3× a chat slip (layout.ts REQUEST), creased, its south-east corner showing. */
-export const REQUEST_A = { c: [-762, 150] as P2, rot: 0.38, l: 114, w: 52, crease: 38, lift: 0.22 } as const;
+export const REQUEST_A = { c: [-762, 150] as P2, rot: 0.38, l: 114, w: 52, crease: 38, lift: 0.12 } as const;
 /** The request turns vermilion on its cue (f20), over spring-effects: the request motif. */
 export const REQUEST_INK = cue('request').frame;
 /** The pieces that land on the request's west half (f100–150), creasing it: its east flap lifts a quarter of the way with each. */
@@ -318,8 +326,9 @@ const POSTED: readonly (readonly [number, PieceKind, P2, number])[] = [
   [COVER_FRAMES[3], 'leaf', [REQUEST_A.c[0] - 58, REQUEST_A.c[1] - 22], -0.55],
   // under the title's camera move, north of the card
   [240, 'chat', [-724, 268], -0.42],
-  // beat 2 (the intake stepped down): a card, then still (a)'s chat slip in mid-arc
-  [640, 'ci', [-690, 214], 0.34],
+  // beat 2 (the intake stepped down): a card on the heap's north end (clear of F1 and of the request's corner), then
+  // still (a)'s chat slip in mid-arc
+  [640, 'ci', [-776, 352], 0.5],
 ];
 /** Still (a)'s chat slip, posted on a sixteenth (3 f anticipation, a 12 f arc) at the heap's newest end, over open slate so its mid-arc shadow lies apart from it. */
 export const FLIGHT = { from: SPOUT, to: [-664, 120, 3] as P3, posted: 905, apex: 44 } as const;
@@ -430,12 +439,21 @@ export const HEAD_A = { k: 0.25, z: 116, pole: [-0.6, 0.1, 0.79] as P3 } as cons
 
 // ---- the event slips that spawn F6–F8 (beat 2, 5 → 8)
 
-/** An event slip lands on the desk where its folder's task card will lie, 2 f before the folder unfolds under it (ARRIVE, on a beat). */
-export const EVENT_LEAD = 2;
-/** Its flight from the feeder: 3 f anticipation, a long arc over the heap and the arc of folders. */
+/**
+ * F6–F8 arrive as posts (STORYBOARD 2.1, 5 → 8). The folder's board, at full scale, is thrown in from beyond the
+ * frame's top edge (3 f anticipation, a 14 f arc coming down from h 60 over its place, so its shadow tightens) and lands
+ * on its cue (ARRIVE, on a beat) with a 3% squash. The event slip that spawned it, posted from its feeder before the board
+ * was thrown, lands on the board's stack EVENT_AFTER frames later as its task card; the clip riding open on the board's
+ * north edge then slides onto the card and snaps shut on spring-dock (CLIP_AFTER).
+ */
+export const BOARD_POST = { arc: 14, apex: 60, from: [40, 440, 160] as P3, squash: 0.03, squashFrames: 6 } as const;
+/** The event slip lands on the board this many frames after the board (its task card from then on). */
+export const EVENT_AFTER = 2;
+/** The clip starts to slide onto the card this many frames after the board lands, over this far (u, from the north). */
+export const CLIP_AFTER = 4;
+export const CLIP_TRAVEL = 14;
+/** The event slip's flight from the feeder: 3 f anticipation, a long arc over the heap and the arc of folders. */
 export const EVENT_ARC = { arc: 28, apex: 110 } as const;
-/** The folder unfolds out from under its card on spring-heavy: from the card's own outline to the whole cover and stack. */
-export const UNFOLD_FRAMES = 16;
 /** The task card's world pose on a folder (its centre and turn). */
 export function cardWorld(fl: FolderLayout): { c: P2; rot: number } {
   const k = cardLocal(fl);
@@ -447,14 +465,20 @@ export interface EventSlip {
   rot: number;
   tilt: number;
 }
-/** The event slip for folder n while it flies in (null before it is posted and once its folder has taken it up as its card). */
+/** The frame folder n's event slip lands on its board (its card from then on). */
+export const eventLands = (n: number): number => ARRIVE[n] + EVENT_AFTER;
+/**
+ * The event slip for folder n while it flies in: from its feeder's mouth to where the task card lies on the board's stack,
+ * through the frame before it lands (null before it is posted, and from its landing frame on, when the folder draws it as
+ * its card in this same pose: never a frame without one or the other).
+ */
 export function eventSlipAt(n: number, f: number): EventSlip | null {
   const arrive = ARRIVE[n];
   if (arrive === undefined) return null;
   const fl = FOLDERS[n - 1];
-  const lands = arrive - EVENT_LEAD;
+  const lands = eventLands(n);
   const t0 = lands - EVENT_ARC.arc - 3;
-  if (f < t0 || f >= arrive) return null;
+  if (f < t0 || f >= lands) return null;
   const M = MOUTH[fl.card === 'chat' ? 'chat' : 'ci'];
   const to = cardWorld(fl);
   if (f < t0 + 3) {
@@ -462,9 +486,37 @@ export function eventSlipAt(n: number, f: number): EventSlip | null {
     return { n, p: [M.in[0] + (M.out[0] - M.in[0]) * e, M.in[1] + (M.out[1] - M.in[1]) * e, M.in[2] + (M.out[2] - M.in[2]) * e], rot: 0, tilt: 0 };
   }
   const u = clamp((f - t0 - 3) / EVENT_ARC.arc);
-  const z1 = 0.4;
-  const p: P3 = [M.out[0] + (to.c[0] - M.out[0]) * u, M.out[1] + (to.c[1] - M.out[1]) * u, M.out[2] + (z1 - M.out[2]) * u + 4 * EVENT_ARC.apex * u * (1 - u)];
-  return { n, p, rot: to.rot * u, tilt: fl.card === 'chat' ? 0.3 * Math.sin(u * Math.PI * 2) : -0.1 * Math.sin(u * Math.PI) };
+  const z1 = stackTop(fl) + 0.2;
+  // it slows as it comes over its board (ease out across, the arc's fall straight down onto the stack)
+  const e = 1 - (1 - u) * (1 - u);
+  const p: P3 = [M.out[0] + (to.c[0] - M.out[0]) * e, M.out[1] + (to.c[1] - M.out[1]) * e, M.out[2] + (z1 - M.out[2]) * u + 4 * EVENT_ARC.apex * u * (1 - u)];
+  return { n, p, rot: to.rot * e, tilt: fl.card === 'chat' ? 0.3 * Math.sin(u * Math.PI * 2) : -0.1 * Math.sin(u * Math.PI) };
+}
+
+/** A new folder's board in the air on its post, or squashing as it lands: its offset from its place, its tilt, its squash (null at rest, or before it is thrown). */
+export interface BoardPose {
+  off: P3;
+  tilt: number;
+  squash: number;
+}
+/** When folder n's board is thrown (its 3 f anticipation starts, off the frame's top edge). */
+export const boardThrown = (n: number): number => ARRIVE[n] - BOARD_POST.arc - 3;
+export function boardAt(fl: FolderLayout, f: number): BoardPose | null {
+  const arrive = ARRIVE[fl.n];
+  if (arrive === undefined) return null;
+  const t0 = boardThrown(fl.n);
+  if (f < t0) return null;
+  const from = BOARD_POST.from;
+  if (f < t0 + 3) return { off: [from[0], from[1], from[2] + 4 * MOVE(span01(f, t0, t0 + 3))], tilt: -0.2, squash: 0 };
+  if (f < arrive) {
+    const u = (f - t0 - 3) / BOARD_POST.arc;
+    const k = 1 - u;
+    // a parabola from the throw down onto its place: its last stretch comes straight down from about h 60 (the shadow tightens)
+    const z = (from[2] + 4) * k * k + 4 * BOARD_POST.apex * u * (1 - u) * k;
+    return { off: [from[0] * k * k, from[1] * k * k, z], tilt: -0.2 * k, squash: 0 };
+  }
+  const sq = BOARD_POST.squash * bump(f, arrive, BOARD_POST.squashFrames);
+  return sq > 0 ? { off: [0, 0, 0], tilt: 0, squash: sq } : null;
 }
 
 // ---- the chores: posts onto your desk (STORYBOARD 2.2)
@@ -519,7 +571,8 @@ export const trayNudgeAt = (f: number): number => CHORE_ARC.nudge * (['key', 'gl
  * Everything is back at full contrast before the turn (f1400), whose own focus pull starts at f1436.
  */
 export const FOCUS_A = {
-  intake: { from: 400, to: BOTH_FIXES, ids: ['intake'] as readonly FocusId[] },
+  // the intake (the feeders, the heap, the request) stays down into the turn, whose own pull holds it there (turn.ts stepIn)
+  intake: { from: 400, to: 1e6, ids: ['intake'] as readonly FocusId[] },
   rest: { from: FIX_A.in, to: BOTH_FIXES, ids: ['folders', 'loop', 'you'] as readonly FocusId[] },
   fixA: { from: FIX_B.in + 10, to: BOTH_FIXES, ids: ['fixA'] as readonly FocusId[] },
 } as const;
@@ -534,8 +587,15 @@ export interface FolderState {
   stroke: number;
   /** the flag: 0 tucked … 1 up */
   flag: number;
-  /** 0 not yet there … 1 unfolded (F6–F8 unfold out from under their event slips) */
+  /** 0 not yet there … 1 there (F6–F8: from the frame their board is thrown in) */
   present: number;
+  /** how lit its top sheet is: the lamp has arrived over it (0 … 1, ramped over a few frames, never in one) */
+  lit: number;
+  /** F6–F8: the board in the air on its post, or squashing as it lands (absent: at rest) */
+  board?: BoardPose;
+  /** F6–F8: the task card is on its stack (the event slip has landed) and the clip has slid onto it and shut (0 … 1) */
+  card: boolean;
+  clip: number;
   /** its tab on the loop (0 not yet out from under the tape … 1 out) and its note on the tape (0 … 1 wiped in) */
   tab: number;
   note: number;
@@ -543,8 +603,11 @@ export interface FolderState {
 
 export interface ActOneState {
   f: number;
-  /** the folder the lamp attends (n) and its aim point (world, eased between visits) */
-  lamp: { n: number; aim: P3; bulb: number };
+  /**
+   * What the lamp attends (n: a folder 1..8; in beat 3 -1 Fix A, -2 Fix B, -3 between them), its aim point (world, eased
+   * between visits), its bulb, and its pool's spread (u, across and along) and how far it sits back toward you.
+   */
+  lamp: { n: number; aim: P3; bulb: number; sigma: P2; back: number; head: P2 };
   folders: FolderState[];
   loop: LoopPose;
   /** the chores: 0 not yet landed … 1 landed (the notes loop's tightening, the key, the sand-glass, the strut) */
@@ -564,11 +627,41 @@ export interface ActOneState {
 }
 
 const folderN = (n: number): FolderLayout => FOLDERS[n - 1];
-/** Where the lamp aims for a folder: its top sheet's centre. */
+/**
+ * Beat 3 (STORYBOARD 3.1–3.3): your lamp leaves the folders. It turns to Fix A as Fix A rises, to Fix B as its trays come
+ * in, and for 3.3 settles between the two over your own desk (its bulb blooms while it attends: the emission rule). Each
+ * swing hangs off its cue (FIX_A.in, FIX_B.in, BOTH_FIXES): the fix is mostly in before the light reaches it. The aims are
+ * the fixes' own centres (desk/beat3.ts FIX_A_FOLDER, TRAYS; beat3.test.ts holds them equal); the pool spreads over the
+ * whole fix (Fix B's trays are a wide block).
+ */
+export const FIX_LAMP = {
+  a: { n: -1, from: FIX_A.in + 12, aim: [-690, -40, 22] as P3, sigma: [124, 132] as P2, head: [-424, 70] as P2 },
+  b: { n: -2, from: FIX_B.in + 12, aim: [236, -22, 8] as P3, sigma: [176, 120] as P2, head: [-176, 100] as P2 },
+  // 3.3: over your desk, the pool wide enough to light both fixes either side of it
+  both: { n: -3, from: BOTH_FIXES, aim: [-236, -50, 36] as P3, sigma: [430, 150] as P2, head: [-268, 112] as P2 },
+} as const;
+/** Every visit of the lamp in act one: the cue sheet's (folders) and beat 3's (the fixes). */
+export const VISITS: readonly (readonly [number, number])[] = [...LAMP_VISITS, ...Object.values(FIX_LAMP).map((v) => [v.from, v.n] as const)];
+/** Where the lamp aims for a folder (its top sheet's centre) or a fix. */
 export const aimOf = (n: number): P3 => {
+  if (n < 0) return Object.values(FIX_LAMP).find((v) => v.n === n)!.aim;
   const fl = folderN(n);
   return [fl.c[0], fl.c[1] - 6, stackTop(fl)];
 };
+/**
+ * Where the lamp's head stands for a target (world, plan): a quarter of the way from the loop's centre toward a folder
+ * (the Λ of still (a)); for a fix, its own place over your desk's north edge (west of it for Fix A, east for Fix B), so
+ * the arm never folds down over the laptop: only the light reaches out to the fix.
+ */
+const headOf = (n: number): P2 => {
+  if (n < 0) return Object.values(FIX_LAMP).find((v) => v.n === n)!.head;
+  const a = aimOf(n);
+  return [YOU_C_A[0] + (a[0] - YOU_C_A[0]) * HEAD_A.k, YOU_C_A[1] + (a[1] - YOU_C_A[1]) * HEAD_A.k];
+};
+/** The pool's spread for a target, and how far back toward you it sits (a folder falls off to its far edge; a fix is lit whole). */
+const poolOf = (n: number): { sigma: P2; back: number } => (n < 0 ? { sigma: Object.values(FIX_LAMP).find((v) => v.n === n)!.sigma, back: 0 } : { sigma: POOL_A.sigma, back: POOL_A.back });
+/** A folder lights up as the lamp arrives over it: within about this distance of its aim (u), over this many frames. */
+export const LIT = { reach: 46, frames: 4 } as const;
 
 /** The focus step-down at f: the intake's on the beat's amount, the rest of act one on its own ramp (state.ts DeskState['step']). */
 export function actOneStep(f: number): ActOneState['step'] {
@@ -578,13 +671,11 @@ export function actOneStep(f: number): ActOneState['step'] {
 }
 export const actOneStepA = (f: number): number => ramp(f, FOCUS_A.fixA);
 
-/** How far F6–F8 have unfolded (1 for the first five). */
+/** Whether a folder is in the world (F6–F8 from the frame their board is thrown in; the first five always). */
 export function presentAt(fl: FolderLayout, f: number): number {
-  const arrive = ARRIVE[fl.n];
-  if (arrive === undefined) return 1;
-  return f <= arrive ? 0 : Math.min(1, springAt(f, arrive, SPRING.heavy));
+  return ARRIVE[fl.n] === undefined || f >= boardThrown(fl.n) ? 1 : 0;
 }
-/** A tab slides out from under the tape 2 f after its folder starts to unfold; its note is written as it settles (a 6 f wipe). */
+/** A tab slides out from under the tape 2 f after its folder lands; its note is written as it settles (a 6 f wipe). */
 export const tabAt01 = (fl: FolderLayout, f: number): number => {
   const arrive = ARRIVE[fl.n];
   return arrive === undefined ? 1 : springAt(f, arrive + 2, SPRING.settle);
@@ -594,51 +685,90 @@ export const noteAt01 = (fl: FolderLayout, f: number): number => {
   return arrive === undefined ? 1 : span01(f, arrive + 10, arrive + 16);
 };
 
+/** The lamp's visit at f (index into VISITS), the frame its swing starts, what it attends now and before. */
+function visitAt(f: number): { k: number; v0: number; t0: number; n: number; prev: number } {
+  let k = 0;
+  while (k + 1 < VISITS.length && VISITS[k + 1][0] <= f) k++;
+  // frame 0 is already moving: the first swing began just before the film, from the folder the cycle visits last
+  const [v0, n] = VISITS[k];
+  return { k, v0, t0: k === 0 ? v0 - PRE_SWING.frames : v0, n, prev: k > 0 ? VISITS[k - 1][1] : PRE_SWING.from };
+}
+/** The lamp's aim at f, its pool's spread and its pull back toward you: the head swings on spring-heavy from the last target to this one. */
+export function lampAimAt(f: number): { aim: P3; sigma: P2; back: number; head: P2 } {
+  const v = visitAt(f);
+  const sw = springAt(f, v.t0, SPRING.heavy);
+  const a0 = aimOf(v.prev);
+  const a1 = aimOf(v.n);
+  const p0 = poolOf(v.prev);
+  const p1 = poolOf(v.n);
+  return {
+    aim: [a0[0] + (a1[0] - a0[0]) * sw, a0[1] + (a1[1] - a0[1]) * sw, a0[2] + (a1[2] - a0[2]) * sw],
+    sigma: [p0.sigma[0] + (p1.sigma[0] - p0.sigma[0]) * sw, p0.sigma[1] + (p1.sigma[1] - p0.sigma[1]) * sw],
+    back: p0.back + (p1.back - p0.back) * sw,
+    head: (() => {
+      const h0 = headOf(v.prev);
+      const h1 = headOf(v.n);
+      return [h0[0] + (h1[0] - h0[0]) * sw, h0[1] + (h1[1] - h0[1]) * sw] as P2;
+    })(),
+  };
+}
+
 /** The state of act one at film frame f (pure). */
 export function actOneAt(f: number): ActOneState {
-  // the lamp: the current visit and the one before it; the head swings on spring-heavy
-  let k = 0;
-  while (k + 1 < LAMP_VISITS.length && LAMP_VISITS[k + 1][0] <= f) k++;
-  // frame 0 is already moving: the first swing began just before the film, from the folder the cycle visits last
-  const [v0, n] = LAMP_VISITS[k];
-  const t0 = k === 0 ? v0 - PRE_SWING.frames : v0;
-  const prev = k > 0 ? LAMP_VISITS[k - 1][1] : PRE_SWING.from;
-  const sw = springAt(f, t0, SPRING.heavy);
-  const a0 = aimOf(prev);
-  const a1 = aimOf(n);
-  const aim: P3 = [a0[0] + (a1[0] - a0[0]) * sw, a0[1] + (a1[1] - a0[1]) * sw, a0[2] + (a1[2] - a0[2]) * sw];
+  const { k, v0, t0, n } = visitAt(f);
+  const { aim, sigma, back, head } = lampAimAt(f);
+  // how lit each folder's top sheet is: the light near it and the head still (a folder the light only sweeps across never
+  // lights up), averaged over the last LIT.frames frames, so it comes up and goes down over 4 f, never in one
+  const aims = Array.from({ length: LIT.frames + 1 }, (_, k) => (k === 0 ? aim : lampAimAt(f - k).aim));
+  const litOf = (fa: P3): number => {
+    let sum = 0;
+    for (let k = 0; k < LIT.frames; k++) {
+      const a0 = aims[k];
+      const a1 = aims[k + 1];
+      const steady = Math.exp(-((Math.hypot(a0[0] - a1[0], a0[1] - a1[1]) / 6) ** 2));
+      sum += Math.exp(-((Math.hypot(a0[0] - fa[0], a0[1] - fa[1]) / LIT.reach) ** 2)) * steady;
+    }
+    return sum / LIT.frames;
+  };
 
   const folders = FOLDERS.map((fl): FolderState => {
     const present = presentAt(fl, f);
+    const arrive = ARRIVE[fl.n];
+    const landed = arrive === undefined || f >= arrive;
     let warmth: number;
     // the lamp has just come back to a cold folder: its pen settles back onto the sheet and its flag folds down over 4 f
     // (never in one frame), from how cold it had grown when the visit began
     let settle = 0;
     let settleFlag = 0;
-    if (n === fl.n && f >= t0) {
-      warmth = 1;
+    // how far a pen is lifted or a flag is up at a warmth, on the decay since the lamp left (4 f from the crossing)
+    const liftAt = (w: number, th: number): number => (w >= th ? 0 : clamp((w <= 0 ? Infinity : WARM_TAU * Math.log(th / w)) / 4));
+    const attended = n === fl.n && f >= t0;
+    if (attended) {
       let left = -Infinity;
-      for (let i = 0; i < k; i++) if (LAMP_VISITS[i][1] === fl.n) left = LAMP_VISITS[i + 1][0];
+      for (let i = 0; i < k; i++) if (VISITS[i][1] === fl.n) left = VISITS[i + 1][0];
       const before = left === -Infinity ? 0 : Math.exp(-(v0 - left) / WARM_TAU);
+      // it warms over 4 f from where it had cooled to (never in one frame: the hook's judder and bar 11's strobe)
+      warmth = before + (1 - before) * clamp((f - v0) / 4);
       const down = 1 - clamp((f - v0) / 4);
-      if (before < PEN_ON) settle = down;
-      if (before < FLAG_UP && present >= 1) settleFlag = down;
+      settle = liftAt(before, PEN_ON) * down;
+      settleFlag = landed ? liftAt(before, FLAG_UP) * down : 0;
     } else {
       // when the lamp last left this folder: the start of the visit after its last visit
       let left = -Infinity;
-      for (let i = 0; i <= k; i++) if (LAMP_VISITS[i][1] === fl.n && i + 1 <= k) left = LAMP_VISITS[i + 1][0];
+      for (let i = 0; i <= k; i++) if (VISITS[i][1] === fl.n && i + 1 <= k) left = VISITS[i + 1][0];
       warmth = left === -Infinity ? 0 : Math.exp(-(f - left) / WARM_TAU);
     }
     // the pen lifts and the flag snaps up (4 f) when the warmth falls through their thresholds; a pen strokes on eighths
-    const below = (th: number) => {
-      if (warmth >= th) return 0;
-      const since = warmth <= 0 ? Infinity : WARM_TAU * Math.log(th / warmth);
-      return clamp(since / 4);
-    };
-    const pen = Math.max(below(PEN_ON), settle);
-    const flag = present < 1 ? 0 : Math.max(below(FLAG_UP), settleFlag);
+    // (while the lamp attends it, only the settle: its warmth rising through a threshold never snaps them)
+    const pen = attended ? settle : liftAt(warmth, PEN_ON);
+    const flag = !landed ? 0 : attended ? settleFlag : liftAt(warmth, FLAG_UP);
     const stroke = ((Math.floor(f / (BEAT / 2)) + fl.n * 3) % 8) / 7;
-    return { warmth, pen, stroke, flag, present, tab: tabAt01(fl, f), note: noteAt01(fl, f) };
+    const fa = aimOf(fl.n);
+    const lit = litOf(fa);
+    const board = boardAt(fl, f);
+    const card = arrive === undefined || f >= eventLands(fl.n);
+    const clip = arrive === undefined ? 1 : springAt(f, arrive + CLIP_AFTER, SPRING.dock);
+    return { warmth, pen, stroke, flag, present, lit, ...(board ? { board } : {}), card, clip, tab: tabAt01(fl, f), note: noteAt01(fl, f) };
   });
 
   const loopTight = springAt(f, cue('chore-switch').frame, SPRING.settle);
@@ -660,7 +790,7 @@ export function actOneAt(f: number): ActOneState {
   const request = { ink: springAt(f, REQUEST_INK, SPRING.effects), lift };
   const events = [6, 7, 8].map((m) => eventSlipAt(m, f)).filter((e): e is EventSlip => e !== null);
 
-  return { f, lamp: { n, aim, bulb: BULB_A.level }, folders, loop, chores, flight, landed, posts, request, events, step: actOneStep(f), stepA: actOneStepA(f) };
+  return { f, lamp: { n, aim, bulb: BULB_A.level, sigma, back, head }, folders, loop, chores, flight, landed, posts, request, events, step: actOneStep(f), stepA: actOneStepA(f) };
 }
 
 /** Your desk's pose in act one: shifted north-east, the lamp reaching up to the folder it attends, each chore posted in on its cue. */
@@ -669,7 +799,9 @@ export function youPoseA(a: ActOneState): YouPose {
   const aimL: P3 = [a.lamp.aim[0] - sx, a.lamp.aim[1] - sy, a.lamp.aim[2]];
   const base = LAMP.base;
   const c: P2 = [LOOP_A.c[0] - sx, LOOP_A.c[1] - sy];
-  const head: P3 = [c[0] + (aimL[0] - c[0]) * HEAD_A.k, c[1] + (aimL[1] - c[1]) * HEAD_A.k, HEAD_A.z];
+  // the head stands where the visit puts it (actOne.ts headOf: a quarter of the way toward a folder, a fix's own place)
+  void c;
+  const head: P3 = [a.lamp.head[0] - sx, a.lamp.head[1] - sy, HEAD_A.z];
   const flights = { key: choreFlightAt('key', a.f), glass: choreFlightAt('glass', a.f), strut: choreFlightAt('strut', a.f) };
   const post = flights.key || flights.glass || flights.strut ? flights : undefined;
   const nudge = trayNudgeAt(a.f);
@@ -707,8 +839,11 @@ export function youPoseAt(f: number): YouPose {
 
 /** Its leader draws over 6 f, then the label wipes in over 8 f (TREATMENT Type, labels). */
 export const YOU_LABEL_FROM = 402;
-export function youLabelAt(f: number): { leader: number; wipe: number } | null {
-  if (f < YOU_LABEL_FROM) return null;
+/** It leaves as beat 3 begins (the focus goes to the fixes, and Fix B's trays take the ground it stands on): a 6 f fade, never a slide. */
+export const YOU_LABEL_OUT = FIX_A.in;
+export function youLabelAt(f: number): { leader: number; wipe: number } | { opacity: number } | null {
+  if (f < YOU_LABEL_FROM || f >= YOU_LABEL_OUT + 6) return null;
+  if (f >= YOU_LABEL_OUT) return { opacity: 1 - (f - YOU_LABEL_OUT) / 6 };
   const leader = clamp((f - YOU_LABEL_FROM) / 6);
   const wipe = clamp((f - YOU_LABEL_FROM - 6) / 8);
   return { leader, wipe };
@@ -731,21 +866,27 @@ export function loopFootprints(L: LoopPose): Footprint[] {
   return fp;
 }
 
-/** A folder's footprints: its cover and stack (scaled about its card while it unfolds), its pen arm, a raised flag's pennant. */
+/**
+ * A folder's footprints: its cover and stack (in the air while a new one is posted in: its shadow apart from it, tightening
+ * as it comes down), its pen arm, a raised flag's staff and pennant. The pennant is a plate standing on edge, so its
+ * shadow is a thin bar along it, cast from its own height (a soft blob read as dirt on the folder below).
+ */
 export function folderFootprints(fl: FolderLayout, s: FolderState): Footprint[] {
   if (s.present <= 0) return [];
   const fp: Footprint[] = [];
-  const card = cardWorld(fl).c;
-  const k = s.present;
-  const c: P2 = [card[0] + (fl.c[0] - card[0]) * k, card[1] + (fl.c[1] - card[1]) * k];
-  fp.push({ kind: 'rect', c, h: [(fl.w / 2) * Math.max(k, 0.3), (fl.d / 2) * Math.max(k, 0.2)], r: 3, rot: fl.rot, z0: 0, z1: Math.max(0.6, stackTop(fl) * k - 0.1), contact: 0.8 });
-  if (k < 1) return fp;
+  const off = s.board?.off ?? [0, 0, 0];
+  const air = off[2] > 0.5;
+  fp.push({ kind: 'rect', c: [fl.c[0] + off[0], fl.c[1] + off[1]], h: [fl.w / 2, fl.d / 2], r: 3, rot: fl.rot, z0: off[2], z1: off[2] + stackTop(fl) - 0.1, contact: air ? 0 : 0.8 });
+  if (air) return fp;
   const pv = folderPoint(fl, penPivot(fl));
   const nib = penWorld(fl, s);
   fp.push(segFp([pv[0], pv[1], stackTop(fl) + PEN.post], nib, 2.6));
   if (s.flag > 0.05) {
     const top = flagTop(fl, s.flag);
-    fp.push(segFp(top, [top[0] - FLAG.plate[0] * Math.sin(fl.rot), top[1] + FLAG.plate[0] * Math.cos(fl.rot), top[2] - 2], FLAG.plate[1] / 2));
+    const hinge = folderPoint(fl, flagHinge(fl));
+    fp.push(segFp([hinge[0], hinge[1], stackTop(fl) + 1 - flagSink(fl, s.flag)], top, 1.4));
+    const mid = top[2] - 2;
+    fp.push(segFp([top[0], top[1], mid], [top[0] - FLAG.plate[0] * Math.sin(fl.rot), top[1] + FLAG.plate[0] * Math.cos(fl.rot), mid], 2.2));
   }
   return fp;
 }
@@ -761,19 +902,39 @@ export function feederFootprints(): Footprint[] {
   return fp;
 }
 
+/** The four corners of a heap piece (world). */
+const pieceCorners = (p: { kind: PieceKind; c: P2; rot: number }): P2[] => {
+  const [w, d] = PIECE[p.kind];
+  const c = Math.cos(p.rot);
+  const s = Math.sin(p.rot);
+  return ([[-1, -1], [1, -1], [1, 1], [-1, 1]] as const).map(([x, y]) => [p.c[0] + (c * x * w) / 2 - (s * y * d) / 2, p.c[1] + (s * x * w) / 2 + (c * y * d) / 2]);
+};
+/** Whether a point lies inside a heap piece's rectangle, `margin` u in from its edges. */
+const insidePiece = (q: P2, p: { kind: PieceKind; c: P2; rot: number }, margin: number): boolean => {
+  const [w, d] = PIECE[p.kind];
+  const dx = q[0] - p.c[0];
+  const dy = q[1] - p.c[1];
+  const c = Math.cos(-p.rot);
+  const s = Math.sin(-p.rot);
+  return Math.abs(c * dx - s * dy) <= w / 2 - margin && Math.abs(s * dx + c * dy) <= d / 2 - margin;
+};
+/** Whether heap piece i lies wholly under one that landed after it (by frame f): then its shadow is hidden under that piece. */
+export const heapCovered = (i: number, landed: number): boolean => {
+  const corners = pieceCorners(HEAP[i]);
+  for (let j = i + 1; j < landed; j++) if (corners.every((q) => insidePiece(q, HEAP[j], 2))) return true;
+  return false;
+};
+
 /**
  * The heap's footprints at a state: every landed piece and the request, and each posted piece in the air (its shadow
- * apart from it). A piece that a later one has landed squarely on (its centre within 0.3 of its diagonal) casts nothing
- * more: its shadow lies under the piece on top, and the shaders' 128 are needed for beat 3's fixes.
+ * apart from it). A piece wholly covered by one that landed later (all four corners inside it) casts nothing more: its
+ * shadow lies under the piece on top, so no exposed edge ever loses its contact shadow when a piece lands.
  */
 export function heapFootprints(a: ActOneState): Footprint[] {
   const fp: Footprint[] = [];
   for (let i = 0; i < a.landed; i++) {
     const p = HEAP[i];
-    const diag = Math.hypot(...PIECE[p.kind]);
-    let under = false;
-    for (let j = i + 1; j < a.landed && !under; j++) under = Math.hypot(HEAP[j].c[0] - p.c[0], HEAP[j].c[1] - p.c[1]) < 0.3 * diag;
-    if (under) continue;
+    if (heapCovered(i, a.landed)) continue;
     const [w, d] = PIECE[p.kind];
     fp.push({ kind: 'rect', c: p.c, h: [w / 2, d / 2], r: 2, rot: p.rot, z0: p.z - 0.3, z1: p.z + 0.5, contact: 0.45 });
   }
@@ -796,7 +957,7 @@ export function actOneFootprints(a: ActOneState): Footprint[] {
   for (const e of a.events) {
     const fl = FOLDERS[e.n - 1];
     const [w, d] = CARD[fl.card];
-    fp.push({ kind: 'rect', c: [e.p[0], e.p[1]], h: [w / 2, d / 2], r: 2, rot: e.rot, z0: e.p[2] - 0.3, z1: e.p[2] + 0.5, contact: e.p[2] < 2 ? 0.4 : 0 });
+    fp.push({ kind: 'rect', c: [e.p[0], e.p[1]], h: [w / 2, d / 2], r: 2, rot: e.rot, z0: e.p[2] - 0.3, z1: e.p[2] + 0.5, contact: e.p[2] < stackTop(fl) + 2 ? 0.4 : 0 });
   }
   return fp;
 }
@@ -828,11 +989,16 @@ export function penWorld(fl: FolderLayout, s: FolderState): P3 {
   return [w[0], w[1], p[2]];
 }
 
-/** The top of the flag's staff (folder-local): tucked flat along the north edge (0) or standing, leaning toward you (1). */
+/**
+ * How far the flag has sunk into its slot in the folder's north edge (u): it folds down into the folder as it tucks and
+ * rises out of it as it snaps up, so it never vanishes or appears in the air (at 0 it is wholly under the desk's top).
+ */
+export const flagSink = (fl: FolderLayout, up: number): number => (1 - clamp(up)) ** 2 * (stackTop(fl) + FLAG.plate[1] + 4);
+/** The top of the flag's staff (folder-local): tucked into its slot along the north edge (0) or standing, leaning toward you (1). */
 export function flagLocal(fl: FolderLayout, up: number): P3 {
   const h = flagHinge(fl);
   const ang = up * (Math.PI / 2 - FLAG.lean);
-  return [h[0] - Math.sign(h[0]) * FLAG.staff * Math.cos(ang), h[1] - FLAG.staff * 0.25 * Math.sin(ang), stackTop(fl) + 1 + FLAG.staff * Math.sin(ang)];
+  return [h[0] - Math.sign(h[0]) * FLAG.staff * Math.cos(ang), h[1] - FLAG.staff * 0.25 * Math.sin(ang), stackTop(fl) + 1 + FLAG.staff * Math.sin(ang) - flagSink(fl, up)];
 }
 export function flagTop(fl: FolderLayout, up: number): P3 {
   const p = flagLocal(fl, up);
@@ -849,5 +1015,6 @@ export function actOnePools(a: ActOneState): Pool[] {
   const c = LOOP_A.c;
   const d: P2 = [a.lamp.aim[0] - c[0], a.lamp.aim[1] - c[1]];
   const l = Math.hypot(d[0], d[1]) || 1;
-  return [{ c: [a.lamp.aim[0] - (d[0] / l) * POOL_A.back, a.lamp.aim[1] - (d[1] / l) * POOL_A.back], z: [0, 60], sigma: POOL_A.sigma, rgb: tint(LIGHT_HEX.yours, POOL_A.k) }];
+  const back = a.lamp.back;
+  return [{ c: [a.lamp.aim[0] - (d[0] / l) * back, a.lamp.aim[1] - (d[1] / l) * back], z: [0, 60], sigma: a.lamp.sigma, rgb: tint(LIGHT_HEX.yours, POOL_A.k) }];
 }

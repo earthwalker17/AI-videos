@@ -14,7 +14,7 @@ import { GREY_TEXT, Label, NotesBlock, lineWidth, type TextLook } from '../kit/t
 import type { FilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
 import { project } from './camera.ts';
-import { BAYS, REEL, YOU, rectC, type P3 } from './layout.ts';
+import { BAYS, DISPATCH_HOUSING, YOU, rectC, type P3 } from './layout.ts';
 
 /** Text colours of the Register Desk (synthesis §2, Palette): EN and zh. */
 export const TEXT_HEX = { en: '#ECE9E2', zh: '#BAB7AF', leader: '#C9C6BE' } as const;
@@ -43,8 +43,10 @@ export interface RoleLabel {
 }
 
 export const ROLE_LABELS: readonly RoleLabel[] = [
-  // its leader ends on the reel's pack (a body, never a rail: the strangers could not tell which object a rail named); the label sits on clear ground east of the deck
-  { text: WORDS.router.en, foot: [227, 377, REEL.packZ[1] + 1], dx: 136, dy: 18, anchor: 'start' },
+  // its leader ends on the deck's own body at its east end, the dispatch housing under the ramp (never a rail, never the reel:
+  // the reel is the Router's log, not the Router); the label sits on clear ground east of the deck, its leader rising to it
+  // clear above the ramp's slit, so nothing dispatched out of the housing ever passes under the hairline
+  { text: WORDS.router.en, foot: [240, 232, DISPATCH_HOUSING.z[1] + 0.5], dx: 159, dy: 12, anchor: 'start' },
   // the reporting Worker: the leader ends on the test bay's south wall, below its nameplate
   { text: WORDS.worker.en, foot: [rectC(BAYS.tests.box)[0] + 70, BAYS.tests.box.y0 + 3, 20], dx: 52, dy: 58, anchor: 'start' },
   // beside your desk: a clear hairline from the slab's west edge out to the label (design D3)
@@ -79,8 +81,10 @@ export interface TagSpec {
    * is, and from this film frame its leader retracts into the text over 6 f, so no hairline is dragged by the move.
    */
   leaderUntil?: number;
+  /** a long tag set on more than one line (its words broken where the copy breaks, never re-worded): EN lines, then zh lines */
+  lines?: { en: readonly string[]; zh: readonly string[] };
 }
-/** The zh line's baseline under the EN line's, and where the leader leaves the text block. */
+/** The zh line's baseline under the EN line's (and one line's under the one before it), and where the leader leaves the text block. */
 export const TAG_GAP = 50;
 
 /** `labels`: the role labels in view (act one has only yours); `tags`: the tags shown on their cues. */
@@ -132,15 +136,21 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         if (!r.visible) return null;
         const foot = project(pose, t.foot);
         const tsize = TYPE.label.size;
-        const wEn = lineWidth(t.words.en, { family: fonts.sans, weight: TYPE.label.weight, size: tsize });
-        const wZh = lineWidth(t.words['zh-Hans'], { family: fonts.sans, weight: TYPE.label.cjkWeight, size: tsize });
+        const en = t.lines?.en ?? [t.words.en];
+        const zh = t.lines?.zh ?? [t.words['zh-Hans']];
+        const enY = en.map((_, i) => t.at[1] + i * TAG_GAP);
+        const zhY = zh.map((_, i) => t.at[1] + (en.length + i) * TAG_GAP);
+        const wEn = Math.max(...en.map((x) => lineWidth(x, { family: fonts.sans, weight: TYPE.label.weight, size: tsize })));
+        const wZh = Math.max(...zh.map((x) => lineWidth(x, { family: fonts.sans, weight: TYPE.label.cjkWeight, size: tsize })));
         const w = Math.max(wEn, wZh) + 8;
         const x0 = t.anchor === 'start' ? t.at[0] - 4 : t.at[0] - w + 4;
-        // the leader leaves the block's edge nearest the foot: a side, between its two lines, or (a foot under or over
-        // the block) its bottom or top edge straight above or below the foot
+        const top = t.at[1] - 40;
+        const bottom = zhY[zhY.length - 1] + 20;
+        // the leader leaves the block's edge nearest the foot: a side, between its lines, or (a foot under or over the
+        // block) its bottom or top edge straight above or below the foot
         const over = foot[0] > x0 - 8 && foot[0] < x0 + w + 8;
         const lx = over ? foot[0] : foot[0] < x0 ? x0 - 8 : x0 + w + 8;
-        const ly = over ? (foot[1] > t.at[1] ? t.at[1] + TAG_GAP + 20 : t.at[1] - 40) : t.at[1] + TAG_GAP / 2 - 12;
+        const ly = over ? (foot[1] > t.at[1] ? bottom : top) : en.length + zh.length > 2 ? Math.min(Math.max(foot[1], top + 12), bottom - 12) : t.at[1] + TAG_GAP / 2 - 12;
         // the leader grows out of its foot with the wipe; under a camera move it retracts into the text (leaderUntil)
         const grow = Math.min(1, r.wipe * 1.6);
         const keep = t.leaderUntil === undefined ? 1 : 1 - Math.min(1, Math.max(0, (f - t.leaderUntil) / 6));
@@ -149,14 +159,18 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
           <svg key={t.cue} width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity }}>
             <defs>
               <clipPath id={`wipe-${t.cue}`}>
-                <rect x={x0 - 4} y={t.at[1] - 60} width={(w + 8) * r.wipe} height={TAG_GAP + 90} />
+                <rect x={x0 - 4} y={t.at[1] - 60} width={(w + 8) * r.wipe} height={bottom - t.at[1] + 90} />
               </clipPath>
             </defs>
             {keep > 0 && <line x1={from[0]} y1={from[1]} x2={foot[0] + (lx - foot[0]) * grow} y2={foot[1] + (ly - foot[1]) * grow} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />}
             {keep >= 1 && <circle cx={foot[0]} cy={foot[1]} r={4} fill={TEXT_HEX.en} />}
             <g clipPath={`url(#wipe-${t.cue})`}>
-              <Label x={t.at[0]} y={t.at[1]} text={t.words.en} family={fonts.sans} size={tsize} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={t.anchor} />
-              <Label x={t.at[0]} y={t.at[1] + TAG_GAP} text={t.words['zh-Hans']} family={fonts.sans} size={tsize} weight={TYPE.label.cjkWeight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.zh} anchor={t.anchor} />
+              {en.map((x, i) => (
+                <Label key={`en${i}`} x={t.at[0]} y={enY[i]} text={x} family={fonts.sans} size={tsize} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={t.anchor} />
+              ))}
+              {zh.map((x, i) => (
+                <Label key={`zh${i}`} x={t.at[0]} y={zhY[i]} text={x} family={fonts.sans} size={tsize} weight={TYPE.label.cjkWeight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.zh} anchor={t.anchor} />
+              ))}
             </g>
           </svg>
         );

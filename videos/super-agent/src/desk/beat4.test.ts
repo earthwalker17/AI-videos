@@ -1,14 +1,81 @@
 import { describe, expect, it } from 'vitest';
 import { BEAT_4, MT1 } from '../cues.ts';
 import { CELLS, CELLS_BEFORE } from '../print.ts';
-import { REQUEST_A } from './actOne.ts';
-import { B4, CARD_EXIT, CARD_RISE, CARD_STRIKE, HATCH_FRAMES, REEL_LOCK, REQUEST_HEAP, RIDE, TAPE_ROWS, armAt, armRest, beat4At, cardAt, cellLitAt, hatchRiseAt, reelAt, requestAt, tapeAt } from './beat4.ts';
-import { footprintsAt, MAX_FOOTPRINTS } from './footprints.ts';
-import { BAYS } from './layout.ts';
-import { DETENT, EVENTS_D, deskStateAt, nextAt } from './state.ts';
-import { SPIN_TOTAL, TURN_SPAN } from './turn.ts';
+import { REQUEST_A, requestZ } from './actOne.ts';
+import {
+  B4,
+  CARD_AT,
+  CARD_EXIT,
+  CARD_RISE,
+  CARD_SPOT,
+  CARD_STRIKE,
+  DETENT_LEAD,
+  DOOR_AT,
+  HATCH_FRAMES,
+  HEAP_CAST,
+  LID_FRAMES,
+  REEL_DETENTS,
+  REEL_LOCK,
+  REQUEST_FROM,
+  REQUEST_HEAP,
+  REQUEST_RIDE,
+  RIDE,
+  RIDE_FRAMES,
+  TAPE_ROWS,
+  TICK,
+  armAt,
+  armRest,
+  beat4At,
+  bayDispatchAt,
+  cardAt,
+  cardIn,
+  cardPose,
+  carriersAt,
+  cellLitAt,
+  gaugeFlipAt,
+  hammerAt,
+  hatchRiseAt,
+  heapAt,
+  heapPieceAt,
+  ON_REQUEST,
+  reelAt,
+  requestAt,
+  stubAt,
+  tapeAt,
+  type Carry,
+} from './beat4.ts';
+import { deskCamera, FRAMING_B, project } from './camera.ts';
+import { footprintsAt, heapFootprintsAt, MAX_FOOTPRINTS, type Footprint } from './footprints.ts';
+import { BAYS, DISPATCH_HOUSING, RAMP, rectC, type BayId, type P3 } from './layout.ts';
+import { poolsAt, MAX_POOLS } from './pools.ts';
+import { DETENT, EVENTS_D, FOCUS_BEATS, deskStateAt, nextAt, SLIP_LANDS, stepAt } from './state.ts';
+import { SPIN_TOTAL, TURN_SPAN, turnAt, turnFootprints } from './turn.ts';
+import { HEAP } from './actOne.ts';
 
 const range = (a: number, b: number) => Array.from({ length: b - a }, (_, i) => a + i);
+/** The smallest turn between two headings (radians). */
+const dTurn = (a: number, b: number) => Math.abs(((((b - a + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI);
+const IDS: readonly BayId[] = ['bug', 'tests', 'docs'];
+const DISPATCH: Record<BayId, { arm: number; rise: number }> = {
+  bug: { arm: BEAT_4.armBug, rise: BEAT_4.dispatchBug },
+  tests: { arm: BEAT_4.armTests, rise: BEAT_4.dispatchTests },
+  docs: { arm: BEAT_4.armDocs, rise: BEAT_4.dispatchDocs },
+};
+
+/**
+ * A carrier's pose never jumps between two frames it is drawn in: not in position (at most `step` u), heading or slope
+ * (at most 0.35 rad: a one-frame orientation snap is a swap), nor squash.
+ */
+function expectContinuous(poses: [number, Carry | null][], step = 60) {
+  for (let i = 1; i < poses.length; i++) {
+    const [f, b] = poses[i];
+    const a = poses[i - 1][1];
+    if (!a || !b) continue;
+    expect(Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1], b.p[2] - a.p[2]), `position f${f}`).toBeLessThan(step);
+    expect(dTurn(a.heading, b.heading), `heading f${f}`).toBeLessThan(0.35);
+    expect(Math.abs(b.slope - a.slope), `slope f${f}`).toBeLessThan(0.35);
+  }
+}
 
 describe('beat 4 after the turn (desk/beat4.ts)', () => {
   it('keeps the cue sheet’s frames (cues.ts BEAT_4) for every event it draws', () => {
@@ -20,109 +87,267 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
     expect(B4.threadRow.stamp).toBe(BEAT_4.threadRow);
     expect(B4.gauge).toBe(BEAT_4.gauge);
     expect(B4.ghost).toEqual({ rise: BEAT_4.ghostCard, strike: BEAT_4.ghostStrike });
-    expect(B4.rows.map((r) => r.stamp)).toEqual(BEAT_4.rows.slice(0, 2));
+    expect(B4.rows.map((r) => r.stamp)).toEqual([...BEAT_4.rows]);
     expect([B4.armTests, B4.tests.rise, B4.armDocs, B4.docs.rise]).toEqual([BEAT_4.armTests, BEAT_4.dispatchTests, BEAT_4.armDocs, BEAT_4.dispatchDocs]);
-    // the request starts from where act one leaves it in the heap
+    // the request starts from where act one leaves it in the heap (its underside on the pieces under it)
     expect(REQUEST_HEAP.c).toEqual(REQUEST_A.c);
     expect(REQUEST_HEAP.rot).toBe(REQUEST_A.rot);
+    expect(REQUEST_HEAP.z).toBeCloseTo(requestZ(), 9);
   });
 
   it('is a pure function of the frame', () => {
-    for (const f of [1661, 1700, 1785, 1875, 2025, 2139]) expect(JSON.stringify(beat4At(f))).toBe(JSON.stringify(beat4At(f)));
+    for (const f of [1648, 1661, 1700, 1785, 1875, 2025, 2139]) expect(JSON.stringify(beat4At(f))).toBe(JSON.stringify(beat4At(f)));
   });
 
-  it('dispatches each Worker by the one move: the leaves open over 4 f, the bay rises only once they are open, the hole closes once it is up', () => {
-    for (const o of [B4.bug, B4.tests, B4.docs, { cut: EVENTS_D.cut, cutFrames: EVENTS_D.cutFrames, rise: EVENTS_D.rise }]) {
-      expect(hatchRiseAt(o.rise - HATCH_FRAMES - 1, o).hole).toBe(false);
-      expect(hatchRiseAt(o.rise - HATCH_FRAMES, o).hatch).toBeCloseTo(0, 9);
-      expect(hatchRiseAt(o.rise - HATCH_FRAMES, o).hole).toBe(true);
-      expect(hatchRiseAt(o.rise, o).hatch).toBe(1);
-      expect(hatchRiseAt(o.rise, o).rise).toBe(0);
-      for (const f of range(o.rise - 10, o.rise + 1)) expect(hatchRiseAt(f, o).rise).toBe(0);
-      // the groove is cut before the hatch is fully open (MT1, as signed off, cuts on as its bay rises)
-      if (o.rise !== EVENTS_D.rise) expect(o.cut + o.cutFrames).toBeLessThanOrEqual(o.rise);
-      const up = hatchRiseAt(o.rise + 40, o);
-      expect(up.rise).toBeGreaterThan(0.99);
-      expect(up.hole).toBe(false);
-    }
-    // MT1's fresh bay is the same move (the W-10 critic: a 3 f aperture wipe)
-    const n = nextAt(EVENTS_D.rise - 2);
-    expect(n.hatch).toBeGreaterThan(0.2);
-    expect(n.hatch).toBeLessThan(0.9);
-    expect(n.rise).toBe(0);
+  describe('lands every cue frame as a contact frame: the event on the cue, its anticipation before it', () => {
+    it('the request’s first move out of the heap (requestRise), its crease gathering before it', () => {
+      const r = B4.requestRise;
+      const at = (f: number) => requestAt(f).pose!.p;
+      expect(at(r - 1)).toEqual(at(r - 4));
+      expect(Math.hypot(at(r)[0] - at(r - 1)[0], at(r)[1] - at(r - 1)[1])).toBeGreaterThan(1);
+      expect(requestAt(r - 4).crease).toBe(1);
+      expect(requestAt(r - 2).crease).toBeLessThan(1);
+      expect(REQUEST_FROM).toBeLessThan(r);
+    });
+
+    it('every stamp-in (the request in, the Thread’s row, the two arrivals): the head down and the first ink on the cue, the reel seated on it', () => {
+      for (const s of [BEAT_4.requestIn, BEAT_4.threadRow, ...BEAT_4.rows]) {
+        expect(hammerAt(s), `f${s}`).toBe(1);
+        expect(hammerAt(s - 3), `f${s}`).toBe(0);
+        const i = TAPE_ROWS.findIndex((x) => x.at.stamp === s);
+        expect(tapeAt(s)).toMatchObject({ row: i, stage: 0 });
+        expect(tapeAt(s - 1).row).toBe(i - 1);
+        expect(tapeAt(s + 2).stage).toBe(2);
+      }
+      // the reel's detents click home on their stamps (spring-detent from 7 f before)
+      for (const d of REEL_DETENTS) expect(d + DETENT_LEAD).toBe(TAPE_ROWS.find((x) => x.at.detent === d)!.at.stamp);
+      expect(stubAt(BEAT_4.requestIn - 1)).toBe(-1);
+      expect(stubAt(BEAT_4.requestIn)).toBe(0);
+    });
+
+    it('each card’s first move on its rise cue and its strike’s pen touching on its strike cue', () => {
+      for (const c of [B4.split, B4.ghost]) {
+        expect(cardAt(c.rise - 1, c)).toBeNull();
+        expect(cardAt(c.rise, c)!.rise).toBeGreaterThan(0);
+        expect(cardAt(c.strike - 1, c)!.strike).toBe(0);
+        expect(cardAt(c.strike, c)!.strike).toBeGreaterThan(0);
+        expect(cardAt(c.strike - 1 + CARD_STRIKE, c)!.strike).toBe(1);
+      }
+    });
+
+    it('each arm detent seated on its cue, never started before its lead', () => {
+      for (const id of IDS) {
+        const d = DISPATCH[id];
+        expect(Math.abs(armAt(d.arm) - DETENT[id]), id).toBeLessThan(0.003);
+        expect(armAt(d.arm - DETENT_LEAD)).toBeCloseTo(armAt(d.arm - DETENT_LEAD - 1), 9);
+      }
+    });
+
+    it('each dispatch: the lid’s leaves hit their stops on the cue, the bay rises from it, its nameplate prints on it', () => {
+      for (const id of IDS) {
+        const r = DISPATCH[id].rise;
+        expect(bayDispatchAt(r, id).hatch).toBe(1);
+        expect(bayDispatchAt(r - 1, id).hatch).toBeLessThan(1);
+        expect(bayDispatchAt(r - LID_FRAMES, id).hatch).toBe(0);
+        expect(bayDispatchAt(r, id).rise).toBe(0);
+        expect(bayDispatchAt(r + 1, id).rise).toBeGreaterThan(0);
+        expect(bayDispatchAt(r - 1, id).plate).toBe(-1);
+        expect(bayDispatchAt(r, id).plate).toBe(0);
+        expect(bayDispatchAt(r + 2, id).plate).toBe(2);
+      }
+    });
+
+    it('the gauge lands face up on its cue, turning over in the 8 f before it', () => {
+      expect(gaugeFlipAt(BEAT_4.gauge)).toBe(0);
+      expect(gaugeFlipAt(BEAT_4.gauge - 1)).toBeGreaterThan(0.1);
+      expect(gaugeFlipAt(BEAT_4.gauge - 8)).toBeCloseTo(Math.PI, 9);
+      expect(gaugeFlipAt(TURN_SPAN[1] + 1)).toBeCloseTo(Math.PI, 9);
+    });
+
+    it('MT1’s cues: the card out of the slot and flying, the stamp’s contact, the reply in the tray, the fresh bay’s leaves on their stops', () => {
+      expect(deskStateAt(MT1.reportUp - 1).card).toBeNull();
+      expect(deskStateAt(MT1.reportUp).card).not.toBeNull();
+      expect(deskStateAt(MT1.stampIn).stamp).toBe(1);
+      expect(deskStateAt(MT1.stampIn - 1).ink).toBe(0);
+      expect(deskStateAt(MT1.stampIn).ink).toBeGreaterThan(0);
+      expect(SLIP_LANDS).toBe(MT1.replyLands);
+      const lands = deskStateAt(MT1.replyLands).slip!;
+      expect(lands.arc).toBe(1);
+      expect(lands.squash).toBe(1);
+      expect(deskStateAt(MT1.replyLands - 1).slip!.arc).toBeLessThan(1);
+      expect(nextAt(MT1.dispatchFresh).hatch).toBe(1);
+      expect(nextAt(MT1.dispatchFresh).rise).toBe(0);
+    });
   });
 
-  it('holds the three bays closed and idle from the turn until each is dispatched, then working by MT1', () => {
-    for (const id of ['bug', 'tests', 'docs'] as const) {
-      const rise = id === 'bug' ? B4.bug.rise : id === 'tests' ? B4.tests.rise : B4.docs.rise;
-      for (const f of [TURN_SPAN[1], rise - HATCH_FRAMES - 1]) {
+  it('dispatches MT1’s fresh bay by the one move: the leaves open over 4 f, the bay rises only once they are open, the hole closes once it is up', () => {
+    const o = { cut: EVENTS_D.cut, cutFrames: EVENTS_D.cutFrames, rise: EVENTS_D.rise };
+    expect(hatchRiseAt(o.rise - HATCH_FRAMES - 1, o).hole).toBe(false);
+    expect(hatchRiseAt(o.rise - HATCH_FRAMES, o).hole).toBe(true);
+    expect(hatchRiseAt(o.rise, o).hatch).toBe(1);
+    for (const f of range(o.rise - 10, o.rise + 1)) expect(hatchRiseAt(f, o).rise).toBe(0);
+    expect(hatchRiseAt(o.rise + 40, o).hole).toBe(false);
+  });
+
+  it('holds the three bays closed (their lids on the slate, no hole, a blank plate) from the turn until each is dispatched, then working by MT1', () => {
+    for (const id of IDS) {
+      const rise = DISPATCH[id].rise;
+      for (const f of [TURN_SPAN[1], TURN_SPAN[1] + 1, rise - LID_FRAMES]) {
         const d = beat4At(f).bays[id];
         expect(d.rise + d.light + d.hatch + d.door, `${id} f${f}`).toBe(0);
-        expect(d.hole).toBe(false);
+        expect(d.hole, `${id} f${f}`).toBe(false);
+        expect(d.plate).toBe(-1);
       }
+      // the hole opens on the leaves' first move, before the slate under them shows
+      expect(beat4At(rise - LID_FRAMES + 1).bays[id].hole).toBe(true);
       const b = beat4At(2140).bays[id];
       expect(b.rise).toBeGreaterThan(0.999);
       expect(b.light).toBeGreaterThan(0.999);
       expect(b.hole).toBe(false);
       expect(b.door).toBe(0);
+      expect(b.plate).toBe(2);
     }
-    // MT1 starts as still (b) was built: the bug bay computing, the test tower's lamps lit, its light at work
     const s = deskStateAt(2140);
     expect(s.bugLight).toBeGreaterThan(0.999);
     expect(s.testsLight).toBeGreaterThan(0.999);
     for (const l of s.lamps) expect(l).toBeGreaterThan(0.999);
   });
 
-  it('lifts the bug bay’s door fully before the request reaches it, and drops it after; the folder takes its vermilion only as it lands', () => {
-    const doorY = BAYS.bug.box.y1;
-    let reached = -1;
-    for (let f = RIDE.groove; f < RIDE.dock; f++) {
-      const p = requestAt(f).pose!;
-      const lead = p.p[1] + Math.sin(p.heading) * 57;
-      if (lead < doorY + 4 && reached < 0) reached = f;
+  it('carries every dispatch down a groove (the request, the CI card, the docs slip): each door fully up 4 f before its carrier reaches it, down after it is in; the light only once it is in', () => {
+    const carrierAt = (id: BayId, f: number) => (id === 'bug' ? requestAt(f).pose : carriersAt(f).find((c) => c.id === id)?.pose ?? null);
+    for (const id of IDS) {
+      const B = BAYS[id];
+      const door: [number, number] = [(B.door[0] + B.door[1]) / 2, B.box.y1];
+      const F = RIDE_FRAMES[id];
+      let reached = -1;
+      for (let f = F.groove; f < F.dock; f++) {
+        const p = carrierAt(id, f)!;
+        expect(p, `${id} f${f}`).not.toBeNull();
+        // through the door's gap only: never through the wall
+        if (Math.abs(p.p[1] - B.box.y1) < 6) expect(p.p[0] > B.door[0] && p.p[0] < B.door[1], `${id} f${f} through the wall`).toBe(true);
+        // its nose within 10 u of the door's line
+        const hl = id === 'bug' ? 57 : id === 'tests' ? 42 : 48;
+        if (reached < 0 && Math.hypot(p.p[0] - door[0], p.p[1] - door[1]) < hl + 10) reached = f;
+      }
+      expect(reached, id).toBeGreaterThan(0);
+      expect(bayDispatchAt(reached - 4, id).door, id).toBeGreaterThan(0.99);
+      expect(DOOR_AT[id].down).toBeGreaterThan(F.dock);
+      expect(bayDispatchAt(F.dock + 12, id).door).toBe(0);
+      expect(bayDispatchAt(F.dock, id).light).toBe(0);
+      expect(bayDispatchAt(F.dock + 12, id).light).toBeGreaterThan(0.5);
+      // its ride is cause after effect: out of the housing only once the arm has turned to it and its hatch is opening
+      expect(F.out).toBeGreaterThan(DISPATCH[id].arm);
     }
-    expect(reached).toBeGreaterThan(0);
-    expect(beat4At(reached - 4).bays.bug.door).toBeGreaterThan(0.99);
-    expect(beat4At(RIDE.dock + 12).bays.bug.door).toBe(0);
     expect(beat4At(RIDE.dock).folderTake).toBe(0);
     expect(beat4At(RIDE.dock + 10).folderTake).toBeGreaterThan(0.9);
-    // its work light comes on after it docks
-    expect(beat4At(RIDE.dock).bays.bug.light).toBe(0);
+    // docked by MT1, resting in their bays
+    for (const c of carriersAt(2140)) expect(c.docked).toBe(true);
+    // each waits wholly inside the dispatch housing until it is pushed out (nothing of it shows before its ride)
+    for (const id of IDS) {
+      const p = id === 'bug' ? requestAt(RIDE_FRAMES.bug.out).pose! : carriersAt(RIDE_FRAMES[id].out).find((c) => c.id === id)!.pose;
+      const hl = id === 'bug' ? 57 : id === 'tests' ? 42 : 48;
+      expect(p.p[0] - hl, id).toBeGreaterThanOrEqual(DISPATCH_HOUSING.box.x0);
+      expect(p.p[0] + hl, id).toBeLessThanOrEqual(DISPATCH_HOUSING.box.x1);
+    }
   });
 
-  it('moves the request continuously: out of the heap, into the head, hidden inside the Register, out of the housing and onto its folder', () => {
-    let prev = requestAt(B4.requestRise).pose!.p;
-    for (const f of range(B4.requestRise + 1, RIDE.dock + 12)) {
-      const p = requestAt(f).pose;
-      if (!p) {
-        // hidden only while it is inside the Register: fed to the head, then waiting until it is dispatched
-        expect(f > B4.requestIn.detent! && f < RIDE.out, `f${f}`).toBe(true);
-        continue;
-      }
-      if (f !== RIDE.out) expect(Math.hypot(p.p[0] - prev[0], p.p[1] - prev[1], p.p[2] - prev[2]), `f${f}`).toBeLessThan(60);
-      prev = p.p;
+  it('moves the request as one body: out of the heap, up the belt, into the throat and under the head, then out of the housing onto its folder (no snap in place, heading or slope)', () => {
+    const intake = range(REQUEST_FROM, REQUEST_RIDE.hidden + 1).map((f): [number, Carry | null] => [f, requestAt(f).pose]);
+    expectContinuous(intake);
+    // hidden only while it is inside the Register (under the head, then waiting until it is dispatched)
+    for (const f of range(REQUEST_RIDE.hidden + 1, RIDE.out)) expect(requestAt(f).pose, `f${f}`).toBeNull();
+    expect(REQUEST_RIDE.hidden).toBeLessThan(BEAT_4.requestIn);
+    const ride = range(RIDE.out, RIDE.dock + 12).map((f): [number, Carry | null] => [f, requestAt(f).pose]);
+    expectContinuous(ride);
+    // its crease: gathered to a slight curl before it moves, the same all the way
+    for (const f of range(B4.requestRise, REQUEST_RIDE.hidden + 1)) expect(requestAt(f).crease).toBe(requestAt(B4.requestRise).crease);
+    // its light through the beetle ramps in and out (never on or off in one frame)
+    for (const f of range(REQUEST_FROM, RIDE.dock + 2)) {
+      const a = requestAt(f - 1).pose?.transit ?? 0;
+      const b = requestAt(f).pose?.transit ?? 0;
+      expect(Math.abs(b - a), `f${f}`).toBeLessThan(0.45);
     }
-    // it carries the transit light only while it moves (one transit light: nothing else is in flight then)
     expect(requestAt(RIDE.dock).pose!.transit).toBe(0);
-    for (const f of range(RIDE.out, RIDE.dock)) expect(deskStateAt(f).next.folderTransit + deskStateAt(f).transit).toBe(0);
+  });
+
+  it('moves every other carrier as one body: the arrivals up the intake, the CI card and the docs slip down their grooves', () => {
+    for (const k of [0, 1]) expectContinuous(range(1800, 1910).map((f): [number, Carry | null] => [f, beat4At(f).arrivals.find((a) => a.kind === (k ? 'chat' : 'ci'))?.pose ?? null]));
+    for (const id of ['tests', 'docs'] as const) expectContinuous(range(1990, 2140).map((f): [number, Carry | null] => [f, carriersAt(f).find((c) => c.id === id)?.pose ?? null]));
+  });
+
+  it('slides every dispatched carrier down the ramp over its sheet, never through it, landing on the slate past its toe', () => {
+    const carrierAt = (id: BayId, f: number) => (id === 'bug' ? requestAt(f).pose : carriersAt(f).find((c) => c.id === id)?.pose ?? null);
+    const half: Record<BayId, [number, number]> = { bug: [57, 26], tests: [42, 25], docs: [48, 20] };
+    // the quarter pipe's top (layout.ts RAMP: the lip's radius, from the rail down to its toe)
+    const sheet = (x: number) => (x < RAMP.x || x > RAMP.foot ? 0 : RAMP.lip - Math.sqrt(RAMP.lip ** 2 - (RAMP.foot - x) ** 2));
+    for (const id of IDS) {
+      const F = RIDE_FRAMES[id];
+      const [hl, hw] = half[id];
+      for (let f = F.out; f <= F.groove; f++) {
+        const c = carrierAt(id, f)!;
+        for (const lx of [-hl, -hl / 2, 0, hl / 2, hl])
+          for (const ly of [-hw, 0, hw]) {
+            const xr = lx * Math.cos(c.slope);
+            const x = c.p[0] + xr * Math.cos(c.heading) - ly * Math.sin(c.heading);
+            const y = c.p[1] + xr * Math.sin(c.heading) + ly * Math.cos(c.heading);
+            const z = c.p[2] + lx * Math.sin(c.slope);
+            if (x > RAMP.x && y > RAMP.y0 && y < RAMP.y1) expect(z, `${id} f${f} (${lx},${ly})`).toBeGreaterThan(sheet(x) - 0.5);
+          }
+      }
+    }
+  });
+
+  it('never spins a dispatched carrier round: it rides its groove tail first, turning only by the groove’s bends and onto its dock', () => {
+    const carrierAt = (id: BayId, f: number) => (id === 'bug' ? requestAt(f).pose : carriersAt(f).find((c) => c.id === id)?.pose ?? null);
+    // the whole turn from the ramp's foot to rest (radians): nose first it was about 4.4 (the request) and 6 (the CI card, the docs slip)
+    const most: Record<BayId, number> = { bug: 3.2, tests: 1.6, docs: 2 };
+    for (const id of IDS) {
+      const F = RIDE_FRAMES[id];
+      let turn = 0;
+      for (let f = F.groove + 1; f <= F.dock; f++) turn += dTurn(carrierAt(id, f - 1)!.heading, carrierAt(id, f)!.heading);
+      expect(turn, id).toBeLessThan(most[id]);
+    }
+  });
+
+  it('settles the pieces that lay on the request and presses the heap flat as history: never through the slate, never floating, stepped down', () => {
+    const onReq = HEAP.filter((p) => Math.abs(p.z - (REQUEST_HEAP.z + ON_REQUEST)) < 1e-6);
+    expect(onReq.length).toBeGreaterThan(0);
+    // settled onto what lay under the request once it has slid out (no piece left at its old height)
+    for (const p of onReq) expect(heapPieceAt(p.z, true, heapAt(REQUEST_RIDE.post + 3)).z).toBeCloseTo(REQUEST_HEAP.z, 6);
+    for (const f of range(B4.requestRise, 2140)) {
+      const h = heapAt(f);
+      const g = heapAt(f - 1);
+      for (const p of HEAP) {
+        const on = onReq.includes(p);
+        const a = heapPieceAt(p.z, on, g);
+        const b = heapPieceAt(p.z, on, h);
+        expect(b.z, `f${f}`).toBeGreaterThan(0.1);
+        // pressed on spring-heavy: a press (at most 4 u a frame, about 3 px), never a jump
+        expect(Math.abs(b.z - a.z), `f${f}`).toBeLessThan(4);
+      }
+    }
+    // pressed flat and stepped by (b), and it stays (never dropped through a hatch: no heap hole exists)
+    const b = heapAt(2225);
+    expect(b.press).toBeGreaterThan(0.999);
+    expect(b.step).toBe(1);
+    for (const p of HEAP) expect(heapPieceAt(p.z, onReq.includes(p), b).z).toBeLessThan(1.6);
+    // its shadows draw in under its pieces before they stop casting (nothing pops at the stop)
+    const last = heapFootprintsAt(heapAt(B4.heapPress + HEAP_CAST - 1));
+    expect(last.length).toBeGreaterThan(0);
+    for (const fp of last) if (fp.kind === 'rect') expect(fp.contact).toBeLessThan(0.002);
+    expect(heapFootprintsAt(heapAt(B4.heapPress + HEAP_CAST))).toEqual([]);
   });
 
   it('prints the tape row by row, and leaves (b)’s window for MT1’s stamp-in: docs, CI, the request, the first chat slip', () => {
-    // each state adds one cell (a stamp-in that drives the tape on) or inks the Thread's mark into the request's own row
     expect(TAPE_ROWS.map((r) => r.cells.length)).toEqual([1, 2, 2, 3, 4]);
     const last = TAPE_ROWS[TAPE_ROWS.length - 1].cells;
     expect(last.map((c) => c.kind)).toEqual(CELLS_BEFORE.slice(0, 4).map((c) => c.kind));
     expect(last.map((c) => !!c.request)).toEqual(CELLS_BEFORE.slice(0, 4).map((c) => c.request));
-    // after MT1's stamp-in the window shows (b)'s cells: #0408 and these four
     expect(CELLS.slice(1).map((c) => c.kind)).toEqual(last.map((c) => c.kind));
-    // never a print before its stamp: the ink shows from 2 f after the head drops
-    for (const r of TAPE_ROWS.slice(1)) {
-      expect(tapeAt(r.at.stamp + 1).row).toBe(TAPE_ROWS.indexOf(r) - 1);
-      expect(tapeAt(r.at.stamp + 2)).toMatchObject({ row: TAPE_ROWS.indexOf(r), stage: 0 });
-      expect(tapeAt(r.at.stamp + 4).stage).toBe(2);
-    }
+    // the Thread's mark is inked into the request's own row (no tape advance)
+    expect(TAPE_ROWS[2].at.detent).toBeNull();
+    expect(TAPE_ROWS[2].cells.find((c) => c.request)!.thread).toBe(true);
     expect(tapeAt(2140)).toEqual({ row: TAPE_ROWS.length - 1, stage: 2, advance: 0 });
-    // the newest cell lights as each row inks and goes out as the tape next moves on (MT1's detent last)
     expect(cellLitAt(2140)).toBeGreaterThan(0.99);
     expect(cellLitAt(2200)).toBeLessThan(0.01);
   });
@@ -134,30 +359,86 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
     expect(Math.abs(reelAt(2140))).toBeLessThan(1e-6);
   });
 
-  it('turns the arm to each bay as it is dispatched and keeps a tick on beats 2 and 4 under N2, resting at the docs galley for MT1', () => {
-    expect(armAt(B4.armBug - 1)).toBeCloseTo(DETENT.tests, 9);
-    expect(armAt(B4.bug.rise)).toBeCloseTo(DETENT.bug, 2);
-    expect(armAt(B4.tests.rise + 8)).toBeCloseTo(DETENT.tests, 2);
+  it('turns the arm to each bay and ticks it visibly on beats 2 and 4 under N2 (each tick clicking home on its beat), resting at the docs galley for MT1', () => {
+    expect(armAt(B4.armBug - DETENT_LEAD)).toBeCloseTo(DETENT.tests, 9);
     expect(armAt(2100)).toBeCloseTo(armRest(), 6);
-    for (const t of B4.ticks) expect(Math.abs(armAt(t + 2) - armAt(t - 1))).toBeGreaterThan(0.01);
+    for (const t of B4.ticks) {
+      // off its notch by most of a tick (about 8 px at its tip) a few frames before the beat, home on the beat
+      const peak = Math.max(...range(t - 10, t).map((f) => Math.abs(armAt(f) - armAt(t))));
+      expect(peak, `tick ${t}`).toBeGreaterThan(0.75 * TICK);
+      expect(Math.abs(armAt(t) - armAt(t + 3)), `tick ${t}`).toBeLessThan(0.003);
+    }
+    expect(B4.ticks).toEqual([1820, 1860, 1900, 1940]);
     expect(MT1.dispatchFresh).toBe(EVENTS_D.rise);
   });
 
-  it('rises, strikes and clears each counterfactual on its cues, one at a time', () => {
-    for (const c of [B4.split, B4.ghost]) {
-      expect(cardAt(c.rise - 1, c)).toBeNull();
-      expect(cardAt(c.rise + CARD_RISE, c)!.rise).toBe(1);
-      expect(cardAt(c.strike - 1, c)!.strike).toBe(0);
-      expect(cardAt(c.strike + CARD_STRIKE, c)!.strike).toBe(1);
-      expect(cardAt(c.strike + CARD_STRIKE + CARD_EXIT, c)).toBeNull();
+  it('brings each counterfactual in from beyond the frame’s top edge and takes it back off it (never appearing or vanishing), one at a time, with everything else stepped down and the light on it', () => {
+    const pose = deskCamera(FRAMING_B, 15);
+    const offFrame = (c: { c: P3; tilt: number }) => {
+      // its lowest edge, on screen: above the frame's top
+      const p: P3 = [c.c[0], c.c[1] - (CARD_SPOT.h / 2) * Math.cos(c.tilt), c.c[2] - (CARD_SPOT.h / 2) * Math.sin(c.tilt)];
+      return project(pose, p)[1] < 0;
+    };
+    for (const which of ['split', 'ghost'] as const) {
+      const c = B4[which];
+      const first = cardAt(c.rise, c)!;
+      const lastF = c.strike - 1 + CARD_STRIKE + CARD_EXIT - 1;
+      // the frame before it is drawn (a zero-in pose) and on the last frame it is drawn, it is wholly off the frame: it
+      // never appears or vanishes in view
+      expect(offFrame(cardPose({ ...first, rise: 0 }, which))).toBe(true);
+      expect(cardAt(lastF + 1, c)).toBeNull();
+      expect(offFrame(cardPose(cardAt(lastF, c)!, which))).toBe(true);
+      // and it slides: never more than a third of its way in a frame
+      for (let f = c.rise; f <= lastF; f++) expect(Math.abs(cardIn(cardAt(f, c)) - cardIn(cardAt(f - 1, c))), `${which} f${f}`).toBeLessThan(0.34);
+      expect(cardAt(c.rise + CARD_RISE - 1, c)!.rise).toBe(1);
+      // the focus: everything but the card steps down while it is up
+      const beat = FOCUS_BEATS.find((b) => b.id === which)!;
+      expect(beat.from).toBeLessThanOrEqual(c.rise);
+      expect(stepAt(c.strike).amount).toBe(1);
+      expect(stepAt(c.strike).ids).toContain('deck');
+      // and the light is on it
+      expect(poolsAt(deskStateAt(c.strike)).some((p) => p.c[0] === CARD_AT[which].at[0] && p.rgb[0] > 0.5)).toBe(true);
     }
+    // the ghost Router leaves the real index arm at full contrast (it keeps its beat)
+    expect(stepAt(B4.ghost.strike).ids).not.toContain('index');
     for (let f = 1600; f < 2140; f++) {
       const b = beat4At(f);
       expect(Number(b.cards.split !== null) + Number(b.cards.ghost !== null)).toBeLessThanOrEqual(1);
     }
   });
 
-  it('casts at most 128 footprints through beat 4', () => {
-    for (let f = TURN_SPAN[1]; f < 2140; f += 3) expect(footprintsAt(deskStateAt(f)).length, `f${f}`).toBeLessThanOrEqual(MAX_FOOTPRINTS);
+  it('casts at most 128 footprints and 8 pools through beat 4', () => {
+    for (let f = TURN_SPAN[1]; f < 2140; f += 2) {
+      const s = deskStateAt(f);
+      expect(footprintsAt(s).length, `f${f}`).toBeLessThanOrEqual(MAX_FOOTPRINTS);
+      expect(poolsAt(s).length).toBeLessThanOrEqual(MAX_POOLS);
+    }
+  });
+
+  it('hands the turn its end: act two at f1660 casts the turn’s footprints plus the heap’s (desk/turn.ts must cast heapFootprintsAt(heapAt(f)) too)', () => {
+    // as a multiset (a capsule either way round, rounded to 0.05 u), as turn.test.ts compares them
+    const key = (fp: Footprint): string => {
+      const r = (x: number) => (Math.round(x * 20) / 20).toFixed(2);
+      if (fp.kind === 'seg') {
+        const [a, b] = [`${r(fp.a[0])},${r(fp.a[1])},${r(fp.ha)}`, `${r(fp.b[0])},${r(fp.b[1])},${r(fp.hb)}`].sort();
+        return `seg ${a} ${b} ${r(fp.r)}`;
+      }
+      if (fp.kind === 'canopy') return `canopy ${r(fp.c[0])},${r(fp.c[1])} ${r(fp.h[0])},${r(fp.h[1])} ${r(fp.z)} ${r(fp.strength)}`;
+      if (fp.kind === 'circle') return `circle ${r(fp.c[0])},${r(fp.c[1])} ${r(fp.r)} ${r(fp.z0)}-${r(fp.z1)} ${r(fp.contact)}`;
+      return `rect ${r(fp.c[0])},${r(fp.c[1])} ${r(fp.h[0])},${r(fp.h[1])} ${r(fp.r)} ${r(fp.rot)} ${r(fp.z0)}-${r(fp.z1)} ${r(fp.contact)}`;
+    };
+    const f = TURN_SPAN[1];
+    const act2 = footprintsAt(deskStateAt(f)).map(key).sort();
+    const turn = [...turnFootprints(turnAt(f)), ...heapFootprintsAt(heapAt(f))].map(key).sort();
+    expect(act2).toEqual(turn);
+  });
+
+  it('keeps a closed bay’s look for the turn to draw: no hole, no work, its lid on the slate', () => {
+    for (const id of IDS) {
+      const d = bayDispatchAt(TURN_SPAN[1], id);
+      expect(d.hole).toBe(false);
+      expect(d.hatch).toBe(0);
+      expect(rectC(BAYS[id].box)).toBeTruthy();
+    }
   });
 });

@@ -7,7 +7,8 @@
  * - the grooves, engraved: whole hand-overs run in them from the ramp to each bay's door. The wall
  *   that faces the key is lit (+8% on its lip), the other is in shadow (−18%);
  * - act one's folders, pressed into the desk under the deck (history, at −2);
- * - never darker than BT.709 limited luma 38 anywhere: a floor clamp.
+ * - never darker than BT.709 limited luma 38 anywhere: a floor clamp;
+ * - a hatch's leaf cut from the slate draws with its own instance (`uShift`): its marks slide with it.
  * Corners never darken: no vignette, here or in the post.
  */
 import { Curve, NOISE_GLSL } from '@aiv/remotion-kit';
@@ -78,6 +79,7 @@ uniform vec4 uGrooveBox[${GROOVE_IDS.length}];
 uniform float uGrooveW;
 uniform float uGrooveCut[${GROOVE_IDS.length}];
 uniform vec4 uHole[3];
+uniform vec2 uShift;
 uniform vec4 uImp[${IMPRINTS.length}];
 uniform vec4 uImpRot[${IMPRINTS.length}];
 ${NOISE_GLSL}
@@ -160,11 +162,14 @@ void main() {
     vec4 o = uHole[h];
     if (p.x > o.x && p.y > o.y && p.x < o.z && p.y < o.w) discard;
   }
-  float tooth = aivNoise(p / 3.0) * 2.0 - 1.0;
-  float cloud = aivFbm(p / 300.0 + 3.7) * 2.0 - 1.0;
+  // the surface's own marks (tooth, cloud, grooves, imprints) where this piece of slate was cut from: a hatch's leaf
+  // carries them with it as it slides (uShift, its offset from its shut place); light and shadow stay in the world
+  vec2 q = p - uShift;
+  float tooth = aivNoise(q / 3.0) * 2.0 - 1.0;
+  float cloud = aivFbm(q / 300.0 + 3.7) * 2.0 - 1.0;
   // tooth and cloud at amplitudes that survive the 8-bit delivery on this dark slate (about +/-2 and +/-1 codes)
   vec3 col = uBase * (1.0 + 0.065 * tooth + 0.035 * cloud);
-  col *= 1.0 + grooveShade(p) + imprintShade(p);
+  col *= 1.0 + grooveShade(q) + imprintShade(q);
   col *= 1.0 + dskPool(vec3(p, 0.0));
   vec2 sh = dskShade(p, 0.0);
   float dark = 1.0 - (1.0 - 0.40 * sh.x) * (1.0 - 0.46 * sh.y);
@@ -196,6 +201,7 @@ export function makeDeskMaterial(): ShaderMaterial {
       uGrooveW: { value: GROOVE_HALF_W },
       uGrooveCut: DESK_GROOVE_CUT,
       uHole: DESK_HOLES,
+      uShift: { value: new Vector2(0, 0) },
       uImp: { value: IMPRINTS.map((m) => new Vector4(m.c[0], m.c[1], m.w / 2, m.d / 2)) },
       uImpRot: { value: IMPRINTS.map((m) => new Vector4(Math.cos(m.rot), Math.sin(m.rot), 10, 1)) },
     },

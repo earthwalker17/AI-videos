@@ -20,10 +20,12 @@
 import { rand } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, Path, Quaternion, Shape, Vector3, type MeshStandardMaterial, type Texture } from 'three';
+import { FIX_A } from '../../cues.ts';
 import { FOLDER_PRINT, LOOP_NOTES } from '../../print.ts';
 import { chatSlipPrint, leafPrint } from './Intake.tsx';
 import {
   CARD,
+  CLIP_TRAVEL,
   COVER_Z,
   FLAG,
   FOLDERS,
@@ -38,6 +40,7 @@ import {
   cardLocal,
   flagHinge,
   flagLocal,
+  flagSink,
   loopNormal,
   loopPoint,
   penLocal,
@@ -58,6 +61,7 @@ import { HEX, paper, whiteTexture } from '../gl/materials.ts';
 import { INK, print, texture, tooth } from '../gl/text.ts';
 import { Step, isStepped, useDeskMats } from '../kit.tsx';
 import type { P2, P3 } from '../layout.ts';
+import { STEP_FRAMES } from '../state.ts';
 
 // the slip helpers live in geom.ts (Intake.tsx needs them too); the turn imports them from here
 export { fitUv, piece, slipShape };
@@ -179,7 +183,7 @@ export function makeActOnePrint(family: string, aniso: number, tapeLen: number, 
       PIECE.mail[1],
       (g) => {
         const [w, h] = PIECE.mail;
-        chatSlipPrint(g, w, h, 60 + i);
+        chatSlipPrint(g, w, h, 60 + i, false);
         g.strokeStyle = 'rgba(62,60,56,0.55)';
         g.lineWidth = 1.3;
         g.beginPath();
@@ -461,11 +465,11 @@ function penGeometry(fl: FolderLayout, s: FolderState): { body: BufferGeometry; 
   return { body, cap, nib };
 }
 
-/** The flag: a steel staff from its hinge and a swallowtail enamel pennant at its top (folder-local). */
+/** The flag: a steel staff from its hinge and a swallowtail enamel pennant at its top (folder-local); it sinks into its slot as it tucks. */
 function flagGeometry(fl: FolderLayout, up: number): { staff: BufferGeometry; pennant: BufferGeometry } {
   const h = flagHinge(fl);
   const top = flagLocal(fl, up);
-  const staff = tube([[h[0], h[1], stackTop(fl) + 1], top], 1.5, 4, 8);
+  const staff = tube([[h[0], h[1], stackTop(fl) + 1 - flagSink(fl, up)], top], 1.5, 4, 8);
   const [pw, ph] = FLAG.plate;
   const s = new Shape();
   s.moveTo(0, -ph / 2);
@@ -491,11 +495,12 @@ interface FolderMats {
 
 const mix = (a: string, b: string, t: number): Color => new Color(a).lerp(new Color(b), t);
 
-function Folder({ fl, s, lit, mats, press }: { fl: FolderLayout; s: FolderState; lit: number; mats: FolderMats; press?: Press }) {
+function Folder({ fl, s, mats, press }: { fl: FolderLayout; s: FolderState; mats: FolderMats; press?: Press }) {
   const m = useDeskMats();
   const g = useMemo(() => folderGeometry(fl), [fl]);
   const pen = useMemo(() => penGeometry(fl, s), [fl, s]);
-  const flag = useMemo(() => (s.flag > 0.05 ? flagGeometry(fl, s.flag) : null), [fl, s.flag]);
+  const flag = useMemo(() => (s.flag > 0.01 ? flagGeometry(fl, s.flag) : null), [fl, s.flag]);
+  const lit = s.lit;
   useLayoutEffect(() => {
     // warm: how far above the cold step (warmth decays over τ 120 f); lit: under the lamp
     const warm = Math.min(Math.max((s.warmth - 0.15) / 0.35, 0), 1);
@@ -507,23 +512,22 @@ function Folder({ fl, s, lit, mats, press }: { fl: FolderLayout; s: FolderState;
     mats.card.color.copy(sheet).lerp(new Color(HEX.paperLit), 0.12 * (1 - lit));
   }, [mats, s.warmth, lit]);
   if (s.present <= 0 || (press && press.k >= 1)) return null;
-  // unfolding (F6–F8): the folder grows out from under its card, from the card's own outline to the whole cover and
-  // stack, about the card's centre; the card stays its size and rides up with the stack's top
+  // F6–F8 are posted in whole (actOne.ts boardAt): the board flies in at full scale and squashes 3% as it lands; its task
+  // card is on the stack once the event slip has landed on it, and its clip, riding open on the board's north edge, slides
+  // south onto the card and snaps shut (spring-dock)
   const { c: cc, turn } = cardLocal(fl);
-  const [cw, cd] = CARD[fl.card];
-  const k = s.present;
-  const sx = cw / fl.w + (1 - cw / fl.w) * k;
-  const sy = cd / fl.d + (1 - cd / fl.d) * k;
-  const sz = 0.04 + 0.96 * k;
-  const cardZ = (stackTop(fl) + 0.2) * sz;
+  const cardZ = stackTop(fl) + 0.2;
+  const b = s.board;
+  const sq = b?.squash ?? 0;
+  const open = 1 - s.clip;
   // pressed into the desk at the turn as one body (desk/turn.ts pressAt): squashed flat with its pen, flag and clip, then
   // sunk north edge first into its imprint
   const drop = -(press?.sink ?? 0);
   return (
-    <group position={[fl.c[0], fl.c[1], drop]} rotation={[0, 0, fl.rot]}>
+    <group position={[fl.c[0] + (b?.off[0] ?? 0), fl.c[1] + (b?.off[1] ?? 0), drop + (b?.off[2] ?? 0)]} rotation={[b?.tilt ?? 0, 0, fl.rot]} scale={[1 + sq / 2, 1 + sq / 2, 1 - sq]}>
       <group rotation={[-(press?.tilt ?? 0), 0, 0]} scale={[1, 1, press?.scaleZ ?? 1]}>
-        <group position={[cc[0], cc[1], 0]} scale={[sx, sy, sz]}>
-          <group position={[-cc[0], -cc[1], 0]}>
+        <group>
+          <group>
             <mesh geometry={g.cover} material={mats.cover} />
             <mesh geometry={g.tab} material={mats.cover} />
             <mesh geometry={g.layers} material={mats.sheet} />
@@ -542,13 +546,11 @@ function Folder({ fl, s, lit, mats, press }: { fl: FolderLayout; s: FolderState;
           </group>
         </group>
         <group position={[cc[0], cc[1], cardZ]} rotation={[0, 0, turn]}>
-          <mesh geometry={g.card} material={mats.card} />
-          {k >= 1 && (
-            <>
-              <mesh geometry={g.clip} material={m.graphiteDark} />
-              <mesh geometry={g.clipWire} material={m.steel} />
-            </>
-          )}
+          {s.card && <mesh geometry={g.card} material={mats.card} />}
+          <group position={[0, CLIP_TRAVEL * open, 3.5 * Math.max(open, 0)]} rotation={[0.5 * Math.max(open, 0), 0, 0]}>
+            <mesh geometry={g.clip} material={m.graphiteDark} />
+            <mesh geometry={g.clipWire} material={m.steel} />
+          </group>
         </group>
       </group>
     </group>
@@ -584,8 +586,17 @@ export function requestGeometry(lift: number = REQUEST_A.lift): { body: BufferGe
       s.holes.push(leg);
     }
   const bodyG = extrude(s, 0, 0.7, 0);
-  // the flap: hinged on the crease, lifted
-  const flap = slab({ x0: 0, x1: R.crease, y0: -hw, y1: hw }, 0, 0.7, 0.6, 0.2);
+  // the flap: hinged on the crease, lifted a little (a shallow crease, so it never reads as a block), its leading end
+  // notched like every chat slip out of the spout
+  const fs = new Shape();
+  const nk = R.w * 0.28;
+  fs.moveTo(0, -hw);
+  fs.lineTo(R.crease, -hw);
+  fs.lineTo(R.crease - nk, 0);
+  fs.lineTo(R.crease, hw);
+  fs.lineTo(0, hw);
+  fs.closePath();
+  const flap = extrude(fs, 0, 0.7, 0.2);
   flap.rotateY(-lift);
   flap.translate(xc, 0, 0.2 * (lift / R.lift));
   const crease = slab({ x0: xc - 1.2, x1: xc + 1.2, y0: -hw + 1, y1: hw - 1 }, 0.2, 0.9, 0.4, 0.1);
@@ -640,11 +651,14 @@ function Heap({ a, print: tex, stepRequest = false }: { a: ActOneState; print: A
   }, [tex]);
   useLayoutEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
   // the request's own paper: a chat slip's stock until its cue, then vermilion (the request motif), over spring-effects; it
-  // keeps its colour when the intake steps down (it is the film's tracer), and steps down with the heap in the turn's pull
+  // keeps its colour when the intake steps down in beat 2 (it is the film's tracer), steps down with the rest of act one
+  // as beat 3's fixes take the focus (the kit's own ramp), then stays down with the heap (the intake's: both are fully
+  // stepped when it changes sets, so nothing jumps) into the turn's pull
+  const reqStep = stepRequest || a.f >= FIX_A.in + STEP_FRAMES ? true : ('own' as const);
   const reqMats = useMemo(() => {
     const white = whiteTexture();
-    return { paper: paper(white, REQUEST_PAPER, { roughness: 0.82, stepped: stepRequest }), shade: paper(white, REQUEST_PAPER_SHADE, { roughness: 0.85, stepped: stepRequest }) };
-  }, [stepRequest]);
+    return { paper: paper(white, REQUEST_PAPER, { roughness: 0.82, stepped: reqStep }), shade: paper(white, REQUEST_PAPER_SHADE, { roughness: 0.85, stepped: reqStep }) };
+  }, [reqStep]);
   useLayoutEffect(() => () => Object.values(reqMats).forEach((m) => m.dispose()), [reqMats]);
   useLayoutEffect(() => {
     reqMats.paper.color.set(REQUEST_PAPER).lerp(new Color(HEX.vermilion), a.request.ink);
@@ -716,11 +730,24 @@ function NotesLoop({ a, tape, tabMat }: { a: ActOneState; tape: MeshStandardMate
   );
 }
 
-/** How lit each folder is: the lamp's aim near its centre. */
-const litOf = (a: ActOneState, fl: FolderLayout): number => Math.exp(-((a.lamp.aim[0] - fl.c[0]) ** 2 + (a.lamp.aim[1] - fl.c[1]) ** 2) / (2 * 50 * 50));
 
 /** Where each folder's note is printed along the tape (u from the clip): at its own tab (actOne.ts TAB_SHARE), so a note and its tab always pair up. */
 export const loopNotes = (len: number): number[] => TAB_SHARE.map((k) => k * len);
+/**
+ * Each note exactly at its tab on this pose of the loop (u from the clip): the arc length from the clip to the tab's
+ * parameter angle. The tabs keep their angles as the loop tightens and as its clip shuts, and the arc from the clip to an
+ * angle does not depend on the clip (only the ribbon's end does), so a note never leaves its tab.
+ */
+export function loopNotesAt(L: LoopPose): number[] {
+  const arc = loopArc({ ...L, closed: 1 });
+  return FOLDERS.map((fl) => {
+    let t = tabAt(L, fl);
+    while (t < L.clipAt) t += Math.PI * 2;
+    let k = 1;
+    while (k < arc.t.length - 1 && arc.t[k] < t) k++;
+    return arc.s[k - 1] + ((arc.s[k] - arc.s[k - 1]) * (t - arc.t[k - 1])) / (arc.t[k] - arc.t[k - 1]);
+  });
+}
 /** Whether each note lies on the loop's north half (it is turned over there, to read upright from the camera). */
 export function loopNoteFlips(L: LoopPose, notes: readonly number[]): boolean[] {
   const { t, s: arc } = loopArc(L);
@@ -738,7 +765,9 @@ export function loopNoteFlips(L: LoopPose, notes: readonly number[]): boolean[] 
 export function ActOneObjects({ a, printFamily, press, loop = true, stepRequest = false }: { a: ActOneState; printFamily: string; press?: readonly Press[]; loop?: boolean; stepRequest?: boolean }) {
   const L0 = a.loop;
   const arc = useMemo(() => loopArc(L0), [L0]);
-  const notes = useMemo(() => loopNotes(arc.len), [arc]);
+  // each note at its own tab on every frame (loopNotesAt), never on a share of the open span's length (which set every note
+  // 50–85 u behind its tab until the clip shut at the hub, then slid them)
+  const notes = useMemo(() => loopNotesAt(L0), [L0]);
   const flips = useMemo(() => loopNoteFlips(L0, notes), [L0, notes]);
   // each note as written so far (quantised to 1/6, the 6 f wipe, so the tape's texture is rebuilt only on those frames)
   const writtenKey = a.folders.map((s) => Math.round(s.note * 6) / 6).join(',');
@@ -768,7 +797,7 @@ export function ActOneObjects({ a, printFamily, press, loop = true, stepRequest 
     <>
       <Step on={stepFolders}>
         {FOLDERS.map((fl, i) => (
-          <Folder key={fl.n} fl={fl} s={a.folders[i]} lit={litOf(a, fl)} mats={mats.folders[i]} press={press?.[i]} />
+          <Folder key={fl.n} fl={fl} s={a.folders[i]} mats={mats.folders[i]} press={press?.[i]} />
         ))}
       </Step>
       <EventSlips a={a} mats={mats.folders} />

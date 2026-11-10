@@ -15,16 +15,18 @@
  * Every rack holds the same three tools (a magnifier, a wrench, a pen): the family's shared fixture.
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
-import { CircleGeometry, Color, Path, Shape, type BufferGeometry } from 'three';
+import { textCanvas } from '@aiv/remotion-kit';
+import { CanvasTexture, CircleGeometry, Color, MeshBasicMaterial, Path, SRGBColorSpace, Shape, ShapeGeometry, TorusGeometry, type BufferGeometry, type Texture } from 'three';
 import { REQUEST_DOCK, REQUEST_DOCK_HEADING, RIDE, WORK_DEPTH, type BayDispatch, type Carry } from '../beat4.ts';
 import { bayDoor, bayWalls } from '../footprints.ts';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, tube } from '../geom.ts';
 import { EMIT, Step, WithMats, isStepped, useDeskMats, useDeskSets, type DeskMats } from '../kit.tsx';
-import { BAYS, BAY_FLOOR, BENCH, CARD, CARD_FILE, FOLDER, FRESH, GALLEY_TRAY, HATCH_DEPTH, PINS, REQUEST, SHEET, SINK, TOWER, rectC, towerTop, type BayId, type BayLayout, type Rect } from '../layout.ts';
+import { BAYS, BAY_FLOOR, BENCH, CARD, CARD_FILE, FOLDER, FRESH, GALLEY_TRAY, HATCH_DEPTH, PINS, REQUEST, SHEET, SINK, TOWER, rectC, towerTop, type BayId, type BayLayout, type Rect, type WorkerId } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
-import type { MeshBasicMaterial } from 'three';
 import { CAP_SLOT, closeAt, type DeskState } from '../state.ts';
+import { Hatch, TaskCarrier, shellInside } from './Dispatch.tsx';
 import { HEX, paper, whiteTexture } from '../gl/materials.ts';
+import { stagedInk } from '../gl/text.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 const z = BAY_FLOOR + 4;
@@ -107,9 +109,10 @@ function useBayGeometry(b: BayLayout, tools: (rack: Rect) => Tools) {
  * slot, the dossier, the rack and the superstructure) rises out of the hatch inside the shell when the bay is
  * dispatched (`work`: drawn at all, `workZ`: its height, below 0 while it rises). A closed, idle bay is its shell.
  */
-function BayBase({ b, slot, slotMat, tools = sharedTools, door = 0, close = 0, work = true, workZ = 0, children }: { b: BayLayout; slot: 'slotBug' | 'slotTests' | 'slotDocs' | 'slotFresh'; slotMat?: MeshBasicMaterial; tools?: (rack: Rect) => Tools; door?: number; close?: number; work?: boolean; workZ?: number; children?: ReactNode }) {
+function BayBase({ b, slot, slotMat, tools = sharedTools, door = 0, close = 0, work = true, workZ = 0, plate = 2, children }: { b: BayLayout; slot: 'slotBug' | 'slotTests' | 'slotDocs' | 'slotFresh'; slotMat?: MeshBasicMaterial; tools?: (rack: Rect) => Tools; door?: number; close?: number; work?: boolean; workZ?: number; plate?: number; children?: ReactNode }) {
   const m = useDeskMats();
   const g = useBayGeometry(b, tools);
+  usePlatePrint(b.id, plate, close);
   const lift = door * (b.wallH - 2);
   return (
     <group>
@@ -137,8 +140,93 @@ function BayBase({ b, slot, slotMat, tools = sharedTools, door = 0, close = 0, w
   );
 }
 
-/** A bay's work while it is dispatched (beat4.ts hatchRiseAt): drawn once its hatch opens, at its height as it rises. */
-export const workOf = (d: BayDispatch, id: BayId): { work: boolean; workZ: number } => ({ work: d.rise > 0 || d.hole, workZ: -WORK_DEPTH[id] * (1 - d.rise) });
+/** A bay's work while it is dispatched (beat4.ts hatchRiseAt): drawn once its hatch's leaves part, at its height as it rises. */
+export const workOf = (d: BayDispatch, id: BayId): { work: boolean; workZ: number } => ({ work: d.rise > 0 || d.hatch > 0, workZ: -WORK_DEPTH[id] * (1 - d.rise) });
+
+/** The nameplate's print at its ink's stages (gl/text.ts stagedInk), made from its printed texture: its ink is what is darker than the plate's white. */
+function plateStages(printed: Texture): Texture[] {
+  const src = printed.image as HTMLCanvasElement;
+  const [W, H] = [src.width, src.height];
+  const ink = textCanvas(W, H);
+  ink.g.drawImage(src, 0, 0);
+  const d = ink.g.getImageData(0, 0, W, H);
+  for (let i = 0; i < W * H; i++) {
+    const l = (0.2126 * d.data[i * 4] + 0.7152 * d.data[i * 4 + 1] + 0.0722 * d.data[i * 4 + 2]) / 255;
+    // ink where the print darkens the white plate (its own colour kept), clear elsewhere
+    d.data[i * 4 + 3] = Math.round(255 * Math.min(1, Math.max(0, (1 - l) * 1.6)));
+  }
+  ink.g.putImageData(d, 0, 0);
+  const out = [0, 1].map((stage) => {
+    const { c, g } = textCanvas(W, H);
+    g.fillStyle = '#FFFFFF';
+    g.fillRect(0, 0, W, H);
+    stagedInk(g, W, H, 1, stage, (ig) => ig.drawImage(ink.c, 0, 0));
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    t.anisotropy = printed.anisotropy;
+    return t;
+  });
+  const blank = (() => {
+    const { c, g } = textCanvas(4, 4);
+    g.fillStyle = '#FFFFFF';
+    g.fillRect(0, 0, 4, 4);
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    return t;
+  })();
+  // the close shot's cross-fade of the print to bare enamel (TREATMENT Type: printed fields swap by an 8 f cross-fade at
+  // the start of a camera move, on those objects only): the print a step fainter each frame, as textures (never alpha)
+  const fades = Array.from({ length: PLATE_FADES - 1 }, (_, i) => {
+    const { c, g } = textCanvas(W, H);
+    g.fillStyle = '#FFFFFF';
+    g.fillRect(0, 0, W, H);
+    g.globalAlpha = 1 - (i + 1) / PLATE_FADES;
+    g.drawImage(src, 0, 0);
+    g.globalAlpha = 1;
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    t.anisotropy = printed.anisotropy;
+    return t;
+  });
+  return [...out, blank, ...fades];
+}
+/** The steps of the close shot's cross-fade of a nameplate's print (its 8 f). */
+const PLATE_FADES = 8;
+
+/**
+ * A beat-4 bay's nameplate as its dispatch prints it (beat4.ts bayDispatchAt `plate`): blank while the bay stands closed,
+ * its ID inked over 3 f from the dispatch's cue; in the close on the reading window (state.ts closeAt) its print
+ * cross-fades to bare enamel, as still (c) has it (marks.ts keepClose: the nameplates print nothing there). Every set's
+ * nameplate material takes the frame's print (set every frame, so a page starting anywhere draws the same); the fresh
+ * bay's plate is its own.
+ */
+function usePlatePrint(id: WorkerId, plate: number, close: number) {
+  const sets = useDeskSets();
+  const stages = useMemo(() => (id === 'fresh' ? null : plateStages(sets.textures.nameplate[id])), [id, sets]);
+  useLayoutEffect(() => () => stages?.forEach((t) => t.dispose()), [stages]);
+  const fade = Math.round(Math.min(1, Math.max(0, close)) * PLATE_FADES);
+  useLayoutEffect(() => {
+    if (!stages) return;
+    const printed = fade >= PLATE_FADES ? stages[2] : fade > 0 ? stages[2 + fade] : sets.textures.nameplate[id];
+    const map = plate < 0 ? stages[2] : plate < 2 ? stages[plate] : printed;
+    for (const set of [sets.full, sets.stepped, sets.late, sets.own]) set.printed.nameplate[id].map = map;
+  }, [stages, plate, fade, sets, id]);
+}
+
+/**
+ * A beat-4 bay standing closed, as act two shows it from the turn's end until its dispatch (the turn draws it so): its
+ * shell (walls, blank nameplate, shut door) round its lid lying on the slate (objects/Dispatch.tsx Hatch 'lid'); no
+ * work, no light, no hole in the slate.
+ */
+export function ClosedBay({ id }: { id: BayId }) {
+  const slot = id === 'bug' ? 'slotBug' : id === 'tests' ? 'slotTests' : 'slotDocs';
+  return (
+    <>
+      <BayBase b={BAYS[id]} slot={slot} work={false} plate={-1} door={0} />
+      <Hatch box={BAYS[id].box} open={0} depth={WORK_DEPTH[id]} look="lid" inner={shellInside(id)} />
+    </>
+  );
+}
 
 /** A dark work slot: nothing computes there (an idle Worker); a computing one is lit, evenly to the eye from dark (geometric). */
 export const SLOT_IDLE = '#1E2120';
@@ -214,6 +302,38 @@ export function requestParts(): { body: BufferGeometry; print: BufferGeometry; l
   return { body: extrude(s, -0.3, 0.6, 0), print, light };
 }
 
+/** The transit light through the request's beetle: a little over the bloom's threshold, so it reads as light through a stencil and never a blown disc. */
+export const BEETLE_LIGHT = 2.2;
+/** What the cut-out shows with its light out: a dark graphite, as the belt, the throat and the groove under it (its light ramps up from this, never from black). */
+const BEETLE_DARK = '#3A3C3B';
+/** The beetle's cut-out as light: its body, head and legs (each hole's outline, a hair larger, under the paper), the head toward `dir` along x. */
+function beetleGeometry(x: number, y: number, dir: 1 | -1, z: number): BufferGeometry {
+  const s = (cx: number, cy: number, rx: number, ry: number): Shape => {
+    const sh = new Shape();
+    sh.absellipse(cx, cy, rx + 0.5, ry + 0.5, 0, Math.PI * 2, false, 0);
+    return sh;
+  };
+  const parts = [s(x, y, 10, 8), s(x + dir * 14, y, 4, 4.5)];
+  for (const side of [-1, 1]) for (const k of [-1, 0, 1]) parts.push(s(x + k * 6, y + side * 11.5, 1.4, 3.6));
+  const g = new ShapeGeometry(parts, 12);
+  g.translate(0, 0, z);
+  return g;
+}
+/**
+ * The one transit light while the request moves (TREATMENT Emission): seen only through its beetle (the light is the
+ * cut-out's own shape, under the paper), its level ramped by `transit` (its own material: nothing else scales it).
+ */
+export function BeetleLight({ x, y, dir, z, transit }: { x: number; y: number; dir: 1 | -1; z: number; transit: number }) {
+  const g = useMemo(() => beetleGeometry(x, y, dir, z), [x, y, dir, z]);
+  const mat = useMemo(() => new MeshBasicMaterial({ color: new Color(LIGHT_HEX.work) }), []);
+  useLayoutEffect(() => () => g.dispose(), [g]);
+  useLayoutEffect(() => () => mat.dispose(), [mat]);
+  useLayoutEffect(() => {
+    mat.color.set(BEETLE_DARK).lerp(new Color(LIGHT_HEX.work).multiplyScalar(BEETLE_LIGHT), Math.min(1, Math.max(0, transit)));
+  }, [mat, transit]);
+  return <mesh geometry={g} material={mat} />;
+}
+
 /** The request's materials: its own, so its chroma can step with its bay's focus ramp (shared by the carrier and the docked request). */
 function useTracer() {
   const { textures } = useDeskSets();
@@ -239,7 +359,6 @@ function useTracer() {
 
 /** The request riding its dispatch (beat4.ts requestAt): out of the housing, down the ramp, along its groove, up onto its folder; the transit light through its beetle while it moves. */
 export function RequestCarrier({ pose }: { pose: Carry }) {
-  const m = useDeskMats();
   const tracer = useTracer();
   const g = useMemo(() => requestParts(), []);
   useLayoutEffect(() => () => Object.values(g).forEach((x) => x.dispose()), [g]);
@@ -248,7 +367,7 @@ export function RequestCarrier({ pose }: { pose: Carry }) {
     <group position={pose.p} rotation={[0, -pose.slope, pose.heading, 'ZYX']} scale={[1 + 0.015 * pose.squash, 1, squash]}>
       <mesh geometry={g.body} material={tracer.body} />
       <mesh geometry={g.print} material={tracer.print} />
-      {pose.transit > 0 && <mesh geometry={g.light} material={m.transit} />}
+      {pose.transit > 0 && <BeetleLight x={REQUEST.l / 2 - 19} y={-1} dir={1} z={-0.5} transit={pose.transit} />}
     </group>
   );
 }
@@ -312,7 +431,7 @@ export function BugBay({ s, noRequest = false }: { s: DeskState; noRequest?: boo
     <Step on={isStepped(s.step, 'bugBay')}>
       <WithMats>
         {(m) => (
-          <BayBase b={BAYS.bug} slot="slotBug" slotMat={full.slotBug} close={closeAt(s.f)} door={d.door} work={w.work} workZ={w.workZ}>
+          <BayBase b={BAYS.bug} slot="slotBug" slotMat={full.slotBug} close={closeAt(s.f)} door={d.door} work={w.work} workZ={w.workZ} plate={d.plate}>
             <mesh geometry={g.legs} material={m.graphiteDark} />
             <mesh geometry={g.top} material={m.graphite} />
             <mesh geometry={g.edge} material={m.enamelShade} />
@@ -339,6 +458,23 @@ export function BugBay({ s, noRequest = false }: { s: DeskState; noRequest?: boo
 }
 
 // ------------------------------------------------------------------------------------------------
+
+/** A flat ring (a torus of radius r about z, at height z) cut where it crosses the band |y - dy| < half (two arcs). */
+function cutRing(r: number, tube: number, dy: number, half: number, z: number): BufferGeometry[] {
+  const a = Math.asin(Math.max(-1, Math.min(1, dy / r)));
+  const d = Math.asin(Math.min(1, half / r)) / Math.max(0.2, Math.cos(a));
+  // the crossings at angle a (east) and pi - a (west); the arcs between them, each short of the band
+  const arcs: [number, number][] = [
+    [a + d, Math.PI - a - d],
+    [Math.PI - a + d, 2 * Math.PI + a - d],
+  ];
+  return arcs.map(([s, e]) => {
+    const g = new TorusGeometry(r, tube, 10, Math.max(8, Math.round((48 * (e - s)) / (2 * Math.PI))), e - s);
+    g.rotateZ(s);
+    g.translate(0, 0, z);
+    return g;
+  });
+}
 
 /** Where each test lamp sits round the tower (radians from +x), bottom up: south-west, south, south-east. */
 const LAMP_AZ = [(-125 * Math.PI) / 180, (-90 * Math.PI) / 180, (-55 * Math.PI) / 180] as const;
@@ -378,8 +514,13 @@ function useTowerGeometry() {
     const top = towerTop();
     // the cap: a lid hinged along the tower's north edge (posed per frame), its concentric rings, the slot across its south half
     const capLid = disc(T.r + 2, 0, T.dome, { cx: 0, cy: -(T.r + 2), bevel: 1.5 });
-    const capRings = merge([ringFlat(T.r - 6, 1.6, 0, -(T.r + 2), T.dome + 0.2), ringFlat(T.r - 26, 1.4, 0, -(T.r + 2), T.dome + 0.3)]);
     const slotY = CAP_SLOT[1] - (T.y + T.r + 2);
+    // the concentric rings stop at the slot's edges (the slot is cut through them), so the card rises out of the slot
+    // clear of them, never through a ring (the MT1 critic: the card looked translucent over the cap)
+    const capRings = merge([cutRing(T.r - 6, 1.6, slotY + T.r + 2, 2.2 + 1.6, T.dome + 0.2), cutRing(T.r - 26, 1.4, slotY + T.r + 2, 2.2 + 1.4, T.dome + 0.3)].flat().map((g) => {
+      g.translate(0, -(T.r + 2), 0);
+      return g;
+    }));
     const capSlot = slab({ x0: -CARD.w / 2 - 2, x1: CARD.w / 2 + 2, y0: slotY - 2.2, y1: slotY + 2.2 }, T.dome - 0.2, T.dome + 0.35, 0.4, 0.2);
     const hinge = (() => {
       const g = cylinderZ(3, 0, 2 * T.r - 20, 0, 0, 12);
@@ -396,7 +537,7 @@ function useTowerGeometry() {
 
 export function TestsBay({ s }: { s: DeskState }) {
   const parts = (
-    <Step on={s.testsStep > 0 ? 'late' : false}>
+    <Step on={s.testsStep > 0 ? 'late' : isStepped(s.step, 'testsBay')}>
       <TestsParts s={s} />
     </Step>
   );
@@ -437,8 +578,9 @@ function TestsParts({ s }: { s: DeskState }) {
   const T = TOWER;
   const angle = CAP_OPEN * (1 - s.testsCap);
   const w = workOf(s.b4.bays.tests, 'tests');
+  const docked = s.b4.carriers.find((c) => c.id === 'tests' && c.docked);
   return (
-    <BayBase b={BAYS.tests} slot="slotTests" close={closeAt(s.f)} work={w.work} workZ={w.workZ}>
+    <BayBase b={BAYS.tests} slot="slotTests" close={closeAt(s.f)} door={s.b4.bays.tests.door} work={w.work} workZ={w.workZ} plate={s.b4.bays.tests.plate}>
       <mesh geometry={g.base} material={m.graphiteDark} />
       <mesh geometry={g.drums} material={m.graphite} />
       <mesh geometry={g.bands} material={m.enamelShade} />
@@ -454,6 +596,8 @@ function TestsParts({ s }: { s: DeskState }) {
         <mesh geometry={g.capSlot} material={m.hollow} />
         <mesh geometry={g.hinge} material={m.steel} />
       </group>
+      {/* its task: the CI card that asked for the run, on its dossier once it has docked (objects/Dispatch.tsx draws it riding) */}
+      {docked && <TaskCarrier c={docked} />}
     </BayBase>
   );
 }
@@ -487,12 +631,14 @@ function DocsParts({ m, close }: { m: DeskMats; close: number }) {
 
 export function DocsBay({ s }: { s: DeskState }) {
   const w = workOf(s.b4.bays.docs, 'docs');
+  const docked = s.b4.carriers.find((c) => c.id === 'docs' && c.docked);
   return (
     <Step on={isStepped(s.step, 'docsBay')}>
       <WithMats>
         {(m) => (
-          <BayBase b={BAYS.docs} slot="slotDocs" close={closeAt(s.f)} work={w.work} workZ={w.workZ}>
+          <BayBase b={BAYS.docs} slot="slotDocs" close={closeAt(s.f)} door={s.b4.bays.docs.door} work={w.work} workZ={w.workZ} plate={s.b4.bays.docs.plate}>
             <DocsParts m={m} close={closeAt(s.f)} />
+            {docked && <TaskCarrier c={docked} />}
           </BayBase>
         )}
       </WithMats>

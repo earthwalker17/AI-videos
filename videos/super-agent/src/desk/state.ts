@@ -9,8 +9,8 @@
  * - 2160 its report card #0408 rises out of the slot in the cap (4 f), then flies an 18 f arc under the
  *   transit light (the one transit light rides a report card or a dispatch folder, never a reply), up
  *   over the deck's rail and down into its mouth, docking on spring-dock at 2182;
- * - stamp-in: 2183 the reel detents and drives the tape one cell; 2190 the print head drops (4 f) and
- *   #0408 inks into the newest cell over 3 f (the older cells dim a step with it); 2194 the card folds
+ * - stamp-in: 2183 the reel detents and drives the tape one cell; 2190 (the cue, a contact frame) the print head is
+ *   down and #0408's first ink shows in the newest cell, spreading over 3 f (the older cells dim a step with it); 2194 the card folds
  *   in half along its crease (8 f) into a pointer tab, which drops into the spill drawer from 2203
  *   (6 f) and stays there, its #0408 face up: Inline & Spill;
  * - 2200 (downbeat) the index arm turns west to you and settles on spring-detent;
@@ -26,8 +26,8 @@
 import { clamp, easings } from '@aiv/core';
 import { Curve } from '@aiv/remotion-kit';
 import { Easing, spring } from 'remotion';
-import { BEAT, FPS } from '../cues.ts';
-import { armRest, beat4At, hatchRiseAt, type Beat4State } from './beat4.ts';
+import { BEAT, BEAT_4, FPS } from '../cues.ts';
+import { armRest, beat4At, hammerStroke, hatchRiseAt, inkSpread, type Beat4State } from './beat4.ts';
 import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, DRAWER_OPEN_C, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, YOU, rectC, towerTop, type P2, type P3 } from './layout.ts';
 
 /** Remotion spring configs from the synthesis's tokens (mass 1, c = 2ζ√k). Remotion's default spring is never used. */
@@ -60,7 +60,7 @@ export const EVENTS_B = {
   /** the reel detents and drives the tape on one cell (7 f) */
   reelDetent: 2183,
   tapeFrames: 7,
-  /** the print head drops (4 f) and #0408 inks into the newest cell, its ink spreading over 3 f */
+  /** the print head comes down on this frame (falling over the 2 f before) and #0408's ink spreads over 3 f from it (beat4.ts hammerStroke, inkSpread) */
   stampIn: 2190,
   /** the test tower steps down once it has reported */
   testsStep: 2186,
@@ -101,7 +101,7 @@ export const LAMP_DIMS = 2340;
 export const LAMP_STEPS = { dim: 0.62, up: 0.9 } as const;
 
 /** What steps down during a beat: everything not in its action. */
-export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge' | 'head' | 'index' | 'mouth' | 'folders' | 'loop' | 'you' | 'fixA' | 'fixB';
+export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'testsBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge' | 'head' | 'index' | 'mouth' | 'folders' | 'loop' | 'you' | 'fixA' | 'fixB' | 'deck' | 'chute';
 /** No Thread cord before C17's beat: it first pays out at 7.1 (f3440); before that a Thread is a row on the tape (design D1). */
 export const CORD_FROM = 3440;
 /**
@@ -109,7 +109,14 @@ export const CORD_FROM = 3440;
  * mouth, the cell, the arm, the chute, the reply, your in-tray. The bug bay steps down too (its slot
  * keeps working and the request's vermilion stays), and so do the reel's face and the lock.
  */
+/** Everything of act two's world that a counterfactual card steps down while it is up (the card is the beat's action). */
+const ALL_BUT_CARD: readonly FocusId[] = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'testsBay', 'cord', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'you', 'deck', 'chute'];
 export const FOCUS_BEATS: readonly { id: string; from: number; to: number; step: readonly FocusId[] }[] = [
+  // 4.3, 4.4: while a counterfactual is up, everything else steps down (from its first move to the frame it starts off);
+  // under the ghost Router the real index arm keeps its detent on every beat at full contrast (STORYBOARD 4.4), and the
+  // arrivals riding in (cargo in motion) never step
+  { id: 'split', from: BEAT_4.splitCard - 1, to: BEAT_4.splitStrike + 5, step: ALL_BUT_CARD },
+  { id: 'ghost', from: BEAT_4.ghostCard - 1, to: BEAT_4.ghostStrike + 5, step: ALL_BUT_CARD.filter((x) => x !== 'index') },
   { id: 'c12', from: 2130, to: 2320, step: ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'cord', 'reel', 'lock', 'gauge'] },
   // N5 at the window (still C): the report, the window, the head, the mouth and the drawer are the action
   { id: 'n5', from: 3040, to: 3216, step: ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'cord', 'reel', 'lock', 'gauge'] },
@@ -267,11 +274,12 @@ export function deskStateAt(f: number): DeskState {
         squash: f < landAt ? 0 : Math.max(0, 1 - (f - landAt) / 4) * Math.min(1, (f - landAt + 1) / 1.5),
       }
     : null;
-  const stamp = Math.max(b4.hammer, clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2)));
-  const cellLit = springAt(f, E.stampIn + 1, SPRING.effects);
+  // the stamp-in (MT1 stampIn, a contact frame): the head comes down on its cue and #0408's first ink shows on it
+  const stamp = Math.max(b4.hammer, hammerStroke(f, E.stampIn));
+  const cellLit = springAt(f, E.stampIn, SPRING.effects);
   const reel = springAt(f, E.reelDetent, SPRING.detent);
   const tape = easings.inOutSine(clamp((f - E.reelDetent) / E.tapeFrames));
-  const ink = clamp((f - E.stampIn - 1) / 3);
+  const ink = inkSpread(f, E.stampIn);
   const cardOut = f >= E.cardEmerge && f < E.cardEject ? easings.outCubic((f - E.cardEmerge) / (E.cardEject - E.cardEmerge)) : null;
   const testsStep = easings.inOutSine(clamp((f - E.testsStep) / STEP_FRAMES));
   // the index arm: beat 4's detents (it rests at the docs galley's), then to yours (west), settled before the reply moves
@@ -286,7 +294,8 @@ export function deskStateAt(f: number): DeskState {
     const s = clamp((d - REPLY_LEAD) / REPLY_CHUTE);
     const arc = clamp((f - SLIP_LIP) / REPLY_ARC);
     const settle = springAt(f, SLIP_LANDS, SPRING.dock);
-    const squash = f < SLIP_LANDS ? 0 : Math.max(0, 1 - (f - SLIP_LANDS) / 4) * Math.min(1, (f - SLIP_LANDS) / 1.5);
+    // its landing (MT1 replyLands, a contact frame): in the tray on its cue, its 3% squash at its deepest there
+    const squash = f < SLIP_LANDS ? 0 : Math.max(0, 1 - (f - SLIP_LANDS) / 4);
     slip = { emerge, s, arc, squash, settle };
   }
   // beat 5 (f2340, STORYBOARD 5.1): events trip the intake by themselves, and your lamp dims a step again
@@ -542,8 +551,8 @@ export function nextAt(f: number): NextState {
   // the second stamp-in
   const tape = sine((f - E.reelDetent) / E.tapeFrames);
   const reel = springAt(f, E.reelDetent, SPRING.detent);
-  const stamp = clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2));
-  const ink = clamp((f - E.stampIn - 1) / 3);
+  const stamp = hammerStroke(f, E.stampIn);
+  const ink = inkSpread(f, E.stampIn);
   // the fresh bay: the one dispatch move every Worker shares
   const { cut, hatch, rise, hole, contact } = hatchRiseAt(f, { cut: E.cut, cutFrames: E.cutFrames, rise: E.rise });
   const door = sine((f - E.doorUp) / 4) * (1 - sine((f - E.doorDown) / 4));

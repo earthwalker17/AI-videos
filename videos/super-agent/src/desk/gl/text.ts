@@ -137,25 +137,35 @@ export function cargoMark(g: CanvasRenderingContext2D, kind: string, x: number, 
 }
 
 /**
- * The request's Thread subscription as its row on the tape carries it once subscribed (beat 4, STORYBOARD 4.3): a short
- * twisted cord in the request's vermilion under its stub, as long as the stub (a mark, never text; its cord is drawn
- * only from C17, design D1). Its west end at (x, y), its centre line at y.
+ * The request's cell on the tape (beat 4 on): its chat mark set high (`REQUEST_MARK_Y`), its vermilion tear-off stub
+ * under it (`requestStub`) and, once its Thread is subscribed (beat 4, f1800), the Thread's mark (`threadMark`): a length
+ * of vermilion cord tied to the stub's east end, hanging in an open loop down the cell (about 30 x 28 u, 24 px at the
+ * 0.85x framing: a meso mark of its own form, never a ring or a glyph line; the cord itself is drawn only from C17,
+ * design D1). `x` is the cell's west edge.
  */
-export function threadMark(g: CanvasRenderingContext2D, x: number, y: number): void {
+export const REQUEST_MARK_Y = 6;
+export function requestStub(g: CanvasRenderingContext2D, x: number): void {
+  g.fillStyle = VERMILION;
+  g.fillRect(x + 6, 29, 28, 5);
+}
+export function threadMark(g: CanvasRenderingContext2D, x: number): void {
   g.strokeStyle = VERMILION;
-  g.lineWidth = 1.5;
+  g.lineWidth = 3.2;
   g.lineCap = 'round';
-  for (const phase of [0, Math.PI]) {
-    g.beginPath();
-    for (let i = 0; i <= 26; i++) {
-      const px = x + i;
-      const py = y + 1.5 * Math.sin((i / 26) * Math.PI * 3 + phase);
-      if (i === 0) g.moveTo(px, py);
-      else g.lineTo(px, py);
-    }
-    g.stroke();
-  }
+  g.lineJoin = 'round';
+  g.beginPath();
+  // tied round the stub's east end (a knot), then hanging and curling back under the stub
+  g.moveTo(x + 31, 31.5);
+  g.bezierCurveTo(x + 44, 33, x + 46, 58, x + 32, 58.5);
+  g.bezierCurveTo(x + 20, 59, x + 12, 52, x + 16, 44);
+  g.bezierCurveTo(x + 19, 39, x + 26, 41, x + 27, 46);
+  g.stroke();
+  g.fillStyle = VERMILION;
+  g.beginPath();
+  g.arc(x + 33, 31.5, 3.6, 0, Math.PI * 2);
+  g.fill();
   g.lineCap = 'butt';
+  g.lineJoin = 'miter';
 }
 
 /** Every printed texture of the frame. */
@@ -326,13 +336,12 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
         g.strokeRect(x + 2, 4, w - 4, h - 8);
         if (i === 0 && o.fresh) return;
         g.filter = 'blur(0.35px)';
-        cargoMark(g, cell.kind, x + 8, 20, ink);
+        cargoMark(g, cell.kind, x + 8, cell.request ? REQUEST_MARK_Y : 20, ink);
         g.filter = 'none';
         if (cell.request) {
-          g.fillStyle = VERMILION;
-          g.fillRect(x + 8, 48, 26, 5);
+          requestStub(g, x);
           // its Thread's subscription, inked into its row in beat 4 (desk/beat4.ts)
-          threadMark(g, x + 8, 57);
+          threadMark(g, x);
         }
       });
       if (o.fresh) stagedInk(g, tw, h, TEX, o.stage ?? 2, cell0Ink(cells[0], !!o.notch));
