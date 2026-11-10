@@ -15,11 +15,14 @@
  *   smear        a soft triangle gliding in from a semitone off  sketch A's muddle
  *   chirp        a short rising sine                             sketch B's replies
  *   fallTone     a short falling, closing tone                   a session tile fading
+ *   hum          a low held tone, two beating strings, low-passed the lid strut: keep it running
+ *   softPulse    a short, round sine blip                        beat 5's sixteenth pulse (listening)
+ *   loupeBell    an FM bell, inharmonic 1:3.5, soft              a slip the loupe judges (the model)
  *
  * Deterministic: float64 phases and filter state, randomness only from the film seed through
  * the kit's seeded noise (@aiv/core's hash).
  */
-import { Biquad, ModalBank, Osc, SR, Svf, TAU, centsRatio, clamp, gainToDb, midiHz, norm, pluck, seedOf, slowNoise, smooth, whiteNoise } from '@aiv/pipeline/audio/kit';
+import { Biquad, ModalBank, Osc, SR, Svf, TAU, centsRatio, clamp, fmBell, gainToDb, midiHz, norm, pluck, seedOf, slowNoise, smooth, whiteNoise } from '@aiv/pipeline/audio/kit';
 
 /** a clip's peak for a velocity, dBFS */
 const peakDb = (vel: number): number => gainToDb(clamp(vel, 0.01, 1));
@@ -271,19 +274,23 @@ export function brightPluck(midi: number, o: { seed: number; k: number; vel?: nu
 
 /**
  * A soft triangle that starts `from` and glides into `to` over `glide` s, landing 14 cents sharp
- * (never quite in tune): a second line smearing into the plodding one.
+ * (never quite in tune): a second line smearing into the plodding one. `attack` and `release`
+ * (s, default 0.07 and 0.18) are its raised-cosine ends: long ones make it a held, smeared voice
+ * (the ghost Router's backlog).
  */
-export function smear(from: number, to: number, o: { len: number; glide: number; vel?: number }): Float32Array {
+export function smear(from: number, to: number, o: { len: number; glide: number; vel?: number; attack?: number; release?: number }): Float32Array {
   const n = Math.ceil(o.len * SR);
   const out = new Float32Array(n);
   const v = new Osc('triangle');
   const lp = new Biquad('lowpass', 1100, 0.7);
   const f0 = midiHz(from);
   const f1 = midiHz(to) * centsRatio(14);
+  const attack = o.attack ?? 0.07;
+  const release = o.release ?? 0.18;
   for (let i = 0; i < n; i++) {
     const t = i / SR;
     const f = f0 * (f1 / f0) ** smooth(t / o.glide);
-    out[i] = lp.tick(v.tick(f)) * smooth(t / 0.07) * smooth((o.len - t) / 0.18);
+    out[i] = lp.tick(v.tick(f)) * smooth(t / attack) * smooth((o.len - t) / release);
   }
   return norm(out, peakDb(o.vel ?? 0.7));
 }
@@ -318,4 +325,61 @@ export function fallTone(midi: number, o: { len?: number; drop?: number; vel?: n
     out[i] = svf.lp * smooth(t / 0.005) * Math.exp(-t / (len / 3)) * smooth((len - t) / 0.03);
   }
   return norm(out, peakDb(o.vel ?? 0.6));
+}
+
+// --- the build's colours (session 4) --------------------------------------------------------------
+
+/**
+ * A low held hum: the fundamental and two harmonics (so a small speaker hears it), each on two
+ * strings 0.45 Hz apart (a slow beat), under a 420 Hz low-pass; raised-cosine ends. Not a sub hit:
+ * it swells in over `attack` and is held.
+ */
+export function hum(midi: number, o: { len: number; attack?: number; release?: number; vel?: number }): Float32Array {
+  const f0 = midiHz(midi);
+  const n = Math.ceil(o.len * SR);
+  const out = new Float32Array(n);
+  const attack = o.attack ?? 0.18;
+  const release = o.release ?? 0.12;
+  const parts: readonly (readonly [number, number])[] = [
+    [1, 1],
+    [2, 0.55],
+    [3, 0.22],
+  ];
+  const ph = new Float64Array(parts.length * 2);
+  const lp = new Biquad('lowpass', 420, 0.7);
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    let y = 0;
+    parts.forEach(([h, g], p) => {
+      y += g * (Math.sin(ph[2 * p]) + Math.sin(ph[2 * p + 1]));
+      ph[2 * p] = wrap(ph[2 * p] + (TAU * h * f0) / SR);
+      ph[2 * p + 1] = wrap(ph[2 * p + 1] + (TAU * (h * f0 + 0.45)) / SR);
+    });
+    out[i] = lp.tick(y) * smooth(t / attack) * smooth((o.len - t) / release);
+  }
+  return norm(out, peakDb(o.vel ?? 0.7));
+}
+
+/** A short round blip: a sine with a little octave, a 3 ms attack and a fast decay (`tau`, default 45 ms). */
+export function softPulse(midi: number, o: { vel?: number; tau?: number } = {}): Float32Array {
+  const f0 = midiHz(midi);
+  const tau = o.tau ?? 0.045;
+  const n = Math.ceil(Math.min(0.4, tau * 6) * SR);
+  const out = new Float32Array(n);
+  let p = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    out[i] = smooth(t / 0.003) * Math.exp(-t / tau) * (Math.sin(p) + 0.2 * Math.sin(2 * p));
+    p = wrap(p + (TAU * f0) / SR);
+  }
+  new Biquad('lowpass', 2400, 0.7).run(out);
+  return norm(out, peakDb(o.vel ?? 0.6));
+}
+
+/** A soft bell (the kit's FM bell, 1:3.5, index 1.1, a 0.7 s decay) under a 6 kHz low-pass. */
+export function loupeBell(midi: number, o: { vel?: number; tau?: number } = {}): Float32Array {
+  const tau = o.tau ?? 0.7;
+  const y = fmBell(midiHz(midi), { ratio: 3.5, index: 1.1, tau, len: tau * 5, attack: 0.003 });
+  new Biquad('lowpass', 6000, 0.7).run(y);
+  return norm(y, peakDb(o.vel ?? 0.6));
 }

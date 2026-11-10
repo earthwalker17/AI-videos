@@ -257,11 +257,12 @@ export const WARMTH = { tau: 120, penOn: 0.35, flagUp: 0.3 } as const;
 export const FIX_A = { in: at(13), steps: Array.from({ length: (at(18, 3) - at(13, 2)) / BEAT + 1 }, (_, i) => at(13, 2) + i * BEAT) } as const;
 /**
  * Fix B (3.2): eight trays, one per event. They emerge on bar 15's downbeat and tick in parallel;
- * replies 0-6 leave their trays for your in-tray on these frames (reply 7 is the turn's, posted at
- * f1394). A follow-up lands in tray 6, away from its task's tray 2, and the break mark between the
- * two draws in.
+ * replies 0-6 leave their trays for your in-tray on these frames, and reply 7, the last, at `reply7`
+ * in 3.3 (bar 17 beat 2), so nothing launches in the rest before the turn. A follow-up lands in
+ * tray 6, away from its task's tray 2, and on `breakMark` tray 2's card tears off its stub, which
+ * stays behind.
  */
-export const FIX_B = { in: at(15), replies: [1150, 1160, 1180, 1200, 1230, 1250, 1270], followUp: 1210, breakMark: 1220 } as const;
+export const FIX_B = { in: at(15), replies: [1150, 1160, 1180, 1200, 1230, 1250, 1270], reply7: at(17, 2), followUp: 1210, breakMark: 1220 } as const;
 /** Both fixes stand at full contrast from here (3.3). */
 export const BOTH_FIXES = at(17);
 
