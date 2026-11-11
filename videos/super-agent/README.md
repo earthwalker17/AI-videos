@@ -15,7 +15,7 @@ their URLs and pins, are in [sources.jsonl](sources.jsonl), and every claim is i
 **Series:** [Science & Technology Explainers](../../series/science-explainers/SERIES.md) · **Number:** 4 · **Engine:** remotion
 ▶ **Watch:** not yet published.
 
-## Status: production, lookdev signed off; the build is next
+## Status: production, build part 1 done (beats 1–6 and the animatic); part 2 is next
 The film has been in production since 2026-11-08. Decisions with the user so far:
 
 | Date | Decision | The user's words |
@@ -115,18 +115,32 @@ design works.
      - polish pass 2 by two builders on disjoint files, then a final critic round (the scores and
        the fixes it still asks for are under Handoff);
      - **User:** signed off lookdev round 2 (2026-11-10).
-4. **Build, part 1 (next).**
-   - First, the lookdev fixes the final critic round left that touch shared parts (Handoff,
-     "Open items"), each checked on its still or span.
-   - An animatic: the key poses timed on the cue sheet, with the score sketch re-laid on the
-     84-bar grid.
-   - Beats 1–6 on draft renders in the signed-off look, each checked with its contact sheet and
-     motion QA.
-   - The score for bars 1–43.
-5. **Build, part 2.**
-   - Beats 7–13 and the rest of the score.
-   - Two adversarial frame-critic rounds.
-   - **User:** listens to the full score.
+4. **Session 4 (2026-11-10 to 11-11): build, part 1.**
+   - **Done:**
+     - the build's event schedule in the cue sheet (`BEAT_4`, `MT1`, `BEAT_5` with the trips,
+       `BEAT_6`), every schedule frame a contact frame for the picture and the score;
+     - the film as one continuous Register Desk (`src/Main.tsx` → `desk/FilmFrame.tsx`, segments
+       in `desk/film.ts`): act one, the turn, act two and the summary, each segment's world
+       remounting at its boundary with a continuous picture across it;
+     - beats 1–6 built (film f0–3439, 1:55): act one with Fix A and Fix B, the turn, the Router
+       and its bays (beat 4), the two-stage filter with the starter key and the spike (beat 5),
+       batching, the context cache and recall by ID in the close (beat 6);
+     - the animatic from f3440: the act-two world runs on, and the words of every cue not built
+       yet sit on a slate, timed on the score; the summary (still (d)) is built to f5570;
+     - the camera: the bar-34 dolly into the close and its mirror on bar 43, so the recall
+       plays in the 2.4× close (a change from STORYBOARD 6.4's two-bar ease-out on bar 42);
+     - the score re-laid on 84 bars: bars 1–43 composed against the picture, an animatic bed
+       after them; every key strike, slip, batch and stamp sounds on its contact frame;
+     - fixes from the final lookdev critic that touch shared parts (the chat mark, the summary
+       trace), then four fix rounds, each a fixer per lane, a frame critic and a code review.
+   - The renders are drafts (960×540) with full-size keys. The critic's leftover list and what
+     needs the user's eye are under Handoff.
+5. **Build, part 2 (next).**
+   - Beats 7–13 (f3440–6719) and the rest of the score, in the same way: fixer lanes, frame
+     critics, code reviews.
+   - The open items from part 1 (Handoff).
+   - Two adversarial frame-critic rounds on the whole film.
+   - **User:** looks at the build so far and listens to the full score.
 6. **Review cut, then release.**
    - The 1080p review cut through `aiv qa`.
    - Caption tooling (an SRT generator and a per-language linter).
@@ -138,13 +152,21 @@ design works.
 7. **Buffer.**
 
 ## Handoff (for the next session)
-**Start here.** Read this section and `video.json` `next`. Session 4 is the build, part 1 (the
-session plan above). The look is signed off (2026-11-10): build every beat in the Register Desk
-as the lookdev stills and motion tests show it. The visual spec in force is
+**Start here.** Read this section and `video.json` `next`. Session 5 is the build, part 2 (the
+session plan above): beats 7–13 (f3440–6719), which are the animatic today. The look is
+signed off (2026-11-10): build every beat in the Register Desk as the lookdev stills and motion
+tests show it, and as beats 1–6 now do. The visual spec in force is
 [TREATMENT.md](TREATMENT.md) "Art direction v2: The Register Desk", with the user's picks (15°
 pitch, bloom 0.3) and the standing decisions below. The round-1 dark ink map (`src/film/`
 renderers, `src/lookdev/stills.tsx`) is retired. It stays in the tree only until the build
 replaces it, because its schedules and chart proportions are reused.
+
+How session 4 worked, and what to keep: one fixer per lane of frames (never two on the same
+files), each lane followed by a frame critic on its final renders and a code reviewer that runs
+the pure schedules frame by frame. The code reviews found the one-frame swaps that motion QA
+misses (it only sees whole-frame changes): tile diffs around every event are the check that
+works. Briefs that name the contact frames, the files owned and the renders to make kept the
+lanes apart.
 
 **Where things are.**
 | Path | What |
@@ -153,11 +175,11 @@ replaces it, because its schedules and chart proportions are reused.
 | `src/print.ts` | Micro-print strings (texture only, ≥ 18 px, never read as content); the font plan reads them with WORDS |
 | `src/look/` | Palette, type scale, `MAX_TEXT_PX` (136), `STEP_DOWN`; fonts (Plex Sans, Noto Sans SC slices planned from WORDS, IBM Plex Mono) |
 | `src/kit/` | Film-agnostic 2D parts the overlay uses: timeline and easings, the notes block and labels (`GREY_TEXT`), camera maths, diagram and sketch helpers |
-| `src/desk/` | The Register Desk:<br>• `layout.ts`, `geom.ts`: world coordinates.<br>• Pure schedules, every effect a sum over one event list: `state.ts` (beats 4–6 events, `FOCUS_BEATS`), `actOne.ts`, `you.ts`, `beat3.ts`, `turn.ts`, `summary.ts`.<br>• `camera.ts`: framings and moves.<br>• `footprints.ts`, `pools.ts`: analytic SDF shadows, light pools, the emitter budget.<br>• `gl/`: desk shader, light set, materials, post, canvas text; `gl/plate.ts` makes the trait plates' word textures.<br>• `objects/`: Register, bays, your desk, intake, links (grooves, chute, cargo), the handshake (report card and reply), dispatch, cache, proposed parts, trace, act one, the turn.<br>• `*Frame.tsx`, `DeskWorld.tsx`, `Overlay.tsx`: a frame's world and its DOM labels and notes, posed by one camera function.<br>• Tests: `desk`, `actOne`, `summary`, `turn` (223 tests in the video) |
-| `src/lookdev/round2.tsx`, `frames.ts` | Lookdev round 2, its own entry: `StillA15` (a), `StyleB15` (b, and MT1's span), `StillC15` (c), `StillD15` (d), `MT2`; the 0° and no-bloom variants and ground twins. `frames.ts` holds the round's film frames and motion-test spans |
+| `src/desk/` | The Register Desk:<br>• `layout.ts`, `geom.ts`: world coordinates.<br>• `film.ts`: the segments (act one [0, 1400), the turn [1400, 1660], act two [1661, 5400), the summary [5400, 6720)), `BUILT_TO` (3440) and `SUMMARY_BUILT_TO` (5570), act two's labels and tags; `FilmFrame.tsx` draws a film frame from them, with the animatic slate.<br>• Pure schedules, every effect a sum over one event list: `actOne.ts`, `you.ts`, `beat3.ts` (Fix A, Fix B), `turn.ts`, `state.ts` (act two's world, `FOCUS_BEATS`, `EVENTS_B`/`EVENTS_C`), `beat4.ts` (the bays, the request's ride), `beat5.ts` (the key, the trips, the spike), `beat6.ts` (batching, the cache, the recall), `summary.ts`.<br>• `camera.ts`: framings and moves (`DOLLY_IN` bar 34, `EASE_OUT` bar 43, `CAMERA_EASE`).<br>• `footprints.ts`, `pools.ts`: analytic SDF shadows, light pools, the emitter budget.<br>• `gl/`: desk shader, light set, materials, post, canvas text; `gl/plate.ts` the trait and stress plates; `gl/print5.ts`, `gl/print6.ts` beat 5's stamps and beat 6's strip print.<br>• `objects/`: Register, bays, your desk, intake, links (grooves, chute, cargo), the handshake (report card and reply), dispatch, the counterfactual card, the filter (beat 5), batch, cache and recall (beat 6), proposed parts, trace, act one, the title card, the turn.<br>• `*Frame.tsx`, `DeskWorld.tsx`, `Overlay.tsx`: a frame's world and its DOM labels and notes, posed by one camera function.<br>• Tests: a `*.test.ts` per schedule (about 420 tests in the video, with the cue sheet's and the score's) |
+| `src/lookdev/round2.tsx`, `frames.ts` | Lookdev round 2, its own entry: `StillA15` (a), `StyleB15` (b, and MT1's span), `StillC15` (c), `StillD15` (d), `MT2`; the 0° and no-bloom variants and ground twins. `frames.ts` holds the round's film frames and motion-test spans. The signed-off reference; the film now draws the same frames through `FilmFrame` |
 | `src/lookdev/probe.tsx` | The determinism probe ('Probe') and the notes width sheet ('Notes') |
-| `src/Main.tsx` | Leader test card, the probe in film frames 0–299, then bare ground (the beats are built from session 4) |
-| `audio/` | The score sketch (bars 1–27). Stale: it was laid on the 66-bar grid and is re-laid on 84 bars in session 4 |
+| `src/Main.tsx` | The leader test card (15 frames), then the film: `desk/FilmFrame.tsx` for every film frame |
+| `audio/` | The score on the 84-bar grid (`index.ts`, one stereo track `mix`): `arrangement.ts` lists the parts, one module per stretch: `actOne.ts` (bars 1–12), `fixes.ts` (13–18), `levels.ts` (19–29), `keepUp.ts` (30–43); `continuity.ts` is the Router's layer (pad, bass pulse, memory ticks) from the turn to the end; `bed.ts` is the animatic bed for bars 44–84, which session 5 replaces; `instruments.ts`, `foley.ts`, `common.ts` are shared. `score.test.ts` holds every sync point to the cue sheet and to the picture's own frames |
 
 On the reference host only, since `out/` and `.cache/` are not in git:
 - `out/super-agent/stills/r2-final/` holds the signed-off set: the four stills, a sheet and both
@@ -167,6 +189,14 @@ On the reference host only, since `out/` and `.cache/` are not in git:
 
 **Commands.** Frames are composition frames: film frame + 15 (the leader).
 ```sh
+# the film (Main): full-size keys, then a draft span of at most 240 frames with its fresh-page check
+pnpm aiv still super-agent --frames 930,2240,3165,5535 --label keys
+pnpm aiv still super-agent --profile draft --frames 2735-2974 --span --encode --inner 3 --label b6-span
+# the whole film, draft: chunked and resumable (exit 75 = the heavy lock is busy: wait and rerun)
+pnpm aiv render super-agent --profile draft --budget-min 9
+pnpm aiv audio super-agent --verify
+pnpm aiv post super-agent --profile draft && pnpm aiv qa super-agent --profile draft
+# lookdev round 2, the signed-off reference
 pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillA15 --frames 930 --label r2-a
 pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StyleB15 --frames 2240 --label r2-b
 pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillC15 --frames 3165 --label r2-c
@@ -225,73 +255,147 @@ A change that should not touch a still keeps its hash.
   38, after rejecting round 1 that an uncalibrated critic had passed. Ask the user early, with
   images.
 
-**Open items carried over.**
-- **Fixes the final critic round left** (2026-11-09). These are the scores after polish pass 2,
-  with the pass mark at 30 of 38 (79% for a single still):
+**Open items carried over** (after session 4, 2026-11-11).
+- **Show the user first.** None of these is approved yet.
+  - The stills that changed from the signed-off set (`out/super-agent/stills/r2-final/`):
+    - (a), composition 930 against `a-act-one-f915`: mean |ΔL| 5.3, on the heap, the loop's tabs
+      and print, and the folders (session 4's rebuild of act one);
+    - (b), 2240 against `b-report-up-f2225`: mean |ΔL| 1.0. A heap of dark slips left of the
+      throat; "Router" about 57 px lower, its leader on the dispatch housing; a round gauge with a
+      bezel (it was a square dial); the Thread tab as a red hook on tape cell 4 (it was an
+      underline); the "ask" slip docked on W-09; dot rows on W-08's card where "run 2 / 41 ok" was;
+    - (c), 3165 against `c-context-cache-f3150`: a round gauge; the throat's jaws and two enamel
+      bosses stepped grey (they were lit white); the hopper a folded, tilted lid; the window's
+      stubs in a new order, the red tab on the fifth; the drawer's tabs slightly higher; W-08's
+      dossier carries beat 4's punched CI card; the left-edge bay lamp a neutral white (it was
+      warm cream). The stress plate and the "ask" chevron are gone, as signed off;
+    - (d), 5535 against `d-summary-f5520`: the heap of pressed slips left of the throat (beat 4
+      leaves it as history), and the "Worker" label lower and further east. W-09's docked ask is
+      gone, as signed off.
+  - The camera: the bar-43 ease-out (f3360–3440) replaces STORYBOARD 6.4's move, and it does not
+    follow the Thread.
+  - Storyboard changes the build made:
+    - 6.1: the strip leaves the tray and is gulped; the ride goes by crest and hop; the kinds mix;
+    - 4.3: no door, and the hops go over the walls;
+    - the gather tray, and the round gauge in still (c).
+  - The score for bars 1–43, which no one has listened to yet. In the draft mp4 (film frame + 15
+    over 30):
 
-  | Target | Score | P0 |
-  |---|---|---|
-  | (a) | 27/34 | none |
-  | (b) | 23/38 | yes |
-  | (c) | 28/38 | none |
-  | (d) | 30/38 | yes |
-  | MT1 | 25/38 | yes |
-  | MT2 | 25/38 | none |
-
-  The user signed the look off regardless. Fold the fixes in as the beats are built, not as a
-  new lookdev round. Top items:
-  - **Chat mark, a P0 in (b) and MT1:** the speech bubble with two grey rules (the chat
-    feeder's slip and plate, the chat slips) reads as glyph-line text, which is BANNED. Keep the
-    notch or the bubble alone, or use ≥ 18 px texture print (`gl/text.ts` `cargoMark`, the
-    spout plate in `objects/Intake.tsx`).
-  - **(d)'s trace, a P0:** right-angle steps and Z-jogs remain at the deck front, the throat
-    bracket and the bay mouth. Make one continuous path, red and green side by side down the
-    groove without crossing, and end the reply on the signed slip.
-  - **MT1:**
-    - a window mullion crosses #0408 after the second advance;
-    - the reply passes under the chute lip and holds 4 f;
-    - W-10 appears by a 3 f aperture wipe instead of rising from its hatch on spring-heavy.
-  - **MT2:**
-    - f1530–1610 runs 5–7 motions at once; retime to at most 3;
-    - hold the three new bays closed and idle until each is dispatched (this also settles
-      STORYBOARD 4.3–4.5);
-    - grow the deck's footprint shadow as its legs rise, so "two levels" is physical;
-    - keep your lamp on over the rising loop.
-  - **(b):**
-    - "above" is still weak: the deck's shade moves the bay floors only 2–4 codes;
-    - the bays read W-08, W-09, W-07 left to right;
-    - the Router leader ends on a rail (a stranger could not tell which object is the Router);
-    - lifted shadows show the dark imprints as ghost cards.
-  - **(c):**
-    - the summary ejects in one frame; give it an arc with 3 f anticipation;
-    - print the pointer glyph after the tab settles;
-    - step W-09's dossier out of the notes band.
-  - **(a):**
-    - the empty in-tray reads as a second screen; give its floor the desk's graphite and a
-      gradient;
-    - the lamp arm lies across the laptop screen;
-    - two tape notes sit by the wrong tabs;
-    - F7 and F8 collide;
-    - the "you" leader crosses tape print.
-  - **Strangers, on every still:**
-    - props on the left are unexplained until their beat; step them down harder or bring them
-      in with it;
-    - unreadable micro-print reads as noise;
-    - the right-hand blueprint cluster in (d) floats without a link.
-- **Not built yet:**
-  - beats 5–6's parts: the spike pile, the batching strip, the stress plate;
-  - the Proactive · 主动, Productive · 高效 and Persistent · 持久 plates (`gl/plate.ts`
-    `plateTexture` with `WORDS.trait*`);
-  - Fix A and Fix B in `ActOneFrame` for beat 3 (f960–1399).
-- **Continuity and finish:**
-  - the reel's riders (clip and tabs) at MT2's end are not on the Register at rest in (b)–(d);
-  - the slate tooth (std 0.55) is below what reads as texture, which is a director call;
-  - IDs are about 24 px, under the 36 px "read" floor;
-  - the per-object step-down stagger, the fanfold +1 and the engraved system boundary are not
-    done.
-- **Score:** re-lay the sketch on 84 bars. The Router's memory ticks are inaudible (-30 dB); a
-  `silence` cue for the old bar 10 beat 4 would let the cue sheet own that silence; the Worker
-  knocks, motif returns and other sync points still need cue ids.
+    | mp4 time | What to listen for |
+    |---|---|
+    | 0:05.8 | the title's thump (f160) |
+    | 0:23.2–0:25.2 | the four chores landing (f680–740) |
+    | 0:32.5, 0:37.8 | Fix A, then Fix B (f960, f1120) |
+    | 0:41.2 | the break (f1220) |
+    | 0:48.5 | the turn (f1440) |
+    | 0:59.2–1:08.5 | the dispatches: bug, tests, docs (f1760, 2000, 2040) |
+    | 1:13.5–1:15.0 | the stamp, then the reply landing (f2190, 2234) |
+    | 1:19.0–1:21.8 | the key docks; three events arrive by themselves, each a dry tick (f2356; 2380, 2410, 2440) |
+    | 1:22.8–1:30.2 | the spike; the slips' clacks and bells; the kept asks' softer ticks (f2470–2690; 2514, 2574, 2644) |
+    | 1:33.8, 1:39.2 | the two batches (f2800, f2960) |
+    | 1:43.2 | the cache ejects (f3080) |
+    | 1:49.8–1:52.2 | the recall's three hops and its answer (f3280–3350) |
+    | 1:55.2 | beat 7: the animatic bed begins (f3440) |
+- **Part 1's leftovers.** These are the last critics' P1s and P2s. No P0 is open: the last
+  one the round-4 critics found (Fix B's replies lighting up in place) was fixed and checked on
+  renders.
+  - Act one and the turn:
+    - the title card reads as a sticker, and the break card has dark bars;
+    - the riders' clip sinks into the reel at f1690–1694;
+    - 3.3's focus;
+    - the copy hands the vermilion back to the heap in about 4 f at f1130–1134 (the storyboard's
+      step-down token is 12–16 f); the heap's request now steps by colour and reads as brick in
+      3.2–3.3 (judge whether it leads the frame too much);
+    - the throat window (fixer P's item 11, not fixed; its notes suspect the deck's tilt);
+    - the credit's knockout leaves scalloped tape slivers between its lines;
+    - the coil's height and its print (the turn's code review, item 6);
+    - P2s:
+      - Fix A's press reads as a fade;
+      - a hairline loop ring at f1467–1480;
+      - the coil sweep;
+      - the spool slides in under C9;
+      - the lamp touches the tape print and the strut;
+      - the bug bay's slips stay lit as they fall;
+      - the calendar's vellum crossfade;
+      - three bays are drawn alike;
+      - the stillness starts early.
+  - Beat 4:
+    - the tape stamp narrows (a design call);
+    - the tower cap shows through the housing at f2071;
+    - dispatch trips float and run 43 f (the storyboard has 20–28 f);
+    - the Worker label's leader on W-08 differs from the storyboard;
+    - `CARD_DEPTH`'s chroma mix of 1.05 needs a clamp in `gl/materials.ts`;
+    - a phantom shade at f1769;
+    - the docs slip dips about 10 codes for one frame at f2078, while it moves fast.
+  - Beat 5:
+    - the key's and the pile's sizes;
+    - the trip reads only in crops;
+    - arrivals leave no tape row, and kept slips stamp none;
+    - the vermilion keep-side route, and the loupe;
+    - P2s:
+      - the tag leader runs over the trip slips;
+      - 默认 sits near the flange;
+      - the spike reads as a dial;
+      - "COT" and "rule / drop";
+      - two keys.
+  - Beat 6:
+    - the slips look alike (two glyphs);
+    - the hopper's value jumps at f3146→3147;
+    - the arm boss pokes the decode slips;
+    - a dark band crosses the plate in flight, and a white sliver crosses the right edge;
+    - hop 3 reads as a taut line;
+    - the tape does not advance, and the stubs stay during the rewind;
+    - the cache tag's leader and label start together;
+    - beat 6's asks strike no key (the key is off frame), so the score is silent there;
+    - the drawer (round 4's P1, the code review's MINOR 2): #0408 swings through the standing
+      filed tabs as it lies back (c3138 reads "#U408"), its glyph bottoms show under the tabs over
+      c3139–3148, and an "8" sits east of #0405 at c3150. Lift each tab per frame from #0408's top
+      face (`FILED_LIFT` scales its end state linearly), and test the tab boxes against its slab;
+    - the stress plate's contact cuts out in one frame as it unhooks at f3040 (the code review's
+      MINOR 1): seat its first frame and fade the contact with the lift, as `clipContact` does;
+    - the galley's coarse print is mirrored on purpose (cast type) and reads as garbled text at
+      the wide (c2605) and the ease-out (c3405): the user's call, or flip its U;
+    - `STRESS_LATE` (Batch.tsx, state.ts) is nearly moot now that the plate leaves at f3055;
+    - from f3440 the footprints number 126 a frame (MAX_FOOTPRINTS is 128).
+  - Beats 5 and 6, round 4's other leftovers:
+    - W-10's lamp lights at c2338–2341 with no cue, and its body rises and steps down again over
+      c2352–2365 (hold it on the late set too);
+    - four frames after each impale (c2531, 2561, 2591) the spike pile's top slip brightens 10–20
+      luma in one frame;
+    - the throat's cheek shade splits a landed slip at its west face and changes in one frame on
+      the landing (c2726);
+    - strip slip 0.0 leaves 3 f earlier, while beat 5's last dropped slip is still in the air (off
+      frame); nothing tests beat 5's slips against beat 6's;
+    - W-08's dossier still carries beat 4's CI card in still (c); W-09's take-in could apply.
+  - Still (c)'s critic, items 3 and 8.
+  - Optional cues the fixers asked for: a dry unhook at f3040 as the stress plate lifts, and a
+    soft card-into-slot at f2600 when W-09 takes its ask in.
+- **Session 5's own** (the seams with part 2):
+  - at the animatic's edge the Thread cord and the stamp appear in one frame at f3455 (the build
+    replaces the animatic there);
+  - the 主动 plate is half cut off during the bar-43 ease-out;
+  - the trait plates' retirement (f5540–5570), and the pops and the plate's jump on the f5400
+    boundary.
+- **From the lookdev critics, not re-checked in session 4.** Session 4 fixed the chat mark,
+  (d)'s trace, MT1, MT2, (a)'s items and the Router leader (commits b528ae4, b693136). Still open:
+  - (b):
+    - "above" is still weak;
+    - the bays read W-08, W-09, W-07 left to right. Renumbering bug → W-10 and fresh → W-11
+      breaks the dispatch order, so this is a director call;
+    - lifted shadows show the imprints as ghost cards (`gl/desk.ts` `imprintShade`);
+  - (c): the summary ejects without anticipation, and the pointer glyph prints before the tab
+    settles;
+  - (d)'s right-hand blueprint cluster floats without a link, and to a stranger the unreadable
+    micro-print reads as noise;
+  - finish:
+    - the slate tooth (std 0.55) is a director call;
+    - IDs are about 24 px, under the 36 px read floor;
+    - the per-object step-down stagger, the fanfold +1 and the engraved system boundary are not
+      done.
+- **Score:** bars 44–84 are the animatic bed (`audio/bed.ts`). The older reply's landing at
+  f1656 is silent; a paper tick there is optional.
+- **Tooling:** motion QA only sees whole-frame changes, so one-frame swaps of small parts pass
+  it. A cue-aware step test per tile would catch them (docs/ROADMAP.md, Known gaps).
 - **Shared, not blocking** (docs/ROADMAP.md, Known gaps):
   - the frozen *A Halloween Gift*'s hash licence (shadertoy 4djSRW);
   - LCD fringes on the kit's own `TestCard` and `Title`;

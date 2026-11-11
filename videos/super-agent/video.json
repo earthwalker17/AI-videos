@@ -16,7 +16,7 @@
       "note": "The user selected \"Hybrid on B (Recommended)\" (Who Routes the Agents? / 谁来调度智能体？) from three candidates and the judged hybrid, chose the look \"Dark ink map (Recommended)\" and \"Text-led, no voice (Recommended)\", and approved the production plan (sessions 1-4 in README.md)."
     }
   ],
-  "next": "Session 4, build part 1. Lookdev round 2 (the Register Desk: stills (a)-(d), motion tests MT1 and MT2) was signed off by the user on 2026-11-10 (README.md, Status). Start from README.md, Handoff: first the final critic round's fixes that touch shared parts (the chat mark, the summary trace), then an animatic on the 84-bar cue sheet with the score sketch re-laid, beats 1-6 on draft renders, and the score for bars 1-43.",
+  "next": "Session 5, build part 2. Session 4 built part 1 (README.md, Status): the film plays as one continuous Register Desk, beats 1-6 (f0-3439) are built on draft renders, the animatic runs from f3440, and the score is composed for bars 1-43 with a bed after. Start from README.md, Handoff: show the user the build so far (the stills that changed and the bar-43 camera change), clear part 1's open items, then build beats 7-13 (f3440-6719) in fixer lanes with frame critics and code reviews, and replace the animatic bed (audio/bed.ts) with the score for bars 44-84.",
   "languages": [
     "en",
     "zh-Hans"

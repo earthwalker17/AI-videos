@@ -27,7 +27,10 @@ verified in its own commit, in this order (the video's README has the session pl
 Changed 2026-11-08: lookdev round 1 was not approved, because the look is too simple and crude
 to be worth watching. A look-rework session now comes before the build. The remaining items
 (captions, Bilibili publishing) move back one session. The reworked look (the Register Desk,
-lookdev round 2) was signed off on 2026-11-10; the build starts next.
+lookdev round 2) was signed off on 2026-11-10. Session 4 (2026-11-10 to 11-11) built part 1:
+the film plays as one continuous world, beats 1–6 (f0–3439) are built on draft renders, an
+animatic covers the rest, and the score is laid on the 84 bars (composed for bars 1–43). Part 2
+(beats 7–13 and the rest of the score) is next.
 - [x] **Determinism lint for 2D DOM work** (2026-11-08): frame code may not use CSS
   `transition`/`animation`/`@keyframes`, the Web Animations API or `ResizeObserver`/
   `IntersectionObserver`.
@@ -53,6 +56,10 @@ lookdev round 2) was signed off on 2026-11-10; the build starts next.
 
   The WebGL world measured 0.37–0.62 s/frame and 1.31 MiB/frame at 1080p, deterministic on
   fresh pages.
+- [ ] **The build** (the video's README has the session plan):
+  - [x] part 1 (session 4, 2026-11-11): beats 1–6, the animatic and the score for bars 1–43, on
+    draft renders;
+  - [ ] part 2: beats 7–13 and the rest of the score; then the review cut.
 - [ ] **Two-user promotions:** `readingSeconds` and the hold rule → `@aiv/core` are done
   (2026-11-08). Still to do:
   - the bilingual caption pattern and the cue-text helpers → `@aiv/remotion-kit` / `@aiv/core`,
@@ -125,6 +132,10 @@ Built when a film needs them, not before:
   - Still diagram holds over 3 s need `hold` cues or `qa.allowFreeze`.
   - The cue-sheet intent checks (text hold, cuts on bars) run only inside `aiv audio`, so an
     unscored video gets none of them.
+  - Motion QA measures whole-frame change, so a one-frame pop or swap of a small part passes it
+    (found on *Who Routes the Agents?*, 2026-11-11). A cue-aware step test per tile would catch
+    them; today tile diffs round each event and code reviews that run the schedules frame by
+    frame do.
 - Audio QA (found on *A Halloween Gift*):
   - the hit check proves timing, not audibility: its onset finder accepts any doubling of
     energy, so a hit buried in thunder passed; add a prominence measure (peak after the cue
