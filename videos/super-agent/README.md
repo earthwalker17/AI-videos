@@ -133,8 +133,10 @@ design works.
        after them; every key strike, slip, batch and stamp sounds on its contact frame;
      - fixes from the final lookdev critic that touch shared parts (the chat mark, the summary
        trace), then four fix rounds, each a fixer per lane, a frame critic and a code review.
-   - The renders are drafts (960×540) with full-size keys. The critic's leftover list and what
-     needs the user's eye are under Handoff.
+   - The renders are drafts (960×540) with full-size keys. The whole film rendered as a draft
+     passed `aiv post` and `aiv qa` (2026-11-11): -14.0 LUFS, -2.4 dBTP, no unexpected black or
+     freeze (the animatic's holds are declared), cue holds and colour swatches pass. The critic's
+     leftover list and what needs the user's eye are under Handoff.
 5. **Build, part 2 (next).**
    - Beats 7–13 (f3440–6719) and the rest of the score, in the same way: fixer lanes, frame
      critics, code reviews.
@@ -375,7 +377,9 @@ A change that should not touch a still keeps its hash.
     replaces the animatic there);
   - the 主动 plate is half cut off during the bar-43 ease-out;
   - the trait plates' retirement (f5540–5570), and the pops and the plate's jump on the f5400
-    boundary.
+    boundary (QA's motion pops at 180.5 s; the others, 133.9 s and 207.2 s, are in the animatic);
+  - `video.json` `qa.allowFreeze` declares the animatic's holds (composition 3455–5415 and
+    5585–6735): shrink it as each beat is built, and remove it before the review cut.
 - **From the lookdev critics, not re-checked in session 4.** Session 4 fixed the chat mark,
   (d)'s trace, MT1, MT2, (a)'s items and the Router leader (commits b528ae4, b693136). Still open:
   - (b):
@@ -393,7 +397,10 @@ A change that should not touch a still keeps its hash.
     - the per-object step-down stagger, the fanfold +1 and the engraved system boundary are not
       done.
 - **Score:** bars 44–84 are the animatic bed (`audio/bed.ts`). The older reply's landing at
-  f1656 is silent; a paper tick there is optional.
+  f1656 is silent; a paper tick there is optional. QA measured six hits in the built part
+  40–110 ms off their frames: hub +65 ms, strike-ghost −60, dispatch-docs +95, plate-detent +55,
+  batch-2 +40 and recall +110. Its onset finder accepts any doubling of energy (docs/ROADMAP.md,
+  Known gaps), so in a dense mix it may catch a neighbour: listen to these first.
 - **Tooling:** motion QA only sees whole-frame changes, so one-frame swaps of small parts pass
   it. A cue-aware step test per tile would catch them (docs/ROADMAP.md, Known gaps).
 - **Shared, not blocking** (docs/ROADMAP.md, Known gaps):

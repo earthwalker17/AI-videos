@@ -43,6 +43,16 @@
       0,
       15
     ],
+    "allowFreeze": [
+      [
+        3455,
+        5415
+      ],
+      [
+        5585,
+        6735
+      ]
+    ],
     "loudness": {
       "integrated": -14,
       "tolerance": 1,
