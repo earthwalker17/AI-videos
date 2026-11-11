@@ -29,6 +29,8 @@ import {
   cardAt,
   cardIn,
   cardPose,
+  cardShadeShift,
+  CARD_SHADE_CLEAR,
   carriersAt,
   cellLitAt,
   gaugeFlipAt,
@@ -58,8 +60,9 @@ import {
   type Carry,
 } from './beat4.ts';
 import { deskCamera, FRAMING_B, project } from './camera.ts';
-import { bayWalls, footprintsAt, heapFootprintsAt, MAX_FOOTPRINTS, type Footprint } from './footprints.ts';
+import { bayWalls, cardFootprint, footprintsAt, heapFootprintsAt, MAX_FOOTPRINTS, type Footprint } from './footprints.ts';
 import { BAYS, BAY_FLOOR, BENCH, DECK, DISPATCH_HOUSING, DRAWER, LEG_R, LEG_STRUTS, MOUTH, NEXT_SLIP, PINS, RAMP, REQUEST, SHEET, TOWER, rectC, towerTop, type BayId, type P3 } from './layout.ts';
+import { LIGHT_GLSL } from './gl/light.ts';
 import { poolsAt, MAX_POOLS } from './pools.ts';
 import { DETENT, EVENTS_D, FOCUS_BEATS, deskStateAt, nextAt, SLIP_LANDS, stepAt } from './state.ts';
 import { SPIN_TOTAL, TURN_SPAN, turnAt, turnFootprints } from './turn.ts';
@@ -358,6 +361,9 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
     }
     expect(REQUEST_SHADE_IN).toBe(SHADE_IN.bug);
     expect(DOCK_SHADE_TOP.bug).toBe(PIN_SHADE_TOP);
+    // the shaders' rule SHADE_IN is built on: a footprint is skipped when z1 <= zr + 0.5 (and the lit materials pass a
+    // surface at z as the receiver z - 0.5, gl/materials.ts), so a surface is under a footprint exactly when z < z1
+    expect(LIGHT_GLSL).toContain('if (z1 <= zr + 0.5) continue;');
   });
 
   it('moves the request as one body: out of the heap, up the belt, into the throat and under the head, then out of the housing onto its folder (no snap in place, heading or slope)', () => {
@@ -545,6 +551,34 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
     }
   });
 
+
+  it('takes each counterfactual’s cast shadow off the frame with it: never on the desk while the card is beyond the top edge', () => {
+    const pose = deskCamera(FRAMING_B, 15);
+    const cardOut = (c: { c: P3; tilt: number }) => project(pose, [c.c[0], c.c[1] - (CARD_SPOT.h / 2) * Math.cos(c.tilt), c.c[2] - (CARD_SPOT.h / 2) * Math.sin(c.tilt)])[1] < 0;
+    // the shadow's southmost reach on a receiver at height zr (the slate, the deck's rails): its footprint's south edge,
+    // carried down the key from its top, and half its penumbra
+    const shadeOut = (fp: Footprint, zr: number) => {
+      if (fp.kind !== 'rect') throw new Error('a card casts a rect');
+      const h = fp.z1 - zr;
+      const p: P3 = [fp.c[0] + fp.h[0] + 0.78 * 0.84 * h, fp.c[1] - fp.h[1] - 0.64 * 0.84 * h - (4 + 0.22 * h) / 2, zr];
+      return project(pose, p)[1] < 0;
+    };
+    for (const which of ['split', 'ghost'] as const) {
+      const c = B4[which];
+      const lastF = c.strike - 1 + CARD_STRIKE + CARD_EXIT - 1;
+      let shown = 0;
+      for (let f = c.rise; f <= lastF; f++) {
+        const st = cardAt(f, c)!;
+        const fp = cardFootprint(st, which)!;
+        if (cardOut(cardPose(st, which))) for (const zr of [0, 122]) expect(shadeOut(fp, zr), `${which} f${f} z${zr}`).toBe(true);
+        else shown++;
+        // at its place it casts where it hovers
+        if (cardIn(st) >= CARD_SHADE_CLEAR.k) expect(cardShadeShift(st)).toBe(0);
+      }
+      expect(shown).toBeGreaterThan(20);
+      expect(cardShadeShift(cardAt(lastF, c)!)).toBeCloseTo(CARD_SHADE_CLEAR.u, 6);
+    }
+  });
   it('winds the notes loop’s riders in at the rim with the request’s detent (from rest at the turn’s end, nothing moving before the reel does, the detent only once the request is at the head), and ramps the request’s beetle light out before the head can cut it off', () => {
     expect(ridersAt(TURN_SPAN[1] + 1)!.sink).toBe(0);
     expect(RIDERS_WIND.frames).toBeGreaterThanOrEqual(8);

@@ -954,7 +954,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
                 <mesh geometry={g.drawerBox} material={d.graphiteDark} />
                 <mesh geometry={g.drawerFront} material={d.enamel} />
                 <mesh geometry={g.drawerHandle} material={d.steel} />
-                <FiledTabs />
+                <FiledTabs file={C && !C.summary ? C.file : 0} />
               </>
             )}
           </WithMats>

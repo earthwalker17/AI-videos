@@ -131,9 +131,9 @@ export function WithMats({ children }: { children: (m: DeskMats) => ReactNode })
   return <>{children(useDeskMats())}</>;
 }
 
-/** Whether a focus id is stepped down at this state ('own': on its own ramp, the `own` set). */
-export const isStepped = (step: { amount: number; ids: readonly string[]; own?: { amount: number; ids: readonly string[] } }, id: string): boolean | 'own' =>
-  step.own?.ids.includes(id) ? (step.own.amount > 0 ? 'own' : false) : step.amount > 0 && step.ids.includes(id);
+/** Whether a focus id is stepped down at this state ('late': held on the late set, state.ts withLateHold; 'own': on its own ramp, the `own` set). */
+export const isStepped = (step: { amount: number; ids: readonly string[]; own?: { amount: number; ids: readonly string[] }; late?: readonly string[] }, id: string): boolean | 'own' | 'late' =>
+  step.late?.includes(id) ? 'late' : step.own?.ids.includes(id) ? (step.own.amount > 0 ? 'own' : false) : step.amount > 0 && step.ids.includes(id);
 
 /**
  * The enclosing `<Step>`'s mode, for an object that makes its own materials (pass it as `{ stepped }` to paper, matte,

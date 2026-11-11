@@ -43,7 +43,7 @@ import { clamp, easings } from '@aiv/core';
 import { Easing, spring } from 'remotion';
 import { FPS, cue } from '../cues.ts';
 import { ACT_ONE_END, BULB_A, FOLDERS, LOOP_A, YOU_C_A, YOU_SHIFT_A, actOneAt, actOnePools, feederFootprints, folderFootprints, heapFootprints, youPoseA, type ActOneState, type LoopPose } from './actOne.ts';
-import { A_CHUTES, A_FOLDER_IN, A_PITCH, A_QUEUE, A_STACK_END, A_TAPE, A_TAPE_W, BAY_TRAYS, B_SLIP, FIX_A_FOLDER, IN_TRAY_A_C, IN_TRAY_PILE, RETIRE_TRAYS, TRAYS, TRAY_STUFF, TRAY_Z, aPathAt, fixAFootprints, trayRestB, type FixAView } from './beat3.ts';
+import { A_CHUTES, A_FOLDER_IN, A_PITCH, A_QUEUE, A_STACK_END, A_TAPE, A_TAPE_W, BAY_TRAYS, FIX_A_FOLDER, IN_TRAY_A_C, IN_TRAY_PILE, RETIRE_TRAYS, TRAYS, TRAY_STUFF, TRAY_Z, aPathAt, fixAFootprints, replySlipFootprint, trayRestB, type FixAView } from './beat3.ts';
 import { bayShellFootprints, circleFp, heapFootprintsAt, pitFootprints, rectFp, registerFootprints, segFp, youFootprints, type Footprint } from './footprints.ts';
 import { BAYS, BELT, CELLS_X, CHUTE, CHUTE_POSTS, DECK, DISPATCH_HOUSING, FANFOLD, FEEDERS, GATE, LAMP, LEG_R, LEG_STRUTS, NEXT_SLIP, PRINT_HEAD, REEL, REQUEST, SHEET, SPOOL, TAPE, YOU, shadowOffset, type BayId, type BayLayout, type P2, type P3, type Pool, type Rect } from './layout.ts';
 import { REEL_LOCK, REQUEST_FROM, cellLitAt, heapAt, requestAt } from './beat4.ts';
@@ -175,9 +175,13 @@ export const LIFT_H = 160;
 export const GLIDE_H = 236;
 /** The ribbon rounds to this radius on edge, then coils in to the hub; Fix A's tape winds it out to the pack's radius. */
 export const COIL_R0 = 70;
-/** The collapsed deck: everything on it this far down, and this far north while it rolls in. */
+/**
+ * The collapsed deck: everything on it this far down, and this far north while it rolls in: far enough that on the roll's
+ * first frames (the camera curve gathers speed slowly) all of it, its mouth and feet and the shade it casts down the key,
+ * is beyond the frame's top edge, so it comes into view already rolling (turn.test.ts), never whole in one frame.
+ */
 export const DECK_LOW = 80;
-export const DECK_NORTH = 560;
+export const DECK_NORTH = 800;
 /**
  * The parts ride in with the deck, stowed: the throat lowered under the deck's west end, the head lying flat (hinged
  * at its west edge), the index arm and the loupe parked, the ramp raised, the plate face down.
@@ -1095,6 +1099,9 @@ function flattenFp(fp: Footprint, p: Press): Footprint | null {
   return z1 <= 0.4 ? null : { ...fp, z0: Math.max(0, fp.z0 * p.scaleZ - p.sink), z1 };
 }
 
+/** The loop's clip's contact as it lifts off the desk (u): 0.9 on the desk, gone by 3.2 u. */
+export const clipContact = (lift: number): number => 0.9 * clamp(1 - lift / 3.2);
+
 /** The request in the old heap as act one casts it, handed to act two's cast (desk/footprints.ts carrierContact: none above 5 u) over 16 f while the camera moves. */
 const REQUEST_CAST = { from: 1460, frames: 16 } as const;
 const carrierContact = (z: number): number => 0.4 * clamp((5 - z) / 3.6);
@@ -1118,7 +1125,8 @@ export function turnFootprints(t: TurnState): Footprint[] {
       fp.push(segFp([p[0] + ox, p[1] + oy, zc], [q[0] + ox, q[1] + oy, zc], 10 + 2 * (1 - edge)));
     }
     const lift = L.z - LOOP_A.z + (L.w / 2) * edge;
-    fp.push(circleFp(loopAt(L, L.clipAt), 26, lift, lift + 7.8, 0.9 * clamp(1 - lift / 2)));
+    // its contact fades with its lift (out by 3.2 u: the rise's first frame lifts it 1.6 u, so it halves, never cuts)
+    fp.push(circleFp(loopAt(L, L.clipAt), 26, lift, lift + 7.8, clipContact(lift)));
   }
   if (lt.coil && f < TURN.lock) fp.push(circleFp(lt.coil.c, lt.coil.rOut + 4, lt.coil.h, lt.coil.h + lt.coil.t, 0.6));
   // act one's folders, pressed with their pens and flags
@@ -1180,7 +1188,7 @@ export function turnFootprints(t: TurnState): Footprint[] {
   const B = t.fixB;
   B.slips.forEach((s, k) => {
     if (f >= replyLands(k)) return;
-    fp.push({ kind: 'rect', c: [s.p[0], s.p[1]], h: [B_SLIP.l / 2, B_SLIP.w / 2], r: 2, rot: s.rot, z0: s.p[2] - 0.4, z1: s.p[2] + 0.4, contact: s.p[2] < YOU.top + 12 ? 0.4 : 0 });
+    fp.push(replySlipFootprint(s));
   });
   TRAYS.forEach((tr, k) => {
     const R = B.retire[k];
@@ -1310,5 +1318,13 @@ export function turnPools(t: Pick<TurnState, 'f' | 'act' | 'tape'>): Pool[] {
 }
 /** Your lamp's height band over act one's pool top (its hood and arm, up to 150 u): the pool's light comes up over it during the hit, before the loop's band rises into it. */
 export const UPPER_POOL = { from: TURN.hit, to: TURN.edge + 2, top: 150 } as const;
-/** Above that, up to the loop's top while its face still turns up (under the lamp's elbow): its light goes as the band stands on edge (about 0.6 to 0.95 of the way). */
-export const HIGH_POOL = { top: 210, from: TURN.edge + 8, to: TURN.edge + 18 } as const;
+/**
+ * Above that, up to the loop's top while its face still turns up (under the lamp's elbow): its light goes, by amount over
+ * 10 f, once the band's underside has risen clear of UPPER_POOL's top (the first frame it is, f1466), so no row of the band
+ * is between the two pools while one of them fades (a gate at z 150 drew a hard line down the rising band); still out
+ * before the coil comes up (TURN.coil), so the coil's top is never lit by it.
+ */
+export const HIGH_POOL: { readonly top: 210; readonly from: number; readonly to: number } = (() => {
+  for (let f = TURN.edge; f < TURN.coil; f++) if (loopTurnAt(f).ribbon!.L.z >= UPPER_POOL.top) return { top: 210, from: f, to: f + 10 } as const;
+  throw new Error('turn: the loop never rises clear of the upper pool');
+})();

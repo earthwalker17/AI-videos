@@ -26,7 +26,7 @@
 import { clamp, easings } from '@aiv/core';
 import { Curve } from '@aiv/remotion-kit';
 import { Easing, spring } from 'remotion';
-import { BEAT, BEAT_4, BEAT_5, FPS } from '../cues.ts';
+import { BEAT, BEAT_4, BEAT_5, FPS, cue, textWindow } from '../cues.ts';
 import { armRest, beat4At, hammerStroke, hatchRiseAt, inkSpread, type Beat4State } from './beat4.ts';
 import { beat5At, type Beat5State } from './beat5.ts';
 import { E6, beat6At, type Beat6State } from './beat6.ts';
@@ -181,7 +181,7 @@ export interface DeskState {
   /** the docs galley: how far the current line is set (0..1) */
   galley: number;
   /** the focus step-down: how far it has gone (0..1) and what it applies to; `own`: parts on their own ramp (kit.tsx `Step on="own"`) */
-  step: { amount: number; ids: readonly FocusId[]; own?: { amount: number; ids: readonly FocusId[] } };
+  step: { amount: number; ids: readonly FocusId[]; own?: { amount: number; ids: readonly FocusId[] }; late?: readonly FocusId[] };
   /** MT1's next dispatch (f2226-2340): the chat slip judged and stamped in, the fresh bay and its folder */
   next: NextState;
   /** still (c): the request's report at the window; null before it */
@@ -335,7 +335,7 @@ export function deskStateAt(f: number): DeskState {
   // MT1: once the slip is stamped in, the arm turns from you to the fresh bay's detent
   const armNow = f > EVENTS_D.armTurn ? DETENT.you + (DETENT.fresh - DETENT.you) * springAt(f, EVENTS_D.armTurn, SPRING.detent) : arm;
   const testsSink = springAt(f, EVENTS_D.rest, SPRING.heavy);
-  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withBeat5Ramp(f, withOwnRamp(f, stepAt(f))), next, cache: cacheAt(f), testsSink, b4, e5: beat5At(f), e6: beat6At(f, (x, at) => springAt(x, at, SPRING.dock)) };
+  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withLateHold(f, withBeat6Ramp(f, withBeat5Ramp(f, withOwnRamp(f, stepAt(f))))), next, cache: cacheAt(f), testsSink, b4, e5: beat5At(f), e6: beat6At(f, (x, at) => springAt(x, at, SPRING.dock)) };
 }
 
 /** The reply's lead-in: hidden under the deck's plate and south rail, on the chute's line produced back north-east, so it slides out of the deck straight into the chute. */
@@ -490,6 +490,35 @@ export function withBeat5Ramp(f: number, step: DeskState['step']): DeskState['st
   if (step.own || f < B5_LATE_FROM || f >= b5.to + STEP_FRAMES) return step;
   const amount = Math.min(easings.inOutSine(clamp((f - B5_LATE_FROM) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - b5.to) / STEP_FRAMES)));
   return { ...step, own: { amount, ids: B5_LATE } };
+}
+
+/**
+ * 5.1's focus (the critic's pump): what C12 had stepped down and beat 5's second stage steps down again (B5_LATE but
+ * your desk and the Proactive plate, which are 5.1's action) never comes up in between: from C12's ramp-out (where it is
+ * at a full step) it is drawn with the late set (at a full step from f2200: testsStep) until B5_LATE's own ramp has
+ * reached a full step, which then carries it (the same values: the hand-overs are invisible) and brings it up with the dolly.
+ */
+export const B5_HOLD: readonly FocusId[] = ['reel', 'lock', 'fanfold', 'plate', 'docsBay', 'bugBay', 'gauge'];
+const C12_OUT = FOCUS_BEATS.find((b) => b.id === 'c12')!.to;
+const B5_HOLD_TO = B5_LATE_FROM + STEP_FRAMES;
+/**
+ * N6 (the recall): the docs bay, whose W-09 name strip lies in the notes band in the close, stays stepped down from N5
+ * until N6's line is off the screen (its lit paper never enters the band under the line): on the late set once N5's ramp
+ * has reached it, then on its own ramp at a full step once the cache's own set has handed back (CACHE_UNSTEP), ramping up
+ * after N6 has gone (as the camera eases out).
+ */
+export const N6_HOLD: readonly FocusId[] = ['docsBay'];
+/** The frame N6's line is gone (its window's end: cues.ts textWindow). */
+export const N6_GONE = textWindow(cue('n6'))[1];
+/** The parts held on the late set at f (B5_HOLD in 5.1, the docs bay in N5-N6). */
+export function withLateHold(f: number, step: DeskState['step']): DeskState['step'] {
+  const late = f >= C12_OUT && f < B5_HOLD_TO ? B5_HOLD : f >= STRESS_LATE && f < CACHE_UNSTEP + STEP_FRAMES ? N6_HOLD : null;
+  return late ? { ...step, late } : step;
+}
+/** The docs bay's own ramp after the cache's (N6_HOLD): at a full step until N6 is gone, then up over STEP_FRAMES. */
+export function withBeat6Ramp(f: number, step: DeskState['step']): DeskState['step'] {
+  if (step.own || f < CACHE_UNSTEP + STEP_FRAMES || f >= N6_GONE + STEP_FRAMES) return step;
+  return { ...step, own: { amount: 1 - easings.inOutSine(clamp((f - N6_GONE) / STEP_FRAMES)), ids: N6_HOLD } };
 }
 
 /** C12's step-down with the parts on their own ramp (from f2226 to the end of the rest). */
@@ -742,10 +771,11 @@ export interface CacheState {
 
 /**
  * The close shot's fine print (TREATMENT Type: printed fields swap by an 8 f cross-fade at the start of a
- * camera move, on those objects only): in from bar 34's dolly (f2640), out from bar 43's ease-out (f3360).
+ * camera move, on those objects only): in from bar 34's dolly (f2640), out once bar 43's ease-out (f3360) is under way
+ * and N6's line has gone (f3370: the coarse print never fades in under the line).
  */
 export function closeAt(f: number): number {
-  return sine((f - DOLLY_IN.from) / 8) * (1 - sine((f - EASE_OUT.from) / 8));
+  return sine((f - DOLLY_IN.from) / 8) * (1 - sine((f - Math.max(EASE_OUT.from, N6_GONE)) / 8));
 }
 
 /** The card's flight from the request bay's slot into the mouth (an arc `apex` over the chord). */
@@ -793,8 +823,9 @@ export function cacheAt(f: number): CacheState | null {
   const landed = f >= landAt ? (f - landAt >= SETTLED ? 1 : springAt(f, landAt, SPRING.dock)) : null;
   // the landing's squash: 3% at contact, gone over 4 f
   const squash = f < landAt ? 0 : Math.max(0, 1 - (f - landAt) / 4) * Math.min(1, (f - landAt + 1) / 1.5);
-  // the drawer pulls open on the fold's downbeat, ready before the tab drops
-  const drawer = f - E.fold >= SETTLED ? 1 : springAt(f, E.fold, SPRING.detent);
+  // the drawer pulls open on the fold's downbeat (eased in and out over DRAWER_FRAMES, its travel revealing the filed
+  // tabs as #0408's tab lies back), ready before the tab drops
+  const drawer = sine((f - E.fold) / DRAWER_FRAMES) + 0;
   // beat 6 (from the close until the summary, whose world is still (d)'s): the print swap, the record's staggered ink and
   // its pointer, the reading light gathering on the record, the #0408 tab filing back, the holder folding away, the head's dip
   const summary = f >= E6.until;
@@ -802,7 +833,8 @@ export function cacheAt(f: number): CacheState | null {
   const stagger = f - E.stampIn;
   const pointer = summary ? 2 : f < E.pointer ? -1 : Math.min(2, f - E.pointer);
   const gather = summary ? 1 : sine((f - E.stampIn) / 6);
-  const file = summary ? 0 : f - E.fold >= 2 * SETTLED ? 1 : springAt(f, E.fold, SPRING.dock);
+  // #0408's tab lies back with the drawer's pull (its top edge's travel down reveals the filed tabs), flat before the request's tab drops
+  const file = summary ? 0 : sine((f - E.fold) / DRAWER_FRAMES) + 0;
   const hopper = summary ? 0 : f - E.hopper >= 40 ? 1 : springAt(f, E.hopper, SPRING.heavy);
   const dip = summary ? 0 : stamp;
   return { out, card, transit, docked, strip, stamp, ink, shrink, tape: 0, reel: 0, dim, fold, drop, landed, squash, lamp: 1, drawer, fade, summary, stagger, pointer, gather, file, hopper, dip };
@@ -810,6 +842,8 @@ export function cacheAt(f: number): CacheState | null {
 
 /** Frames after which a cache spring rests exactly (no sub-pixel creep in a hold). */
 const SETTLED = 12;
+/** The spill drawer's pull (still (c)'s critic: never a 2 f pop of the filed tabs). */
+export const DRAWER_FRAMES = 6;
 
 /** Cargo anticipates by 3 f (TREATMENT Motion grammar). */
 const ANTICIPATE = 3;

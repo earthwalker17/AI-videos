@@ -19,7 +19,8 @@
  *   off and drops into the dispatch slot under it (it leaves as dispatches). The neck collar's needle rises a hair with
  *   each slip and eases back down with the gulp.
  * - 6.2 the stress plate: it flies in from the east and is pressed onto the deck's south rail on `plate-detent`
- *   (f2880, a contact frame), its header and endpoints engraved (gl/plate.ts stressTexture), never rolled.
+ *   (f2880, a contact frame), its header and endpoints engraved (gl/plate.ts stressTexture), never rolled; once N4 has
+ *   read it, it lifts off its hooks on bar 39's downbeat and flies back out east (16 f), gone before the cache's eject.
  * - 6.4 recall: a review comment, a punched card from the card feeder, is posted over the gate, rides the belt and
  *   hops into the throat on `review-card`; nothing subscribes to it, so it feeds into the head and is stamped in on
  *   `review-in` as a new row: the tape advances one stub and the new stub comes out from under the inline record. On
@@ -33,8 +34,8 @@
  * The world from the summary on (SPAN_D, f5400) is still (d)'s, which draws none of this (`E6.until`).
  */
 import { clamp, easings } from '@aiv/core';
-import { BEAT_6, cue } from '../cues.ts';
-import { CACHE_WINDOW, CARD_C, DECK, DRAWER, DRAWER_OPEN_C, FEEDERS, NEXT_SLIP, PRINT_HEAD, TAPE, THROAT, rectC, type P3 } from './layout.ts';
+import { BEAT_6, at as bar, cue } from '../cues.ts';
+import { CACHE_WINDOW, CARD_C, DECK, DRAWER, DRAWER_OPEN_C, FEEDERS, FILED_TABS, NEXT_SLIP, PRINT_HEAD, TAB_C, TAPE, THROAT, rectC, type P3 } from './layout.ts';
 
 /** In and out (never -0, so a hold compares equal). */
 const sine = (t: number): number => easings.inOutSine(clamp(t)) + 0;
@@ -58,6 +59,14 @@ export const E6 = {
   plateDetent: cue('plate-detent').frame,
   plateFly: 20,
   platePress: 4,
+  /**
+   * it leaves on bar 39's downbeat, after N4's line (the line that reads it) is off the screen and before the cache's
+   * eject: it lifts off its hooks (unhook frames) and flies back the way it came, gone off the frame's east edge by
+   * plateExit + plateOut (not in still (c): r2-final c)
+   */
+  plateExit: bar(39),
+  plateUnhook: 2,
+  plateOut: 16,
   /** 6.4: the review card enters the throat, waits, feeds into the head (4 f) and is stamped in on review-in */
   reviewCard: R.card,
   reviewIn: R.stampIn,
@@ -93,11 +102,35 @@ export const WINDOW_CARDS = [
 ] as const;
 
 /**
- * The test report's tab #0408 filed (objects/Cache.tsx TestTab): as the drawer pulls open it settles back to lie nearly
- * flat on the drawer's floor, a hair forward, under the older tabs' feet, so the request's tab lands on top of it with its
- * ID clear (standing, it would hide the request's).
+ * The test report's tab #0408 filed (objects/Cache.tsx TestTab): as the drawer pulls open it lies back flat on the
+ * drawer's floor (a tenth of a unit over it, never through it), a hair forward and west, and drawn a little narrower
+ * as it goes (w: its ends under the request's tab and inside the drawer's walls, so no fragment of its ID shows beside
+ * the request's tab in still (c)), under the older tabs, which it lifts onto itself as it goes under them (FILED_LIFT: they stand on it, never
+ * through it), so the request's tab lands on top of it with its ID clear (standing, it would hide the request's).
  */
-export const TAB_FILE = { lean: 0.12, dy: -3, dz: -1.6 } as const;
+export const TAB_FILE = { lean: 0.02, dx: -3.5, dy: -3, dz: -0.05, w: 0.92 } as const;
+/** The folded #0408 tab's half thickness (objects/Handshake.tsx CardHalves: its faces at +-0.85) and depth (state.ts TAB_B). */
+const TAB_0408 = { t: 0.85, d: 34 } as const;
+/** The request's tab's lean in the drawer (state.ts TAB_LEAN_C: the same value, beat6.test.ts). */
+export const TAB_LEAN_REQUEST = 0.38;
+/** The drawer floor's top (objects/Register.tsx drawerBox: its floor slab from DRAWER.z[0], 3 u). */
+const DRAWER_FLOOR = DRAWER.z[0] + 3;
+/**
+ * How far each filed tab (layout.ts FILED_TABS) stands lifted once #0408 lies under it (u, at file = 1): onto #0408's top
+ * face where its crease (with its turn, either end) lies over it, plus a hair; 0 where it lies past #0408's far edge.
+ */
+export const FILED_LIFT: readonly number[] = FILED_TABS.map((t) => {
+  // #0408's crease line (in the drawer's frame, as the filed tabs' y) and its top face rising north at its lean
+  const y0 = DRAWER.box.y0 + 5 + TAB_FILE.dy;
+  const far = y0 + TAB_0408.d * Math.cos(TAB_FILE.lean);
+  const yMax = t.y + (t.w / 2) * Math.abs(Math.sin(t.turn));
+  if (t.y - (t.w / 2) * Math.abs(Math.sin(t.turn)) - 1.6 > far) return 0;
+  // a tab whose foot lies under the request's tab once it lands (state.ts TAB_REST_C, its far edge) stays on the floor:
+  // its foot in #0408 is under the request's tab, and lifted it would stand over the request's ID
+  if (yMax < DRAWER.box.y0 + 5.5 + TAB_C.d * Math.cos(TAB_LEAN_REQUEST)) return 0;
+  const top = DRAWER.z[0] + 4 + TAB_FILE.dz + TAB_0408.t / Math.cos(TAB_FILE.lean) + (Math.min(yMax, far) - y0) * Math.tan(TAB_FILE.lean);
+  return Math.max(0, top + 0.3 - DRAWER_FLOOR);
+});
 
 /** The read: the bar runs down the whole strip in this many frames from the downbeat. */
 const E6_READ = 6;
@@ -231,9 +264,9 @@ export const CROP = { west: TRAY.x0 + TRAY.hood / 2, east: TRAY.x1 - TRAY.hood /
 export const PITCH = 16.8;
 /** The front slip's centre (x): its nose a hair short of the east hood's lip. */
 export const FRONT_X = TRAY.x1 - TRAY.hood - 1 - NEXT_SLIP.l / 2;
-/** Where a slip comes in (its centre: its nose at the west crop, the rest under the hood) and how fast it slides along the tray. */
+/** Where a slip comes in (its centre: its nose at the west crop, the rest under the hood) and how fast it comes out (u a frame; it slows into the strip). */
 export const ENTRY_X = CROP.west - NEXT_SLIP.l / 2;
-export const TRAY_V = 40;
+export const TRAY_V = 48;
 /** Frames a slip spends out of sight between wholly under the head and its nose at the west hood's crop (under the deck plate). */
 export const HIDDEN = 8;
 /** The slips lie a sheet above the one before in the strip (the follower on top), on the tray's floor. */
@@ -273,8 +306,11 @@ export const BATCHES = BEAT_6.batches.map((b, k) => {
 export function stripFrames(b: (typeof BATCHES)[number], i: number) {
   const L = b.slips[i]!;
   const place = FRONT_X - i * PITCH;
-  const inTray = L - (place - ENTRY_X) / TRAY_V;
-  const under = inTray - HIDDEN;
+  // it comes out at TRAY_V and slows into the strip (out-quad), so it slides over the slip before it for a few frames
+  // (never one frame of the print under it cut off at its nose)
+  const inTray = L - (2 * (place - ENTRY_X)) / TRAY_V;
+  // a whole frame (the feed's last frame lands it exactly wholly under the head: it leaves the open there, never mid-throat)
+  const under = Math.floor(inTray - HIDDEN);
   const feed = under - RIDE6.feed;
   const th = feed - RIDE6.dwell;
   return { L, place, inTray, under, feed, th, land: landFor(th) };
@@ -323,7 +359,7 @@ export function stripSlipAt(f: number, b: (typeof BATCHES)[number], i: number): 
   // under the head and the deck plate on its way to the tray's west hood
   if (f < F.inTray) return { ...at(ENTRY_X), hidden: true, view: null };
   // out from under the west hood, sliding east to its place (linear transport), butting on its frame
-  if (f < F.L) return at(Math.min(F.place, ENTRY_X + (f - F.inTray) * TRAY_V));
+  if (f < F.L) return at(ENTRY_X + (F.place - ENTRY_X) * easings.outQuad(clamp((f - F.inTray) / (F.L - F.inTray))));
   const x = F.place - gulpOf(f, b);
   if (x + NEXT_SLIP.l / 2 <= CROP.west) return null;
   // in the strip: still until the sweep; read as the bar passes its nose band; drawn in under the west hood with the strip
@@ -457,20 +493,28 @@ export interface PlatePose {
   flying: boolean;
 }
 
-/** The stress plate at f: null before it enters, then its flight, its press onto the rail on plate-detent, seated. */
+/** The stress plate at f: null before it enters, then its flight, its press onto the rail on plate-detent, seated; its lift off the hooks and flight back out on plateExit; null once it is gone. */
 export function plateAt(f: number): PlatePose | null {
   const at = E6.plateDetent;
   const start = at - E6.plateFly;
-  if (f < start || f >= E6.until) return null;
-  if (f >= at) return { d: [0, 0, 0], tilt: 0, turn: 0, squash: 0.03 * Math.max(0, 1 - (f - at) / 4), flying: false };
+  if (f < start || f >= E6.plateExit + E6.plateOut || f >= E6.until) return null;
   const c: P3 = [(STRESS_PLATE.box.x0 + STRESS_PLATE.box.x1) / 2, (STRESS_PLATE.box.y0 + STRESS_PLATE.box.y1) / 2, 0];
-  const pressFrom = at - E6.platePress;
   const HOVER = 12;
+  const from: P3 = [PLATE_FROM[0] - c[0], PLATE_FROM[1] - c[1], PLATE_FROM[2]];
+  if (f >= E6.plateExit) {
+    // the exit (on the downbeat, its first frame already off the hooks): up off them to its hover over the seat, then
+    // back the way it came, its flight in reverse (tilting and turning as it climbs away east), gathering speed
+    const x = f - E6.plateExit + 1;
+    if (x <= E6.plateUnhook) return { d: [0, 0, HOVER * sine(x / E6.plateUnhook)], tilt: 0, turn: 0, squash: 0, flying: true };
+    const u = sine((x - E6.plateUnhook) / (E6.plateOut - E6.plateUnhook));
+    return { d: [from[0] * u, from[1] * u, HOVER + (from[2] - HOVER) * u + 30 * Math.sin(Math.PI * u) * u], tilt: 0.35 * u, turn: 0.22 * u, squash: 0, flying: true };
+  }
+  if (f >= at) return { d: [0, 0, 0], tilt: 0, turn: 0, squash: 0.03 * Math.max(0, 1 - (f - at) / 4), flying: false };
+  const pressFrom = at - E6.platePress;
   if (f < pressFrom) {
     // the flight: in from the east in an arc, levelling and squaring up over its seat
     const t = (f - start) / (pressFrom - start);
     const u = sine(t);
-    const from: P3 = [PLATE_FROM[0] - c[0], PLATE_FROM[1] - c[1], PLATE_FROM[2]];
     const d: P3 = [from[0] * (1 - u), from[1] * (1 - u), HOVER + (from[2] - HOVER) * (1 - u) + 30 * Math.sin(Math.PI * u) * (1 - u)];
     return { d, tilt: 0.35 * (1 - u), turn: 0.22 * (1 - u), squash: 0, flying: true };
   }

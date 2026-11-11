@@ -22,7 +22,7 @@
  */
 import { useLayoutEffect, useMemo } from 'react';
 import { BoxGeometry, CircleGeometry, Color, MeshStandardMaterial, PlaneGeometry, type Material, type Texture } from 'three';
-import { E6, STUB_STEP, TAB_FILE, THREAD_ROW, WINDOW_CARDS } from '../beat6.ts';
+import { E6, FILED_LIFT, STUB_STEP, TAB_FILE, THREAD_ROW, WINDOW_CARDS } from '../beat6.ts';
 import { slab } from '../geom.ts';
 import { HEX, paper } from '../gl/materials.ts';
 import { isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
@@ -35,6 +35,8 @@ const TAPE_Y = (TAPE.y0 + TAPE.y1) / 2;
 const TAPE_H = TAPE.y1 - TAPE.y0;
 /** The stubs' paper: idle, and one step dimmer once the record is in (about 22 codes of luma). */
 const STUB_HEX = { idle: HEX.paper, dim: '#8E897F' } as const;
+/** #0408's tab filed under the older tabs: its paper in their shade (gl/materials.ts paperShade's value, a step under it). */
+const TAB_BURIED = '#6E6A61';
 /**
  * The feed slot in the print head's south face: the header strip, turned so its long side runs north,
  * slides in flat through it (the head is deeper than the strip is wide, and wider than it is deep).
@@ -224,20 +226,20 @@ function useTabBox(w: number) {
   return useMemo(() => faceUV(new BoxGeometry(w, TAB_C.d, 1.6).translate(0, TAB_C.d / 2, 0.8), (x, y) => [(x + w / 2) / w, y / TAB_C.d]), [w]);
 }
 
-/** One filed tab, standing on its crease and leaning back at its own angle. */
-function FiledTab({ i, face, edge }: { i: number; face: Material; edge: Material }) {
+/** One filed tab, standing on its crease and leaning back at its own angle (lifted onto #0408's tab once that lies under it). */
+function FiledTab({ i, face, edge, file }: { i: number; face: Material; edge: Material; file: number }) {
   const t = FILED_TABS[i];
   const g = useTabBox(t.w);
   const [cx] = rectC(DRAWER.box);
   return (
-    <group position={[cx + t.dx, t.y, DRAWER.z[0] + 3]} rotation={[t.lean, 0, t.turn, 'ZXY']}>
+    <group position={[cx + t.dx, t.y, DRAWER.z[0] + 3 + FILED_LIFT[i]! * file]} rotation={[t.lean, 0, t.turn, 'ZXY']}>
       <mesh geometry={g} material={[edge, edge, edge, edge, face, edge]} />
     </group>
   );
 }
 
-/** The older pointer tabs filed in the spill drawer (layout.ts FILED_TABS): one family with the request's tab, each with the mark of what it points to. */
-export function FiledTabs() {
+/** The older pointer tabs filed in the spill drawer (layout.ts FILED_TABS): one family with the request's tab, each with the mark of what it points to; `file`: #0408's tab under them (state.ts CacheState.file, 0 outside beat 6). */
+export function FiledTabs({ file = 0 }: { file?: number }) {
   const m = useDeskMats();
   const { textures } = useDeskSets();
   const faces = useMemo(() => textures.filedTabs.map((t) => tabPaper(t, HEX.paper)), [textures]);
@@ -250,7 +252,7 @@ export function FiledTabs() {
   return (
     <group>
       {FILED_TABS.map((_, i) => (
-        <FiledTab key={i} i={i} face={faces[i]} edge={m.paperShade} />
+        <FiledTab key={i} i={i} face={faces[i]} edge={m.paperShade} file={file} />
       ))}
     </group>
   );
@@ -261,18 +263,47 @@ export function FiledTabs() {
 function TestTab({ c }: { c: CacheState }) {
   const m = useDeskMats();
   const { textures } = useDeskSets();
-  const back = useMemo(() => paper(textures.reportTab, HEX.paperLit), [textures]);
-  useLayoutEffect(() => () => back.dispose(), [back]);
-  // an older pointer: its face dims one step with the window's stubs as the new record stamps in
+  const back = useMemo(() => {
+    // folded, its back (the ID) lies in the plane of the north half's face (the report's print): it always wins that tie
+    // (the close's keys showed a depth-fight streak through "#0408")
+    const m = paper(textures.reportTab, HEX.paperLit);
+    m.polygonOffset = true;
+    m.polygonOffsetFactor = -1;
+    m.polygonOffsetUnits = -2;
+    return m;
+  }, [textures]);
+  // the north half's face under it shows only through the south half's punched holes (the punch row, the transit
+  // light's cut, which lies on the ID's last glyph): it carries the back's print where the back lies over it (objects/
+  // Handshake.tsx faceOf v = y/D + 1/2, backOf v = -y/(D/2), folded y -> -y), so a hole never breaks a glyph of the ID
+  const front = useMemo(() => {
+    const t = textures.reportTab.clone();
+    t.repeat.set(1, 2);
+    t.offset.set(0, -1);
+    t.needsUpdate = true;
+    return paper(t, HEX.paperLit);
+  }, [textures]);
+  useLayoutEffect(
+    () => () => {
+      back.dispose();
+      front.map?.dispose();
+      front.dispose();
+    },
+    [back, front],
+  );
+  // an older pointer: its face dims one step with the window's stubs as the new record stamps in; filed under the older
+  // tabs it lies in their shade, its print buried (never a lit fragment of its ID beside the request's tab)
   const lit = useMemo(() => new Color(HEX.paperLit), []);
   const dim = useMemo(() => new Color(STUB_HEX.idle), []);
+  const buried = useMemo(() => new Color(TAB_BURIED), []);
   useLayoutEffect(() => {
-    back.color.copy(lit).lerp(dim, c.dim);
-  }, [back, lit, dim, c.dim]);
-  const faces = { body: m.paperLit, front: m.printed.report, back, transit: m.transit };
-  const pos: P3 = [TAB_REST_B[0], TAB_REST_B[1] - DRAWER_OPEN_C * c.drawer + TAB_FILE.dy * c.file, TAB_REST_B[2] + TAB_FILE.dz * c.file];
+    // (written every frame from the frame's values)
+    back.color.copy(lit).lerp(dim, c.dim).lerp(buried, c.file);
+    front.color.copy(back.color);
+  }, [back, front, lit, dim, buried, c.dim, c.file]);
+  const faces = { body: m.paperLit, front, back, transit: m.transit };
+  const pos: P3 = [TAB_REST_B[0] + TAB_FILE.dx * c.file, TAB_REST_B[1] - DRAWER_OPEN_C * c.drawer + TAB_FILE.dy * c.file, TAB_REST_B[2] + TAB_FILE.dz * c.file];
   return (
-    <group position={pos} rotation={[TAB_LEAN_B + (TAB_FILE.lean - TAB_LEAN_B) * c.file, 0, 0]}>
+    <group position={pos} rotation={[TAB_LEAN_B + (TAB_FILE.lean - TAB_LEAN_B) * c.file, 0, 0]} scale={[1 + (TAB_FILE.w - 1) * c.file, 1, 1]}>
       <CardHalves fold={1} light={false} faces={faces} />
     </group>
   );

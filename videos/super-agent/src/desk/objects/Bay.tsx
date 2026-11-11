@@ -26,7 +26,7 @@ import { LIGHT_HEX } from '../pools.ts';
 import { CAP_SLOT, closeAt, type DeskState } from '../state.ts';
 import { Hatch, TaskCarrier, shellInside } from './Dispatch.tsx';
 import { HEX, paper, whiteTexture } from '../gl/materials.ts';
-import { stagedInk } from '../gl/text.ts';
+import { INK, stagedInk } from '../gl/text.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 const z = BAY_FLOOR + 4;
@@ -143,17 +143,27 @@ function BayBase({ b, slot, slotMat, tools = sharedTools, door = 0, close = 0, w
 /** A bay's work while it is dispatched (beat4.ts hatchRiseAt): drawn once its hatch's leaves part, at its height as it rises. */
 export const workOf = (d: BayDispatch, id: BayId): { work: boolean; workZ: number } => ({ work: d.rise > 0 || d.hatch > 0, workZ: workLift(d, id) });
 
-/** The nameplate's print at its ink's stages (gl/text.ts stagedInk), made from its printed texture: its ink is what is darker than the plate's white. */
+/**
+ * The nameplate's print at its ink's stages (gl/text.ts stagedInk), made from its printed texture: its ink is what is
+ * darker than the plate's white. Its coverage is taken relative to the print's own depth (a full-ink print's, as W-08's
+ * '#' ID is set, unchanged): a print set as faint texture (W-07's and W-09's plain IDs: film.ts keepFilm) is only a tenth
+ * as deep, and on the plain scale its cores never reached the stages' thresholds, so it printed nothing for two frames and
+ * then all at once; scaled to its depth it inks over the same 3 f from its knock.
+ */
 function plateStages(printed: Texture): Texture[] {
   const src = printed.image as HTMLCanvasElement;
   const [W, H] = [src.width, src.height];
   const ink = textCanvas(W, H);
   ink.g.drawImage(src, 0, 0);
   const d = ink.g.getImageData(0, 0, W, H);
+  const lum = (i: number) => (0.2126 * d.data[i * 4] + 0.7152 * d.data[i * 4 + 1] + 0.0722 * d.data[i * 4 + 2]) / 255;
+  let depth = 0;
+  for (let i = 0; i < W * H; i++) depth = Math.max(depth, 1 - lum(i));
+  // (a print in full ink keeps the plain scale exactly)
+  const gain = depth > FULL_INK_DEPTH / 2 ? 1.6 : (1.6 * FULL_INK_DEPTH) / Math.max(depth, 0.02);
   for (let i = 0; i < W * H; i++) {
-    const l = (0.2126 * d.data[i * 4] + 0.7152 * d.data[i * 4 + 1] + 0.0722 * d.data[i * 4 + 2]) / 255;
     // ink where the print darkens the white plate (its own colour kept), clear elsewhere
-    d.data[i * 4 + 3] = Math.round(255 * Math.min(1, Math.max(0, (1 - l) * 1.6)));
+    d.data[i * 4 + 3] = Math.round(255 * Math.min(1, Math.max(0, (1 - lum(i)) * gain)));
   }
   ink.g.putImageData(d, 0, 0);
   const out = [0, 1].map((stage) => {
@@ -190,6 +200,11 @@ function plateStages(printed: Texture): Texture[] {
   });
   return [...out, blank, ...fades];
 }
+/** How much a full-ink print (gl/text.ts INK) darkens the plate's white (luminance, as plateStages measures it). */
+const FULL_INK_DEPTH = (() => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(INK.slice(i, i + 2), 16));
+  return 1 - (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+})();
 /** The steps of the close shot's cross-fade of a nameplate's print (its 8 f). */
 const PLATE_FADES = 8;
 
@@ -394,11 +409,14 @@ function PinFlag({ i, state, geometry }: { i: number; state: number; geometry: B
 }
 
 /** The request's vermilion when its bay steps down: the focus rule's chroma step, held at 60% (it stays the film's tracer, a step quieter). */
-const TRACER_STEP = 0.4;
+export const TRACER_STEP = 0.4;
 
 /** A colour (sRGB hex) with its chroma cut by k toward its own grey in display values (its value kept). */
 function quieter(hex: string, k: number): Color {
-  const c = new Color(hex);
+  return quieterColour(new Color(hex), k);
+}
+/** A colour (linear) with its chroma cut by k toward its own grey in display values (its value kept). */
+export function quieterColour(c: Color, k: number): Color {
   const enc = (v: number) => Math.pow(Math.max(v, 0), 1 / 2.2);
   const [r, gg, b] = [enc(c.r), enc(c.g), enc(c.b)];
   const l = 0.2126 * r + 0.7152 * gg + 0.0722 * b;
@@ -420,7 +438,7 @@ export function BugBay({ s, noRequest = false }: { s: DeskState; noRequest?: boo
   const tracer = useTracer();
   const d = s.b4.bays.bug;
   const st = isStepped(s.step, 'bugBay');
-  const amt = st === 'own' ? (s.step.own?.amount ?? 0) : st ? s.step.amount : 0;
+  const amt = st === 'late' ? s.testsStep : st === 'own' ? (s.step.own?.amount ?? 0) : st ? s.step.amount : 0;
   // the folder waits on the bench in its own stock until the request lands on it, then takes its vermilion (spring-effects)
   const take = s.b4.folderTake;
   useLayoutEffect(() => {
@@ -643,13 +661,15 @@ function DocsParts({ m, close }: { m: DeskMats; close: number }) {
 export function DocsBay({ s }: { s: DeskState }) {
   const w = workOf(s.b4.bays.docs, 'docs');
   const docked = s.b4.carriers.find((c) => c.id === 'docs' && c.docked);
+  // in 5.2 W-09 takes its ask into its work slot (beat5.ts docsTakeAt): it never lies on the galley in still (c) or (d)
+  const taken = s.e5.docs;
   return (
     <Step on={isStepped(s.step, 'docsBay')}>
       <WithMats>
         {(m) => (
           <BayBase b={BAYS.docs} slot="slotDocs" close={closeAt(s.f)} door={s.b4.bays.docs.door} work={w.work} workZ={w.workZ} plate={s.b4.bays.docs.plate}>
             <DocsParts m={m} close={closeAt(s.f)} />
-            {docked && <TaskCarrier c={docked} />}
+            {docked && taken !== 'gone' && <TaskCarrier c={taken ? { ...docked, pose: { ...docked.pose, ...taken, squash: 0 } } : docked} />}
           </BayBase>
         )}
       </WithMats>

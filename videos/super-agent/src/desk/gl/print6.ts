@@ -119,6 +119,13 @@ export function beat6Textures(family: string, aniso: number): Beat6Textures {
       (g) => {
         draw(g);
         tooth(g, STRIP.w, STRIP.h);
+        // its nose's edge, a hair of shade along it (the paper's cut edge, as the strip's sheets lie one on another): an
+        // incoming slip's nose reads as its edge over the print of the slip under it, never as that print on its own paper
+        const edge = g.createLinearGradient(STRIP.w - 3, 0, STRIP.w, 0);
+        edge.addColorStop(0, 'rgba(78, 76, 70, 0)');
+        edge.addColorStop(1, 'rgba(78, 76, 70, 0.55)');
+        g.fillStyle = edge;
+        g.fillRect(STRIP.w - 3, 0, 3, STRIP.h);
         // its cut-outs (the tray draws the slip as a flat card: alpha-tested, never blended)
         g.save();
         g.globalCompositeOperation = 'destination-out';

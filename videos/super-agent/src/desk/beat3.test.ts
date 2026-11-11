@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BEAT, BOTH_FIXES, FIX_A, FIX_B } from '../cues.ts';
 import { actOneFrameFootprints, fixAOf, fixBOf } from './ActOneFrame.tsx';
-import { FIX_LAMP, FOLDERS, LOOP_A, MOUTH, REQUEST_ON_TAPE, REQUEST_STEPPED_FROM, actOneAt, actOneStep, actOneStepA, loopPoint, stackTop } from './actOne.ts';
+import { FIX_LAMP, FOLDERS, LOOP_A, MOUTH, POOL_A_Z, REQUEST_ON_TAPE, REQUEST_STEPPED_FROM, actOneAt, actOneStep, actOneStepA, loopPoint, requestStepOf, stackTop } from './actOne.ts';
 import {
   A_CHUTES,
   A_FOLDER_IN,
@@ -24,22 +24,28 @@ import {
   FIX_A_FOLDER,
   FOLLOW_UP,
   REPLY_7,
+  REPLY_FREE,
   RIFFLE,
+  riffleSheetFootprint,
   STUB,
   TEAR,
   TRAYS,
   TRAY_STUFF,
+  TRAY_Z,
   aBackAt,
   aPathAt,
   aStackTopAt,
+  replyFreeB,
   replyLandsB,
   replyPostedB,
+  replySlipFootprint,
+  replyToneB,
   trayLandsB,
   trayThrownB,
 } from './beat3.ts';
 import { cameraAt, project } from './camera.ts';
 import { MAX_FOOTPRINTS } from './footprints.ts';
-import { fixATurnAt, fixBTurnAt, loopTurnAt, shiftAt } from './turn.ts';
+import { fixATurnAt, fixBTurnAt, loopTurnAt, shiftAt, turnAt } from './turn.ts';
 
 const span = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 const scr = (f: number, p: readonly number[]) => project(cameraAt(f, 15), [p[0], p[1], p[2] ?? 0]);
@@ -354,6 +360,90 @@ describe('Fix B (3.2): eight trays, one per event, none alike', () => {
     for (const f of span(1390, 1399)) expect(json(fixBOf(f)), `f${f}`).toBe(json(fixBOf(1399)));
     expect(fixBOf(1399).riffle.every((r) => r === 0)).toBe(true);
   });
+
+  it('keeps a riffling sheet in its tray’s shade and contact as it lifts over the rim (its light never leads or trails it), touching nothing else’s', () => {
+    let covered = 0;
+    for (let f = RIFFLE.from; f < RIFFLE.until + 2; f++) {
+      const B = fixBOf(f);
+      const fps = actOneFrameFootprints(f);
+      for (let k = 0; k < 8; k++) {
+        const D = TRAY_STUFF[k].dossier;
+        const o = B.posts[k].off[2];
+        const hinge = o + TRAY_Z.floor + 0.4 + 0.8 * D.sheets - 0.3;
+        const rim = o + TRAY_Z.rim;
+        const top = hinge + (D.w - 1) * Math.sin(B.riffle[k]) + 0.3 * Math.cos(B.riffle[k]);
+        const fp = riffleSheetFootprint(k, B.riffle[k], B.posts[k]);
+        // a sheet resting over the rim (never in the tray's shade) gets nothing; one under it, once any of it rises
+        // half a unit over the rim, a plate from just over the rim to over its top
+        if (hinge + 0.3 >= rim || top < rim + 0.51) continue;
+        expect(fp, `tray ${k} f${f}`).not.toBeNull();
+        if (fp?.kind !== 'rect') continue;
+        covered++;
+        expect(fps).toContainEqual(fp);
+        expect(fp.z1).toBeGreaterThan(top + 0.5);
+        expect(fp.contact).toBe(0.8);
+        // its contact never reaches the rims (a receiver at the rim's top, 0.5 under it, is more than 2 u under its foot)
+        expect(fp.z0 - 2).toBeGreaterThan(rim - 0.5);
+        expect(fp.z0 - 2).toBeLessThan(rim - 0.5 + 0.02);
+      }
+    }
+    expect(covered).toBeGreaterThan(40);
+    expect(riffleSheetFootprint(1, 0, fixBOf(1200).posts[1])).toBeNull();
+  });
+
+  it('lifts each reply out of its tray’s shade only as it travels, its paper easing up from its tray tone over 6 f (no flash in place)', () => {
+    for (let k = 0; k < 8; k++) {
+      const leave = replyPostedB(k);
+      // through the anticipation and the arc's first frame the slip's top face stays under the rim: in the tray's shade
+      for (const f of span(leave, leave + 3)) {
+        expect(fixBOf(f).b.slips[k].p[2] + B_SLIP.t, `reply ${k} f${f}`).toBeLessThan(TRAY_Z.rim - 0.3);
+        expect(replyToneB(k, f)).toBe(1);
+      }
+      // it leaves the shade on replyFreeB, already well over the rim and on its way
+      const free = replyFreeB(k);
+      expect(fixBOf(free).b.slips[k].p[2]).toBeGreaterThan(TRAY_Z.rim + 5);
+      expect(json(fixBOf(free).b.slips[k].p.slice(0, 2))).not.toBe(json(fixBOf(leave).b.slips[k].p.slice(0, 2)));
+      // its paper eases up from about its tray tone, a quarter of the way at most in a frame
+      expect(replyToneB(k, free)).toBe(REPLY_FREE.from);
+      let prev: number = REPLY_FREE.from;
+      for (const f of span(free + 1, free + REPLY_FREE.frames)) {
+        const t = replyToneB(k, f);
+        expect(t, `reply ${k} f${f}`).toBeGreaterThan(prev);
+        expect(t - prev).toBeLessThan(0.26 * (1 - REPLY_FREE.from));
+        prev = t;
+      }
+      expect(prev).toBe(1);
+    }
+  });
+
+  it('never lets a reply shade itself as it tilts in flight, in beat 3 or flying home in the turn', () => {
+    const lowestTop = (s: { p: readonly number[]; rot: number; tilt: number }) =>
+      s.p[2] + B_SLIP.t * Math.cos(s.tilt) - ((B_SLIP.l / 2) * Math.abs(Math.sin(s.rot)) + (B_SLIP.w / 2) * Math.abs(Math.cos(s.rot))) * Math.abs(Math.sin(s.tilt));
+    let tilted = 0;
+    for (const f of span(FIX_B.replies[0], 1660)) {
+      const slips = f < 1400 ? fixBOf(f).b.slips : turnAt(f).fixB.slips;
+      for (const s of slips) {
+        const fp = replySlipFootprint(s);
+        expect(fp.z1, `f${f}`).toBeLessThanOrEqual(lowestTop(s) + 1e-9);
+        expect(fp.z1).toBeGreaterThan(fp.z0);
+        if (Math.abs(s.tilt) > 0.05) tilted++;
+      }
+    }
+    expect(tilted).toBeGreaterThan(50);
+  });
+
+  it('keeps every reply under act one’s pool ceiling while it is low (a tilted slip crossing it would split along a hard line)', () => {
+    const highestTop = (s: { p: readonly number[]; rot: number; tilt: number }) =>
+      s.p[2] + B_SLIP.t * Math.cos(s.tilt) + ((B_SLIP.l / 2) * Math.abs(Math.sin(s.rot)) + (B_SLIP.w / 2) * Math.abs(Math.cos(s.rot))) * Math.abs(Math.sin(s.tilt));
+    let flying = 0;
+    for (const f of span(FIX_B.replies[0], POOL_A_Z.from - 1))
+      fixBOf(f).b.slips.forEach((s, k) => {
+        if (f < replyPostedB(k) || f >= replyLandsB(k)) return;
+        flying++;
+        expect(highestTop(s), `reply ${k} f${f}`).toBeLessThan(POOL_A_Z.low - 3);
+      });
+    expect(flying).toBeGreaterThan(40);
+  });
 });
 
 describe('the request in 3.1, and Fix A as one session holding everything', () => {
@@ -377,6 +467,18 @@ describe('the request in 3.1, and Fix A as one session holding everything', () =
     for (const f of span(1000, 1125)) expect(fixAOf(f).requestInk).toBeGreaterThan(0.95);
     expect(fixAOf(1399).requestInk).toBe(0);
     expect(actOneAt(1399).request.ink).toBeCloseTo(1, 6);
+  });
+
+  it('keeps the heap’s request its colour until its copy is in sight, steps it only on the hand-over’s spring, and never greys it (the worked example)', () => {
+    // nothing of it changes before the copy's first frame in sight, while the rest of act one steps down
+    for (let f = 900; f <= REQUEST_ON_TAPE.from; f++) {
+      expect(Math.abs(requestStepOf(actOneAt(f))), `f${f}`).toBeLessThan(1e-9);
+      expect(actOneAt(f).request.ink, `f${f}`).toBeCloseTo(1, 6);
+    }
+    expect(actOneStep(REQUEST_ON_TAPE.from).own!.amount).toBeGreaterThan(0.5);
+    // then by amount, frame to frame, as its ink goes (and comes back with the hand-back), and continuous into the turn
+    for (let f = REQUEST_ON_TAPE.from + 1; f < 1400; f++) expect(Math.abs(requestStepOf(actOneAt(f)) - requestStepOf(actOneAt(f - 1))), `f${f}`).toBeLessThan(0.45);
+    expect(requestStepOf(actOneAt(1399))).toBeCloseTo(requestStepOf(turnAt(1400).act, turnAt(1400).step), 6);
   });
 
   it('is the fattest folder on the desk (200 px and more across), its stack thickening with every swallow', () => {

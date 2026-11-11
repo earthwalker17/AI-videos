@@ -436,6 +436,13 @@ const CARRIER_TOPS: Record<BayId, readonly [number, number]> = { bug: [0.6, 0.8]
  * The frame each carrier, coming down onto its dock, goes under its dock's shade: a shade takes a surface in the frame it
  * is under the shade's top (gl/light.ts: in height it is all or nothing); the carrier comes down level (its hop's pitch is
  * out before), so all of its top goes under in the one frame.
+ *
+ * The rule's two half-unit margins cancel: the lit materials pass a surface at height z to the shade as the receiver
+ * zr = z - 0.5 (gl/materials.ts, `dskShade(vDeskW.xy, vDeskW.z - 0.5)`), and gl/light.ts:101 skips a footprint when
+ * `z1 <= zr + 0.5`, so a surface is under a footprint exactly when z < z1, with no margin. (Code review AT+B4's MAJOR 1
+ * read the receiver as the surface itself and asked for z < z1 - 0.5, moving the docs slip's frame to f2080; the frames
+ * say otherwise: at f2079, its top at 15.70 under the galley's 15.75, the slip is already in the shade, 77-78 across its
+ * top, the same as f2080-81, so that change would have darkened it twice for a frame. beat4.test.ts pins the light's rule.)
  */
 export const SHADE_IN: Record<BayId, number> = (() => {
   const of = (id: BayId): number => {
@@ -910,6 +917,19 @@ export function cardPose(c: CardState, which: 'split' | 'ghost'): { c: P3; tilt:
 }
 /** How far a card is in (0 off frame .. 1 at its place): the light on it follows it (pools.ts). */
 export const cardIn = (c: CardState | null): number => (c ? c.rise * (1 - c.exit) : 0);
+/**
+ * How far north of the card its cast shadow's footprint rides (u, footprints.ts cardFootprint). The card hovers 240 u up,
+ * so its shadow falls about 180 u down the key, south of it: at its place that is the shadow it casts, but at the frame's
+ * top edge the shadow would still lie on the desk on the card's first frame in (all of it, in one frame) and after its
+ * last frame out (gone in one frame). So over the last stretch of its way in or out (the last 4 frames it is in view on
+ * its way out, the first 3 on its way in) its footprint closes up onto it and goes beyond the top edge with it: off
+ * frame, the card and its shadow are both beyond the edge (beat4.test.ts).
+ */
+export const CARD_SHADE_CLEAR = { u: 260, k: 0.7 } as const;
+export const cardShadeShift = (c: CardState): number => {
+  const t = Math.min(1, cardIn(c) / CARD_SHADE_CLEAR.k);
+  return CARD_SHADE_CLEAR.u * (1 - t * t * (3 - 2 * t));
+};
 
 // ------------------------------------------------------------------------------------------------
 // The whole state

@@ -6,7 +6,7 @@ import { FLAG, FOLDERS, LOOP_A, PEN, POOL_A_Z, actOneAt, actOnePools, stackTop, 
 import { A_CHUTES, A_FOLDER_IN, A_ITEMS, A_PILE, A_STACK_END, BAY_TRAYS, FIX_A_FOLDER, IMPRINTS, RETIRE_TRAYS, TRAYS, TRAY_Z } from './beat3.ts';
 import { FRAMING_B, cameraAt, deskCamera, project } from './camera.ts';
 import { REQUEST_FROM } from './beat4.ts';
-import { MAX_FOOTPRINTS, footprintsAt, type Footprint } from './footprints.ts';
+import { MAX_FOOTPRINTS, footprintsAt, youFootprints, type Footprint } from './footprints.ts';
 import { BAYS, DECK, REEL, SPOOL, YOU, type P3 } from './layout.ts';
 import { EMIT, MAX_POOLS, linearOf, poolsAt } from './pools.ts';
 import { DESK_HEX } from './gl/desk.ts';
@@ -29,8 +29,10 @@ import {
   PRESS_LATE,
   SPOOL_NORTH,
   TESTS_SLIDE,
+  HIGH_POOL,
   TURN,
   TURN_SPAN,
+  UPPER_POOL,
   bayShapeAt,
   bayTimes,
   firstSlipAt,
@@ -341,6 +343,27 @@ describe('the turn (MT2)', () => {
     expect(TURN.plate - 6).toBeGreaterThanOrEqual(TURN.routerLabel + 14);
   });
 
+  it('rolls the deck in from beyond the frame’s top edge: nothing of it (nor its shade) in view until it is rolling', () => {
+    // its southmost reach, collapsed: the mouth (y 62, up to z 44), the feet's contact (14 + 28 round y 86) and what it
+    // casts down the key (the mouth's shadow and penumbra, about 30 u further south): y 20 over the deck's x span
+    const reach = (f: number): number => {
+      const d = turnAt(f).deck;
+      const pose = cameraAt(f, 15);
+      let y = -Infinity;
+      for (const x of [-420, -200, 0, 200, 360]) for (const z of [0, 22, 44]) y = Math.max(y, project(pose, [x, 20 + d.dy, z])[1]);
+      return y;
+    };
+    let first = -1;
+    for (let f = TURN.deckIn; f < TURN.deckInEnd; f++)
+      if (reach(f) > 0) {
+        first = f;
+        break;
+      }
+    expect(first).toBeGreaterThan(TURN.deckIn);
+    // on its first frame in view it has come at least 20 px since the frame before
+    expect(reach(first) - reach(first - 1)).toBeGreaterThan(20);
+  });
+
   it('winds all of Fix A’s tape onto the coil before the glide, queue and all, its chutes back in their feeders', () => {
     const t = turnAt(TURN.glide);
     expect(t.fixA.deskLen + t.fixA.spanLen).toBeLessThan(0.5);
@@ -511,6 +534,13 @@ describe('the turn (MT2)', () => {
       }
     }
     void key;
+    // the loop's clip (it lifts with the loop: its contact halves on the rise's first frame and is gone by 3.2 u)
+    const clipOf = (f: number) => turnFootprints(turnAt(f)).find((x) => x.kind === 'circle' && x.r === 26);
+    for (let f = TURN.hit; f < TURN.edge + 4; f++) {
+      const [a, b] = [clipOf(f), clipOf(f + 1)];
+      if (a?.kind !== 'circle' || b?.kind !== 'circle') throw new Error(`f${f}: the clip's footprint`);
+      expect(a.contact - b.contact, `clip f${f}`).toBeLessThanOrEqual(0.5);
+    }
     for (const k of RETIRE_TRAYS) {
       const t0 = Math.floor(retireStarts(k));
       // the contact the shaders draw: none once its underside is over 2 u up
@@ -544,6 +574,20 @@ describe('the turn (MT2)', () => {
       expect(Math.hypot(e.b[0] - prev.b[0], e.b[1] - prev.b[1], e.b[2] - prev.b[2]), `f${f}`).toBeLessThan(35);
       prev = e;
     }
+    // its recess's footprint closes in round it over the hop's last frames: contact and shade by amount, the same on landing
+    const recess = (f: number) => {
+      const P = youPoseTurn(f);
+      const e = strutEnds(P);
+      // the rect centred under the strut (in its recess at rest: CHORES.strut)
+      return youFootprints(P).find((x) => x.kind === 'rect' && Math.hypot(x.c[0] - P.shift[0] - (e.a[0] + e.b[0]) / 2, x.c[1] - P.shift[1] - (e.a[1] + e.b[1]) / 2) < 1);
+    };
+    for (let f = STRUT_HOME.from + 1; f <= STRUT_HOME.from + STRUT_HOME.frames + 2; f++) {
+      const [a, b] = [recess(f - 1), recess(f)];
+      const [ca, cb] = [a?.kind === 'rect' ? a.contact : 0, b?.kind === 'rect' ? b.contact : 0];
+      expect(Math.abs(cb - ca), `f${f}`).toBeLessThanOrEqual(0.3);
+      if (a?.kind === 'rect' && b?.kind === 'rect') expect(Math.abs(b.z1 - a.z1), `f${f}`).toBeLessThan(3.5);
+    }
+    expect(recess(STRUT_HOME.from + STRUT_HOME.frames)).toBeDefined();
     // the in-tray is empty from the flock until the reply lands; it lands at act two's slip's place, still before f1660
     for (let f = TURN.replies + 30; f < OLDER_REPLY.lands; f++) expect(youPoseTurn(f).inTraySlip, `f${f}`).toBe(false);
     expect(youPoseTurn(OLDER_REPLY.lands).inTraySlip).toBe(true);
@@ -574,6 +618,36 @@ describe('the turn (MT2)', () => {
     for (let f = TURN.coil; f < TURN.slide; f++) {
       const C = turnAt(f).loop.coil!;
       expect(poolLight(turnAt(f), [C.c[0], C.c[1]], C.h + C.t + 0.25), `f${f}`).toBeLessThan(0.02);
+    }
+  });
+
+  it('lights every row of the loop’s band alike as it rises through the pools’ heights: no hard line swept down it', () => {
+    // a row of the band (h of its width up from its underside, as its face turns up), at four places round it
+    const rowZ = (f: number, h: number) => {
+      const r = turnAt(f).loop.ribbon!;
+      return r.L.z + h * LOOP_A.w * Math.sin((r.edge * Math.PI) / 2);
+    };
+    // the light above your lamp's band fades only once all of the band is over the upper pool's top
+    expect(turnAt(HIGH_POOL.from).loop.ribbon!.L.z).toBeGreaterThanOrEqual(UPPER_POOL.top);
+    expect(turnAt(HIGH_POOL.from - 1).loop.ribbon!.L.z).toBeLessThan(UPPER_POOL.top);
+    expect(HIGH_POOL.to).toBeLessThanOrEqual(TURN.coil);
+    for (let f = TURN.hit; f < TURN.coil - 1; f++) {
+      const [r0, r1] = [turnAt(f).loop.ribbon!, turnAt(f + 1).loop.ribbon!];
+      for (const [ux, uy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
+        const steps = [0, 0.25, 0.5, 0.75, 1].map((h) => {
+          const a = poolLight(turnAt(f), [r0.L.c[0] + ux * r0.L.a, r0.L.c[1] + uy * r0.L.b], rowZ(f, h));
+          const b = poolLight(turnAt(f + 1), [r1.L.c[0] + ux * r1.L.a, r1.L.c[1] + uy * r1.L.b], rowZ(f + 1, h));
+          return b - a;
+        });
+        // each row changes by amount (the fade's 10 f), and every row of the band by the same amount
+        for (const d of steps) expect(Math.abs(d), `f${f}`).toBeLessThan(0.16);
+        expect(Math.max(...steps) - Math.min(...steps), `f${f} (${ux},${uy})`).toBeLessThan(0.03);
+      }
     }
   });
 

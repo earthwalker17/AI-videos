@@ -14,7 +14,7 @@ import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT
 import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, CORD_FROM, DOCK_B, HEAD_DIP, hammerOffset, headDipAt, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
 import { CHORES, TRAY_Z, YOU_POSE_B, strutEnds, type YouPose } from './you.ts';
 import { HEAP, PIECE, ciHopperFootprints, youPoseAt } from './actOne.ts';
-import { CARD_SPOT, REQUEST_HEAP, RIDE, WORK_DEPTH as WORK_DEPTH_FP, cardPose, heapFloor, heapPieceAt, liftOf, ON_REQUEST, type Beat4State, type CardState, type Carry, type HeapState } from './beat4.ts';
+import { CARD_SPOT, REQUEST_HEAP, RIDE, WORK_DEPTH as WORK_DEPTH_FP, cardPose, cardShadeShift, heapFloor, heapPieceAt, liftOf, ON_REQUEST, type Beat4State, type CardState, type Carry, type HeapState } from './beat4.ts';
 import { SPIKE_BASE, type Beat5State } from './beat5.ts';
 import { BAR_RIDE, DECODE, REVIEW, STRESS_PLATE, TAB_FILE, TRAY, type Beat6State } from './beat6.ts';
 import { DRAWER_OPEN_C, PROACTIVE_PLATE, SPIKE } from './layout.ts';
@@ -109,6 +109,12 @@ export function pitFootprints(B: Rect): Footprint[] {
   return [rectFp({ x0: B.x0 - 80, x1: B.x1 + 80, y0: B.y0 - 80, y1: B.y1 + 80 }, -1, 0, 0, 6), { kind: 'canopy', c: rectC(B), h: [(B.x1 - B.x0) / 2 + 30, (B.y1 - B.y0) / 2 + 30], z: 0, strength: 0.92 }];
 }
 
+/** The lid strut's hop (you.ts strutEnds): from this far along it the recess's footprint closes in round it (contact and shade by amount). */
+const STRUT_SETTLE = 0.8;
+const smooth01 = (x: number): number => {
+  const t = Math.min(1, Math.max(0, x));
+  return t * t * (3 - 2 * t);
+};
 /**
  * Your desk's footprints at a pose (`you.ts`): the slab, the lamp's base, arms and head, the
  * laptop and its lid, the lid strut, the shadow-board tray and each chore resting in it (a recess's
@@ -142,6 +148,17 @@ export function youFootprints(pose: YouPose): Footprint[] {
       // on the lid, or on its way from the lid to its recess (the turn)
       const s = strutEnds(pose);
       fp.push(segFp(at3(s.a), at3(s.b), 3.4));
+      // over the hop's last frames the recess's footprint closes in round it (where it is, raised by the hop that
+      // remains): its contact and the shade over the strut's upper half arrive by amount, so landing (the rest rect above)
+      // changes nothing in one frame
+      const m = pose.strutMix ?? 0;
+      if (m >= STRUT_SETTLE) {
+        const k = smooth01((m - STRUT_SETTLE) / (1 - STRUT_SETTLE));
+        const [dx, dy] = [s.b[0] - s.a[0], s.b[1] - s.a[1]];
+        const half = Math.hypot(dx, dy) / 2;
+        const z0 = (s.a[2] + s.b[2]) / 2 - 4.4;
+        fp.push({ kind: 'rect', c: at2((s.a[0] + s.b[0]) / 2, (s.a[1] + s.b[1]) / 2), h: [half + 3.4 + (strut.half[1] - half - 3.4) * k, 3.4 + (strut.half[0] - 3.4) * k], r: 3.4 + 0.6 * k, rot: Math.atan2(dy, dx), z0, z1: z0 + 1 + 7 * k, contact: 0.7 * k });
+      }
     }
   }
   if (pose.inTray) {
@@ -355,24 +372,28 @@ export function movingFootprints(s: DeskState): Footprint[] {
   if (c && !c.summary) {
     const tilt = TAB_LEAN_B + (TAB_FILE.lean - TAB_LEAN_B) * c.file;
     const y = TAB_REST_B[1] - DRAWER_OPEN_C * c.drawer + TAB_FILE.dy * c.file;
-    fp.push(tiltedFp([TAB_REST_B[0], y + (TAB_B.d / 2) * Math.cos(tilt), TAB_REST_B[2] + TAB_FILE.dz * c.file + (TAB_B.d / 2) * Math.sin(tilt)], TAB_B.w, TAB_B.d, tilt, 0.5));
+    fp.push(tiltedFp([TAB_REST_B[0] + TAB_FILE.dx * c.file, y + (TAB_B.d / 2) * Math.cos(tilt), TAB_REST_B[2] + TAB_FILE.dz * c.file + (TAB_B.d / 2) * Math.sin(tilt)], TAB_B.w * (1 + (TAB_FILE.w - 1) * c.file), TAB_B.d, tilt, 0.5));
   }
   fp.push(...beat6Footprints(s.e6));
   return fp;
 }
 
 /**
- * Beat 6's footprints (desk/beat6.ts): each slip of the batches in the air and riding up the belt (paper: no contact),
- * the reading bar over the strip, the decode slip out of the head's slot, the stress plate in flight and seated on its
+ * Beat 6's footprints (desk/beat6.ts): each slip of the batches in the air and riding up the belt (paper: no contact)
+ * (a slip lying in the gather tray casts nothing), the reading bar over the strip, the decode slip out of the head's slot, the stress plate in flight and seated on its
  * hooks, the review card. The thread (2 px) and its "№" tabs (paper flags 22 u tall, standing on paper) cast nothing: from
  * C17 the Thread cord's 13 footprints come in and the budget holds 128.
  */
 export function beat6Footprints(e: Beat6State): Footprint[] {
   const fp: Footprint[] = [];
-  // a slip lying in the gather tray lies flat on its floor (its shadow is under it): only those in the air or riding up the belt cast
   for (const x of e.strip) {
-    if (x.hidden || x.inTray) continue;
-    fp.push({ kind: 'rect', c: [x.pose.p[0], x.pose.p[1]], h: [(NEXT_SLIP.l / 2) * Math.cos(x.pose.slope), NEXT_SLIP.w / 2], r: 2, rot: x.pose.heading, z0: x.pose.p[2] - 0.4, z1: x.pose.p[2] + 0.4, contact: 0 });
+    if (x.hidden) continue;
+    // a slip lying in the gather tray lies flat on its floor (its shadow is under it; its nose's edge is printed: gl/print6.ts)
+    if (x.inTray) continue;
+    // in the air, riding up the belt, in the throat: its own size (a CI event is the card feeder's 84 x 50 card), its
+    // footprint's top under its own top face (carrierSpan: a tilted card never shades half of itself)
+    const [hl, hw] = x.kind.kind === 'ci' ? [REVIEW.l / 2, REVIEW.w / 2] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2];
+    fp.push({ kind: 'rect', c: [x.pose.p[0], x.pose.p[1]], h: [hl * Math.cos(x.pose.slope), hw], r: 2, rot: x.pose.heading, ...carrierSpan(x.pose, hl, 0.4), contact: 0 });
   }
   if (e.bar) {
     // rising with the tray out of the deck plate (objects/Batch.tsx), then riding over the strip
@@ -390,7 +411,7 @@ export function beat6Footprints(e: Beat6State): Footprint[] {
     const [dx, dy, dz] = e.plate.d;
     fp.push(rectFp({ x0: B.x0 + dx, x1: B.x1 + dx, y0: B.y0 + dy, y1: B.y1 + dy }, STRESS_PLATE.z[0] + dz, STRESS_PLATE.z[1] + dz, e.plate.flying ? 0 : 0.6, 4));
   }
-  if (e.review) fp.push({ kind: 'rect', c: [e.review.p[0], e.review.p[1]], h: [(REVIEW.l / 2) * Math.cos(e.review.slope), REVIEW.w / 2], r: 2, rot: e.review.heading, z0: e.review.p[2] - 0.4, z1: e.review.p[2] + 0.4, contact: 0 });
+  if (e.review) fp.push({ kind: 'rect', c: [e.review.p[0], e.review.p[1]], h: [(REVIEW.l / 2) * Math.cos(e.review.slope), REVIEW.w / 2], r: 2, rot: e.review.heading, ...carrierSpan(e.review, REVIEW.l / 2, 0.4), contact: 0 });
   return fp;
 }
 
@@ -406,6 +427,9 @@ const PILE_CASTS = 4;
  */
 export function beat5Footprints(e: Beat5State): Footprint[] {
   const fp: Footprint[] = [];
+  // W-09's ask on its way from the galley into its work slot (beat5.ts docsTakeAt): standing on its short edge it shades a thin line
+  const d = e.docs;
+  if (d && d !== 'gone') fp.push({ kind: 'rect', c: [d.p[0], d.p[1]], h: [Math.max(1, (NEXT_SLIP.l / 2) * Math.abs(Math.cos(d.slope))), NEXT_SLIP.w / 2], r: 2, rot: d.heading, ...carrierSpan(d, NEXT_SLIP.l / 2, 0.4), contact: 0 });
   const k = e.key;
   if (k) {
     // the tray's key footprint (youFootprints) carried with the key: x from its bow's west edge to its bit, y from its tip to its bow
@@ -448,7 +472,7 @@ export function beat5Footprints(e: Beat5State): Footprint[] {
  * itself (a footprint's top exactly at a receiver is a coin flip of its shade: a tilted card read two-toned, half of it
  * under its own footprint, and flattened to one tone in a frame as it landed).
  */
-function carrierSpan(c: Carry, hl: number, top: number): { z0: number; z1: number } {
+function carrierSpan(c: Pick<Carry, 'p' | 'slope'>, hl: number, top: number): { z0: number; z1: number } {
   const z1 = c.p[2] + top * Math.cos(c.slope) - hl * Math.abs(Math.sin(c.slope)) - 0.25;
   return { z0: Math.min(c.p[2] - 0.4, z1 - 0.5), z1 };
 }
@@ -512,12 +536,13 @@ export function heapFootprintsAt(h: HeapState): Footprint[] {
 /**
  * A counterfactual card hovering over the slate (desk/beat4.ts cardAt, CARD_SPOT): its outline, as a thin plate just
  * under its lowest edge (so it shades the slate under it and never its own face); nothing while it is under the slate.
+ * At the frame's top edge it rides north of the card (beat4.ts cardShadeShift), so its shadow leaves the frame with it.
  */
 export function cardFootprint(c: CardState, which: 'split' | 'ghost'): Footprint | null {
   const p = cardPose(c, which);
   const low = p.c[2] - (CARD_SPOT.h / 2) * Math.sin(p.tilt);
   if (low < 1) return null;
-  return { kind: 'rect', c: [p.c[0], p.c[1]], h: [(CARD_SPOT.w / 2) * p.scale, Math.max(2, (CARD_SPOT.h / 2) * Math.cos(p.tilt)) * p.scale], r: 4, rot: 0, z0: low - 1.5, z1: low - 0.5, contact: 0 };
+  return { kind: 'rect', c: [p.c[0], p.c[1] + cardShadeShift(c)], h: [(CARD_SPOT.w / 2) * p.scale, Math.max(2, (CARD_SPOT.h / 2) * Math.cos(p.tilt)) * p.scale], r: 4, rot: 0, z0: low - 1.5, z1: low - 0.5, contact: 0 };
 }
 
 /** All footprints at a frame (static first). Throws past MAX_FOOTPRINTS. */

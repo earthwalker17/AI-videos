@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BEAT_6, cue } from '../cues.ts';
+import { BEAT_6, at as bar, cue, textWindow } from '../cues.ts';
 import { BELT_HEADING as BELT_HEADING_5, BELT_SLOPE as BELT_SLOPE_5, CREST, KEEP_LAND as KEEP_LAND_5 } from './beat5.ts';
 import {
   BAR_FAR,
@@ -16,6 +16,9 @@ import {
   HIDDEN,
   PITCH,
   RIDE6,
+  FILED_LIFT,
+  TAB_LEAN_REQUEST,
+  STRESS_PLATE,
   STRIP_KINDS,
   THREAD_ROW,
   TRAY,
@@ -37,9 +40,10 @@ import {
 } from './beat6.ts';
 import { cameraAt, deskCamera, FRAMING_C, project } from './camera.ts';
 import { footprintsAt, MAX_FOOTPRINTS } from './footprints.ts';
-import { INDEX, PRINT_HEAD, TAPE_FLAT_X1, THROAT, type P3 } from './layout.ts';
+import { GATE, INDEX, PRINT_HEAD, TAPE_FLAT_X1, THROAT, type P3 } from './layout.ts';
 import { poolsAt } from './pools.ts';
-import { DETENT, EVENTS_C, SPRING, STRESS_LATE, deskStateAt, headDipAt, springAt } from './state.ts';
+import { DETENT, EVENTS_C, N6_GONE, SPRING, STEP_FRAMES, STRESS_LATE, TAB_LEAN_C, closeAt, deskStateAt, headDipAt, springAt } from './state.ts';
+import { isStepped } from './kit.tsx';
 
 const dock = (f: number, at: number) => springAt(f, at, SPRING.dock);
 const dist = (a: P3, b: P3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -109,7 +113,37 @@ describe('beat 6: every cue sheet frame is a contact frame', () => {
     expect(plateAt(at - 1)!.d[2]).toBeGreaterThan(0);
     expect(plateAt(at - E6.plateFly - 1)).toBeNull();
     expect(plateAt(cue('plate').frame)).not.toBeNull();
-    expect(plateAt(E6.until - 1)!.d).toEqual([0, 0, 0]);
+  });
+  it('retires the stress plate once N4 and its own words are off: off its hooks on bar 39’s downbeat, gone before the eject, never back', () => {
+    const [, n4Out] = textWindow(cue('n4'));
+    const [, plateOut] = textWindow(cue('plate'));
+    expect(E6.plateExit).toBeGreaterThanOrEqual(n4Out);
+    expect(E6.plateExit).toBeGreaterThanOrEqual(plateOut);
+    expect(E6.plateExit).toBe(bar(39));
+    // seated (and still) until the downbeat, off its hooks on it, eased away over 12-16 f
+    expect(plateAt(E6.plateExit - 1)!.d).toEqual([0, 0, 0]);
+    expect(plateAt(E6.plateExit - 1)!.squash).toBe(0);
+    expect(plateAt(E6.plateExit)!.d[2]).toBeGreaterThan(0);
+    expect(plateAt(E6.plateExit)!.d[2]).toBeLessThanOrEqual(6 + 1e-9);
+    expect(E6.plateOut).toBeGreaterThanOrEqual(12);
+    expect(E6.plateOut).toBeLessThanOrEqual(16);
+    expect(E6.plateExit + E6.plateOut).toBeLessThanOrEqual(BEAT_6.cacheEject);
+    // it leaves the close's frame whole before it is dropped: its last pose is off the frame's east edge
+    const lastF = E6.plateExit + E6.plateOut - 1;
+    const last = plateAt(lastF)!;
+    const c: P3 = [(STRESS_PLATE.box.x0 + STRESS_PLATE.box.x1) / 2 + last.d[0], (STRESS_PLATE.box.y0 + STRESS_PLATE.box.y1) / 2 + last.d[1], STRESS_PLATE.z[0] + last.d[2]];
+    const hx = (STRESS_PLATE.box.x1 - STRESS_PLATE.box.x0) / 2;
+    const hy = (STRESS_PLATE.box.y1 - STRESS_PLATE.box.y0) / 2;
+    for (const [dx, dy, dz] of [-1, 1].flatMap((a) => [-1, 1].flatMap((b) => [0, STRESS_PLATE.z[1] - STRESS_PLATE.z[0]].map((z) => [a * hx, b * hy, z])))) {
+      // posed as objects/Batch.tsx poses it: turned about z, then tilted about x, about its own centre
+      const [cz, sz] = [Math.cos(last.turn), Math.sin(last.turn)];
+      const [ct, st] = [Math.cos(last.tilt), Math.sin(last.tilt)];
+      const [x1, y1] = [dx * cz - dy * sz, dx * sz + dy * cz];
+      const [y2, z2] = [y1 * ct - dz * st, y1 * st + dz * ct];
+      const [x] = project(cameraAt(lastF, 15), [c[0] + x1, c[1] + y2, c[2] + z2]);
+      expect(x, 'the plate’s last pose is off the frame’s east edge').toBeGreaterThan(1920);
+    }
+    for (let f = E6.plateExit + E6.plateOut; f < E6.until; f += 5) expect(plateAt(f), `f${f}`).toBeNull();
   });
   it('holds the cache’s eject, fold and the tab’s landing on the score’s frames', () => {
     expect(EVENTS_C.cardEject).toBe(BEAT_6.cacheEject);
@@ -273,6 +307,65 @@ describe('beat 6: nothing jumps, snaps or vanishes in the open', () => {
         expect(HIDDEN).toBeGreaterThanOrEqual(8);
       }
   });
+  it('never passes a carrier (every strip slip, the review card) through the throat’s cheeks, its floor or the gate bar (0.25 f steps)', () => {
+    // the bodies as objects/Register.tsx builds them (beat5.test.ts's boxes): the cheeks with their rails, the throat's floor, the gate's bar
+    const CHEEKS = [
+      { x0: THROAT.box.x0 - 6, x1: THROAT.box.x1, y0: THROAT.box.y0 - 4, y1: THROAT.box.y0 + 6, z0: THROAT.z[0] + 4, z1: THROAT.z[1] + 4 },
+      { x0: THROAT.box.x0 - 6, x1: THROAT.box.x1, y0: THROAT.box.y1 - 6, y1: THROAT.box.y1 + 4, z0: THROAT.z[0] + 4, z1: THROAT.z[1] + 4 },
+    ];
+    const FLOOR = { ...THROAT.box, z0: THROAT.z[0], z1: THROAT.z[1] - 8 };
+    const BAR = { ...GATE.bar, z0: 0, z1: GATE.h + 3.5 };
+    const inBox = (p: P3, b: { x0: number; x1: number; y0: number; y1: number; z0: number; z1: number }) => p[0] > b.x0 && p[0] < b.x1 && p[1] > b.y0 && p[1] < b.y1 && p[2] > b.z0 && p[2] < b.z1;
+    // a grid over the card's top and underside, posed as objects/Batch.tsx poses it (rotation [0, -slope, heading], 'ZYX')
+    const grid = (x: PathPose, l: number, w: number): P3[] => {
+      const out: P3[] = [];
+      const [ch, sh, cs, ss] = [Math.cos(x.heading), Math.sin(x.heading), Math.cos(x.slope), Math.sin(x.slope)];
+      for (let i = 0; i <= 12; i++)
+        for (let j = 0; j <= 4; j++)
+          for (const z of [-0.4, 0.4]) {
+            const [lx, ly] = [-l / 2 + (l * i) / 12, -w / 2 + (w * j) / 4];
+            // Ry(-slope) then Rz(heading)
+            const [ax, az] = [lx * cs - z * ss, lx * ss + z * cs];
+            out.push([x.p[0] + ax * ch - ly * sh, x.p[1] + ax * sh + ly * ch, x.p[2] + az]);
+          }
+      return out;
+    };
+    const check = (who: string, x: PathPose | null, l: number, w: number, t: number) => {
+      if (!x) return;
+      for (const p of grid(x, l, w)) {
+        for (const c of CHEEKS) expect(inBox(p, c), `${who} in a cheek at f${t}`).toBe(false);
+        expect(inBox(p, FLOOR), `${who} in the throat’s floor at f${t}`).toBe(false);
+        expect(inBox(p, BAR), `${who} in the gate bar at f${t}`).toBe(false);
+      }
+    };
+    for (const b of BATCHES)
+      for (let i = 0; i < b.n; i++) {
+        const F = stripFrames(b, i);
+        const c = CARRIERS[b.kinds[i]!.kind];
+        for (let t = F.land - E6.post - E6.outFrames; t <= F.under; t += 0.25) {
+          const x = stripSlipAt(t, b, i);
+          if (x && !x.hidden && !x.inTray) check(`slip ${b.k}.${i}`, x.pose, c.l, c.w, t);
+        }
+      }
+    const R = BEAT_6.recall;
+    for (let t = R.card - 30; t < R.stampIn; t += 0.25) check('review card', reviewAt(t), CARRIERS.ci.l, CARRIERS.ci.w, t);
+  });
+  it('lets a carrier leave the open only wholly under the head: it goes out of sight on the frame its west end passes the head’s face', () => {
+    for (const b of BATCHES)
+      for (let i = 0; i < b.n; i++) {
+        const F = stripFrames(b, i);
+        const c = CARRIERS[b.kinds[i]!.kind];
+        expect(Number.isInteger(F.under), `slip ${b.k}.${i}`).toBe(true);
+        for (let f = F.land; f <= F.inTray; f++) {
+          const was = stripSlipAt(f - 1, b, i)!;
+          const now = stripSlipAt(f, b, i)!;
+          if (was.hidden || !now.hidden) continue;
+          // the frame it goes out of sight is a ride frame, its pose wholly under the head
+          expect(f, `slip ${b.k}.${i} hidden at f${f}`).toBeLessThanOrEqual(F.under);
+          expect(now.pose.p[0] - c.l / 2, `slip ${b.k}.${i} hidden at f${f}`).toBeGreaterThanOrEqual(PRINT_HEAD.box.x0);
+        }
+      }
+  });
   it('never has two carriers on the intake at once within a slip’s length of each other', () => {
     for (let f = 2600; f < 3000; f += 0.5) {
       const on = stripAt(f).filter((x) => !x.inTray && !x.hidden && x.pose.p[0] > -700);
@@ -334,19 +427,35 @@ describe('beat 6: the window, the light and the focus', () => {
       }
     }
   });
-  it('ramps still (c)’s own step-down back out after N5 (no pop at f3327)', () => {
-    let prev = deskStateAt(3100).step.own?.amount ?? 0;
-    for (let f = 3101; f < 3340; f++) {
-      const a = deskStateAt(f).step.own?.amount ?? 0;
-      expect(Math.abs(a - prev), `f${f}`).toBeLessThan(0.2);
-      prev = a;
+  it('ramps still (c)’s own step-down back out after N5 (no pop at f3327), and every part’s step moves without a jump through N5 and N6', () => {
+    // each part's step as the kit draws it: the late set (testsStep), its own ramp, or the beat's
+    const IDS = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'testsBay', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'jaws', 'bosses', 'deck', 'stress'] as const;
+    const amountOf = (f: number, id: string): number => {
+      const s = deskStateAt(f);
+      const st = isStepped(s.step, id);
+      return st === 'late' ? s.testsStep : st === 'own' ? s.step.own!.amount : st ? s.step.amount : 0;
+    };
+    for (const id of IDS) {
+      let prev = amountOf(3020, id);
+      for (let f = 3021; f < 3420; f++) {
+        const a = amountOf(f, id);
+        expect(Math.abs(a - prev), `${id} at f${f}`).toBeLessThan(0.2);
+        prev = a;
+      }
     }
+    // the docs bay (W-09's name strip in the notes band) stays down until N6's line has gone, then comes up
+    for (let f = 3060; f < N6_GONE; f += 3) expect(amountOf(f, 'docsBay'), `f${f}`).toBe(1);
+    expect(amountOf(N6_GONE + STEP_FRAMES, 'docsBay')).toBe(0);
+    // the close's print swaps back to the coarse print only once N6 is gone
+    expect(closeAt(N6_GONE)).toBe(1);
+    expect(closeAt(N6_GONE + 8)).toBe(0);
   });
-  it('keeps the stress plate stepped down from N5 on: it hands over to the late set at a full step and never relights', () => {
-    const at = deskStateAt(STRESS_LATE);
-    expect(at.step.ids).toContain('stress');
-    expect(at.step.amount).toBe(1);
-    for (let f = STRESS_LATE; f < E6.until; f += 7) expect(deskStateAt(f).testsStep, `f${f}`).toBe(1);
+  it('steps the stress plate down with N5 as it leaves: it never relights on its way out', () => {
+    for (let f = E6.plateExit; f < E6.plateExit + E6.plateOut; f++) {
+      const s = deskStateAt(f);
+      expect(s.step.ids, `f${f}`).toContain('stress');
+      if (f >= STRESS_LATE) expect(s.testsStep, `f${f}`).toBe(1);
+    }
   });
   it('holds the close (still (c)’s framing) from the bar-34 dolly to the bar-43 ease-out', () => {
     for (const f of [2720, 2800, 2960, 3080, 3150, 3280, 3350, 3360]) expect(cameraAt(f, 15)).toEqual(deskCamera(FRAMING_C, 15));
@@ -357,6 +466,12 @@ describe('beat 6: the window, the light and the focus', () => {
     expect(max).toBeLessThanOrEqual(MAX_FOOTPRINTS - 8);
     // from C17 (f3440) the Thread cord's footprints come in: still inside the shaders' array
     for (let f = 3440; f < 3480; f++) expect(footprintsAt(deskStateAt(f)).length).toBeLessThanOrEqual(MAX_FOOTPRINTS);
+  });
+  it('files #0408 under the older tabs: they stand on it where it lies under them, never over the request’s tab', () => {
+    expect(TAB_LEAN_REQUEST).toBe(TAB_LEAN_C);
+    // the front tab's foot lies under the request's tab (it stays on the floor); the others stand on #0408
+    expect(FILED_LIFT[0]).toBe(0);
+    for (const k of [1, 2, 3]) expect(FILED_LIFT[k]!).toBeGreaterThan(2);
   });
   it('draws nothing of beat 6 in the summary’s world', () => {
     const e = beat6At(E6.until, dock);

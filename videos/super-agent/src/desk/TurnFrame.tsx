@@ -110,7 +110,7 @@ export function TurnFrame({ f, angle, bloom, objects = true }: TurnFrameProps) {
                 <Gate s={s} belt={t.intake.belt} />
                 {chute && <TurnChute path={chute} posts={t.parts.posts} />}
                 {/* act one's folders and heap until the request starts out of the heap (its crease gathering: beat4.ts REQUEST_FROM); then the heap and the request as beat 4 moves them (act two draws the same) */}
-                {wf < REQUEST_FROM ? <ActOneObjects a={t.act} printFamily={print.family} press={t.press} loop={false} stepRequest={t.step > 0} /> : <Backlog a={t.act} heap={s.b4.heap} request={s.b4.request} f={wf} stepRequest={t.step > 0} />}
+                {wf < REQUEST_FROM ? <ActOneObjects a={t.act} printFamily={print.family} press={t.press} loop={false} stepRequest={t.step} /> : <Backlog a={t.act} heap={s.b4.heap} request={s.b4.request} f={wf} stepRequest={t.step > 0} />}
                 {wf >= TURN.deckIn && <TurnRegister s={s} t={t} />}
                 <TurnObjects t={t} printFamily={print.family} />
               </>

@@ -598,6 +598,18 @@ export const FOCUS_A = {
 } as const;
 /** The heap's request changes from its own ramp (the rest of act one's) to the intake's set once that ramp is fully down (both stepped: nothing jumps). */
 export const REQUEST_STEPPED_FROM = FOCUS_A.rest.from + STEP_FRAMES;
+/**
+ * How far the heap's request is stepped down (0..1; objects/ActOne.tsx Heap steps it with its hue kept). It keeps its
+ * colour while the rest of act one steps down as Fix A takes the focus, until its copy on Fix A's tape takes the
+ * vermilion (requestOnTapeAt): it steps down only as it hands the vermilion over, on the same spring (its ink), so nothing
+ * of it changes before the copy is in sight; once the copy hands it back (3.2) it is stepped as the heap is (its own ramp,
+ * then the intake's set from REQUEST_STEPPED_FROM). In the turn, the turn's own step (`turnStep`).
+ */
+export function requestStepOf(a: Pick<ActOneState, 'f' | 'step' | 'request'>, turnStep?: number): number {
+  if (turnStep !== undefined) return turnStep;
+  const set = a.f >= REQUEST_STEPPED_FROM ? a.step.amount : (a.step.own?.amount ?? 0);
+  return a.f < REQUEST_ON_TAPE.to ? set * (1 - a.request.ink) : set;
+}
 const ramp = (f: number, r: { from: number; to: number }): number => Math.min(easings.inOutSine(span01(f, r.from, r.from + STEP_FRAMES)), 1 - easings.inOutSine(span01(f, r.to, r.to + STEP_FRAMES)));
 
 export interface FolderState {

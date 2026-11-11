@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { BEAT_5, cue } from '../cues.ts';
-import { BELT_HEADING, BELT_SLOPE, CREST, E5, FLIP, KEEP_LAND, KEY_HIT, KEY_REST, KEY_PIVOT, KEY_SEAT, KICK, KICK_FLY, RACK, RACK_ROLL, SLIPS_5, STRIKES, beat5At, fingersAt, flipCurve, hatchHoleAt, keyAt, kickAt, loupeAt5, pileAt, plateAt, punchAt5, slipsAt, spikeAt, type FilterSlip } from './beat5.ts';
+import { BELT_HEADING, BELT_SLOPE, CREST, DOCS, DOCS_DOCK, DOCS_SLIT, E5, docsTakeAt, FLIP, KEEP_LAND, KEY_HIT, KEY_REST, KEY_PIVOT, KEY_SEAT, KICK, KICK_FLY, RACK, RACK_ROLL, SLIPS_5, STRIKES, beat5At, fingersAt, flipCurve, hatchHoleAt, keyAt, kickAt, loupeAt5, pileAt, plateAt, punchAt5, slipsAt, spikeAt, type FilterSlip } from './beat5.ts';
 import { deskHoles } from './objects/Dispatch.tsx';
+import { RIDES } from './beat4.ts';
 import { MAX_FOOTPRINTS, footprintsAt } from './footprints.ts';
-import { CHUTE_POSTS, FINGER_ROOT, FINGER_Y, GATE, KEY_DOCK, NEXT_SLIP, PROACTIVE_PLATE, PUNCH, SPIKE, THROAT, YOU, type P3 } from './layout.ts';
-import { B5_LATE, B5_LATE_FROM, FOCUS_BEATS, LAMP_DIMS, SLIP_BELT, STEP_FRAMES, deskStateAt, stepAt } from './state.ts';
+import { BAYS, CHUTE_POSTS, FINGER_ROOT, FINGER_Y, GALLEY_TRAY, GATE, KEY_DOCK, NEXT_SLIP, PRINT_HEAD, PROACTIVE_PLATE, PUNCH, SPIKE, THROAT, YOU, type P3 } from './layout.ts';
+import { B5_HOLD, B5_LATE, B5_LATE_FROM, FOCUS_BEATS, LAMP_DIMS, SLIP_BELT, STEP_FRAMES, deskStateAt, stepAt } from './state.ts';
+import { isStepped } from './kit.tsx';
 import { DOCKED, SPAN_D, summaryDeskState } from './summary.ts';
 import { ACT2_TAGS } from './film.ts';
 import { SAFE } from '../look/tokens.ts';
@@ -324,12 +326,20 @@ describe('beat 5: the filter', () => {
       expect(slipOf(n - 1, s.i)!.notched).toBe(false);
       expect(slipOf(n, s.i)!.notched).toBe(true);
       // the punch is down on the slip's edge on its notch frame (its lowest), out of the cheek before it, hidden well after
-      expect(punchAt5(n)).toBeCloseTo(PUNCH.hidden + PUNCH.out - PUNCH.drop, 6);
-      expect(punchAt5(n - 1)!).toBeGreaterThan(punchAt5(n)!);
+      expect(punchAt5(n)!.z).toBeCloseTo(PUNCH.hidden + PUNCH.out - PUNCH.drop, 6);
+      expect(punchAt5(n - 1)!.z).toBeGreaterThan(punchAt5(n)!.z);
       expect(punchAt5(n + 8)).toBeNull();
-      // fed into the head and gone under it
-      expect(slipOf(n + 5, s.i)).toBeDefined();
-      expect(slipOf(n + 6, s.i)).toBeUndefined();
+      // the die grows out of the cheek and goes back into it: never whole on its first or last frame out
+      let prev = 0;
+      for (let f = n - 6; f <= n + 6; f++) {
+        const out = punchAt5(f)?.out ?? 0;
+        expect(Math.abs(out - prev), `punch out at ${f}`).toBeLessThan(0.55);
+        prev = out;
+      }
+      expect(prev).toBe(0);
+      // fed wholly under the head and gone there
+      expect(slipOf(n + 6, s.i)).toBeDefined();
+      expect(slipOf(n + 7, s.i)).toBeUndefined();
     }
   });
 });
@@ -354,7 +364,8 @@ describe('beat 5: nothing jumps, nothing vanishes', () => {
         // an ask leaves the picture only under the print head
         if (!y) {
           expect(s.role, `slip ${x.i} vanished at ${f}`).not.toBe('drop');
-          expect(dist(x.p, NEXT_SLIP.head)).toBeLessThan(1e-6);
+          // (wholly under it: its west end past the head's west face, so no tail is left in the throat)
+          expect(x.p[0] - HL, `slip ${x.i} gone at ${f} with its tail in the throat`).toBeGreaterThanOrEqual(PRINT_HEAD.box.x0);
           continue;
         }
         // (the post leaves the spout fast, about 70 u in its first frame, then slower down onto the gate)
@@ -415,6 +426,60 @@ describe('beat 5: nothing jumps, nothing vanishes', () => {
     expect(deskStateAt(B5_LATE_FROM - 1).step.own?.ids === B5_LATE).toBe(false);
     expect(deskStateAt(2560).step.own).toEqual({ amount: 1, ids: B5_LATE });
     expect(B5_LATE).toContain('you');
+  });
+
+  it('5.1 never pumps: what C12 had stepped and 5.2 steps again stays down through 5.1, and no part goes up and then down again', () => {
+    const IDS = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'reel', 'lock', 'gauge', 'proactive', 'you', 'deck', 'freshBay', 'chute', 'index', 'mouth'] as const;
+    const amountOf = (f: number, id: string): number => {
+      const s = deskStateAt(f);
+      const st = isStepped(s.step, id);
+      return st === 'late' ? s.testsStep : st === 'own' ? s.step.own!.amount : st ? s.step.amount : 0;
+    };
+    for (const id of IDS) {
+      const a = Array.from({ length: 2720 - 2300 }, (_, k) => amountOf(2300 + k, id));
+      for (let k = 1; k < a.length; k++) expect(Math.abs(a[k]! - a[k - 1]!), `${id} at ${2300 + k}`).toBeLessThan(0.12);
+      // from C12's ramp-out to 5.3's ramp-out each part only ever goes one way (down, or up), never up and back down
+      const seg = a.slice(2320 - 2300, 2700 - 2300);
+      const ups = seg.some((v, k) => k > 0 && v > seg[k - 1]! + 1e-9);
+      const downs = seg.some((v, k) => k > 0 && v < seg[k - 1]! - 1e-9);
+      expect(ups && downs, `${id} pumps in 5.1-5.2`).toBe(false);
+    }
+    for (const id of B5_HOLD) for (let f = 2320; f < 2700; f += 4) expect(amountOf(f, id), `${id} at ${f}`).toBe(1);
+  });
+
+  it('W-09 takes its ask in: off the galley, over to its lit work slot, nose down into the slit; never on the galley in still (c) or (d)', () => {
+    // it lies where beat 4 docked it until it moves (after still (b)), wholly in the slot before the bar-34 dolly
+    expect(dist(DOCS_DOCK, RIDES.docs.dock)).toBeLessThan(1e-9);
+    const from = DOCS.in - DOCS.feed - DOCS.hop;
+    expect(from).toBeGreaterThan(2240);
+    expect(DOCS.in).toBeLessThan(2640);
+    expect(docsTakeAt(from)).toBeNull();
+    for (const f of [DOCS.in, 2700, 3150, 5400, 5535]) expect(docsTakeAt(f), `f${f}`).toBe('gone');
+    expect(summaryDeskState(5535).e5.docs).toBe('gone');
+    // out of the galley's shade (its rails' tops) on its first frame, at the shade's tone, its own darkening gone over 4 f
+    const first = docsTakeAt(from + 1) as Exclude<ReturnType<typeof docsTakeAt>, 'gone' | null>;
+    expect(first.p[2] - 0.4).toBeGreaterThan(GALLEY_TRAY.z[1]);
+    expect(first.shade).toBe(1);
+    expect((docsTakeAt(from + 1 + DOCS.shadeRamp) as { shade: number }).shade).toBe(0);
+    let prev = { p: DOCS_DOCK, heading: 0, slope: 0 };
+    for (let f = from + 1; f < DOCS.in; f++) {
+      const x = docsTakeAt(f) as Exclude<ReturnType<typeof docsTakeAt>, 'gone' | null>;
+      expect(dist(x.p, prev.p), `docs slip at ${f}`).toBeLessThan(60);
+      expect(Math.abs(x.heading - prev.heading), `docs slip heading at ${f}`).toBeLessThan(0.3);
+      expect(Math.abs(x.slope - prev.slope), `docs slip slope at ${f}`).toBeLessThan(0.3);
+      // its lowest point: over the galley's rails, the stick and the slot block until it stands over the slit and goes in
+      const low = x.p[2] - (NEXT_SLIP.l / 2) * Math.abs(Math.sin(x.slope)) - 0.4;
+      const overSlit = Math.abs(x.p[0] - DOCS_SLIT[0]) < 1e-9 && Math.abs(x.p[1] - DOCS_SLIT[1]) < 1e-9 && x.slope === -Math.PI / 2 && x.heading === Math.PI / 2;
+      const S = BAYS.docs.slot;
+      const overBlock = x.p[0] + NEXT_SLIP.l / 2 > S.x0 && x.p[1] + NEXT_SLIP.l / 2 > S.y0;
+      if (!overSlit) expect(low, `docs slip low at ${f}`).toBeGreaterThan(overBlock ? 32.5 : GALLEY_TRAY.z[1] + 0.5);
+      prev = x;
+    }
+    // standing in the slit: its width (40) inside the slit's 42, its thickness inside its 12
+    expect(NEXT_SLIP.w).toBeLessThan(BAYS.docs.slot.x1 - BAYS.docs.slot.x0 - 16);
+    // its last frame before it is gone: its top edge still over the slit's lip (it goes under on DOCS.in)
+    const last = docsTakeAt(DOCS.in - 1) as { p: P3 };
+    expect(last.p[2] + NEXT_SLIP.l / 2).toBeGreaterThan(DOCS_SLIT[2]);
   });
 
   it('leaves the summary (still (d)) to its own drawing: no key, plate, spike or slips from f5400', () => {

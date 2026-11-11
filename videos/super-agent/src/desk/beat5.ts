@@ -20,7 +20,7 @@
  *   impaled on the pile on f + impale (12) as the pile grows (+13). It never reaches the key: noise starts no run. An
  *   ask (a plain chat slip) passes the gate as the trips did: it strikes the key KICK_FLY frames before `f` (the key
  *   kicks again) and lands on the belt on `f`, rides into the throat, where the loupe swings over the policy card (f+8,
- *   4 f), scans it (12 f) and the punch notches the slip on f + notchAfter (26); it then feeds under the print head (3 f).
+ *   4 f), scans it (12 f) and the punch notches the slip on f + notchAfter (26); it then feeds wholly under the print head (4 f).
  * - 5.3 (f2640-2719, no text): the filter goes on under bar 34's dolly; the last spiked slip lands at f2702.
  *
  * The world from the summary on (SPAN_D, f5400) draws the hand-over's end state itself (objects/Trace.tsx: the key at
@@ -28,7 +28,7 @@
  */
 import { clamp, easings } from '@aiv/core';
 import { BEAT_5, cue } from '../cues.ts';
-import { FINGER_ROOT, FINGER_Y, GATE, KEY_DOCK, NEXT_SLIP, PROACTIVE_PLATE, PUNCH, SHEET, SPIKE, THROAT, YOU, type P3, type Rect } from './layout.ts';
+import { BAYS, FINGER_ROOT, FINGER_Y, GALLEY_TRAY, GATE, KEY_DOCK, NEXT_SLIP, PRINT_HEAD, PROACTIVE_PLATE, PUNCH, SHEET, SPIKE, THROAT, YOU, rectC, type P3, type Rect } from './layout.ts';
 import { LOUPE_READ, SPRING, springAt } from './state.ts';
 import { CHORES, TRAY_Z } from './you.ts';
 
@@ -354,9 +354,15 @@ const CREST_RUN = ((CREST_X - BELT_A[0]) / (BELT_B[0] - BELT_A[0])) * BELT_L;
 export const CREST: P3 = beltAt(CREST_RUN);
 /** The ride: up the belt to the crest, then the hop into the throat (its apex over the chord), from the landing. */
 export const RIDE5 = { belt: 3, hop: 5, apex: 40 } as const;
-/** A trip waits in the throat this long, then is fed under the head (3 f) and is gone. */
-const TRIP_DWELL = 2;
-const FEED = 3;
+/** A trip waits in the throat this long, then is fed under the head (FEED frames, in-quad) and is gone. */
+const TRIP_DWELL = 1;
+const FEED = 4;
+/**
+ * Where an ask is fed to: wholly under the print head (its west end 2 u past the head's west face: beat6.ts underFor), so
+ * it leaves the picture there and never with its tail still in the throat; 4 f in-quad keeps the last step under 50 u.
+ */
+export const UNDER_HEAD: P3 = [PRINT_HEAD.box.x0 + 2 + NEXT_SLIP.l / 2, NEXT_SLIP.throat[1], NEXT_SLIP.throat[2]];
+const feedAt = (now: number, feed: number): P3 => lerp3(NEXT_SLIP.throat, UNDER_HEAD, easings.inQuad(clamp((now - feed) / FEED)));
 
 /** An ask from its strike on the key to the throat (null past it): posted onto the key, glancing off it onto the belt, the belt, the hop. */
 function askAt(now: number, strike: number, land: number): Pose | null {
@@ -404,7 +410,7 @@ function tripAt(now: number, s: Slip5): FilterSlip | null {
   const th = inThroat(s.land!);
   const feed = th + TRIP_DWELL;
   if (now >= feed + FEED + 1) return null;
-  return { ...base, p: lerp3(NEXT_SLIP.throat, NEXT_SLIP.head, easings.inCubic(clamp((now - feed) / FEED))), heading: 0, slope: 0, roll: 0, squash: Math.max(0, 1 - (now - th) / 3), flying: false };
+  return { ...base, p: feedAt(now, feed), heading: 0, slope: 0, roll: 0, squash: Math.max(0, 1 - (now - th) / 3), flying: false };
 }
 
 /** A kept slip (the Slow Path) at film frame `now`, or null once it is under the print head: the loupe reads it in the throat and the punch notches it. */
@@ -417,7 +423,7 @@ function keptAt(now: number, s: Slip5): FilterSlip | null {
   const a = askAt(now, s.strike!, s.land!);
   if (a) return { ...base, ...a };
   const th = inThroat(s.land!);
-  return { ...base, p: lerp3(NEXT_SLIP.throat, NEXT_SLIP.head, easings.inCubic(clamp((now - feed) / FEED))), heading: 0, slope: 0, roll: 0, squash: Math.max(0, 1 - (now - th) / 3), flying: false };
+  return { ...base, p: feedAt(now, feed), heading: 0, slope: 0, roll: 0, squash: Math.max(0, 1 - (now - th) / 3), flying: false };
 }
 
 /** A dropped slip (the Fast Path) at film frame `now`: posted onto the fingers, flipped (riding the leading finger), over onto the spike, impaled on the pile. */
@@ -492,17 +498,64 @@ export function loupeAt5(f: number): number {
   return a;
 }
 
-/** The punch's top (z) for the kept slips: out of the throat's cheek a beat before its notch, down on the slip's edge on it, back in (Dispatch.tsx punchZ's motion); null while hidden. */
-export function punchAt5(f: number): number | null {
+/**
+ * The punch for the kept slips: its die's height (z) and how far it is out of the throat's north cheek (0..1: objects/
+ * Filter.tsx grows the V-die out of the cheek's south face by it, and draws it back in), out a beat before its notch, down
+ * on the slip's edge on it, back in (Dispatch.tsx punchZ's motion); null while it is wholly inside the cheek.
+ */
+export function punchAt5(f: number): { z: number; out: number } | null {
   for (const s of SLIPS_5) {
     if (s.role !== 'keep') continue;
     const n = s.f + BEAT_5.notchAfter;
     const out = sine((f - (n - 4)) / 3) * (1 - sine((f - (n + 1)) / 3));
     if (out <= 0) continue;
     const drop = Math.max(0, 1 - Math.abs(f - n) / 1.5);
-    return PUNCH.hidden + PUNCH.out * out - PUNCH.drop * drop;
+    return { z: PUNCH.hidden + PUNCH.out * out - PUNCH.drop * drop, out };
   }
   return null;
+}
+
+// ------------------------------------------------------------------------------------------------
+// 5.2 W-09 takes its ask in
+
+/**
+ * W-09 (the docs Worker) takes in the ask beat 4 dispatched to it: the chat slip has lain on its galley's type since its
+ * dock (beat4.ts RIDES.docs, GALLEY_DOCK); in 5.2, with the docs bay stepped down, it lifts out of the galley's shade,
+ * hops over to the bay's lit work slot turning to stand on its short edge (nose down, its width along the slit), and
+ * sinks into the slit, a card into a slot, wholly in on DOCS.in. From then on the galley shows its own print, as in
+ * still (c) and still (d) (r2-final c, d): the bay's work goes on in its slot.
+ */
+export const DOCS = { in: 2600, hop: 11, feed: 6, shadeRamp: 4 } as const;
+/** Where the slip lies on the galley (beat4.ts GALLEY_DOCK: the same point, beat5.test.ts) and its dock's heading. */
+export const DOCS_DOCK: P3 = [0, 68, GALLEY_TRAY.z[0] + 5.3 + 0.5];
+/** The work slot's slit (objects/Bay.tsx BayBase: on the slot block's top, 42 x 12 along x) and the slip's centre over it, its nose 3 u over the slit's lip. */
+export const DOCS_SLIT: P3 = [rectC(BAYS.docs.slot)[0], rectC(BAYS.docs.slot)[1], 30.3];
+const DOCS_OVER: P3 = [DOCS_SLIT[0], DOCS_SLIT[1], DOCS_SLIT[2] + NEXT_SLIP.l / 2 + 3];
+export interface DocsTake {
+  p: P3;
+  heading: number;
+  slope: number;
+  /** its own darkening (beat4.ts Carry.shade): at the galley's shade's tone as it lifts out of it, gone over shadeRamp frames */
+  shade: number;
+}
+/** The docs slip at f: null while it lies on the galley (beat 4's docked carrier draws it), its pose while it is taken in, 'gone' once it is in the slot (also in the summary's world). */
+export function docsTakeAt(f: number): DocsTake | 'gone' | null {
+  const from = DOCS.in - DOCS.feed - DOCS.hop;
+  if (f <= from) return null;
+  if (f >= DOCS.in) return 'gone';
+  const shade = 1 - sine((f - from - 1) / DOCS.shadeRamp);
+  if (f <= from + DOCS.hop) {
+    // up off the type first (out of the galley's rails and its shade on the first frame), across to over the slot,
+    // turning a quarter (its width along the slit) and, once high, standing up nose down
+    const u = (f - from) / DOCS.hop;
+    const xy = sine(u);
+    const z = DOCS_DOCK[2] + (DOCS_OVER[2] - DOCS_DOCK[2]) * easings.outCubic(u);
+    return { p: [DOCS_DOCK[0] + (DOCS_OVER[0] - DOCS_DOCK[0]) * xy, DOCS_DOCK[1] + (DOCS_OVER[1] - DOCS_DOCK[1]) * xy, z], heading: (Math.PI / 2) * xy, slope: -(Math.PI / 2) * sine((u - 0.2) / 0.8), shade };
+  }
+  // down into the slit, gathering speed: its top edge goes under the slit's lip on DOCS.in
+  const t = (f - from - DOCS.hop) / DOCS.feed;
+  const z = DOCS_OVER[2] - (DOCS_OVER[2] - (DOCS_SLIT[2] - NEXT_SLIP.l / 2 - 1)) * easings.inQuad(t);
+  return { p: [DOCS_OVER[0], DOCS_OVER[1], z], heading: Math.PI / 2, slope: -Math.PI / 2, shade };
 }
 
 export interface Beat5State {
@@ -513,10 +566,11 @@ export interface Beat5State {
   fingers: number[];
   pile: number;
   loupe: number;
-  punch: number | null;
+  punch: { z: number; out: number } | null;
+  docs: DocsTake | 'gone' | null;
 }
 
 /** Beat 5 at film frame f (pure). */
 export function beat5At(f: number): Beat5State {
-  return { key: keyAt(f), plate: plateAt(f), spike: spikeAt(f), slips: slipsAt(f), fingers: fingersAt(f), pile: pileAt(f), loupe: loupeAt5(f), punch: punchAt5(f) };
+  return { key: keyAt(f), plate: plateAt(f), spike: spikeAt(f), slips: slipsAt(f), fingers: fingersAt(f), pile: pileAt(f), loupe: loupeAt5(f), punch: punchAt5(f), docs: docsTakeAt(f) };
 }

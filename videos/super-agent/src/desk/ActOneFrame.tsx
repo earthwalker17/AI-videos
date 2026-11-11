@@ -70,17 +70,20 @@ export const TITLE_CARD: CardSpec = {
 };
 /** The credit: a text cue, set in the notes band like every line meant to be read (screen-fixed, still while read). */
 export const CREDIT_CUE = 'credit';
+/** The credit's knockout round its letters (px, each side). */
+export const CREDIT_KO = 9;
 
 /**
  * The credit in the notes band (NOTES: the tick, the EN line, the zh line; a 6 f wipe in, a 6 f fade out), each line
- * knocked out of the desk's tone 3 px round its letters: as the camera eases out your loop's tape comes up under the
- * line's east end, and the knockout keeps the letters off it.
+ * knocked out of the desk's tone 9 px round its letters (round joins): as the camera eases out your loop's tape comes up
+ * under the line, and the knockout cuts a clean gap in the ribbon round every glyph, so each sits on the desk's tone with
+ * a margin of 9 px (a 3 px knockout left the zh line's fill, 184, on the cream tape's 186, held apart by a hairline).
  */
 function CreditLine({ f, fonts, ready }: { f: number; fonts: FilmFonts; ready: boolean }) {
   const r = cueReveal(CREDIT_CUE, f);
   if (!r.visible || !ready) return null;
   const look = notesLookDesk(fonts);
-  const ko = { color: DESK_HEX.base, width: 3 };
+  const ko = { color: DESK_HEX.base, width: CREDIT_KO };
   const clip = r.wipe >= 1 ? undefined : `inset(0px ${((1 - r.wipe) * (1920 - NOTES.x)).toFixed(2)}px 0px 0px)`;
   return (
     <div style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, clipPath: clip, opacity: r.opacity }}>

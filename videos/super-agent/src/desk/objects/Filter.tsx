@@ -22,13 +22,15 @@ import { cylinderZ, disc, dome, extrude, frame, planeOn, slab } from '../geom.ts
 import { DESK_HOLES, HOLE_SHUT, makeDeskMaterial } from '../gl/desk.ts';
 import { HEX, paper } from '../gl/materials.ts';
 import { Step, WithMats, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
-import { NEXT_SLIP, PROACTIVE_PLATE, PUNCH, SPIKE, rectC, type Rect } from '../layout.ts';
+import { NEXT_SLIP, PROACTIVE_PLATE, PUNCH, SPIKE, THROAT, rectC, type Rect } from '../layout.ts';
 import type { DeskState } from '../state.ts';
 import { deskHoles, holeOf } from './Dispatch.tsx';
 import { keyGeometry } from './YourDesk.tsx';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 
+/** The throat's north cheek's south face (layout.ts THROAT: the cheek is 6 u thick), a hair inside it: the punch's die grows out of it. */
+const CHEEK_FACE_Y = THROAT.box.y1 - 6 + 0.5;
 /** The acceptance notch the punch's V-die cuts in a kept slip's north edge: 28 u across (about 24 px at 0.85x, 60 px in the close), 14 deep. */
 const NOTCH = { half: 14, depth: 14 } as const;
 
@@ -181,9 +183,13 @@ export function Filter({ s }: { s: DeskState }) {
       {e.punch !== null && (
         <WithMats>
           {(m) => (
-            <group position={[PUNCH.x, PUNCH.y, e.punch!]}>
-              <mesh geometry={g.punch} material={m.steel} />
-              <mesh geometry={g.punchTop} material={m.steel} />
+            // the V-die grows out of the north cheek's south face by how far it is out (and is drawn back into it), never
+            // standing whole over the slip on its first frame: its depth (y) scaled about a plane a hair inside the cheek
+            <group position={[PUNCH.x, CHEEK_FACE_Y, e.punch!.z]} scale={[1, e.punch!.out, 1]}>
+              <group position={[0, PUNCH.y - CHEEK_FACE_Y, 0]}>
+                <mesh geometry={g.punch} material={m.steel} />
+                <mesh geometry={g.punchTop} material={m.steel} />
+              </group>
             </group>
           )}
         </WithMats>

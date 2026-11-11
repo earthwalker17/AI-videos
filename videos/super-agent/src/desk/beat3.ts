@@ -546,8 +546,8 @@ export const TRAYS: readonly Tray[] = TRAY_SPEC.map(([x, y, w, d, wall, door], i
 export const TRAY_Z = { floor: 1.6, rim: 7, wall: 40, wallT: 5, southWall: 16 } as const;
 /** Each tray's event card (the turn's single card size; beat 3 draws each tray's own event, TRAY_STUFF). */
 export const TRAY_CARD = { w: 38, d: 24, dx: -16, dy: 8 } as const;
-/** A reply slip (grey stock, notched like the reply chute's slips). */
-export const B_SLIP = { w: 22, l: 46 } as const;
+/** A reply slip (grey stock, notched like the reply chute's slips), `t` thick. */
+export const B_SLIP = { w: 22, l: 46, t: 0.8 } as const;
 
 export type EventKind = 'chat' | 'ci' | 'mail' | 'leaf';
 /** An event card's size per family (u): a notched chat slip, a punched card, an envelope, a calendar leaf (48 px and more at 1.2x). */
@@ -664,8 +664,33 @@ const IN_TRAY_FLOOR = YOU.top + 3;
 const inTraySlotA = (k: number): P3 => [IN_TRAY_A_C[0] + IN_TRAY_PILE[k].o[0], IN_TRAY_A_C[1] + IN_TRAY_PILE[k].o[1], IN_TRAY_FLOOR + 0.9 * k];
 /** Reply 7, the last, is posted on the cue sheet's `FIX_B.reply7` (f1300, bar 17 beat 2: in 3.3, so nothing launches in the rest before the turn), a 14 f arc. */
 export const REPLY_7 = { post: FIX_B.reply7, arc: 14 } as const;
-/** Replies post with 3 f anticipation (a 4 u lift) and a 14 f arc (apex 60); the earlier ones jostle as each lands. */
+/** Replies post with 3 f anticipation (a REPLY_LIFT lift) and a 14 f arc (REPLY_APEX); the earlier ones jostle as each lands. */
 export const B_ARC = 14;
+/**
+ * The arc's rise over its chord. Until 3.2's break mark act one's pool lights nothing over POOL_A_Z.low (60), and a pool's
+ * heights are a hard gate (gl/light.ts dskPool): a slip tilting through that height would split along a straight line, lit
+ * under it and unlit over it (the s4f critic's "rim split"). Rising 26 u over its chord, a reply's highest corner stays some
+ * 6 u under it (beat3.test.ts).
+ */
+export const REPLY_APEX = 26;
+/**
+ * The anticipation's lift. A tray's footprint stands to its rim, and gl/light.ts shades a receiver (with the tray's contact)
+ * only while its surface is under a footprint's top, so a reply in its tray is in the tray's shade. Lifted 4 u, the slip's
+ * top face met the rim's height on the arc's first frame and the whole slip lit up in place before it moved (the s4f
+ * critic's P0). Lifted 3.6 u its top stays 0.4 u under the rim through the anticipation; it leaves the shade on the arc's
+ * second frame, already 15 u up and on its way, and REPLY_FREE eases its paper from there.
+ */
+export const REPLY_LIFT = 3.6;
+/** From the first frame a reply is clear of its tray's shade, its paper's albedo eases from about the tone it had in the tray (`from`, linear) to its own over `frames`. */
+export const REPLY_FREE = { frames: 6, from: 0.56 } as const;
+/** The first frame reply k is clear of its tray's shade (the arc's second frame). */
+export const replyFreeB = (k: number): number => replyPostedB(k) + 4;
+/** Reply k's paper tone at f (a factor on its albedo; 1 except over its REPLY_FREE ease). */
+export function replyToneB(k: number, f: number): number {
+  const t = f - replyFreeB(k);
+  if (t < 0 || t >= REPLY_FREE.frames) return 1;
+  return REPLY_FREE.from + (1 - REPLY_FREE.from) * (1 - Math.cos((Math.PI * t) / REPLY_FREE.frames)) / 2;
+}
 const JOSTLE = { frames: 8, u: 2.4, rot: 0.05 } as const;
 export const replyPostedB = (k: number): number => (k === 7 ? REPLY_7.post : FIX_B.replies[k]);
 export const replyLandsB = (k: number): number => replyPostedB(k) + 3 + B_ARC;
@@ -724,13 +749,13 @@ function replyAt(k: number, f: number): FixBTurn['slips'][number] {
   const from = trayRestB(k);
   const to = inTraySlotA(k);
   if (f < leave) return { p: from, rot: rest, tilt: 0, paper: 0 };
-  if (f < leave + 3) return { p: [from[0], from[1], from[2] + 4 * MOVE((f - leave) / 3)], rot: rest, tilt: 0, paper: 0 };
+  if (f < leave + 3) return { p: [from[0], from[1], from[2] + REPLY_LIFT * MOVE((f - leave) / 3)], rot: rest, tilt: 0, paper: 0 };
   const lands = leave + 3 + B_ARC;
   if (f < lands) {
     const u = (f - leave - 3) / B_ARC;
     const e = Math.sin((u * Math.PI) / 2) ** 2;
     // the arc starts from the anticipation's height (never a dip back down)
-    const p: P3 = [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e, from[2] + 4 + (to[2] - from[2] - 4) * e + 4 * 60 * u * (1 - u)];
+    const p: P3 = [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e, from[2] + REPLY_LIFT + (to[2] - from[2] - REPLY_LIFT) * e + 4 * REPLY_APEX * u * (1 - u)];
     return { p, rot: rest + (pile.rot - rest) * e, tilt: 0.25 * Math.sin(u * Math.PI), paper: 0 };
   }
   let jx = 0;
@@ -759,16 +784,65 @@ export function fixBAt(f: number): FixBBeat3 {
   return { b, posts: TRAYS.map((_, k) => trayPostAt(k, f)), riffle: TRAYS.map((_, k) => riffleAt(k, f)), followUp: followUpAt(f), tear: tearAt(f) };
 }
 
-/** Fix B's footprints: each tray on its post (its contact once down), each reply in the air or in your in-tray, the follow-up in the air. */
+/**
+ * A riffling dossier's top sheet (objects/Turn.tsx TrayStuffMesh: hinged on its west edge, its free edge lifted by the
+ * riffle's angle). At rest a sheet under its tray's rim lies in the tray's shade and contact (its footprint, up to the
+ * rim); lifted, what rises over the rim's height would leave both in the frame it rises (gl/light.ts: in height a
+ * footprint is all or nothing for a receiver), a whole sheet lit a frame before it visibly moves and dark again a frame
+ * after it lands. So while it is up, a plate over its plan (4 u wider all round) carries the tray's shade and contact (0.8)
+ * from just over the rim to over its lifted edge: what rises keeps the tone it had, its light following only its turn
+ * toward the key (the shaders weigh both by how far a surface faces up), and the plate casts the lifted sheet's shadow
+ * down the key. Its foot is 1.51 u over the rim, so its contact reaches only what has risen over the rim (gl/light.ts:
+ * contact takes receivers no more than 2 u under a footprint's foot, a receiver at its surface less 0.5): the rims, the
+ * stack and the slate keep exactly the light they had. A sheet that rests over the rim (tray 4's) was never in the
+ * tray's shade and gets nothing.
+ */
+export function riffleSheetFootprint(k: number, riffle: number, post: TrayPost): Footprint | null {
+  if (riffle <= 0) return null;
+  const tr = TRAYS[k];
+  const D = TRAY_STUFF[k].dossier;
+  const len = D.w - 1;
+  const hinge = post.off[2] + TRAY_Z.floor + 0.4 + 0.8 * D.sheets - 0.3;
+  const rim = post.off[2] + TRAY_Z.rim;
+  if (hinge + 0.3 >= rim) return null;
+  const z0 = rim + RIFFLE_PLATE.over;
+  const z1 = hinge + len * Math.sin(riffle) + 0.3 * Math.cos(riffle) + 1;
+  if (z1 <= z0 + 0.05) return null;
+  const across = len * Math.cos(riffle);
+  // the plan's centre: the hinge (the stack's west edge, tray-local) plus half the sheet's run east, turned with the dossier
+  const lx = -D.w / 2 + across / 2;
+  const [c, s] = [Math.cos(D.rot), Math.sin(D.rot)];
+  const m = RIFFLE_PLATE.margin;
+  return { kind: 'rect', c: [tr.c[0] + post.off[0] + D.o[0] + c * lx, tr.c[1] + post.off[1] + D.o[1] + s * lx], h: [across / 2 + m, (D.d - 1) / 2 + m], r: 2, rot: D.rot, z0, z1, contact: RIFFLE_PLATE.contact };
+}
+/** The riffle's plate: its foot over the rim, its margin round the sheet's plan, its contact (the tray's). */
+export const RIFFLE_PLATE = { over: 1.51, margin: 4, contact: 0.8 } as const;
+
+/**
+ * A reply's own footprint, in the air or in your in-tray (beat 3 and the turn): its plan, and its contact once it is near
+ * your in-tray. Tilted in flight (objects/Turn.tsx SlipMesh turns it by `tilt` about the world's x axis after its `rot`), its
+ * top face dips below its centre by up to `dip`, so the footprint's top is set that far under it: a slip never shades itself
+ * (gl/light.ts shades a receiver only under a footprint's top), never a hard tone edge across a tilting slip (the s4f critic).
+ */
+export function replySlipFootprint(s: { p: P3; rot: number; tilt: number }): Extract<Footprint, { kind: 'rect' }> {
+  const dip = ((B_SLIP.l / 2) * Math.abs(Math.sin(s.rot)) + (B_SLIP.w / 2) * Math.abs(Math.cos(s.rot))) * Math.abs(Math.sin(s.tilt));
+  return { kind: 'rect', c: [s.p[0], s.p[1]], h: [B_SLIP.l / 2, B_SLIP.w / 2], r: 2, rot: s.rot, z0: s.p[2] - 0.4 - dip, z1: s.p[2] + 0.4 - dip, contact: s.p[2] < YOU.top + 12 ? 0.4 : 0 };
+}
+
+/** Fix B's footprints: each tray on its post (its contact once down), each riffling sheet, each reply in the air or in your in-tray, the follow-up in the air. */
 export function fixBFootprints(B: FixBBeat3): Footprint[] {
   const fp: Footprint[] = TRAYS.map((tr, k): Footprint => {
     const o = B.posts[k].off;
     return { kind: 'rect', c: [tr.c[0] + o[0], tr.c[1] + o[1]], h: [tr.w / 2, tr.d / 2], r: 3, rot: 0, z0: o[2], z1: o[2] + TRAY_Z.rim, contact: o[2] < 0.5 ? 0.8 : 0 };
   });
+  TRAYS.forEach((_, k) => {
+    const s = riffleSheetFootprint(k, B.riffle[k], B.posts[k]);
+    if (s) fp.push(s);
+  });
   B.b.slips.forEach((s, k) => {
     const inTray = s.p[2] < TRAY_Z.floor + 4 && Math.hypot(s.p[0] - trayRestB(k)[0], s.p[1] - trayRestB(k)[1]) < 1;
     if (inTray) return;
-    fp.push({ kind: 'rect', c: [s.p[0], s.p[1]], h: [B_SLIP.l / 2, B_SLIP.w / 2], r: 2, rot: s.rot, z0: s.p[2] - 0.4, z1: s.p[2] + 0.4, contact: s.p[2] < YOU.top + 12 ? 0.4 : 0 });
+    fp.push(replySlipFootprint(s));
   });
   if (B.followUp && B.followUp.p[2] > TRAY_Z.floor + 2) fp.push({ kind: 'rect', c: [B.followUp.p[0], B.followUp.p[1]], h: [FOLLOW_UP.w / 2, FOLLOW_UP.d / 2], r: 2, rot: B.followUp.rot, z0: B.followUp.p[2] - 0.4, z1: B.followUp.p[2] + 0.4, contact: 0 });
   return fp;

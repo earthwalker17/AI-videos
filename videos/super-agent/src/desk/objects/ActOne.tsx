@@ -21,6 +21,7 @@ import { rand } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, Path, Quaternion, Shape, Vector3, type MeshStandardMaterial, type Texture } from 'three';
 import { FOLDER_PRINT, LOOP_NOTES } from '../../print.ts';
+import { TRACER_STEP, quieterColour } from './Bay.tsx';
 import { chatSlipPrint, leafPrint } from './Intake.tsx';
 import {
   CARD,
@@ -32,7 +33,7 @@ import {
   PEN,
   PIECE,
   REQUEST_A,
-  REQUEST_STEPPED_FROM,
+  requestStepOf,
   SHEET,
   SHEET_PRINT,
   TAB,
@@ -57,7 +58,7 @@ import {
 } from '../actOne.ts';
 import { cylinderZ, extrude, fitUv, merge, piece, slab, slipShape, tube } from '../geom.ts';
 import type { Press } from '../turn.ts';
-import { HEX, paper, whiteTexture } from '../gl/materials.ts';
+import { HEX, STEP_TARGET_PAPER, paper, whiteTexture } from '../gl/materials.ts';
 import { INK, print, texture, tooth } from '../gl/text.ts';
 import { Step, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
 import { DESK_HEX } from '../gl/desk.ts';
@@ -652,7 +653,22 @@ function heapGeometry(): Record<PieceKind, BufferGeometry> & { mailFlap: BufferG
   };
 }
 
-function Heap({ a, print: tex, stepRequest = false }: { a: ActOneState; print: ActOnePrint; stepRequest?: boolean }) {
+/**
+ * The heap's request's colour (linear) at its ink (0 its paper … 1 vermilion) and its focus step: its paper steps toward
+ * the paper grey as the paper step does (0.45 by amount, in display values), and the whole steps as act two's tracer does
+ * (its chroma cut by TRACER_STEP by amount, its value kept), so stepped it is still the request's vermilion, a step quieter.
+ */
+function requestTone(paperHex: string, vermilionHex: string, ink: number, amt: number): Color {
+  const enc = (v: number) => Math.pow(Math.max(v, 0), 1 / 2.2);
+  const dec = (v: number) => Math.pow(Math.max(v, 0), 2.2);
+  const p = new Color(paperHex);
+  const t = STEP_TARGET_PAPER.value;
+  const k = 0.45 * amt;
+  const stepped = new Color(dec(enc(p.r) + (enc(t.r) - enc(p.r)) * k), dec(enc(p.g) + (enc(t.g) - enc(p.g)) * k), dec(enc(p.b) + (enc(t.b) - enc(p.b)) * k));
+  return quieterColour(stepped.lerp(new Color(vermilionHex), ink), TRACER_STEP * amt);
+}
+
+function Heap({ a, print: tex, stepRequest }: { a: ActOneState; print: ActOnePrint; stepRequest?: number }) {
   const geo = useMemo(() => heapGeometry(), []);
   const lift = Math.round(a.request.lift * 400) / 400;
   const req = useMemo(() => requestGeometry(lift), [lift]);
@@ -671,19 +687,22 @@ function Heap({ a, print: tex, stepRequest = false }: { a: ActOneState; print: A
   }, [tex]);
   useLayoutEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
   // the request's own paper: a chat slip's stock until its cue, then vermilion (the request motif), over spring-effects; it
-  // keeps its colour when the intake steps down in beat 2 (it is the film's tracer), steps down with the rest of act one
-  // as beat 3's fixes take the focus (the kit's own ramp), then stays down with the heap (the intake's: both are fully
-  // stepped when it changes sets, so nothing jumps) into the turn's pull
-  const reqStep = stepRequest || a.f >= REQUEST_STEPPED_FROM ? true : ('own' as const);
+  // keeps its colour when the intake steps down in beat 2 (it is the film's tracer) and while the rest of act one steps
+  // down as Fix A takes the focus, until its copy on Fix A's tape takes the vermilion (actOne.ts requestOnTapeAt): it steps
+  // down only as it hands the vermilion over, on the same spring; when the copy hands it back (3.2) it is the request
+  // again, stepped with the heap (the intake's amount; in the turn the turn's, `stepRequest`). Stepped, it keeps its hue: a
+  // step quieter as act two's tracer steps (objects/Bay.tsx TRACER_STEP), never the shader's grey (its materials are in the
+  // full set and take the step in their colour, every frame)
+  const amt = requestStepOf(a, stepRequest);
   const reqMats = useMemo(() => {
     const white = whiteTexture();
-    return { paper: paper(white, REQUEST_PAPER, { roughness: 0.82, stepped: reqStep }), shade: paper(white, REQUEST_PAPER_SHADE, { roughness: 0.85, stepped: reqStep }) };
-  }, [reqStep]);
+    return { paper: paper(white, REQUEST_PAPER, { roughness: 0.82 }), shade: paper(white, REQUEST_PAPER_SHADE, { roughness: 0.85 }) };
+  }, []);
   useLayoutEffect(() => () => Object.values(reqMats).forEach((m) => m.dispose()), [reqMats]);
   useLayoutEffect(() => {
-    reqMats.paper.color.set(REQUEST_PAPER).lerp(new Color(HEX.vermilion), a.request.ink);
-    reqMats.shade.color.set(REQUEST_PAPER_SHADE).lerp(new Color(HEX.vermilionShade), a.request.ink);
-  }, [reqMats, a.request.ink]);
+    reqMats.paper.color.copy(requestTone(REQUEST_PAPER, HEX.vermilion, a.request.ink, amt));
+    reqMats.shade.color.copy(requestTone(REQUEST_PAPER_SHADE, HEX.vermilionShade, a.request.ink, amt));
+  }, [reqMats, a.request.ink, amt]);
   const keyOf = (kind: PieceKind, v: number, tone: number) => `${kind}${v % VARIANTS[kind]}${tone > 0.45 ? 1 : 0}`;
   const mesh = (kind: PieceKind, v: number, tone: number, key: string | number, p: P3, rot: number, tilt = 0, flip = 0) => (
     <group key={key} position={p} rotation={[0, 0, rot]}>
@@ -780,9 +799,10 @@ export function loopNoteFlips(L: LoopPose, notes: readonly number[]): boolean[] 
 
 /**
  * Act one's own objects (the desk and feeders pose themselves). The turn (desk/turn.ts) presses the folders into the
- * desk (`press`, one per folder), draws the notes loop itself (`loop` false) and steps the request down with the heap.
+ * desk (`press`, one per folder), draws the notes loop itself (`loop` false) and steps the heap's request by its own step
+ * (`stepRequest`, its amount).
  */
-export function ActOneObjects({ a, printFamily, press, loop = true, stepRequest = false }: { a: ActOneState; printFamily: string; press?: readonly Press[]; loop?: boolean; stepRequest?: boolean }) {
+export function ActOneObjects({ a, printFamily, press, loop = true, stepRequest }: { a: ActOneState; printFamily: string; press?: readonly Press[]; loop?: boolean; stepRequest?: number }) {
   const L0 = a.loop;
   const arc = useMemo(() => loopArc(L0), [L0]);
   // each note at its own tab on every frame (loopNotesAt), never on a share of the open span's length (which set every note

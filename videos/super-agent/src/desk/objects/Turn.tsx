@@ -18,7 +18,7 @@ import { useFont } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { BufferGeometry, Color, CylinderGeometry, DoubleSide, Float32BufferAttribute, Matrix4, Path, RepeatWrapping, RingGeometry, Shape, type Material, type MeshStandardMaterial, type Texture } from 'three';
 import { HEAP, LOOP_A, FOLDERS, PIECE, REQUEST_A, loopNormal, loopPoint, requestZ, tabAt, TAB, type ActOneState, type LoopPose, type PieceKind } from '../actOne.ts';
-import { A_CHUTES, A_FOLDER_TOP, A_ITEMS, A_PILE, A_PITCH, A_SIZE, A_STACK_END, A_TAPE_W, BAY_TRAYS, BREAK, B_SLIP, EVENT_SIZE, FIX_A_FOLDER, FOLLOW_UP, TEAR, TRAYS, TRAY_CARD, TRAY_STUFF, TRAY_Z, aPathAt, followUpAt, tearAt, type AItemKind, type AItemPose, type EventKind, type FixAView, type TrayPost } from '../beat3.ts';
+import { A_CHUTES, A_FOLDER_TOP, A_ITEMS, A_PILE, A_PITCH, A_SIZE, A_STACK_END, A_TAPE_W, BAY_TRAYS, BREAK, B_SLIP, EVENT_SIZE, FIX_A_FOLDER, FOLLOW_UP, TEAR, TRAYS, TRAY_CARD, TRAY_STUFF, TRAY_Z, aPathAt, followUpAt, replyToneB, tearAt, type AItemKind, type AItemPose, type EventKind, type FixAView, type TrayPost } from '../beat3.ts';
 import { ON_REQUEST, RIDE, WORK_DEPTH, heapFloor, heapPieceAt, type HeapState, type RequestState } from '../beat4.ts';
 import { cylinderZ, disc, extrude, merge, plane, planeOn, slab, tornShape, tube } from '../geom.ts';
 import { DESK_HEX } from '../gl/desk.ts';
@@ -907,7 +907,7 @@ function eventTexture(kind: EventKind, w: number, d: number, variant = 0): Textu
 }
 
 export function SlipMesh({ p, rot, tilt, material }: { p: P3; rot: number; tilt: number; material: Material }) {
-  const g = useGeo(() => piece('chat', B_SLIP.l, B_SLIP.w), []);
+  const g = useGeo(() => piece('chat', B_SLIP.l, B_SLIP.w, B_SLIP.t), []);
   return <mesh geometry={g} material={material} position={p} rotation={[tilt, 0, rot]} />;
 }
 
@@ -1063,6 +1063,8 @@ export function FixB({ fixB, f, tear, followUp, posts, riffle }: { fixB: TurnSta
       fl.metalness = 0.45 * b.built;
       fl.roughness = 0.9 + (0.55 - 0.9) * b.built;
     });
+    // a reply clear of its tray's shade eases its paper up from the tone it had there (beat3.ts REPLY_FREE): no flash in place
+    TRAYS.forEach((_, k) => mats[`s${k}`].color.set(FIX_HEX.reply).multiplyScalar(replyToneB(k, f)));
     // no Worker computes yet: every work slot is dark (they light when a task is dispatched, 4.3 on)
     for (const set of [sets.full, sets.stepped]) for (const s of [set.slotBug, set.slotTests, set.slotDocs]) s.color.set(SLOT_IDLE);
   });
