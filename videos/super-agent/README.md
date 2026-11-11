@@ -36,6 +36,10 @@ The film has been in production since 2026-11-08. Decisions with the user so far
 | 2026-11-09 | Bloom | "Bloom 0.3 (Recommended)": on live processes only, ≤ 3 sources |
 | 2026-11-09 | Register Desk direction, seen at round-2 style frame (b) | "Right direction, refine (Recommended)": keep refining (b), then the other lookdev stills and the two motion tests |
 | 2026-11-10 | Lookdev, round 2: stills (a)–(d), motion tests MT1 and MT2 | **Signed off.** "I've checked the lookdev stills and they're OK, which can be carried on to the final render." (Recorded here: `video.json` approvals hold only the treatment, review and final gates.) |
+| 2026-11-12 | Build part 1 (beats 1–6, the draft and the four changed stills against the signed-off set) | "Right, carry on (Recommended)" |
+| 2026-11-12 | Score, bars 1–43 | "Right direction (Recommended)" |
+| 2026-11-12 | The recall in the 2.4× close, the ease-out on bar 43 (not STORYBOARD 6.4's bar 42) | "Keep the bar-43 ease-out (Recommended)" |
+| 2026-11-12 | The docs galley's mirrored cast type | "Flip to right-reading (Recommended)" |
 
 **What this means (session 3).** The session-3 brief named the faults:
 - basic flat geometry;

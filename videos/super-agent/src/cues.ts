@@ -360,6 +360,173 @@ export const BEAT_6 = {
   recall: { card: 3232, stampIn: 3260, rewind: at(42), rewindFrames: 24, hops: [3304, 3318, 3332], answer: 3350 },
 } as const;
 
+/**
+ * Beat 7 (STORYBOARD 7.1-7.4, session 5): waiting, handed over. The request's Thread cord pays out from the chat
+ * spool through the guide on the Register's frame to the bug bay (1400 u/s), settling from 8% to 3% sag over 16 f.
+ * A follow-up leaves the spout, clips on at the spool (2 f; a pluck runs the cord, 8 u, ζ 0.35), rides at about
+ * 900 px/s, crosses the guide on `flyover` (the bypass: a faint notice row prints on the tape, the index makes no
+ * detent) and arrives at the cord's terminal, then enters the bay through its open door: it goes straight to its
+ * Worker and never waits. Under C18 the Router's decision tally prints beside the reel; a grey-stock ghost tally
+ * (about 1.3x as long) rises 12 f, is struck 6 f and exits 8 f. Under N7 a one-beat ghost (the door shut, a
+ * follow-up waiting outside) rises, is struck before the peel and exits; on `job-peel` the long test peels off its
+ * bay as a capsule (3 f anticipation, a 10 f arc) onto the side rail, its "started" receipt 4 f after it lands, and
+ * a second follow-up, riding the same cord, arrives and enters within 2 f (the door stays open); the sand-glass
+ * lifts off your tray (the chore hand-over grammar, as BEAT_5's key) and docks on the job rail, then the Productive
+ * plate docks. On `job-dock` the capsule docks back as an event (8 f). In 7.4 the index turns west, a short chat
+ * reply with an enamel "≤100" stop tab rides the chute to your in-tray (light; your lamp up a step), and a heavy
+ * tabbed dossier flies from the deck into the card feeder's mouth (the repo port: GitHub), with no sender line.
+ * Every frame is a contact frame (picture and score).
+ */
+export const BEAT_7 = {
+  cordOut: at(44),
+  cordTaut: 3474,
+  cordSettled: 3490,
+  riders: [
+    { spout: 3470, clipOn: 3486, guide: at(45), arrive: 3532, enter: 3536 },
+    { spout: 3654, clipOn: 3674, guide: 3708, arrive: 3720, enter: 3722 },
+  ],
+  tally: { print: 3570, ghostRise: at(46), ghostStrike: at(46, 3), ghostGone: 3654 },
+  doorGhost: { rise: 3692, strike: 3708, gone: 3722 },
+  peel: { lift: at(47, 3), rail: 3730, receipt: 3734, dockFrom: 3792, dock: at(48, 3) },
+  glass: { lift: at(47, 3), dock: at(47, 4), plateDock: 3744 },
+  reply: { indexWest: at(48, 4), leave: 3824, lands: at(49) },
+  dossier: { leave: 3856, lands: at(49, 3) },
+} as const;
+
+/**
+ * Beat 8 (STORYBOARD 8.1-8.5): many runs, the evidence. On bar 50's downbeat the camera trucks east to the printed
+ * test sheet at 0.7x (camera.ts TO_SHEET; 1.0x would break the 700 px/s cap) and everything else steps down to 55%
+ * from 3914. The load line prints as `ticks.n` tiny ticks, `inked` of them inked, as texture while the camera moves.
+ * At 4000 the caveat stamp (the chart tag) inks in 3 f with C20 and the load tag; the three lanes slide out as paper
+ * strips, each cut at its slowest run (p95) with a hole punched at its typical one (p50), every strip sliding for
+ * `stripFrames` x its p95 frames (the score sounds each for as long). Then the hero stamps (their text cues), the
+ * bracket between the told-to-delegate and two-level holes, the told-to-delegate lane's delegation notches on
+ * eighths (4 punched and 1 not: in that run it did the work itself, and its strip's tail slides out long), and the
+ * token stacks, each built in turn and done on its frame; "2–4×" lands on the tallest's completion. The sheet slides
+ * away on bar 58's downbeat. Lane data: the article's synthetic test (FACTS.md; src/film/chart.ts RUNS holds them
+ * equal): p50 and p95 task time, cache-read tokens (M).
+ */
+export const BEAT_8 = {
+  stepDown: 3914,
+  ticks: { from: 3936, to: 3992, n: 300, inked: [7, 22, 31, 48, 63, 79, 92, 108, 121, 139, 152, 167, 183, 198, 214, 229, 243, 258, 274, 291] },
+  caveat: at(51),
+  lanes: [
+    { id: 'laneOne', p50: 20.4, p95: 29.5, tokens: 6.1, slide: 4004 },
+    { id: 'laneTold', p50: 13.8, p95: 29.0, tokens: 10.8, slide: 4008 },
+    { id: 'laneTwo', p50: 12.4, p95: 15.7, tokens: 23.2, slide: 4012 },
+  ],
+  stripFrames: 1,
+  bracket: 4150,
+  notches: [
+    { f: 4290, punched: true },
+    { f: 4300, punched: true },
+    { f: 4310, punched: true },
+    { f: 4320, punched: false },
+    { f: 4330, punched: true },
+  ],
+  longRun: { from: 4340, frames: 30 },
+  stacks: [
+    { from: 4420, done: 4426 },
+    { from: 4424, done: 4432 },
+    { from: 4428, done: at(56, 3) },
+  ],
+  away: at(58),
+} as const;
+
+/**
+ * Beat 9 (STORYBOARD 9.1-9.2): keeping it running, handed over (proposed). On bar 58's downbeat the sheet slides
+ * away, your laptop's lid shuts (its click lands at `lidClick`) and the camera eases out to still (d)'s framing
+ * (0.64x). The vellum parts are laid down flat east of the system, 12 f each, on `lays` (the plan of the deck, the
+ * state cabinet, the loop, the daemon tethers); the lid strut lifts off your tray (the hand-over grammar) and docks
+ * on the vellum loop, taking its material, then the Persistent plate docks, in vellum. A machine's lamp comes on and
+ * a queued slip drops in. Under N8 the Watchdog is laid outside the system, its sightline sweeps 20 f on `sweeps`,
+ * the stuck bay keeps its solid work light while its card drum steps out and back on every beat of `stuck`, and the
+ * sightline pins a pencil flag on it.
+ */
+export const BEAT_9 = {
+  away: at(58),
+  lidClick: 4566,
+  lays: [4568, 4580, 4592, 4604],
+  strut: { lift: 4596, dock: at(58, 4), plateDock: 4624 },
+  machineLamp: at(59, 2),
+  slipDrop: at(59, 3),
+  watchdog: at(60, 2),
+  sweeps: [at(61), at(62)],
+  sweepFrames: 20,
+  stuck: { from: at(61), to: at(62, 4) },
+  flag: at(62, 2),
+} as const;
+
+/**
+ * Beat 10 (STORYBOARD 10.1-10.3): still open. In the two-beat silence a hatched slip slips in at the chat spout and
+ * past the open gate without striking the key (no alarm, no tick), and reaches the Register on `intrusion`; the
+ * etch then spreads along the vellum tethers, one machine per beat, killing their gloss, and recedes, leaving a
+ * pencil "?" (>= 64 px) for the rest of the film. Under N9 (bar 65's dolly onto the Register: the move is the line)
+ * the Register splits in pencil, its tape tears and two reading windows disagree; Fix A's and Fix B's grey-stock
+ * cards rise either side for one beat and slide away (no strike); the reel's outer windings fade into pencil with a
+ * "?". Under N10 your lamp reaches for a running bay just beyond it, where a pencil handle outline and "?" are drawn.
+ * In bar 68 the request's bay finishes (MT1's handshake, compressed): its pins drop, it caps, its report card ejects
+ * and flies up, is stamped in, the index turns west and the reply rides the chute into your in-tray; then
+ * everything holds until the stamp (STORYBOARD 10.3: 20 f of stillness). The summary's world takes over at SEAM_D
+ * (desk/film.ts), inside that stillness.
+ */
+export const BEAT_10 = {
+  hatch: { spout: 4962, register: at(63, 3) },
+  etch: [at(64), at(64, 2), at(64, 3)],
+  query: at(64, 4),
+  split: 5140,
+  tear: 5160,
+  windows: 5176,
+  cards: { rise: at(66), exit: 5220 },
+  windings: at(66, 3),
+  reach: at(67),
+  handle: at(67, 2),
+  pinsDrop: at(68),
+  reportUp: 5363,
+  stampIn: at(68, 2),
+  indexWest: 5382,
+  replyLeave: 5398,
+  replyLands: at(68, 4),
+} as const;
+
+/**
+ * Beat 11 (STORYBOARD 11.1-11.4): sign-off, old ideas, meaning. The stamp (src/desk/summary.ts STAMP_F) presses the
+ * reply green as your lamp brightens a step; the route's trace runs out, then home (summary.ts TRACE_F, held equal
+ * by summary.test.ts). The four trait plates retire into the emptied chore tray, landing on `plates` (inside the
+ * sign-off rest: silent). Six idea labels settle one per beat (a 6 f leader, then an 8 f wipe), the map key sets
+ * after them, the act-one grey-stock card rises for one beat once C26 has settled and slides away, the neck collar
+ * slides from the Register's throat to your lamp's neck, everything but your desk, your lamp and the stamped reply
+ * steps down, and your lamp turns to the next reply once a bar.
+ */
+export const BEAT_11 = {
+  stamp: at(69),
+  trace: { out: [at(69), 5486], home: [5486, 5518] },
+  plates: { from: 5540, lands: [5548, 5554, 5560, 5566] },
+  ideas: [at(70, 4), at(71), at(71, 2), at(71, 3), at(71, 4), at(72)],
+  keyMap: at(72, 2),
+  actOneCard: { rise: at(73), exit: at(73, 2) },
+  collar: { from: at(73, 3), to: 5820 },
+  stepDown: 5870,
+  lampTurns: [at(74, 3), at(75, 3)],
+} as const;
+
+/**
+ * Beats 12 and 13 (STORYBOARD 12.1-13.3). On bar 76's downbeat the camera returns to the hook's framing (the move is
+ * C28's line); on the held frame, as at f20, a chat slip turns vermilion on `bookend`, the gate passes it and it
+ * rides the intake out of frame toward the Register, while the feeders tick once a beat until the dissolve. The
+ * world dissolves to the bare desk (never to black) over `dissolve`; the end card posts and lands on `card.land`,
+ * the end key sets beside its material samples, and the card leaves on `card.leave`, so the last frames are the
+ * bare desk.
+ */
+export const END = {
+  move: [at(76), at(77)],
+  bookend: { turn: at(77), gate: 6100, out: 6130 },
+  ticks: { from: at(76), to: at(77, 4) },
+  dissolve: [at(78), at(78, 3)],
+  card: { land: at(78, 3), leave: at(84, 4) },
+  key: at(79),
+} as const;
+
 /** The on-screen window of a text or card cue: its span plus the wipe in and the fade out. */
 export const textWindow = (e: CueEvent): [number, number] => [e.frame - TEXT_IN, (e.end ?? e.frame) + TEXT_OUT];
 
@@ -473,16 +640,35 @@ const events: CueEvent[] = [
 
   // 7 · Waiting, handed over (bars 44-49)
   line('c17', at(44), at(45, 3)),
+  mark('cord-out', BEAT_7.cordOut, 'the request’s Thread cord pays out from the chat spool, through the guide on the Register’s frame, to its bay'),
+  mark('clip-on', BEAT_7.riders[0].clipOn, 'a follow-up clips onto the cord at the spool: a pluck runs the cord'),
   hit('flyover', at(45), 'the follow-up rides its Thread over the Register: the motif an octave up, and the Router’s chord is skipped'),
+  mark('rider-arrives', BEAT_7.riders[0].arrive, 'the follow-up reaches its bay and goes straight in'),
   line('c18', at(45, 3), at(47, 1.5)),
+  mark('tally', BEAT_7.tally.print, 'the Router’s decision tally prints beside the reel'),
+  mark('tally-ghost', BEAT_7.tally.ghostRise, 'a grey-stock ghost tally rises, about 1.3x as long'),
+  hit('strike-tally', BEAT_7.tally.ghostStrike, 'the ghost tally is struck: a dry scratch'),
   line('n7', at(47, 1.5), at(49)),
+  mark('door-ghost', BEAT_7.doorGhost.rise, 'a grey-stock ghost: the bay’s door shut, a follow-up waiting outside'),
+  mark('door-ghost-strike', BEAT_7.doorGhost.strike, 'the door ghost is struck'),
   hit('job-peel', at(47, 3), 'the long job peels off onto its side rail while the door stays open'),
+  mark('rider-2', BEAT_7.riders[1].arrive, 'a second follow-up arrives on the cord and enters within 2 f'),
   shown('text', 'tag-jobs', at(47, 3), at(48, 4), WORDS.tagJobs),
   mark('trait-productive', at(47, 3), 'the sand-glass lifts off your tray onto the job rail: the Productive plate docks'),
+  mark('job-receipt', BEAT_7.peel.receipt, 'the capsule’s “started” receipt'),
+  mark('glass-dock', BEAT_7.glass.dock, 'the sand-glass docks on the job rail'),
+  mark('plate-productive', BEAT_7.glass.plateDock, 'the Productive plate docks; your lamp has dimmed a step'),
   hit('job-dock', at(48, 3), 'the job docks back as an event'),
   shown('text', 'tag-100', at(48, 4), at(50), WORDS.tag100),
+  hit('reply-chat', BEAT_7.reply.lands, 'a short chat reply with its ≤100 stop tab lands in your in-tray: one felt-piano note'),
+  hit('dossier', BEAT_7.dossier.lands, 'a heavy tabbed dossier lands in the repo port: a paper thump'),
 
   // 8 · Many runs: the evidence (bars 50-57)
+  mark('sheet-ticks', BEAT_8.ticks.from, 'the load line prints as a soft rain of ticks while the camera trucks to the sheet'),
+  mark('strips', BEAT_8.lanes[0].slide, 'the lanes slide out as strips, each sounding for as long as its slowest run'),
+  mark('bracket', BEAT_8.bracket, 'a bracket springs between the told-to-delegate and two-level holes: a soft tick'),
+  mark('notches', BEAT_8.notches[0].f, 'the told-to-delegate lane’s notches punch on eighths, one run without: muted clicks'),
+  mark('stacks', BEAT_8.stacks[0].from, 'the token stacks build in turn: three soft rising notes, the last heavier'),
   shown('text', 'tag-chart', at(51), at(58), WORDS.tagChart),
   shown('text', 'tag-load', at(51), at(58), WORDS.tagLoad),
   line('c20', at(51), at(52, 4)),
@@ -496,33 +682,63 @@ const events: CueEvent[] = [
   shown('text', 'stamp-tokens', at(56, 3), at(58), WORDS.stampTokens),
 
   // 9 · Keeping it running, handed over (bars 58-62): proposed
+  mark('lid', BEAT_9.lidClick, 'your laptop’s lid shuts for the night as the sheet slides away: a soft click'),
+  mark('vellum', BEAT_9.lays[0], 'the vellum parts are laid down flat east of the system: airy filtered noise'),
   line('c24', at(58, 2), at(60)),
-  shown('text', 'tag-proposed', at(58, 3), at(63), WORDS.tagProposed),
-  mark('trait-persistent', at(58, 4), 'the lid strut lifts off onto the vellum loop: the Persistent plate docks, in vellum'),
+  // the tag waits for bar 58's move to settle, so it never moves while it is read (STORYBOARD, Open for the build)
+  shown('text', 'tag-proposed', at(59), at(63), WORDS.tagProposed),
+  mark('strut-lift', BEAT_9.strut.lift, 'the lid strut lifts off your tray'),
+  mark('trait-persistent', at(58, 4), 'the lid strut docks on the vellum loop: the Persistent plate docks, in vellum'),
+  mark('machine-lamp', BEAT_9.machineLamp, 'a machine’s lamp comes on'),
+  mark('slip-drop', BEAT_9.slipDrop, 'a queued slip drops into it'),
+  mark('watchdog', BEAT_9.watchdog, 'the Watchdog is laid outside the system'),
+  ...BEAT_9.sweeps.map((f, i) => hit(`sweep-${i + 1}`, f, 'the Watchdog’s sightline sweeps (20 f) over the stuck bay’s damped two-note loop')),
+  mark('flag', BEAT_9.flag, 'the sightline pins a pencil flag on the stuck bay'),
   line('n8', at(60, 3.5), at(62, 2)),
 
   // 10 · Still open (bars 63-68): the chores you cannot hand over yet
   span('silence', 'silence-intrusion', at(63), at(63, 3), 'two beats of silence before the intrusion'),
+  mark('hatch', BEAT_10.hatch.spout, 'a hatched slip slips in at the chat spout and past the gate, in silence'),
   hit('intrusion', at(63, 3), 'the hatched slip reaches the Register: a low D–E♭ minor second'),
+  ...BEAT_10.etch.map((f, i) => hit(`etch-${i + 1}`, f, 'the etch reaches a machine along its vellum tether: one descending marimba note')),
+  mark('query-open', BEAT_10.query, 'a pencil “?” settles beside the machines on a suspended chord'),
   line('c25', at(63), at(65)),
   line('n9', at(65), at(66, 4)),
+  mark('split', BEAT_10.split, 'in pencil the Register splits in two: the Router’s chord detunes into two'),
+  mark('tear', BEAT_10.tear, 'its tape tears'),
+  mark('fix-cards', BEAT_10.cards.rise, 'Fix A’s and Fix B’s grey-stock cards rise either side for one beat'),
+  mark('windings', BEAT_10.windings, 'the reel’s outer windings fade into pencil with a “?”'),
   line('n10', at(66, 4.5), at(69)),
+  mark('reach', BEAT_10.reach, 'your lamp reaches for a running bay just beyond it'),
+  mark('handle', BEAT_10.handle, 'a pencil handle outline and “?” where its handle would be'),
+  mark('pins-68', BEAT_10.pinsDrop, 'the request’s bay finishes: its pins drop and it caps'),
+  mark('report-68', BEAT_10.reportUp, 'its report card ejects and flies up'),
+  hit('stamp-in-68', BEAT_10.stampIn, 'the report is stamped in: reporting back falls D5 to A4'),
+  hit('reply-68', BEAT_10.replyLands, 'the reply lands in your in-tray: a soft pop; then everything holds'),
 
   // 11 · Sign-off, old ideas, meaning (bars 69-75)
   hit('stamp', at(69), 'your desk stamps the reply green: a felt stamp thump, and the motif completes as A4, D5, F♯5'),
   span('rest', 'rest-signoff', at(69, 3), at(70, 3.5), 'the route traced at 0.64×: the held Dmaj9 and the scratching drag'),
+  mark('plates-retire', BEAT_11.plates.from, 'the four trait plates retire into the emptied chore tray, silently'),
   line('n11', at(70, 3.5), at(72, 3)),
+  ...BEAT_11.ideas.map((f, i) => mark(`idea-${i + 1}`, f, 'an idea label settles on its part: a click on the beat')),
   shown('text', 'ideas', at(70, 4), at(74, 2.5), read(WORDS.ideaFastSlow, WORDS.ideaBatching, WORDS.ideaCache, WORDS.ideaDuplex, WORDS.ideaSplit, WORDS.ideaControl)),
-  shown('text', 'key-map', at(70, 4.5), at(76, 1.5), read(WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch)),
+  // the key sets once the six labels have landed, and is gone before bar 76's move
+  shown('text', 'key-map', BEAT_11.keyMap, at(76), read(WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch)),
   line('c26', at(72, 3), at(74, 2.5)),
+  mark('act-one-card', BEAT_11.actOneCard.rise, 'a grey-stock card of act one rises for one beat: the theme returns, softer'),
+  mark('collar', BEAT_11.collar.from, 'the neck collar slides from the Register’s throat to your lamp’s neck'),
   line('c27', at(74, 2.5), at(76)),
+  mark('step-down', BEAT_11.stepDown, 'everything but your desk, your lamp and the stamped reply steps down'),
+  ...BEAT_11.lampTurns.map((f, i) => mark(`lamp-turn-${i + 1}`, f, 'your lamp turns to the next reply')),
 
-  // 12 · Bookend (bars 76-77)
+  // 12 · Bookend (bars 76-77): the move back to the hook is C28's line; the slip turns on the held frame, as at f20
   line('c28', at(76, 1.5), at(78)),
-  hit('bookend', at(76, 3), 'as at f20 a slip turns vermilion: the motif once, with no felt-piano answer'),
+  hit('bookend', END.bookend.turn, 'as at f20 a slip turns vermilion: the motif once, with no felt-piano answer'),
 
   // 13 · End card (bars 78-84)
   mark('dissolve', at(78), 'dissolve to the bare desk, never to black'),
+  mark('card-leaves', END.card.leave, 'the end card leaves: the bare desk'),
   shown('card', 'end', at(78, 3), at(84, 4), WORDS.end),
   shown('text', 'end-key', at(79), at(84, 4), read(WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch)),
   span('hold', 'hold-end', at(78, 3), at(84, 4), 'the end card is still: freezedetect allows it'),
