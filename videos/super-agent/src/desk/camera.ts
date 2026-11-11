@@ -93,8 +93,12 @@ export const FRAMING_SHEET: Framing = { x: 650, y: 40, zoom: 0.7 };
  * Still (d)'s framing (desk/summary.ts), and beats 9-10's from bar 58's ease-out to bar 65's dolly.
  */
 export const FRAMING_D: Framing = { x: 85, y: 68, zoom: 0.64 };
-/** The bookend (STORYBOARD 12.1, bar 76): back to the hook's framing for now; the beats 11-13 lane may ask for it to be tuned. */
-export const FRAMING_BOOKEND: Framing = FRAMING_HOOK;
+/**
+ * The bookend (STORYBOARD 12.1, bar 76): the hook's framing, 40 u east (64 px at 1.6x), so bar 76's one-bar move from
+ * still (d)'s framing keeps the aim under 700 px/s (691; the hook itself, x -600, is 733). Bar 77's held frame must land
+ * on END.bookend.turn, so the move cannot take two bars.
+ */
+export const FRAMING_BOOKEND: Framing = { ...FRAMING_HOOK, x: -560 };
 
 /**
  * The camera's moves from the turn on (film frames >= 1400; act one's, before 1400, is ACT_ONE_MOVE). Each move starts

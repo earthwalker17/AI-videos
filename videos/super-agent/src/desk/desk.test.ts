@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CELLS, NAMEPLATE, PRINT_STRINGS, REPLY, REPORT, REPORT_C } from '../print.ts';
-import { CAMERA_EASE, CAMERA_MOVES, D1, EASE_OUT_D, FRAMING_B, FRAMING_BOOKEND, FRAMING_C, FRAMING_D, FRAMING_SHEET, TO_BOOKEND, TO_REGISTER, TO_SHEET, TO_VELLUM, cameraAt, deskCamera, moveFraming, project, projectBox } from './camera.ts';
+import { CAMERA_EASE, CAMERA_MOVES, D1, EASE_OUT_D, FRAMING_B, FRAMING_BOOKEND, FRAMING_C, FRAMING_D, FRAMING_HOOK, FRAMING_SHEET, TO_BOOKEND, TO_REGISTER, TO_SHEET, TO_VELLUM, cameraAt, deskCamera, moveFraming, project, projectBox } from './camera.ts';
 import { poseD, summaryDeskState } from './summary.ts';
 import { SEAM_D } from './film.ts';
 import { footprintsAt, KIND, MAX_FOOTPRINTS, cullRadius, packFootprints, staticFootprints, type Footprint } from './footprints.ts';
@@ -109,13 +109,11 @@ describe('desk camera', () => {
     return peak;
   };
   it('keeps the aim point under 700 px/s on screen through every move from the turn on (TREATMENT Camera)', () => {
-    for (const m of CAMERA_MOVES) if (m !== TO_BOOKEND) expect(aimPeak(m), `move ${m.from}-${m.to}`).toBeLessThanOrEqual(700);
+    for (const m of CAMERA_MOVES) expect(aimPeak(m), `move ${m.from}-${m.to}`).toBeLessThanOrEqual(700);
   });
-  // OPEN (session 5, wave 0): bar 76's one-bar move from still (d)'s framing back to the hook's peaks at 733 px/s; it fits
-  // with FRAMING_BOOKEND 35 u east of the hook (x -565: 697 px/s) or over two bars (364 px/s). The beats 11-13 lane or
-  // the main agent tunes it; this then passes and must become a plain `it`
-  it.fails('keeps bar 76’s move to the bookend under 700 px/s too', () => {
-    expect(aimPeak(TO_BOOKEND)).toBeLessThanOrEqual(700);
+  it('lands bar 76’s move on the bookend, the hook’s framing 40 u east, under the cap with headroom', () => {
+    expect(aimPeak(TO_BOOKEND)).toBeLessThanOrEqual(695);
+    expect(TO_BOOKEND.b).toEqual({ ...FRAMING_HOOK, x: -560 });
   });
 });
 

@@ -28,11 +28,13 @@ export interface Move {
   b: Framing;
 }
 
-/** camera.ts FRAMING_B and FRAMING_HOOK, summary.ts FRAMING_D, and the evidence sheet's framing (beat 8, map option C: aim (650, 40) at 0.7x). */
+/** camera.ts FRAMING_B and FRAMING_HOOK, FRAMING_D, and the evidence sheet's framing (beat 8, map option C: aim (650, 40) at 0.7x). */
 export const FRAMING_B: Framing = { x: -200, zoom: 0.85 };
 export const FRAMING_D: Framing = { x: 85, zoom: 0.64 };
 export const FRAMING_HOOK: Framing = { x: -600, zoom: 1.6 };
 export const FRAMING_SHEET: Framing = { x: 650, zoom: 0.7 };
+/** camera.ts FRAMING_BOOKEND: the hook's framing 40 u east, so bar 76's one-bar move keeps under 700 px/s. */
+export const FRAMING_BOOKEND: Framing = { x: -560, zoom: 1.6 };
 
 /** Part two's camera, held at FRAMING_B from bar 43's ease-out until the first move. */
 export const CAMERA_PLAN: readonly Move[] = [
@@ -41,7 +43,7 @@ export const CAMERA_PLAN: readonly Move[] = [
   { from: at(65), to: at(66), a: FRAMING_D, b: FRAMING_B },
   // summary.ts EASE_OUT_D: the stamp, then three beats
   { from: BEAT_11.stamp, to: BEAT_11.stamp + 60, a: FRAMING_B, b: FRAMING_D },
-  { from: END.move[0], to: END.move[1], a: FRAMING_D, b: FRAMING_HOOK },
+  { from: END.move[0], to: END.move[1], a: FRAMING_D, b: FRAMING_BOOKEND },
 ];
 
 /** A move's framing at eased progress u: the zoom even in log scale, the centre trucking with 1/zoom (camera.ts moveFraming). */
