@@ -26,7 +26,7 @@ import { HEX, enamel, graphite, paper, stepColour, whiteTexture } from '../gl/ma
 import { PRINT_FONT, cargoMark, texture, tooth } from '../gl/text.ts';
 import { useDeskMats, useDeskSets, useStepMode } from '../kit.tsx';
 import { BAYS, BAY_FLOOR, LEG_R, NEXT_SLIP, REEL, TAPE, TAPE_FLAT_X1, type BayId, type P2, type P3, type Rect } from '../layout.ts';
-import { CLIP_T, OLDER_REPLY_REST, TURN, bayShapeAt, coilRim, legsAt, replyLands, shapeWalls, turnDeskState, type BayShape, type BayTurn, type CoilState, type Press, type TurnState, type olderReplyAt } from '../turn.ts';
+import { CLIP_T, COIL_R0, OLDER_REPLY_REST, TURN, bayShapeAt, coilRim, legsAt, replyLands, shapeWalls, turnDeskState, type BayShape, type BayTurn, type CoilState, type Press, type TurnState, type olderReplyAt } from '../turn.ts';
 import { BeetleLight, BugBay, DocsBay, SLOT_IDLE, TestsBay } from './Bay.tsx';
 import { Hatch, shellInside } from './Dispatch.tsx';
 import { bubbleMark } from './Intake.tsx';
@@ -252,6 +252,34 @@ function wall(r: number, t: number): BufferGeometry {
   g.translate(0, 0, t / 2);
   return g;
 }
+/** Part of a wall: radius r, from z 0 to t, over the angles a0 … a1 (counter-clockwise from east), its faces outward. */
+function arcWall(r: number, t: number, a0: number, a1: number): BufferGeometry {
+  const n = Math.max(2, Math.ceil((72 * (a1 - a0)) / (2 * Math.PI)));
+  const pos: number[] = [];
+  const nrm: number[] = [];
+  const uv: number[] = [];
+  const idx: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + ((a1 - a0) * i) / n;
+    const cs = Math.cos(a);
+    const sn = Math.sin(a);
+    pos.push(r * cs, r * sn, 0, r * cs, r * sn, t);
+    nrm.push(cs, sn, 0, cs, sn, 0);
+    uv.push(i / n, 0, i / n, 1);
+    if (i > 0) {
+      const k = 2 * (i - 1);
+      idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3);
+    }
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new Float32BufferAttribute(nrm, 3));
+  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  return g;
+}
+/** The loop's ribbon at the coil's take-over (round, on edge, its print as the ribbon carried it), centred on the origin: the coil's outer turn until Fix A's tape has wound over it. */
+const loopTurnPose = (t: number): LoopPose => ({ ...LOOP_A, c: [0, 0], a: COIL_R0, b: COIL_R0, n: 2, z: 0, w: t });
 const HUB_H = REEL.hubZ[1] - REEL.packZ[0];
 function spokes(len: number): BufferGeometry {
   return merge(
@@ -271,15 +299,21 @@ function spokes(len: number): BufferGeometry {
 
 function Coil({ c, edge, fold, mats }: { c: NonNullable<TurnState['loop']['coil']>; edge: number; fold: number; mats: ReturnType<typeof useLoopMats> }) {
   const m = useDeskMats();
-  const top = useGeo(() => coilTop(c.rIn, c.rOut), [c.rIn, c.rOut]);
-  const outer = useGeo(() => wall(c.rOut, c.t), [c.rOut, c.t]);
-  const inner = useGeo(() => (c.rIn > REEL.hubR + 0.5 ? wall(c.rIn, c.t) : null), [c.rIn, c.t]);
+  const top = useGeo(() => (c.rim - c.rIn > 0.05 ? coilTop(c.rIn, c.rim) : null), [c.rIn, c.rim]);
+  // the outside: the loop's own printed turn (the ribbon's geometry and print, carried round by the spin), wound over by
+  // Fix A's tape from where it meets the coil (c.wrap); once it is wholly under it, the wound pack all round
+  const full = c.wrap >= 2 * Math.PI - 1e-6;
+  const loopTurn = useGeo(() => (full ? null : ribbonGeometry(loopTurnPose(c.t), 1)), [full, c.t]);
+  // (the partial wrap stands at the outer turn's radius, a tape's thickness proud of the loop's printed turn under it)
+  const outer = useGeo(() => (c.wrap <= 1e-6 ? null : full ? wall(c.rOut, c.t) : arcWall(Math.max(c.rim, COIL_R0 + 0.6), c.t, c.wrapLead - c.wrap, c.wrapLead)), [c.rOut, c.rim, c.t, c.wrap, c.wrapLead, full]);
+  // (not while it would lie on the loop's printed turn: the take-over's first frame)
+  const inner = useGeo(() => (c.rIn > REEL.hubR + 0.5 && c.rIn < COIL_R0 - 0.3 ? wall(c.rIn, c.t) : null), [c.rIn, c.t]);
   // the spokes telescope out from the hub over the pack (as long as the Register's at rest)
   const spokeLen = REEL.hubR + 2 + (Math.max(c.rOut - 6, REEL.hubR + 2) - REEL.hubR - 2) * c.spokes;
   const sp = useGeo(() => spokes(spokeLen), [spokeLen]);
   const hub = useMemo(() => ({ body: merge([cylinderZ(REEL.hubR, 0, HUB_H - 3), disc(REEL.hubR + 2, HUB_H - 3, HUB_H, { bevel: 1.2 })]), slot: slab({ x0: -13, x1: 13, y0: -2.5, y1: 2.5 }, HUB_H, HUB_H + 1.2, 1, 0.4) }), []);
   useLayoutEffect(() => () => Object.values(hub).forEach((x) => x.dispose()), [hub]);
-  // the pack takes the reel's paper as it coils; at rest it is the Register's own
+  // the wound pack takes the reel's paper once the loop's turn is under it; at rest it is the Register's own
   const settled = c.stock >= 0.999;
   useLayoutEffect(() => {
     mats.pack.color.copy(lerpHex(TAPE_HEX.tape, HEX.paperShade, c.stock));
@@ -289,10 +323,12 @@ function Coil({ c, edge, fold, mats }: { c: NonNullable<TurnState['loop']['coil'
   return (
     <group>
       <group position={[c.c[0], c.c[1], c.h]}>
-        <mesh geometry={outer} material={packMat} />
+        {outer && full && <mesh geometry={outer} material={packMat} />}
         {inner && <mesh geometry={inner} material={mats.tape} />}
         <group rotation={[0, 0, c.spin]}>
-          <mesh geometry={top} material={m.printed.reelTopBare} position={[0, 0, c.t + 0.25]} />
+          {loopTurn && <mesh geometry={loopTurn} material={mats.tape} />}
+          {outer && !full && <mesh geometry={outer} material={packMat} />}
+          {top && <mesh geometry={top} material={m.printed.reelTopBare} position={[0, 0, c.t + 0.25]} />}
           {c.hub > 0.02 && (
             <group scale={[1, 1, c.hub]}>
               <mesh geometry={hub.body} material={m.enamel} />
@@ -883,11 +919,16 @@ function eventTexture(kind: EventKind, w: number, d: number, variant = 0): Textu
       if (kind === 'chat') bubbleMark(g, 4, d * 0.18, d * 0.6, ink);
       else if (kind === 'ci') {
         if (variant === 1) {
-          // a full row of square punches along its top edge over two long slots: the conversation's own mark, on the card
-          // and on its follow-up alike (torn in two, each half keeps a run of punches and both slots)
+          // a full row of square punches along its top edge over two staggered rows of round ones: the conversation's own
+          // mark, on the card and on its follow-up alike (torn in two, each half keeps a run of every row); no other card
+          // is punched round (two long slots here read as two lines of text: the critic's X3 P1-5)
           for (let i = 0; i < 9; i++) g.fillRect(4 + i * 4.3, 3.5, 2.4, 3.6);
-          g.fillRect(5, d * 0.45, w - 10, 2.8);
-          g.fillRect(5, d * 0.68, w - 16, 2.8);
+          for (let r = 0; r < 2; r++)
+            for (let i = 0; i < 9 - r; i++) {
+              g.beginPath();
+              g.arc(5.2 + i * 4.3 + r * 2.15, d * (0.47 + 0.25 * r), 1.35, 0, Math.PI * 2);
+              g.fill();
+            }
         } else for (let r = 0; r < 2; r++) for (let i = 0; i < 5; i++) if ((i + r * 2) % 3 !== 1) g.fillRect(6 + i * 6, 6 + r * 9, 2.6, 5.4);
       } else if (kind === 'mail') {
         g.strokeStyle = ink;
@@ -1122,7 +1163,7 @@ export function FixB({ fixB, f, tear, followUp, posts, riffle }: { fixB: TurnSta
 const TAB_RISE = 1.1;
 
 /** The coil at rest on the reel, as the turn locks it: the rim its clip and tabs ride. */
-const LOCKED: CoilState = { c: [REEL.x, REEL.y], h: REEL.packZ[0], rIn: REEL.hubR, rOut: REEL.packR, t: REEL.packZ[1] - REEL.packZ[0], spin: 0, hub: 1, spokes: 1, stock: 1 };
+const LOCKED: CoilState = { c: [REEL.x, REEL.y], h: REEL.packZ[0], rIn: REEL.hubR, rOut: REEL.packR, t: REEL.packZ[1] - REEL.packZ[0], k: 1, spin: 0, hub: 1, spokes: 1, wrap: 2 * Math.PI, wrapLead: 0, rim: REEL.packR, stock: 1 };
 
 /**
  * The notes loop's clip and tabs riding the Register's reel as the coil left them at the lock, turned with the reel

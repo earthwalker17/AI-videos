@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ROUND2 } from '../lookdev/frames.ts';
 import { FOLDER_PRINT, LOOP_NOTES } from '../print.ts';
 import { TEXT_OUT, WORDS, cue } from '../cues.ts';
-import { TYPE } from '../look/tokens.ts';
-import { TITLE_CARD } from './ActOneFrame.tsx';
+import { NOTES, TYPE } from '../look/tokens.ts';
+import { CREDIT_INK, CREDIT_KO, TITLE_CARD, actOneFrameFootprints, creditBox } from './ActOneFrame.tsx';
 import {
   ACT_ONE_END,
   ARRIVE,
@@ -61,7 +61,7 @@ import {
 } from './actOne.ts';
 import { ACT_ONE_MOVE, FRAMING_A, FRAMING_HOOK, cameraAt, deskCamera, framingAt, project, screenToDesk } from './camera.ts';
 import { loopArc, loopNotesAt } from './objects/ActOne.tsx';
-import { CARD_POST, CARD_T, cardAt, cardCorners, cardFootprint, cardMatrix } from './objects/TitleCard.tsx';
+import { CARD_CONTACT_INSET, CARD_POST, CARD_T, cardAt, cardContactFootprint, cardCorners, cardFootprint, cardMatrix } from './objects/TitleCard.tsx';
 import { MAX_FOOTPRINTS } from './footprints.ts';
 import { LAMP, YOU, type P2, type P3 } from './layout.ts';
 import { LAMP_ARMS, LAMP_FOOT_Z, YOU_POSE_B } from './you.ts';
@@ -426,6 +426,37 @@ describe('the title card (1.2)', () => {
     const fp = cardFootprint(TITLE_CARD, cardAt(TITLE_CARD, 200)) as { z0: number; z1: number };
     expect(fp.z0).toBeLessThan(5);
     expect(fp.z1 - fp.z0).toBeCloseTo(CARD_T, 6);
+  });
+  it('has a contact shadow on the desk round it that comes in over the drop, holds at rest and fades as it lifts off', () => {
+    for (let f = frames.enter; f < frames.gone; f++) {
+      const s = cardAt(TITLE_CARD, f);
+      const c = cardContactFootprint(TITLE_CARD, s) as { kind: string; h: P2; z0: number; z1: number; contact: number } | null;
+      // only while the card's contact is (the drop, the rest, the lift off), as strong as it
+      expect(c === null, `f${f}`).toBe(s.contact <= 0);
+      if (!c) continue;
+      expect(c.contact).toBe(s.contact);
+      // film-thin on the desk (only the desk receives it) and inside the card's outline (its own sliver of shade under it)
+      expect(c.z0).toBe(0);
+      expect(c.z1 - 0.5).toBeLessThanOrEqual(0.1);
+      expect(c.h[0]).toBeCloseTo(place.w / 2 - CARD_CONTACT_INSET, 9);
+      expect(c.h[1]).toBeCloseTo(place.d / 2 - CARD_CONTACT_INSET, 9);
+      // and it is cast every frame it exists (actOneFrameFootprints)
+      expect(actOneFrameFootprints(f).some((x) => x.kind === 'rect' && x.z0 === 0 && x.z1 === c.z1 && x.contact === c.contact), `f${f}`).toBe(true);
+    }
+    expect(cardContactFootprint(TITLE_CARD, cardAt(TITLE_CARD, frames.land - CARD_POST.dropFrames))).toBeNull();
+    expect(cardContactFootprint(TITLE_CARD, cardAt(TITLE_CARD, frames.land))!.kind).toBe('rect');
+    // a board, not a sticker: its edge shows under the 15° camera
+    expect(CARD_T).toBeGreaterThanOrEqual(4);
+  });
+  it('knocks the credit out of the tape as one box per line, the two boxes overlapping (no tape between the lines), inside title-safe', () => {
+    const en = creditBox(NOTES.x, NOTES.enBaseline, 1200, TYPE.notesEn.size);
+    const zh = creditBox(NOTES.x, NOTES.zhBaseline, 1000, TYPE.notesZh.size);
+    expect(en.y + en.h).toBeGreaterThan(zh.y);
+    expect(en.y).toBeLessThan(NOTES.enBaseline - CREDIT_INK.up * TYPE.notesEn.size);
+    expect(zh.y + zh.h).toBeLessThanOrEqual(1080 - 54);
+    expect(en.x).toBe(NOTES.x - CREDIT_KO);
+    expect(en.x).toBeGreaterThan(NOTES.tick.x + NOTES.tick.width);
+    expect(en.w).toBe(1200 + 2 * CREDIT_KO);
   });
   it('lies on the desk in the world: it rides the camera move, the request’s corner in view beside it the whole time', () => {
     // world-locked: its outline on screen is the projection of one fixed place through each frame's camera

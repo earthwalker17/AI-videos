@@ -305,10 +305,12 @@ export const REQUEST_INK = cue('request').frame;
  * move ends (its 3 f anticipation from FIX_A.steps[0] - 3, inside the spout until the next frame) and takes the request's
  * vermilion from its first frame in sight (the spring from FIX_A.steps[0] - 2; beat3.test.ts holds this to the pour) while
  * the heap's request drains to its paper over the same frames (one request on screen, never none), keeps it while Fix A
- * holds the focus, and both swap back as the focus moves to Fix B (FOCUS_A.fixA).
+ * holds the focus, and both swap back as the focus moves to Fix B (FOCUS_A.fixA): the copy hands the vermilion back on
+ * the step-down's own ramp (STEP_FRAMES, inOutSine), as Fix A around it steps down, never faster (a 4 f spring was the
+ * critic's flag against the 12-16 f token).
  */
 export const REQUEST_ON_TAPE = { from: FIX_A.steps[0] - 2, to: FIX_B.in + 10 } as const;
-export const requestOnTapeAt = (f: number): number => clamp(springAt(f, REQUEST_ON_TAPE.from, SPRING.effects) - springAt(f, REQUEST_ON_TAPE.to, SPRING.effects));
+export const requestOnTapeAt = (f: number): number => clamp(springAt(f, REQUEST_ON_TAPE.from, SPRING.effects) - easings.inOutSine(span01(f, REQUEST_ON_TAPE.to, REQUEST_ON_TAPE.to + STEP_FRAMES)));
 /** The pieces that land on the request's west half (f100–150), creasing it: its east flap lifts a quarter of the way with each. */
 const COVER_FRAMES = [100, 110, 130, 150] as const;
 

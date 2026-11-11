@@ -15,7 +15,7 @@ import { AbsoluteFill } from 'remotion';
 import { FIX_A, FIX_B, WORDS } from '../cues.ts';
 import { useFilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
-import { GREY_TEXT, Label } from '../kit/text.tsx';
+import { GREY_TEXT, Label, lineWidth, type TextLook } from '../kit/text.tsx';
 import { cueReveal } from './onScreen.ts';
 import type { FilmFonts } from '../look/fonts.ts';
 import { ACT_ONE_END, YOU_SHIFT_A, actOneAt, actOneFootprints, actOnePools, youLabelAt } from './actOne.ts';
@@ -28,7 +28,7 @@ import { PRINT_FONT } from './gl/text.ts';
 import { YOU } from './layout.ts';
 import { ActOneObjects } from './objects/ActOne.tsx';
 import { Feeders } from './objects/Intake.tsx';
-import { CARD_HEX, CardText, CardWorld, cardAt, cardFootprint, type CardSpec } from './objects/TitleCard.tsx';
+import { CARD_HEX, CardText, CardWorld, cardAt, cardContactFootprint, cardFootprint, type CardSpec } from './objects/TitleCard.tsx';
 import { FixA, FixB } from './objects/Turn.tsx';
 import { YourDesk } from './objects/YourDesk.tsx';
 import { Overlay, notesLookDesk, type RoleLabel } from './Overlay.tsx';
@@ -70,27 +70,41 @@ export const TITLE_CARD: CardSpec = {
 };
 /** The credit: a text cue, set in the notes band like every line meant to be read (screen-fixed, still while read). */
 export const CREDIT_CUE = 'credit';
-/** The credit's knockout round its letters (px, each side). */
+/** The credit's knockout round each line's box (px, each side). */
 export const CREDIT_KO = 9;
+/** A line's ink box over and under its baseline (em): the Latin ascenders and the Han glyphs' tops, the descenders. */
+export const CREDIT_INK = { up: 0.95, down: 0.27 } as const;
+
+/** One line's knockout box (px: its ink box and CREDIT_KO round it), from its measured width. */
+export function creditBox(x: number, baseline: number, width: number, size: number): { x: number; y: number; w: number; h: number } {
+  const y = baseline - CREDIT_INK.up * size - CREDIT_KO;
+  return { x: x - CREDIT_KO, y, w: width + 2 * CREDIT_KO, h: baseline + CREDIT_INK.down * size + CREDIT_KO - y };
+}
 
 /**
  * The credit in the notes band (NOTES: the tick, the EN line, the zh line; a 6 f wipe in, a 6 f fade out), each line
- * knocked out of the desk's tone 9 px round its letters (round joins): as the camera eases out your loop's tape comes up
- * under the line, and the knockout cuts a clean gap in the ribbon round every glyph, so each sits on the desk's tone with
- * a margin of 9 px (a 3 px knockout left the zh line's fill, 184, on the cream tape's 186, held apart by a hairline).
+ * knocked out of the desk's tone as one box (its ink box and 9 px round it, its corners a little rounded): as the camera
+ * eases out your loop's tape comes up under the lines, and each box cuts it straight across, so every glyph sits on the
+ * desk's tone (the desk renders there at its base, within a code). The two boxes overlap, so no tape shows between the
+ * lines (a knockout round each glyph left scalloped tape slivers between and over them, the critic's P2).
  */
 function CreditLine({ f, fonts, ready }: { f: number; fonts: FilmFonts; ready: boolean }) {
   const r = cueReveal(CREDIT_CUE, f);
   if (!r.visible || !ready) return null;
   const look = notesLookDesk(fonts);
-  const ko = { color: DESK_HEX.base, width: CREDIT_KO };
   const clip = r.wipe >= 1 ? undefined : `inset(0px ${((1 - r.wipe) * (1920 - NOTES.x)).toFixed(2)}px 0px 0px)`;
+  const box = (text: string, baseline: number, l: TextLook) => {
+    const b = creditBox(NOTES.x, baseline, lineWidth(text, l), l.size);
+    return <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={4} fill={DESK_HEX.base} />;
+  };
   return (
     <div style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, clipPath: clip, opacity: r.opacity }}>
       <svg width={1920} height={1080} style={{ display: 'block', overflow: 'visible' }}>
+        {box(WORDS.credit.en, NOTES.enBaseline, look.en)}
+        {box(WORDS.credit['zh-Hans'], NOTES.zhBaseline, look.zh)}
         <rect x={NOTES.tick.x} y={NOTES.tick.top} width={NOTES.tick.width} height={NOTES.tick.height} fill={look.tick} />
-        <Label x={NOTES.x} y={NOTES.enBaseline} text={WORDS.credit.en} family={look.en.family} size={look.en.size} weight={look.en.weight} color={look.en.color} knockout={ko} />
-        <Label x={NOTES.x} y={NOTES.zhBaseline} text={WORDS.credit['zh-Hans']} family={look.zh.family} size={look.zh.size} weight={look.zh.weight} color={look.zh.color} knockout={ko} />
+        <Label x={NOTES.x} y={NOTES.enBaseline} text={WORDS.credit.en} family={look.en.family} size={look.en.size} weight={look.en.weight} color={look.en.color} />
+        <Label x={NOTES.x} y={NOTES.zhBaseline} text={WORDS.credit['zh-Hans']} family={look.zh.family} size={look.zh.size} weight={look.zh.weight} color={look.zh.color} />
       </svg>
     </div>
   );
@@ -107,8 +121,11 @@ const UNPRESSED: Press = { k: 0, scaleZ: 1, tilt: 0, sink: 0 };
 export function actOneFrameFootprints(f: number) {
   const a = actOneAt(f);
   const fp = actOneFootprints(a);
-  const card = cardFootprint(TITLE_CARD, cardAt(TITLE_CARD, f));
+  const cs = cardAt(TITLE_CARD, f);
+  const card = cardFootprint(TITLE_CARD, cs);
   if (card) fp.push(card);
+  const contact = cardContactFootprint(TITLE_CARD, cs);
+  if (contact) fp.push(contact);
   if (f >= FIX_A.in) fp.push(...fixAFootprints(fixAOf(f)));
   if (f >= FIX_B.in) fp.push(...fixBFootprints(fixBOf(f)));
   return fp;

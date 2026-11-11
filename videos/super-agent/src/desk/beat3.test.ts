@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BEAT, BOTH_FIXES, FIX_A, FIX_B } from '../cues.ts';
+import { STEP_FRAMES } from './state.ts';
 import { actOneFrameFootprints, fixAOf, fixBOf } from './ActOneFrame.tsx';
 import { FIX_LAMP, FOLDERS, LOOP_A, MOUTH, POOL_A_Z, REQUEST_ON_TAPE, REQUEST_STEPPED_FROM, actOneAt, actOneStep, actOneStepA, loopPoint, requestStepOf, stackTop } from './actOne.ts';
 import {
@@ -479,6 +480,20 @@ describe('the request in 3.1, and Fix A as one session holding everything', () =
     // then by amount, frame to frame, as its ink goes (and comes back with the hand-back), and continuous into the turn
     for (let f = REQUEST_ON_TAPE.from + 1; f < 1400; f++) expect(Math.abs(requestStepOf(actOneAt(f)) - requestStepOf(actOneAt(f - 1))), `f${f}`).toBeLessThan(0.45);
     expect(requestStepOf(actOneAt(1399))).toBeCloseTo(requestStepOf(turnAt(1400).act, turnAt(1400).step), 6);
+  });
+
+  it('hands the vermilion back on the step-down’s own ramp, with Fix A stepping down round it (12-16 f, never a 4 f spring)', () => {
+    const to = REQUEST_ON_TAPE.to;
+    expect(fixAOf(to).requestInk).toBeGreaterThan(0.99);
+    for (let f = to + 1; f <= to + STEP_FRAMES; f++) {
+      const copy = fixAOf(f).requestInk!;
+      // as much as Fix A has stepped down (its late set: actOneStepA), and at most 1/8 of the way in a frame
+      expect(copy + actOneStepA(f), `f${f}`).toBeCloseTo(1, 2);
+      expect(fixAOf(f - 1).requestInk! - copy, `f${f}`).toBeLessThan(1 / 8);
+      expect(fixAOf(f - 1).requestInk! - copy, `f${f}`).toBeGreaterThanOrEqual(0);
+    }
+    expect(fixAOf(to + STEP_FRAMES).requestInk).toBe(0);
+    expect(STEP_FRAMES).toBeGreaterThanOrEqual(12);
   });
 
   it('is the fattest folder on the desk (200 px and more across), its stack thickening with every swallow', () => {

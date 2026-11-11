@@ -7,7 +7,7 @@ import { A_CHUTES, A_FOLDER_IN, A_ITEMS, A_PILE, A_STACK_END, BAY_TRAYS, FIX_A_F
 import { FRAMING_B, cameraAt, deskCamera, project } from './camera.ts';
 import { REQUEST_FROM } from './beat4.ts';
 import { MAX_FOOTPRINTS, footprintsAt, youFootprints, type Footprint } from './footprints.ts';
-import { BAYS, DECK, REEL, SPOOL, YOU, type P3 } from './layout.ts';
+import { BAYS, DECK, DECK_PLATE, REEL, SPOOL, YOU, type P3 } from './layout.ts';
 import { EMIT, MAX_POOLS, linearOf, poolsAt } from './pools.ts';
 import { DESK_HEX } from './gl/desk.ts';
 import { LAMP_STEPS, deskStateAt } from './state.ts';
@@ -26,6 +26,9 @@ import {
   slateToneAt,
   strutTurnAt,
   COIL_R0,
+  PACK_H,
+  STOCK_FRAMES,
+  WRAP_FULL,
   PRESS_LATE,
   SPOOL_NORTH,
   TESTS_SLIDE,
@@ -35,6 +38,8 @@ import {
   UPPER_POOL,
   bayShapeAt,
   bayTimes,
+  deckPoint,
+  deckTurnAt,
   firstSlipAt,
   fixATurnAt,
   foldPressAt,
@@ -291,6 +296,11 @@ describe('the turn (MT2)', () => {
     expect(Math.abs(r.L.a - COIL_R0)).toBeLessThan(2);
     expect(Math.abs(c.rOut - COIL_R0)).toBeLessThan(2);
     expect(Math.abs(c.h - r.h)).toBeLessThan(1);
+    // its height is the ribbon's on edge (the tape's width), its top comes in from nothing, its outer turn is the ribbon's
+    expect(Math.abs(c.t - r.L.w)).toBeLessThan(0.05);
+    expect(c.rIn).toBeCloseTo(COIL_R0, 9);
+    expect(c.rim).toBeCloseTo(COIL_R0, 9);
+    expect(c.wrap).toBe(0);
     // Fix A's tape end lifts off the desk where its folder's mouth was (the span grows from nothing)
     expect(turnAt(TURN.catch).fixA.span.len).toBeLessThan(1e-9);
     expect(turnAt(TURN.catch + 1).fixA.span.len).toBeLessThan(40);
@@ -658,5 +668,71 @@ describe('the turn (MT2)', () => {
     expect(a).toBeDefined();
     expect(b).toEqual(a);
     expect(a!.kind === 'rect' && a!.z1).toBeCloseTo(A_STACK_END + 0.4, 6);
+  });
+});
+
+describe('the coil keeps the loop until Fix A’s tape has wound over it (the turn’s code review, MAJOR 6)', () => {
+  it('grows from the ribbon’s height to the pack’s with the coil, never more than a unit a frame', () => {
+    for (let f = TURN.coil; f < TURN.lock; f++) {
+      const c = loopTurnAt(f).coil!;
+      expect(c.t, `f${f}`).toBeGreaterThanOrEqual(Math.min(LOOP_A.w, PACK_H) - 0.5);
+      expect(c.t, `f${f}`).toBeLessThanOrEqual(Math.max(LOOP_A.w, PACK_H) + 0.5);
+      if (f > TURN.coil) expect(Math.abs(c.t - loopTurnAt(f - 1).coil!.t), `f${f}`).toBeLessThan(1);
+    }
+    expect(loopTurnAt(TURN.lock).coil!.t).toBeCloseTo(PACK_H, 3);
+  });
+  it('is wound over from TURN.wind as it turns, once round by WRAP_FULL, its rim easing out to the pack’s with it', () => {
+    for (let f = TURN.coil; f < TURN.wind; f++) {
+      const c = loopTurnAt(f).coil!;
+      expect(c.wrap, `f${f}`).toBe(0);
+      expect(c.rim, `f${f}`).toBeCloseTo(COIL_R0, 9);
+    }
+    let prev = 0;
+    for (let f = TURN.wind; f < TURN.lock; f++) {
+      const c = loopTurnAt(f).coil!;
+      expect(c.wrap, `f${f}`).toBeGreaterThanOrEqual(prev);
+      // the coil carries the wound end round at its own turn (never faster than a turn in 8 f)
+      expect(c.wrap - prev, `f${f}`).toBeLessThan((2 * Math.PI) / 8);
+      // (the pack grows as it winds: at most 3 u a frame, while the coil turns 30° and more)
+      expect(Math.abs(c.rim - (f > TURN.wind ? loopTurnAt(f - 1).coil!.rim : COIL_R0)), `f${f}`).toBeLessThan(3);
+      prev = c.wrap;
+    }
+    expect(loopTurnAt(WRAP_FULL - 1).coil!.wrap).toBeLessThan(2 * Math.PI);
+    expect(loopTurnAt(WRAP_FULL).coil!.wrap).toBe(2 * Math.PI);
+    expect(loopTurnAt(WRAP_FULL).coil!.rim).toBeCloseTo(loopTurnAt(WRAP_FULL).coil!.rOut, 9);
+  });
+  it('holds Fix A’s tape where the ribbon held it as the coil takes over (its span’s end does not jump, so neither does the tape on the desk)', () => {
+    const b = (f: number) => turnAt(f).fixA.span.b;
+    const at = b(TURN.coil);
+    const before = b(TURN.coil - 1);
+    expect(Math.abs(at[2] - before[2])).toBeLessThan(0.2);
+    // (then it settles to the pack's middle with the coil, under a unit a frame)
+    for (let f = TURN.coil + 1; f < TURN.glide; f++) expect(Math.abs(b(f)[2] - b(f - 1)[2]), `f${f}`).toBeLessThan(1);
+  });
+  it('takes the reel’s paper by amount over STOCK_FRAMES once the loop’s turn is under the new tape, before the glide', () => {
+    for (let f = TURN.coil; f <= WRAP_FULL; f++) expect(loopTurnAt(f).coil!.stock, `f${f}`).toBeCloseTo(0, 12);
+    for (let f = WRAP_FULL + 1; f < TURN.lock; f++) expect(Math.abs(loopTurnAt(f).coil!.stock - loopTurnAt(f - 1).coil!.stock), `f${f}`).toBeLessThan(1.6 / STOCK_FRAMES);
+    expect(WRAP_FULL + STOCK_FRAMES).toBeLessThanOrEqual(TURN.glide);
+    expect(loopTurnAt(TURN.glide).coil!.stock).toBe(1);
+  });
+});
+
+describe('the Register’s footprints ride the deck as it is drawn (its tilt too), so nothing on it is shaded by its own support (A18)', () => {
+  it('keeps the deck plate’s top out of the plate’s own shadow while the legs settle, and is the layout’s at rest', () => {
+    const isPlate = (x: Footprint) => x.kind === 'rect' && Math.abs(x.h[0] - (DECK_PLATE.x1 - DECK_PLATE.x0) / 2) < 1e-6 && Math.abs(x.h[1] - (DECK_PLATE.y1 - DECK_PLATE.y0) / 2) < 1e-6;
+    for (let f = TURN.legs; f <= TURN.legs + 40; f++) {
+      const d = deckTurnAt(f);
+      const plate = turnFootprints(turnAt(f)).filter(isPlate);
+      expect(plate, `f${f}`).toHaveLength(1);
+      const z1 = (plate[0] as { z1: number }).z1;
+      // every point of its top, as drawn, is at or over the footprint's top (the shader casts only from z1 > zr + 0.5, zr = z - 0.5)
+      for (let x = DECK_PLATE.x0; x <= DECK_PLATE.x1; x += 20)
+        for (let y = DECK_PLATE.y0; y <= DECK_PLATE.y1; y += 20) expect(z1, `f${f} (${x}, ${y})`).toBeLessThanOrEqual(deckPoint(d, [x, y, DECK.top])[2] + 1e-9);
+    }
+    // at rest the pose is the identity: the plate's footprint is the layout's, exactly
+    const rest = turnFootprints(turnAt(1660)).filter(isPlate)[0] as Extract<Footprint, { kind: 'rect' }>;
+    expect(rest.c).toEqual([(DECK_PLATE.x0 + DECK_PLATE.x1) / 2, (DECK_PLATE.y0 + DECK_PLATE.y1) / 2]);
+    expect(rest.z0).toBe(DECK.top - 6);
+    expect(rest.z1).toBe(DECK.top);
   });
 });

@@ -201,14 +201,25 @@ export interface CoilState {
   h: number;
   rIn: number;
   rOut: number;
-  /** its height (the ribbon on edge: the tape's width) */
+  /** its height: the loop's ribbon on edge (LOOP_A.w) as it takes over, settling to the pack's (PACK_H) as it coils */
   t: number;
+  /** how far it has coiled (0 the ribbon's take-over … 1 the pack) */
+  k: number;
   /** turned so far (radians, counter-clockwise from above) */
   spin: number;
   /** the hub telescoped up out of the coil's centre (0..1), then the spokes out from it (0..1) */
   hub: number;
   spokes: number;
-  /** the pack's colour from the loop's tape to the reel's (0..1) */
+  /**
+   * The loop's own outer turn (printed with your notes, as the ribbon was) stays the coil's outside until Fix A's tape has
+   * wound over it: `wrap` is how far round it the new tape lies (radians, 0 … 2π, from TURN.wind as the coil turns), ending
+   * at `wrapLead` (the coil's own frame: the angle in the spun group where the tape's first wound end rides).
+   */
+  wrap: number;
+  wrapLead: number;
+  /** the outermost turn's radius: the loop's own (COIL_R0) until Fix A's tape lies round it, then the wound pack's (rOut) */
+  rim: number;
+  /** the wound pack's colour from the tape's paper to the reel's (0..1), once the loop's turn is wholly under it */
   stock: number;
 }
 export interface LoopTurn {
@@ -256,12 +267,18 @@ function glideAt(f: number): P2 {
   return [YOU_C_A[0] + (REEL.x - YOU_C_A[0]) * e, YOU_C_A[1] + (REEL.y - YOU_C_A[1]) * e];
 }
 
-const PACK_H = REEL.packZ[1] - REEL.packZ[0];
+export const PACK_H = REEL.packZ[1] - REEL.packZ[0];
 /**
  * The coil's last turn: six turns while Fix A winds on, ending where beat 4's detents bring the reel to the Register's
  * own rest angle by MT1 (beat4.ts REEL_LOCK), so stills (b) to (d) keep their reel.
  */
 export const SPIN_TOTAL = 6 * Math.PI + REEL_LOCK;
+/** The turn: carried round while it winds, the last 0.26 rad on spring-detent at the lock. */
+const spinAt = (f: number): number => (SPIN_TOTAL + 0.26) * transport(span01(f, TURN.coil, TURN.windEnd)) - 0.26 * springAt(f, TURN.detent, SPRING.detent);
+/** How far the coil has turned when Fix A's tape starts to wind on (its first wound end rides round from there). */
+const SPIN_WIND = spinAt(TURN.wind);
+/** The wound pack takes the reel's paper over this many frames once the loop's printed turn is wholly under Fix A's tape (WRAP_FULL). */
+export const STOCK_FRAMES = 16;
 export function loopTurnAt(f: number): LoopTurn {
   const dip = f < TURN.hit ? 0 : Math.sin(Math.PI * span01(f, TURN.hit, TURN.hit + 2 * TURN.dipFrames));
   const edge = springOver(f, TURN.edge, TURN.edgeEnd - TURN.edge, SPRING.heavy);
@@ -286,27 +303,33 @@ export function loopTurnAt(f: number): LoopTurn {
   const fold = moveOver(f, TURN.fold, TURN.fold + TURN.foldFrames);
   const windK = clamp(woundAt(f) / A_TAPE_LEN);
   const rOut = Math.sqrt(COIL_R0 * COIL_R0 + (REEL.packR * REEL.packR - COIL_R0 * COIL_R0) * windK);
-  // the turn: carried round while it winds, the last 0.26 rad on spring-detent at the lock
-  const spin = (SPIN_TOTAL + 0.26) * transport(span01(f, TURN.coil, TURN.windEnd)) - 0.26 * springAt(f, TURN.detent, SPRING.detent);
+  const spin = spinAt(f);
+  const wrap = f < TURN.wind ? 0 : Math.min(Math.max(spin - SPIN_WIND, 0), 2 * Math.PI);
   const coil: CoilState | null =
     f < TURN.coil
       ? null
       : {
           c,
           h,
-          rIn: COIL_R0 - 0.75 - (COIL_R0 - 0.75 - REEL.hubR) * coilK,
+          // from the ribbon's own radius (the coil's top comes in from nothing at the take-over), in to the hub
+          rIn: COIL_R0 - (COIL_R0 - REEL.hubR) * coilK,
           rOut: rOut + 0.75 * (1 - windK),
-          t: A_TAPE_W + (PACK_H - A_TAPE_W) * coilK,
+          // the ribbon's own height as it coils (no jump at TURN.coil: the turn's code review, MAJOR 6), to the pack's
+          t: LOOP_A.w + (PACK_H - LOOP_A.w) * coilK,
+          k: coilK,
           spin: f >= TURN.lock + 8 ? SPIN_TOTAL : spin,
           hub: moveOver(f, TURN.hub, TURN.hub + TURN.hubFrames),
           spokes: moveOver(f, TURN.hub + TURN.hubFrames - 2, TURN.hub + TURN.hubFrames + 10),
-          stock: springAt(f, TURN.coil, SPRING.effects),
+          wrap,
+          wrapLead: WRAP_LEAD,
+          rim: COIL_R0 + (rOut + 0.75 * (1 - windK) - COIL_R0) * (wrap / (2 * Math.PI)),
+          stock: easings.inOutSine(span01(f, WRAP_FULL, WRAP_FULL + STOCK_FRAMES)),
         };
   return { ribbon: f < TURN.coil ? { L, h, edge, fold } : null, coil, edge: Math.min(edge, 1), fold };
 }
 
-/** The coil's outer turn as a loop pose (a circle at the pack's radius), for the clip and tabs that ride it. */
-export const coilRim = (C: CoilState): LoopPose => ({ ...LOOP_A, c: C.c, a: C.rOut, b: C.rOut, n: 2, z: C.h, w: C.t });
+/** The coil's outer turn as a loop pose (a circle at its outermost turn's radius), for the clip and tabs that ride it. */
+export const coilRim = (C: CoilState): LoopPose => ({ ...LOOP_A, c: C.c, a: C.rim, b: C.rim, n: 2, z: C.h, w: C.t });
 
 // ------------------------------------------------------------------------------------------------
 // Fix A's tape: as beat 3 left it on the desk; then its end lifts off at the folder's old mouth and is caught by the
@@ -342,6 +365,20 @@ const lerp3 = (a: P3, b: P3, t: number): P3 => [a[0] + (b[0] - a[0]) * t, a[1] +
 
 /** Where the tape lifts off: on its path at the folder's old mouth, on the tape's face. */
 const A_MOUTH: P3 = [aPathAt(A_FOLDER_IN).p[0], aPathAt(A_FOLDER_IN).p[1], aPathAt(A_FOLDER_IN).z - 0.1];
+/**
+ * Fix A's tape meets the coil on its outer turn facing the mouth (attachAt); the end it lays there at TURN.wind rides round
+ * with the coil, so in the coil's spun frame it stays at this angle, and the tape wound behind it covers the loop's
+ * printed turn from there back to where it meets the coil now.
+ */
+const WRAP_LEAD = (() => {
+  const c = glideAt(TURN.wind);
+  return Math.atan2(A_MOUTH[1] - c[1], A_MOUTH[0] - c[0]) - SPIN_WIND;
+})();
+/** The first frame the loop's printed turn lies wholly under Fix A's tape (the coil has turned once since TURN.wind). */
+export const WRAP_FULL = (() => {
+  for (let f = TURN.wind; f <= TURN.windEnd; f++) if (spinAt(f) - SPIN_WIND >= 2 * Math.PI) return f;
+  throw new Error('turn: the coil never turns once while Fix A winds on');
+})();
 
 /** Where Fix A's tape meets the loop or the coil: on the ribbon's centreline facing the mouth, or tangent to the coil's outer turn. */
 function attachAt(lt: LoopTurn): { p: P3; w: P3 } {
@@ -360,7 +397,9 @@ function attachAt(lt: LoopTurn): { p: P3; w: P3 } {
   }
   const C = lt.coil!;
   const d = norm([A_MOUTH[0] - C.c[0], A_MOUTH[1] - C.c[1], 0]);
-  return { p: [C.c[0] + d[0] * C.rOut, C.c[1] + d[1] * C.rOut, C.h + C.t / 2], w: [0, 0, 1] };
+  // at the take-over where the ribbon held it (its underside with the loop's, as above), centred on the pack as it coils
+  const lift = (A_TAPE_W / 2 - 0.6 - LOOP_A.w / 2) * (1 - C.k);
+  return { p: [C.c[0] + d[0] * C.rOut, C.c[1] + d[1] * C.rOut, C.h + C.t / 2 + lift], w: [0, 0, 1] };
 }
 
 /** An item lying on the tape at path distance d (as beat3.ts places it: its nose toward the folder). */
@@ -1106,6 +1145,40 @@ export const clipContact = (lift: number): number => 0.9 * clamp(1 - lift / 3.2)
 const REQUEST_CAST = { from: 1460, frames: 16 } as const;
 const carrierContact = (z: number): number => 0.4 * clamp((5 - z) / 3.6);
 
+/**
+ * A Register footprint (rect or circle, in its place) posed with the deck as the deck is drawn (deckPoint: its roll, lift and
+ * tilt, objects/Register.tsx): its plan where its middle is, its heights the lowest its base and its top reach over its
+ * outline. A footprint is flat and the deck tilts as its legs settle (their 3 f stagger), so its top is taken at its
+ * lowest corner: what lies on it (the plate's top, the window's floor) is never under it, never shaded by its own support.
+ * (Moved by (dy, dz) alone, the plate's top went into its own shadow wherever the tilt dipped it under the plate's
+ * translated top: a straight diagonal edge swept the window at f1586, the plate stayed shaded through the legs' settle and
+ * came back lit in one frame at f1596; the critic's throat-window P2, A18.) At rest the pose is the identity.
+ */
+function posedOnDeck(d: DeckTurn, r: Extract<Footprint, { kind: 'rect' | 'circle' }>): Footprint {
+  const ext: P2[] =
+    r.kind === 'rect'
+      ? [
+          [-1, -1],
+          [1, -1],
+          [-1, 1],
+          [1, 1],
+        ].map(([sx, sy]) => {
+          const x = sx * r.h[0];
+          const y = sy * r.h[1];
+          return [r.c[0] + x * Math.cos(r.rot) - y * Math.sin(r.rot), r.c[1] + x * Math.sin(r.rot) + y * Math.cos(r.rot)] as P2;
+        })
+      : [
+          [r.c[0] - r.r, r.c[1]],
+          [r.c[0] + r.r, r.c[1]],
+          [r.c[0], r.c[1] - r.r],
+          [r.c[0], r.c[1] + r.r],
+        ];
+  const mid = deckPoint(d, [r.c[0], r.c[1], (r.z0 + r.z1) / 2]);
+  const z0 = Math.min(...ext.map((q) => deckPoint(d, [q[0], q[1], r.z0])[2]));
+  const z1 = Math.min(...ext.map((q) => deckPoint(d, [q[0], q[1], r.z1])[2]));
+  return { ...r, c: [mid[0], mid[1]], z0: Math.max(0, z0), z1: Math.max(0.5, z1) };
+}
+
 export function turnFootprints(t: TurnState): Footprint[] {
   const f = t.f;
   const fp: Footprint[] = [...youFootprints(t.you)];
@@ -1221,9 +1294,13 @@ export function turnFootprints(t: TurnState): Footprint[] {
     }
     const reg = [...registerFootprints({ legs: false, fanfold: false }), rectFp(DISPATCH_HOUSING.box, DISPATCH_HOUSING.z[0], DISPATCH_HOUSING.z[1], 0, 3)];
     for (const r of reg) {
-      if (r.kind === 'rect' || r.kind === 'circle') fp.push({ ...r, c: [r.c[0], r.c[1] + d.dy], z0: Math.max(0, r.z0 + d.dz), z1: Math.max(0.5, r.z1 + d.dz) });
-      else if (r.kind === 'seg') fp.push({ ...r, a: [r.a[0], r.a[1] + d.dy], b: [r.b[0], r.b[1] + d.dy], ha: Math.max(0, r.ha + d.dz), hb: Math.max(0, r.hb + d.dz) });
-      else {
+      if (r.kind === 'rect' || r.kind === 'circle') fp.push(posedOnDeck(d, r));
+      else if (r.kind === 'seg') {
+        // its ends posed with the deck (its tilt too)
+        const a = deckPoint(d, [r.a[0], r.a[1], r.ha]);
+        const b = deckPoint(d, [r.b[0], r.b[1], r.hb]);
+        fp.push({ ...r, a: [a[0], a[1]], b: [b[0], b[1]], ha: Math.max(0, a[2]), hb: Math.max(0, b[2]) });
+      } else {
         // the deck's shade: carried down the key by its shadow's offset at the deck's height now, so it spreads as the legs lift it
         const [ox, oy] = shadowOffset(DECK.top + d.dz);
         const [ox1, oy1] = shadowOffset(DECK.top);
