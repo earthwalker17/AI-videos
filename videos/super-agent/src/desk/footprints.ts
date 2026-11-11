@@ -9,44 +9,28 @@
  * Pure: the footprints are a function of the layout and the frame's state. The GPU gets them
  * packed as three vec4 each (`packFootprints`).
  */
-import { SHADOW_K, shadowOffset, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, TAPE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
+import { carrierSpan, circleFp, polySegs, rectFp, segFp, shiftFootprints, tiltedFp, type Footprint } from './fpKit.ts';
+import { SHADOW_K, shadowOffset, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, TAPE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
 import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT_SLIP, REQUEST, SINK, type BayId } from './layout.ts';
-import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, CORD_FROM, DOCK_B, HEAD_DIP, hammerOffset, headDipAt, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
+import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, DOCK_B, HEAD_DIP, hammerOffset, headDipAt, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
 import { CHORES, TRAY_Z, YOU_POSE_B, strutEnds, type YouPose } from './you.ts';
 import { HEAP, PIECE, ciHopperFootprints, youPoseAt } from './actOne.ts';
-import { CARD_SPOT, REQUEST_HEAP, RIDE, WORK_DEPTH as WORK_DEPTH_FP, cardPose, cardShadeShift, heapFloor, heapPieceAt, liftOf, ON_REQUEST, type Beat4State, type CardState, type Carry, type HeapState } from './beat4.ts';
+import { REQUEST_HEAP, RIDE, WORK_DEPTH as WORK_DEPTH_FP, cardPose, cardShadeShift, cardSize, heapFloor, heapPieceAt, liftOf, ON_REQUEST, type Beat4State, type CardSpot, type CardState, type CardUp, type Carry, type HeapState } from './beat4.ts';
+import { cards7, footprints7 } from './beat7.ts';
+import { cards8, footprints8 } from './beat8.ts';
+import { cards9, footprints9 } from './beat9.ts';
+import { cards10, footprints10 } from './beat10.ts';
+import { cards11, footprints11 } from './beat11.ts';
+import { cardsEnd, footprintsEnd } from './end.ts';
 import { SPIKE_BASE, type Beat5State } from './beat5.ts';
 import { BAR_RIDE, DECODE, REVIEW, STRESS_PLATE, TAB_FILE, TRAY, type Beat6State } from './beat6.ts';
 import { DRAWER_OPEN_C, PROACTIVE_PLATE, SPIKE } from './layout.ts';
 
-/** At most this many footprints reach the GPU (the uniform array's size). */
-export const MAX_FOOTPRINTS = 128;
+/** At most this many footprints reach the GPU (the uniform array's size, gl/light.ts). */
+export const MAX_FOOTPRINTS = 160;
 
-export type Footprint =
-  /** a rounded rectangle centred at c, half sizes h, corner radius r, turned by rot (radians) */
-  | { kind: 'rect'; c: P2; h: P2; r: number; rot: number; z0: number; z1: number; contact: number }
-  | { kind: 'circle'; c: P2; r: number; z0: number; z1: number; contact: number }
-  /** a capsule from a (at height ha) to b (at hb), radius r: cords, arms, sloped plates */
-  | { kind: 'seg'; a: P2; b: P2; ha: number; hb: number; r: number }
-  /** an open structure overhead (the deck): it casts no shadow of its own but takes sky light from what lies under it */
-  | { kind: 'canopy'; c: P2; h: P2; z: number; strength: number };
-
-/** A footprint of a rectangle from z0 to z1 (contact: how strongly it occludes the receiver it stands on, 0..1). */
-export const rectFp = (r: Rect, z0: number, z1: number, contact = 1, radius = 3): Footprint => ({
-  kind: 'rect',
-  c: rectC(r),
-  h: [(r.x1 - r.x0) / 2, (r.y1 - r.y0) / 2],
-  r: Math.min(radius, (r.x1 - r.x0) / 2, (r.y1 - r.y0) / 2),
-  rot: 0,
-  z0,
-  z1,
-  contact,
-});
-export const circleFp = (c: P2, r: number, z0: number, z1: number, contact = 1): Footprint => ({ kind: 'circle', c, r, z0, z1, contact });
-export const segFp = (a: P3, b: P3, r: number): Footprint => ({ kind: 'seg', a: [a[0], a[1]], b: [b[0], b[1]], ha: a[2], hb: b[2], r });
-
-/** Segments along a 3D polyline (for cords and the chute). */
-export const polySegs = (pts: readonly P3[], r: number): Footprint[] => pts.slice(1).map((b, i) => segFp(pts[i], b, r));
+// the shapes and their helpers live in the leaf fpKit.ts (a beat module builds its own footprints from there)
+export { carrierSpan, circleFp, polySegs, rectFp, segFp, shiftFootprints, tiltedFp, type Footprint } from './fpKit.ts';
 
 /** The four walls of a bay (the north wall split round its door) and its floor. */
 export function bayWalls(b: BayLayout): Rect[] {
@@ -171,22 +155,6 @@ export function youFootprints(pose: YouPose): Footprint[] {
   return fp;
 }
 
-/** Footprints moved up or down by dz (a bay rising out of or sinking into its hatch); what ends under the desk casts nothing on it. */
-export function shiftFootprints(fps: readonly Footprint[], dz: number): Footprint[] {
-  if (dz === 0) return [...fps];
-  const out: Footprint[] = [];
-  for (const fp of fps) {
-    if (fp.kind === 'rect' || fp.kind === 'circle') {
-      if (fp.z1 + dz <= 0.5) continue;
-      out.push({ ...fp, z0: Math.max(0, fp.z0 + dz), z1: fp.z1 + dz });
-    } else if (fp.kind === 'seg') {
-      if (Math.max(fp.ha, fp.hb) + dz <= 0.5) continue;
-      out.push({ ...fp, ha: Math.max(0, fp.ha + dz), hb: Math.max(0, fp.hb + dz) });
-    } else out.push(fp);
-  }
-  return out;
-}
-
 /** The test tower's bay and its tower (they sink together once it has finished). */
 function testsFootprints(): Footprint[] {
   return [...bayFootprints(BAYS.tests), towerFp()];
@@ -289,9 +257,6 @@ export function staticFootprints(testsSink = 0, you: YouPose = YOU_POSE_B, b4?: 
   return fp;
 }
 
-/** A sheet's footprint: lying `tilt` up from the desk about x, its centre at c (its depth foreshortened, its height span). */
-const tiltedFp = (c: P3, w: number, d: number, tilt: number, contact = 0): Footprint => ({ kind: 'rect', c: [c[0], c[1]], h: [w / 2, Math.max(1, (d / 2) * Math.cos(tilt))], r: 3, rot: 0, z0: c[2] - (d / 2) * Math.sin(tilt), z1: c[2] + (d / 2) * Math.sin(tilt) + 1, contact });
-
 /** The footprints that move with the frame: the card rising, in flight or at the mouth, its tab, the reply in the chute. */
 export function movingFootprints(s: DeskState): Footprint[] {
   const fp: Footprint[] = [];
@@ -317,12 +282,7 @@ export function movingFootprints(s: DeskState): Footprint[] {
   const hammer = Math.max(s.stamp, s.next.stamp, s.cache?.stamp ?? 0, s.e6.hammer);
   const [hx, , hz] = hammerOffset(hammer);
   fp.push(rectFp({ x0: PRINT_HEAD.box.x1 - 4 + hx, x1: PRINT_HEAD.box.x1 + 10 + hx, y0: TAPE.y0 + 6, y1: TAPE.y1 - 6 }, TAPE.z + 3 + hz, TAPE.z + 16 + hz, 0, 1));
-  // the Thread cord and its guide, from 7.1 only (design D1)
-  if (s.f >= CORD_FROM) {
-    fp.push(segFp([MAST.arm[0], MAST.arm[1], DECK.top - 4], [MAST.x, MAST.y, DECK.top - 4], 4));
-    fp.push(segFp([MAST.x, MAST.y, DECK.top - 4], [MAST.x, MAST.y, MAST.h], 5));
-    fp.push(...polySegs(CORDS.vermilion, 4));
-  }
+  // (the Thread cord and its guide, from 7.1 on: beat7.ts footprints7)
   // MT1's next dispatch: the chat slip in flight or in the throat, the folder, the fresh bay rising out of its hatch
   const n = s.next;
   if (n.slip) fp.push({ kind: 'rect', c: [n.slip.p[0], n.slip.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 3, rot: n.slip.heading, z0: n.slip.p[2] - 0.4, z1: n.slip.p[2] + 0.4, contact: 0 });
@@ -363,9 +323,12 @@ export function movingFootprints(s: DeskState): Footprint[] {
     const half = c.fold > 0.5 || t > 0 ? CARD_C.d / 8 : CARD_C.d / 4;
     fp.push({ kind: 'rect', c: [x, y - CARD_C.d / 4 + half], h: [CARD_C.w / 2, half], r: 3, rot: 0, z0: z - 3, z1: z + 3, contact: t >= 1 ? 0.5 : 0 });
   }
-  if (s.slip && s.slip.s > 0 && s.slip.s < 1) {
-    const pose = replyPose(s.slip);
-    fp.push({ kind: 'rect', c: [pose.p[0], pose.p[1]], h: [SLIP.l / 2, SLIP.w / 2], r: 3, rot: pose.heading, z0: pose.p[2] - 0.6, z1: pose.p[2] + 0.6, contact: 0 });
+  // every reply while it rides the chute (MT1's #0408 first: state.ts DeskState.replies)
+  for (const x of s.replies) {
+    if (x.ride.s <= 0 || x.ride.s >= 1) continue;
+    const pose = replyPose(x.ride, x.rest);
+    const [l, w] = x.size ?? [SLIP.l, SLIP.w];
+    fp.push({ kind: 'rect', c: [pose.p[0], pose.p[1]], h: [l / 2, w / 2], r: 3, rot: pose.heading, z0: pose.p[2] - 0.6, z1: pose.p[2] + 0.6, contact: 0 });
   }
   fp.push(...beat5Footprints(s.e5));
   // beat 6: #0408's tab, filed in the drawer from the close (objects/Cache.tsx TestTab: the same footprint s.dock gave it), then beat 6's movers
@@ -375,14 +338,23 @@ export function movingFootprints(s: DeskState): Footprint[] {
     fp.push(tiltedFp([TAB_REST_B[0] + TAB_FILE.dx * c.file, y + (TAB_B.d / 2) * Math.cos(tilt), TAB_REST_B[2] + TAB_FILE.dz * c.file + (TAB_B.d / 2) * Math.sin(tilt)], TAB_B.w * (1 + (TAB_FILE.w - 1) * c.file), TAB_B.d, tilt, 0.5));
   }
   fp.push(...beat6Footprints(s.e6));
+  // part 2's beats: each module's own footprints, and the shadow of every counterfactual card it has up
+  fp.push(...footprints7(s), ...footprints8(s), ...footprints9(s), ...footprints10(s), ...footprints11(s), ...footprintsEnd(s));
+  for (const { card, spot } of part2Cards(s)) {
+    const cf = cardFootprint(card, spot);
+    if (cf) fp.push(cf);
+  }
   return fp;
 }
+
+/** Every counterfactual card part 2's beats have up at a state (beat4.ts CardUp): footprints.ts casts each, pools.ts lights each. */
+export const part2Cards = (s: DeskState): CardUp[] => [...cards7(s), ...cards8(s), ...cards9(s), ...cards10(s), ...cards11(s), ...cardsEnd(s)];
 
 /**
  * Beat 6's footprints (desk/beat6.ts): each slip of the batches in the air and riding up the belt (paper: no contact)
  * (a slip lying in the gather tray casts nothing), the reading bar over the strip, the decode slip out of the head's slot, the stress plate in flight and seated on its
  * hooks, the review card. The thread (2 px) and its "№" tabs (paper flags 22 u tall, standing on paper) cast nothing: from
- * C17 the Thread cord's 13 footprints come in and the budget holds 128.
+ * C17 the Thread cord's 13 footprints come in (beat7.ts footprints7) within MAX_FOOTPRINTS.
  */
 export function beat6Footprints(e: Beat6State): Footprint[] {
   const fp: Footprint[] = [];
@@ -467,17 +439,6 @@ export function beat5Footprints(e: Beat5State): Footprint[] {
 }
 
 /**
- * The heights a flat carrier's footprint spans (its centre plane at p, its top `top` over it, `hl` its half length, tilted
- * by its slope): its top a quarter unit under the lowest point of the carrier's own top face, so the carrier never shades
- * itself (a footprint's top exactly at a receiver is a coin flip of its shade: a tilted card read two-toned, half of it
- * under its own footprint, and flattened to one tone in a frame as it landed).
- */
-function carrierSpan(c: Pick<Carry, 'p' | 'slope'>, hl: number, top: number): { z0: number; z1: number } {
-  const z1 = c.p[2] + top * Math.cos(c.slope) - hl * Math.abs(Math.sin(c.slope)) - 0.25;
-  return { z0: Math.min(c.p[2] - 0.4, z1 - 0.5), z1 };
-}
-
-/**
  * A carrier's contact shadow: its own (desk/beat4.ts Carry.contact: drawn out as it lifts off the slate and in as it settles
  * onto its dock, over frames), else by its height over the slate (full lying on it at 1.4 u, gone 5 u up).
  */
@@ -534,15 +495,17 @@ export function heapFootprintsAt(h: HeapState): Footprint[] {
 }
 
 /**
- * A counterfactual card hovering over the slate (desk/beat4.ts cardAt, CARD_SPOT): its outline, as a thin plate just
- * under its lowest edge (so it shades the slate under it and never its own face); nothing while it is under the slate.
- * At the frame's top edge it rides north of the card (beat4.ts cardShadeShift), so its shadow leaves the frame with it.
+ * A counterfactual card hovering over the slate (desk/beat4.ts cardAt, at its spot: beat 4's by name, a later beat's as
+ * its CardUp gives it): its outline, as a thin plate just under its lowest edge (so it shades the slate under it and never
+ * its own face); nothing while it is under the slate. At the frame's top edge it rides north of the card (beat4.ts
+ * cardShadeShift), so its shadow leaves the frame with it.
  */
-export function cardFootprint(c: CardState, which: 'split' | 'ghost'): Footprint | null {
+export function cardFootprint(c: CardState, which: 'split' | 'ghost' | CardSpot): Footprint | null {
   const p = cardPose(c, which);
-  const low = p.c[2] - (CARD_SPOT.h / 2) * Math.sin(p.tilt);
+  const { w, h } = cardSize(which);
+  const low = p.c[2] - (h / 2) * Math.sin(p.tilt);
   if (low < 1) return null;
-  return { kind: 'rect', c: [p.c[0], p.c[1] + cardShadeShift(c)], h: [(CARD_SPOT.w / 2) * p.scale, Math.max(2, (CARD_SPOT.h / 2) * Math.cos(p.tilt)) * p.scale], r: 4, rot: 0, z0: low - 1.5, z1: low - 0.5, contact: 0 };
+  return { kind: 'rect', c: [p.c[0], p.c[1] + cardShadeShift(c)], h: [(w / 2) * p.scale, Math.max(2, (h / 2) * Math.cos(p.tilt)) * p.scale], r: 4, rot: 0, z0: low - 1.5, z1: low - 0.5, contact: 0 };
 }
 
 /** All footprints at a frame (static first). Throws past MAX_FOOTPRINTS. */

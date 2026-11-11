@@ -14,6 +14,10 @@ import { Cache } from './Cache.tsx';
 import { Counterfactual, GhostPlay, SplitPlay } from './Counterfactual.tsx';
 import { DeskUniforms, Dispatch, Hatches } from './Dispatch.tsx';
 import { Batch } from './Batch.tsx';
+import { Beat7 } from './Beat7.tsx';
+import { Beat8 } from './Beat8.tsx';
+import { Beat9 } from './Beat9.tsx';
+import { Beat10 } from './Beat10.tsx';
 import { Filter, FilterHoles } from './Filter.tsx';
 import { Feeders, Gate } from './Intake.tsx';
 import { Cargo, Chute, Cords } from './Links.tsx';
@@ -77,6 +81,11 @@ export function World({ s }: { s: DeskState }) {
       <DeskUniforms s={s} />
       {/* after DeskUniforms: beat 5's hatch takes the desk's third hole slot while it is open */}
       <FilterHoles s={s} />
+      {/* part 2's beats in act two's world (desk/beat7.ts ... beat10.ts), last: a beat that writes the desk's shared uniforms writes them after the rest */}
+      <Beat7 s={s} />
+      <Beat8 s={s} />
+      <Beat9 s={s} />
+      <Beat10 s={s} />
     </>
   );
 }

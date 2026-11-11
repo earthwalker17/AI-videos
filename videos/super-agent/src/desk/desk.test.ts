@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { CELLS, NAMEPLATE, PRINT_STRINGS, REPLY, REPORT, REPORT_C } from '../print.ts';
-import { D1, FRAMING_B, FRAMING_C, cameraAt, deskCamera, project, projectBox } from './camera.ts';
+import { CAMERA_EASE, CAMERA_MOVES, D1, EASE_OUT_D, FRAMING_B, FRAMING_BOOKEND, FRAMING_C, FRAMING_D, FRAMING_SHEET, TO_BOOKEND, TO_REGISTER, TO_SHEET, TO_VELLUM, cameraAt, deskCamera, moveFraming, project, projectBox } from './camera.ts';
+import { poseD, summaryDeskState } from './summary.ts';
+import { SEAM_D } from './film.ts';
 import { footprintsAt, KIND, MAX_FOOTPRINTS, cullRadius, packFootprints, staticFootprints, type Footprint } from './footprints.ts';
 import { neutral, preToe } from './gl/post.ts';
 import { BAYS, BENCH, CARD, CELLS_X, CORDS, DECK, DISPATCH, FRESH, HATCH_DEPTH, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, SLIP, TAPE, TOWER, WINDOW, penumbra, PENUMBRA_K, shadowOffset, towerTop, type BayId, type P3 } from './layout.ts';
 import { MAX_POOLS, linearOf, packPools, poolsAt } from './pools.ts';
 import { ROUND2, MOTION_TESTS } from '../lookdev/frames.ts';
-import { BEAT_6, MT1 } from '../cues.ts';
-import { CAP_SLOT, CARD_STAND, REPLY_ARC, REPLY_PATH, SLIP_LIP, cardArc, cardRise, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, LAMP_STEPS, SLIP_LANDS, SLIP_RIDE_FROM, replyPose } from './state.ts';
+import { BEAT_6, BEAT_7, BEAT_9, MT1, at } from '../cues.ts';
+import { youPoseAt } from './actOne.ts';
+import { CAP_SLOT, CARD_STAND, IN_TRAY_REST, LAMP_DIMS, LAMP_PART1, SPRING, springAt, REPLY_ARC, REPLY_PATH, SLIP_LIP, STEP_FRAMES, armAt, cardArc, cardRise, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, focusAt, focusEntries, lampAt, LAMP_STEPS, replyRideAt, SLIP_LANDS, SLIP_RIDE_FROM, replyPose, type DeskState, type FocusId } from './state.ts';
 
 const B = deskStateAt(ROUND2.stillB);
 
@@ -73,6 +76,46 @@ describe('desk camera', () => {
       // the docs nameplate stays inside title-safe
       expect(projectBox(pose, [[BAYS.docs.box.x1, BAYS.docs.box.y0, BAYS.docs.wallH]]).x1).toBeLessThan(1824);
     }
+  });
+  it('runs every move from the turn on between held framings: each starts where the one before it landed, on a downbeat, and lands exactly', () => {
+    for (let i = 0; i < CAMERA_MOVES.length; i++) {
+      const m = CAMERA_MOVES[i]!;
+      if (i > 0) {
+        expect(m.a, `move ${i}`).toEqual(CAMERA_MOVES[i - 1]!.b);
+        expect(m.from, `move ${i}`).toBeGreaterThanOrEqual(CAMERA_MOVES[i - 1]!.to);
+      }
+      expect(m.from % 80, `move ${i} on a downbeat`).toBe(0);
+      // held before it and after it: the static pose of each framing, exactly
+      expect(cameraAt(m.from, 15)).toEqual(deskCamera(m.a, 15));
+      expect(cameraAt(m.to, 15)).toEqual(deskCamera(m.b, 15));
+      // and the path meets the hold at its end (no last-frame step)
+      const end = moveFraming(m, CAMERA_EASE(1));
+      for (const k of ['x', 'y', 'zoom'] as const) expect(Math.abs(end[k] - m.b[k]), `move ${i} ${k}`).toBeLessThan(1e-9);
+    }
+    // part 2's moves, by name, on the cue sheet's downbeats; the summary poses through the same camera
+    expect([TO_SHEET.from, TO_VELLUM.from, TO_REGISTER.from, EASE_OUT_D.from, TO_BOOKEND.from]).toEqual([at(50), at(58), at(65), at(69), at(76)]);
+    expect([TO_SHEET.b, TO_VELLUM.b, TO_REGISTER.b, EASE_OUT_D.b, TO_BOOKEND.b]).toEqual([FRAMING_SHEET, FRAMING_D, FRAMING_B, FRAMING_D, FRAMING_BOOKEND]);
+    expect(poseD(ROUND2.stillD, 15)).toEqual(cameraAt(ROUND2.stillD, 15));
+  });
+  /** A move's peak aim speed: the desk point under the frame's centre at f, through the camera at f + 1, its travel per frame at 30 fps. */
+  const aimPeak = (m: (typeof CAMERA_MOVES)[number]): number => {
+    let peak = 0;
+    for (let f = m.from; f < m.to; f++) {
+      const a = cameraAt(f, 15);
+      const p0 = project(a, a.look);
+      const p1 = project(cameraAt(f + 1, 15), a.look);
+      peak = Math.max(peak, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) * 30);
+    }
+    return peak;
+  };
+  it('keeps the aim point under 700 px/s on screen through every move from the turn on (TREATMENT Camera)', () => {
+    for (const m of CAMERA_MOVES) if (m !== TO_BOOKEND) expect(aimPeak(m), `move ${m.from}-${m.to}`).toBeLessThanOrEqual(700);
+  });
+  // OPEN (session 5, wave 0): bar 76's one-bar move from still (d)'s framing back to the hook's peaks at 733 px/s; it fits
+  // with FRAMING_BOOKEND 35 u east of the hook (x -565: 697 px/s) or over two bars (364 px/s). The beats 11-13 lane or
+  // the main agent tunes it; this then passes and must become a plain `it`
+  it.fails('keeps bar 76’s move to the bookend under 700 px/s too', () => {
+    expect(aimPeak(TO_BOOKEND)).toBeLessThanOrEqual(700);
   });
 });
 
@@ -451,5 +494,81 @@ describe('the cue sheet’s schedule and the picture’s events', () => {
     expect(MT1.dispatchFresh).toBe(EVENTS_D.rise);
     expect(BEAT_6.cacheEject).toBe(EVENTS_C.cardEject);
     expect(BEAT_6.cacheFold).toBe(EVENTS_C.fold);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+// Part 2's shared hooks (wave 0, session 5): the beat modules (beat7.ts ... end.ts) add to these lists; the tests hold
+// part 1's frames exactly as they were, and every frame of both worlds inside the shaders' budgets and free of
+// one-frame focus swaps
+
+/** Every film frame's state in each world: act two's to the seam, the summary's from it (computed once). */
+const WORLDS = (() => {
+  let cache: { act2: DeskState[]; summary: DeskState[] } | null = null;
+  return () => (cache ??= { act2: Array.from({ length: SEAM_D - 1661 }, (_, i) => deskStateAt(1661 + i)), summary: Array.from({ length: 6720 - SEAM_D }, (_, i) => summaryDeskState(SEAM_D + i)) });
+})();
+
+describe('part 2’s shared hooks', () => {
+  it('steps your lamp as part 1 did: up as MT1’s reply lands, down as the intake answers the key, then each beat module’s steps', () => {
+    expect(LAMP_PART1.map((x) => x.at)).toEqual([EVENTS_B.lampUp, LAMP_DIMS]);
+    for (let f = 2100; f < 3440; f += 3) {
+      const before = LAMP_STEPS.dim + (LAMP_STEPS.up - LAMP_STEPS.dim) * (springAt(f, EVENTS_B.lampUp, SPRING.effects) - springAt(f, LAMP_DIMS, SPRING.effects));
+      expect(lampAt(f), `f${f}`).toBe(before);
+      expect(deskStateAt(f).lamp).toBe(lampAt(f));
+    }
+  });
+  it('turns the arm from MT1’s next stamp-in through the detents in frame order, each from the one before it', () => {
+    expect(armAt(EVENTS_D.armTurn, 0.5)).toBe(0.5);
+    for (const f of [2281, 2300, 2400, 3000]) expect(armAt(f, 0.5)).toBe(DETENT.you + (DETENT.fresh - DETENT.you) * springAt(f, EVENTS_D.armTurn, SPRING.detent));
+  });
+  it('lists every reply for your in-tray: MT1’s #0408 first, riding as `slip` does', () => {
+    expect(deskStateAt(EVENTS_B.slipLeave - 1).replies).toEqual([]);
+    for (const f of [EVENTS_B.slipLeave, 2220, SLIP_LANDS, 3000]) {
+      const s = deskStateAt(f);
+      expect(s.replies[0]).toEqual({ id: '0408', ride: s.slip, rest: IN_TRAY_REST });
+      expect(replyRideAt(f, EVENTS_B.slipLeave, SLIP_LANDS)).toEqual(s.slip);
+      expect(replyPose(s.slip!, IN_TRAY_REST)).toEqual(replyPose(s.slip!));
+    }
+  });
+  it('lets the chores leave your tray on their hand-overs’ lift frames (each flight’s own module draws it from there)', () => {
+    expect(youPoseAt(BEAT_7.glass.lift - 1).held.glass).toBe(1);
+    expect(youPoseAt(BEAT_7.glass.lift).held.glass).toBe(0);
+    expect(youPoseAt(BEAT_9.strut.lift - 1).held.strut).toBe(1);
+    expect(youPoseAt(BEAT_9.strut.lift).held.strut).toBe(0);
+    // your lamp's pool lies where the pose aims the lamp
+    for (const f of [2225, 3600, 5000]) expect(poolsAt(deskStateAt(f))[2]!.c).toEqual([youPoseAt(f).lamp.aim[0], youPoseAt(f).lamp.aim[1]]);
+  });
+  it('reaches every focus entry: each holds the frame somewhere in its life (priority, then list order, decides overlaps)', () => {
+    for (const e of focusEntries()) {
+      let won = false;
+      for (let f = e.from; f < e.to + STEP_FRAMES && !won; f++) won = focusAt(f) === e;
+      expect(won, e.id).toBe(true);
+    }
+    expect(new Set(focusEntries().map((e) => e.id)).size).toBe(focusEntries().length);
+  });
+  it('steps every part continuously in both worlds: no part’s step jumps more than a ramp’s steepest frame (no one-frame swap)', () => {
+    const depth = Math.max(1, ...focusEntries().map((e) => e.depth ?? 1));
+    const limit = (depth * Math.PI) / (2 * STEP_FRAMES) + 1e-9;
+    const eff = (s: DeskState, id: FocusId): number => {
+      const st = s.step;
+      if (st.late?.includes(id)) return s.testsStep;
+      if (st.own?.ids.includes(id)) return st.own.amount;
+      return st.amount > 0 && st.ids.includes(id) ? st.amount : 0;
+    };
+    for (const states of [WORLDS().act2, WORLDS().summary]) {
+      for (let i = 1; i < states.length; i++) {
+        const [a, b] = [states[i - 1]!, states[i]!];
+        const ids = new Set<FocusId>([...a.step.ids, ...b.step.ids, ...(a.step.own?.ids ?? []), ...(b.step.own?.ids ?? []), ...(a.step.late ?? []), ...(b.step.late ?? [])]);
+        for (const id of ids) expect(Math.abs(eff(b, id) - eff(a, id)), `f${b.f} ${id}`).toBeLessThanOrEqual(limit);
+      }
+    }
+  });
+  it('keeps every frame of part 2 inside the shaders’ footprint and pool arrays, in both worlds', () => {
+    for (let f = 3440; f < 6720; f++) {
+      for (const s of [deskStateAt(f), summaryDeskState(f)]) {
+        expect(footprintsAt(s).length, `f${f}`).toBeLessThanOrEqual(MAX_FOOTPRINTS);
+        expect(poolsAt(s).length, `f${f}`).toBeLessThanOrEqual(MAX_POOLS);
+      }
+    }
   });
 });

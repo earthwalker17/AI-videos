@@ -41,9 +41,11 @@ export interface DeskFrameProps {
   stateAt?: (f: number) => DeskState;
   /** which strings the printed textures print (default all): a planned shot prints the rest as marks */
   printKeep?: (text: string) => boolean | 'texture';
+  /** more DOM text over the world, posed by the same camera (a beat's own text: objects/Beat7.tsx Beat7Text ...), over the labels and tags */
+  overlay?: (pose: CamPose) => ReactNode;
 }
 
-export function DeskFrame({ f, angle, bloom, objects, footprints, poseAt, span = LOOKDEV_SPAN, labels, tags, stateAt = deskStateAt, printKeep }: DeskFrameProps) {
+export function DeskFrame({ f, angle, bloom, objects, footprints, poseAt, span = LOOKDEV_SPAN, labels, tags, stateAt = deskStateAt, printKeep, overlay }: DeskFrameProps) {
   const { fonts, ready } = useFilmFonts();
   const print = useFont(PRINT_FONT);
   const all = ready && print.ready;
@@ -60,6 +62,7 @@ export function DeskFrame({ f, angle, bloom, objects, footprints, poseAt, span =
         </Stage3D>
       )}
       <Overlay f={f} pose={pose} fonts={fonts} ready={all} labels={labels} tags={tags} />
+      {all && overlay?.(pose)}
     </AbsoluteFill>
   );
 }

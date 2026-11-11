@@ -1,5 +1,5 @@
 /**
- * The summary at the sign-off rest (film frames from f5400; STORYBOARD 11.1, still (d) at f5520):
+ * The summary at the sign-off rest (film frames from SEAM_D, f5424; STORYBOARD 11.1, still (d) at f5520):
  * the whole system at 0.64×, the request's route traced once (vermilion out, green home through the
  * Register), the proposed parts east in vellum, the open problems in pencil. Pure: layout and state of
  * what the summary adds, as a function of the film frame and the cue sheet's events.
@@ -7,12 +7,18 @@
 import { clamp, easings } from '@aiv/core';
 import { Curve, type CamPose } from '@aiv/remotion-kit';
 import { cue } from '../cues.ts';
-import { FRAMING_B, deskCamera, moveCameraAt, project, screenToDesk, type Angle, type CameraMove, type Framing } from './camera.ts';
+import { EASE_OUT_D, FRAMING_D, cameraAt, deskCamera, project, screenToDesk, type Angle } from './camera.ts';
 import { BAYS, BELT, BENCH, CHUTE, DECK, DISPATCH_HOUSING, FEEDERS, FOLDER, FRESH, GATE, GROOVES, INDEX, LEG_STRUTS, RAMP, REEL, SPIKE, TAPE, TAPE_FLAT_X1, THROAT, WINDOW, YOU, rectC, type P2, type P3, type Pool } from './layout.ts';
 import { DETENT, SPRING, STEP_FRAMES, deskStateAt, springAt, type DeskState, type FocusId } from './state.ts';
 
+/**
+ * Where the summary's world takes over from act two's (desk/film.ts SEGMENTS): inside bar 68's stillness, after the reply
+ * has landed (cues.ts BEAT_10.replyLands, f5420) and before the stamp lifts (f5431), so the hand-over is never mid-motion.
+ * beat5.ts E5.until and beat6.ts E6.until follow it (beat5.test, beat6.test hold them equal).
+ */
+export const SEAM_D = 5424;
 /** The frames the summary's world is posed for (the sign-off, the rest, the idea labels). */
-export const SPAN_D: readonly [number, number] = [5400, 5720];
+export const SPAN_D: readonly [number, number] = [SEAM_D, 5720];
 
 /** The stamp touches the reply (cues.ts 'stamp', f5440: the contact frame, the score's thump). */
 export const STAMP_F = cue('stamp').frame;
@@ -24,22 +30,17 @@ export const STAMP_F = cue('stamp').frame;
 export const TRACE_F = { out: [STAMP_F, STAMP_F + 46] as const, home: [STAMP_F + 46, STAMP_F + 78] as const } as const;
 
 /**
- * The whole desk at 0.64× (tightened from the storyboard's 0.5× so the system fills the frame, a framing
- * the director accepts): every part, the Watchdog and "you · 你" included, inside title-safe; the
- * target 48 u north of the first pass, so the content sits 30 px lower and the reel on the upper third.
+ * The whole desk at 0.64× (camera.ts FRAMING_D) and bar 69's downbeat (the stamp): the camera eases out from the Register
+ * at 0.85× (FRAMING_B, where bar 65 left it) to the whole desk, settled three beats later so the labels can land on a still
+ * frame before still (d) (camera.ts EASE_OUT_D, one of CAMERA_MOVES: the summary poses through the film's one camera).
  */
-export const FRAMING_D: Framing = { x: 85, y: 68, zoom: 0.64 };
+export { EASE_OUT_D, FRAMING_D };
+export const poseD = (f: number, angle: Angle): CamPose => cameraAt(f, angle);
 /**
- * Bar 69's downbeat (the stamp): the camera eases out from the Register at 0.85× (FRAMING_B, where bar 65
- * left it) to the whole desk, settled three beats later so the labels can land on a still frame before
- * still (d) (STORYBOARD 11.1 asks for one bar; the labels' 6 f leader and 8 f wipe need the last beat).
- */
-export const EASE_OUT_D: CameraMove = { from: STAMP_F, to: STAMP_F + 60, a: FRAMING_B, b: FRAMING_D };
-export const poseD = (f: number, angle: Angle): CamPose => moveCameraAt(EASE_OUT_D, f, angle);
-/**
- * The role labels round the move (TREATMENT Camera: labels that would move more than 40 px exit and re-enter):
- * they fade out over the stamp's 6 f, and once the camera has settled each leader draws (6 f) and its label
- * wipes in (8 f), 2 f apart.
+ * The labels round the ease-out (TREATMENT Camera: labels that would move more than 40 px exit and re-enter): the ones in
+ * view fade out over the stamp's 6 f, and once the camera has settled each leader draws (6 f) and its label (still (d)'s
+ * LABELS_D, desk/film.ts) wipes in (8 f), 2 f apart. The labels in view before the stamp are act two's (film.ts
+ * summaryLabelsAt), so the seam (SEAM_D) changes none of them.
  */
 export function summaryLabelAt(f: number, i: number): { opacity?: number; leader?: number; wipe?: number } | null {
   if (f < STAMP_F) return {};

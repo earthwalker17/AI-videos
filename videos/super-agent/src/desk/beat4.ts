@@ -905,15 +905,40 @@ export function cardAt(f: number, c: { rise: number; strike: number }): CardStat
  * and go back off it over the whole exit: nothing appears or vanishes.
  */
 export const CARD_SPOT = { tilt: 0.3, w: 300, h: 184 } as const;
-export const CARD_AT: Record<'split' | 'ghost', { at: P3; off: P3 }> = {
+/**
+ * Where a counterfactual card plays (`at`, its centre) and where it comes in from and goes back to (`off`, just beyond
+ * the frame's edge for the framing it plays in); its size and tilt default to beat 4's (CARD_SPOT). Beat 4's are CARD_AT;
+ * a later beat's module gives its own spot with each card it has up (CardUp: footprints.ts casts its shadow, pools.ts
+ * lights it, the lane draws it with objects/Counterfactual.tsx at `cardPose(card, spot)`).
+ */
+export interface CardSpot {
+  at: P3;
+  off: P3;
+  w?: number;
+  h?: number;
+  tilt?: number;
+}
+export const CARD_AT: Record<'split' | 'ghost', CardSpot> = {
   split: { at: [-392, 232, 240], off: [-392, 740, 240] },
   ghost: { at: [-420, 420, 240], off: [-420, 732, 240] },
 };
+/** A counterfactual card up at a frame (cardAt's state, null-free) and where it plays. */
+export interface CardUp {
+  card: CardState;
+  spot: CardSpot;
+}
+/** A spot by beat 4's name, or as given. */
+export const spotOf = (which: 'split' | 'ghost' | CardSpot): CardSpot => (typeof which === 'string' ? CARD_AT[which] : which);
+/** A card's size and tilt at its spot (beat 4's CARD_SPOT unless the spot gives its own). */
+export const cardSize = (which: 'split' | 'ghost' | CardSpot): { w: number; h: number; tilt: number } => {
+  const s = spotOf(which);
+  return { w: s.w ?? CARD_SPOT.w, h: s.h ?? CARD_SPOT.h, tilt: s.tilt ?? CARD_SPOT.tilt };
+};
 /** A card's pose: its centre and its tilt from flat. */
-export function cardPose(c: CardState, which: 'split' | 'ghost'): { c: P3; tilt: number; scale: number } {
-  const { at, off } = CARD_AT[which];
+export function cardPose(c: CardState, which: 'split' | 'ghost' | CardSpot): { c: P3; tilt: number; scale: number } {
+  const { at, off } = spotOf(which);
   const k = c.rise * (1 - c.exit);
-  return { c: lerp3(off, at, k), tilt: CARD_SPOT.tilt, scale: 1 };
+  return { c: lerp3(off, at, k), tilt: cardSize(which).tilt, scale: 1 };
 }
 /** How far a card is in (0 off frame .. 1 at its place): the light on it follows it (pools.ts). */
 export const cardIn = (c: CardState | null): number => (c ? c.rise * (1 - c.exit) : 0);

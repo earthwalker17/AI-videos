@@ -23,7 +23,7 @@
  *   4 f), scans it (12 f) and the punch notches the slip on f + notchAfter (26); it then feeds wholly under the print head (4 f).
  * - 5.3 (f2640-2719, no text): the filter goes on under bar 34's dolly; the last spiked slip lands at f2702.
  *
- * The world from the summary on (SPAN_D, f5400) draws the hand-over's end state itself (objects/Trace.tsx: the key at
+ * The world from the summary on (summary.ts SEAM_D, f5424) draws the hand-over's end state itself (objects/Trace.tsx: the key at
  * the gate, the plate, the spike and its pile), so the state here ends there (`E5.until`).
  */
 import { clamp, easings } from '@aiv/core';
@@ -56,8 +56,8 @@ export const E5 = {
   out: 14,
   outFrames: 4,
   post: 11,
-  /** the summary (f5400, summary.ts SPAN_D) draws the hand-over's end state itself */
-  until: 5400,
+  /** the summary (from summary.ts SEAM_D, f5424; film.test holds them equal) draws the hand-over's end state itself */
+  until: 5424,
 } as const;
 
 /** The key's 10 f rise of its 12 f flight (STORYBOARD 5.1: 4 f anticipation, 10 f rise, the arc, the dock). */

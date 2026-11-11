@@ -24,13 +24,19 @@
  */
 import { clamp, easings, rand } from '@aiv/core';
 import { Easing } from 'remotion';
-import { ARRIVE, BEAT, BOTH_FIXES, FIX_A, FIX_B, LAMP_VISITS, WARMTH, cue } from '../cues.ts';
+import { ARRIVE, BEAT, BEAT_7, BEAT_9, BOTH_FIXES, FIX_A, FIX_B, LAMP_VISITS, WARMTH, cue } from '../cues.ts';
 import { FOLDER_PRINT, LOOP_NOTES } from '../print.ts';
 import { circleFp, rectFp, segFp, youFootprints, type Footprint } from './footprints.ts';
 import { FEEDERS, FEEDER_H, LAMP, YOU, rectC, type P2, type P3, type Pool } from './layout.ts';
 import { LIGHT_HEX, tint } from './pools.ts';
 import { SPRING, STEP_FRAMES, springAt, type FocusId } from './state.ts';
 import { CHORES, YOU_POSE_B, lampElbow, strutOnLid, type ChoreFlight, type YouPose } from './you.ts';
+import { you7 } from './beat7.ts';
+import { you8 } from './beat8.ts';
+import { you9 } from './beat9.ts';
+import { you10 } from './beat10.ts';
+import { you11 } from './beat11.ts';
+import { youEnd } from './end.ts';
 
 /** From here on the turn's schedule (MT2, f1400–1660) poses the world. */
 export const ACT_ONE_END = 1400;
@@ -936,17 +942,21 @@ export function youPoseA(a: ActOneState): YouPose {
 }
 
 /** Beat 9's downbeat: your laptop's lid shuts for the night (STORYBOARD 9.1). */
-export const LID_SHUTS = 4560;
+export const LID_SHUTS = BEAT_9.away;
 
-/** Your desk's pose at a film frame: act one's before the turn's run-up, then the act-two pose (the turn, MT2, will ease between them), its tray emptying as the chores are handed over. */
+/**
+ * Your desk's pose at a film frame: act one's before the turn's run-up, then the act-two pose (the turn, MT2, will ease
+ * between them), its tray emptying as the chores are handed over, each on the frame its hand-over lifts it (the flight's
+ * own module draws it from that frame, in the tray's pose: beat5.ts the key, beat7.ts the sand-glass, beat9.ts the lid
+ * strut); then each part-2 beat module's refinement (you7 ... youEnd: the lamp's reach, its turns), in beat order.
+ */
 export function youPoseAt(f: number): YouPose {
   if (f < ACT_ONE_END) return youPoseA(actOneAt(f));
-  // after the turn each chore leaves the tray when it is handed over (the Proactive, Productive, Persistent plates)
-  const gone = (id: string) => f >= cue(id).frame;
   // beat 9 (f4560, STORYBOARD 9.1): the laptop's lid shuts for the night, over 12 f, before the strut lifts off
   const lidShut = springAt(f, LID_SHUTS, SPRING.settle);
-  if (!gone('trait-proactive')) return lidShut > 0 ? { ...YOU_POSE_B, lidShut } : YOU_POSE_B;
-  return { ...YOU_POSE_B, held: { key: 0, glass: gone('trait-productive') ? 0 : 1, strut: gone('trait-persistent') ? 0 : 1 }, lidShut };
+  const base: YouPose =
+    f < cue('trait-proactive').frame ? (lidShut > 0 ? { ...YOU_POSE_B, lidShut } : YOU_POSE_B) : { ...YOU_POSE_B, held: { key: 0, glass: f >= BEAT_7.glass.lift ? 0 : 1, strut: f >= BEAT_9.strut.lift ? 0 : 1 }, lidShut };
+  return [you7, you8, you9, you10, you11, youEnd].reduce((pose, refine) => refine(f, pose), base);
 }
 
 // ------------------------------------------------------------------------------------------------

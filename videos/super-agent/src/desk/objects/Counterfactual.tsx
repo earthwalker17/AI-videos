@@ -4,7 +4,10 @@
  * proposed or open, so nothing on it is enamel, vellum or vermilion. In 12 f, strike 6 f, off 8 f (desk/beat4.ts
  * cardAt); where it plays is its caller's (beat4.ts cardPose: it slides in from beyond the frame's top edge and back
  * off it, never appearing or vanishing). Used at 4.3 (the request torn three ways) and 4.4 (the Register with a bench
- * bolted on, its backlog queuing at its throat); later 7.2, 7.3, 10.2 and 11.3.
+ * bolted on, its backlog queuing at its throat); later 7.2, 7.3, 10.2 and 11.3, each beat's play in its own file, built
+ * from the miniatures' kit exported here (useReliefMats, rect, circle, solid, polyShape, jitter, RELIEF, the bench, tower
+ * and galley minis), its card at its own spot (beat4.ts CardSpot, cardPose; footprints.ts and pools.ts cast and light
+ * every card a beat module lists in its `cards` hook).
  *
  * The card is a sheet of grey stock torn off along a perforation (its top edge torn, the perforation's holes under it),
  * and what plays on it are grey-stock miniatures of the film's own objects in plan, as the camera sees the real ones:
@@ -28,7 +31,7 @@ export const CARD_RELIEF_LIGHT = '#8C8880';
 export const CARD_INK = '#34352F';
 
 /** How high the miniatures stand off the card's face, and the strike's height over them. */
-const RELIEF = 3;
+export const RELIEF = 3;
 const RULE_Z = RELIEF * 2 + 1;
 
 export interface CardPose {
@@ -40,7 +43,7 @@ export interface CardPose {
 // The card
 
 /** A deterministic jitter in -1..1 from an index (no randomness in frame code). */
-const jitter = (i: number, k = 0): number => (((Math.imul(i * 7919 + k * 104729 + 13, 2654435761) >>> 0) % 2001) / 1000 - 1);
+export const jitter = (i: number, k = 0): number => (((Math.imul(i * 7919 + k * 104729 + 13, 2654435761) >>> 0) % 2001) / 1000 - 1);
 
 /** The card's outline (counter-clockwise from its south-west corner): its top edge torn, ragged, short steps a few units up and down. */
 function cardOutline(w: number, h: number): P2[] {
@@ -55,7 +58,7 @@ function cardOutline(w: number, h: number): P2[] {
   pts.push([-w / 2, top]);
   return pts;
 }
-const polyShape = (pts: readonly P2[]): Shape => {
+export const polyShape = (pts: readonly P2[]): Shape => {
   const s = new Shape();
   s.moveTo(...pts[0]);
   for (const p of pts.slice(1)) s.lineTo(...p);
@@ -217,7 +220,7 @@ export function Counterfactual({ pose, w, h, strike, inFrame = 1, children }: { 
 }
 
 /** The miniatures' grey stock: the darker cut-outs, the lighter (the torn request), their ink. */
-function useReliefMats() {
+export function useReliefMats() {
   const mats = useMemo(() => {
     const white = whiteTexture();
     return { white, dark: paper(white, CARD_RELIEF, { roughness: 0.9 }), light: paper(white, CARD_RELIEF_LIGHT, { roughness: 0.9 }), ink: matte(CARD_INK, 0.85, 0, false) };
@@ -237,7 +240,7 @@ function useReliefMats() {
 // ------------------------------------------------------------------------------------------------
 // Shapes of the miniatures (plan, face units)
 
-function rect(x0: number, y0: number, x1: number, y1: number, r = 1.2): Shape {
+export function rect(x0: number, y0: number, x1: number, y1: number, r = 1.2): Shape {
   const s = new Shape();
   s.moveTo(x0 + r, y0);
   s.lineTo(x1 - r, y0);
@@ -250,7 +253,7 @@ function rect(x0: number, y0: number, x1: number, y1: number, r = 1.2): Shape {
   s.quadraticCurveTo(x0, y0, x0 + r, y0);
   return s;
 }
-function circle(x: number, y: number, r: number, hole = 0): Shape {
+export function circle(x: number, y: number, r: number, hole = 0): Shape {
   const s = new Shape();
   s.absarc(x, y, r, 0, Math.PI * 2, false);
   if (hole > 0) {
@@ -260,10 +263,10 @@ function circle(x: number, y: number, r: number, hole = 0): Shape {
   }
   return s;
 }
-const solid = (shapes: Shape[], z0: number, z1: number): BufferGeometry => merge(shapes.map((s) => extrude(s, z0, z1, 0.4, 1)));
+export const solid = (shapes: Shape[], z0: number, z1: number): BufferGeometry => merge(shapes.map((s) => extrude(s, z0, z1, 0.4, 1)));
 
 /** The bug bay's bench in plan: its top, the six test pins along its north edge (each a disc standing proud). */
-function benchMini(x: number, y: number, k = 1): { body: BufferGeometry; ink: BufferGeometry } {
+export function benchMini(x: number, y: number, k = 1): { body: BufferGeometry; ink: BufferGeometry } {
   const w = 84 * k;
   const d = 30 * k;
   const body = solid([rect(x - w / 2, y - d / 2, x + w / 2, y + d / 2, 2)], 0, RELIEF * 1.2);
@@ -275,7 +278,7 @@ function benchMini(x: number, y: number, k = 1): { body: BufferGeometry; ink: Bu
   return { body, ink: pins };
 }
 /** The test tower in plan: its stack (a disc standing tallest), its stepped cap on it, the hinge along its north edge, the cap's slot. */
-function towerMini(x: number, y: number, r: number): { body: BufferGeometry; ink: BufferGeometry } {
+export function towerMini(x: number, y: number, r: number): { body: BufferGeometry; ink: BufferGeometry } {
   const body = solid([circle(x, y, r), circle(x, y + 1, r * 0.72)], 0, RELIEF * 2.2);
   const ink = solid([rect(x - r * 0.75, y + r * 0.78, x + r * 0.75, y + r * 0.96, 0.8), rect(x - r * 0.45, y - r * 0.38 - 1.3, x + r * 0.45, y - r * 0.38 + 1.3, 0.5)], RELIEF * 2.2, RELIEF * 2.2 + 1.2);
   return { body, ink };
@@ -285,7 +288,7 @@ function towerMini(x: number, y: number, r: number): { body: BufferGeometry; ink
  * end), the set matter in it as solid slugs (a line of type cast whole: each a bar the line's measure, the last line short),
  * locked up by a quoin at the open end.
  */
-function galleyMini(x: number, y: number): { body: BufferGeometry; ink: BufferGeometry; light: BufferGeometry } {
+export function galleyMini(x: number, y: number): { body: BufferGeometry; ink: BufferGeometry; light: BufferGeometry } {
   const w = 92;
   const d = 30;
   const x0 = x - w / 2;

@@ -8,9 +8,9 @@
  */
 import type { CamPose } from '@aiv/remotion-kit';
 import { AbsoluteFill } from 'remotion';
-import { WORDS, cue } from '../cues.ts';
+import { TEXT_IN, TEXT_OUT, WORDS, cue } from '../cues.ts';
 import { cueReveal, narrationAt } from './onScreen.ts';
-import { GREY_TEXT, Label, NotesBlock, lineWidth, type TextLook } from '../kit/text.tsx';
+import { GREY_TEXT, Label, NotesBlock, lineWidth, revealState, type RevealState, type TextLook } from '../kit/text.tsx';
 import type { FilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
 import { project } from './camera.ts';
@@ -72,6 +72,12 @@ export function leaderOf(foot: [number, number], l: RoleLabel, width: number, si
  */
 export interface TagSpec {
   cue: string;
+  /**
+   * When one cue places several tags (the six idea labels on 'ideas'): each its own id (its key and its wipe's clip; default
+   * the cue's id) and its own `from`, the film frame its wipe starts (default its cue's window start); all fade with the cue.
+   */
+  id?: string;
+  from?: number;
   words: { en: string; 'zh-Hans': string };
   at: readonly [number, number];
   anchor: 'start' | 'end';
@@ -88,6 +94,13 @@ export interface TagSpec {
 }
 /** The zh line's baseline under the EN line's (and one line's under the one before it), and where the leader leaves the text block. */
 export const TAG_GAP = 50;
+
+/** A tag's reveal at film frame f: its cue's window (the cue sheet's 6 f wipe in and fade out), its wipe from its own `from` if it has one. */
+export function tagReveal(t: Pick<TagSpec, 'cue' | 'from'>, f: number): RevealState {
+  if (t.from === undefined) return cueReveal(t.cue, f);
+  const c = cue(t.cue);
+  return revealState(f, { frame: t.from + TEXT_IN, end: c.end ?? c.frame }, TEXT_IN, TEXT_OUT);
+}
 
 /** `labels`: the role labels in view (act one has only yours); `tags`: the tags shown on their cues. */
 export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = [] }: { f: number; pose: CamPose; fonts: FilmFonts; ready: boolean; labels?: readonly RoleLabel[]; tags?: readonly TagSpec[] }) {
@@ -134,8 +147,9 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         })}
       </svg>
       {tags.map((t) => {
-        const r = cueReveal(t.cue, f);
+        const r = tagReveal(t, f);
         if (!r.visible) return null;
+        const id = t.id ?? t.cue;
         const foot = project(pose, t.foot);
         const tsize = TYPE.label.size;
         const en = t.lines?.en ?? [t.words.en];
@@ -166,15 +180,15 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         const keep = t.leaderUntil === undefined ? 1 : 1 - Math.min(1, Math.max(0, (f - t.leaderUntil) / 6));
         const from: readonly [number, number] = keep < 1 ? [lx + (foot[0] - lx) * keep, ly + (foot[1] - ly) * keep] : foot;
         return (
-          <svg key={t.cue} width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity }}>
+          <svg key={id} width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity }}>
             <defs>
-              <clipPath id={`wipe-${t.cue}`}>
+              <clipPath id={`wipe-${id}`}>
                 <rect x={x0 - 4} y={t.at[1] - 60} width={(w + 8) * r.wipe} height={bottom - t.at[1] + 90} />
               </clipPath>
             </defs>
             {keep > 0 && <line x1={from[0]} y1={from[1]} x2={foot[0] + (lx - foot[0]) * grow} y2={foot[1] + (ly - foot[1]) * grow} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />}
             {keep >= 1 && <circle cx={foot[0]} cy={foot[1]} r={4} fill={TEXT_HEX.en} />}
-            <g clipPath={`url(#wipe-${t.cue})`}>
+            <g clipPath={`url(#wipe-${id})`}>
               {en.map((x, i) => (
                 <Label key={`en${i}`} x={t.at[0]} y={enY[i]} text={x} family={fonts.sans} size={tsize} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={t.anchor} />
               ))}

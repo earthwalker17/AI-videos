@@ -23,6 +23,7 @@ import { texture } from '../gl/text.ts';
 import { useDeskMats } from '../kit.tsx';
 import { BAYS, REEL, type P2 } from '../layout.ts';
 import { FLAG, HANDLE, MACHINES, QUERIES, TETHER_W, VELLUM, WATCHDOG, clipC } from '../summary.ts';
+import type { ProposedState } from '../beat9.ts';
 
 /** A seeded hash of an index to 0..1 (integer mixing: deterministic, no randomness). */
 function hash01(i: number, seed: number): number {
@@ -675,7 +676,12 @@ function machineGeometry(): { body: BufferGeometry; detail: BufferGeometry } {
   return { body: merge(body), detail: merge(detail) };
 }
 
-export function Proposed() {
+/**
+ * The proposed and the open parts. `state`: their pose in act two's world from beat 9 on (desk/beat9.ts proposedAt,
+ * mounted by objects/Beat9.tsx; the beats 9-10 lane draws it); absent or null, still (d)'s static pose (the summary's
+ * mount), the end state every pose arrives at.
+ */
+export function Proposed(_props: { state?: ProposedState | null }) {
   const m = useDeskMats();
   const tex = useProposedTextures();
   const mats = useMemo(

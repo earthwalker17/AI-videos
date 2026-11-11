@@ -101,7 +101,8 @@ if (uStep > 0.0) {
   vec3 tgt = pow(uStepTarget, vec3(1.0 / 2.2));
   dsp = mix(dsp, tgt, 0.45 * uStep);
   float lum = dot(dsp, vec3(0.2126, 0.7152, 0.0722));
-  dsp = mix(dsp, vec3(lum), 0.7 * uStep);
+  // the chroma mix stops at grey (a counterfactual card steps the rest down by 1.5, which would carry it past grey)
+  dsp = mix(dsp, vec3(lum), min(0.7 * uStep, 1.0));
   gl_FragColor.rgb = pow(dsp, vec3(2.2));
 }
 gl_FragColor.rgb = min(gl_FragColor.rgb, vec3(uClampMax));`,
@@ -199,9 +200,11 @@ export function stepColour(c: Color, amount: number): Color {
   let g = enc(c.g) + (enc(t.g) - enc(c.g)) * 0.45 * amount;
   let b = enc(c.b) + (enc(t.b) - enc(c.b)) * 0.45 * amount;
   const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  r += (l - r) * 0.7 * amount;
-  g += (l - g) * 0.7 * amount;
-  b += (l - b) * 0.7 * amount;
+  // the chroma mix stops at grey, as the patch's does (a counterfactual card's step of 1.5 would carry it past)
+  const grey = 0.7 * amount >= 1;
+  r += grey ? l - r : (l - r) * 0.7 * amount;
+  g += grey ? l - g : (l - g) * 0.7 * amount;
+  b += grey ? l - b : (l - b) * 0.7 * amount;
   return new Color(r ** 2.2, g ** 2.2, b ** 2.2);
 }
 

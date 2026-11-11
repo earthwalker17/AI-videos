@@ -498,8 +498,8 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
     tooth(g, w, h);
   });
 
-  // the galley: a page of type set in a tray, seen from above (galleyType): mirror-reversed lines, the reglets
-  // between them; ink on paper, never a readable word
+  // the galley: a page of type set in a tray, seen from above (galleyType): lines that read the right way round, the reglets
+  // between them; ink on paper, printed faint in the film (marks.ts), never a word that competes
   const galley = tex(S.galley, (g) => {
     const [w, h] = S.galley;
     galleyType(g, w, h, (c, line, x, y, bold) => print(c, family, line, x, y, PRINT_EM, bold ? 700 : 500, '#3A3B39'));
@@ -889,16 +889,13 @@ function sheetEdges(g: CanvasRenderingContext2D, w: number, h: number): void {
 }
 
 /**
- * Type set in a galley tray, seen from above: the lines of set type read mirror-reversed (as cast type
- * does), so they are a page's texture, never a slogan; the reglets between the lines; the heading line bold.
+ * Type set in a galley tray, seen from above: the lines of set type, a page's texture, never a slogan; the reglets
+ * between the lines; the heading line bold. They read the right way round, as the close's fine print does (the user's
+ * pick, 2026-11-12: mirror-reversed, as cast type is, they read as garbled text at 45-60 px).
  */
 function galleyType(g: CanvasRenderingContext2D, w: number, h: number, set: (g: CanvasRenderingContext2D, line: string, x: number, y: number, bold: boolean) => void): void {
   const lines = [`${GALLEY_FINE[0]} ${GALLEY_FINE[1]}`, `${GALLEY_FINE[2]} ${GALLEY_FINE[4]}`, GALLEY_FINE[6]];
-  g.save();
-  g.translate(w, 0);
-  g.scale(-1, 1);
   lines.forEach((line, i) => set(g, line, 6, 21 + i * 25, i === 0));
-  g.restore();
   for (let i = 1; i < 3; i++) rule(g, 2, i * 25 + 3.5, w - 2, i * 25 + 3.5, 0.9, '#C9C4B8');
   void h;
 }

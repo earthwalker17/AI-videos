@@ -31,7 +31,7 @@
  *   landing opening a "№" tab; on `recall-answer` a short answer leaves the head's slot under the transit light, back
  *   west into the card feeder's mouth (out of the close's frame long before it gets there).
  *
- * The world from the summary on (SPAN_D, f5400) is still (d)'s, which draws none of this (`E6.until`).
+ * The world from the summary on (summary.ts SEAM_D, f5424) is still (d)'s, which draws none of this (`E6.until`).
  */
 import { clamp, easings } from '@aiv/core';
 import { BEAT_6, at as bar, cue } from '../cues.ts';
@@ -82,8 +82,8 @@ export const E6 = {
   /** the answer comes out of the head's slot one cell per decodeCell frames before it leaves on recall-answer; its flight to the card feeder */
   answerCells: 2,
   answerFly: 24,
-  /** the summary (f5400, summary.ts SPAN_D) is still (d)'s world */
-  until: 5400,
+  /** the summary (from summary.ts SEAM_D, f5424; film.test holds them equal) is still (d)'s world */
+  until: 5424,
 } as const;
 
 /**

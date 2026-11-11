@@ -25,26 +25,23 @@
  */
 import { clamp, easings } from '@aiv/core';
 import { Curve } from '@aiv/remotion-kit';
-import { Easing, spring } from 'remotion';
-import { BEAT, BEAT_4, BEAT_5, FPS, cue, textWindow } from '../cues.ts';
+import { Easing } from 'remotion';
+import { BEAT, BEAT_4, BEAT_5, BEAT_7, cue, textWindow } from '../cues.ts';
 import { armRest, beat4At, hammerStroke, hatchRiseAt, inkSpread, type Beat4State } from './beat4.ts';
 import { beat5At, type Beat5State } from './beat5.ts';
 import { E6, beat6At, type Beat6State } from './beat6.ts';
+import { ARM_7, FOCUS_7, LAMP_7, beat7At, replies7, type Beat7State } from './beat7.ts';
+import { ARM_8, FOCUS_8, LAMP_8, beat8At, replies8, type Beat8State } from './beat8.ts';
+import { ARM_9, FOCUS_9, LAMP_9, beat9At, replies9, type Beat9State } from './beat9.ts';
+import { ARM_10, FOCUS_10, LAMP_10, beat10At, pins10, replies10, type Beat10State } from './beat10.ts';
+import { LAMP_11, beat11At, type Beat11State } from './beat11.ts';
+import { LAMP_END, endAt, type EndState } from './end.ts';
 import { DOLLY_IN, EASE_OUT } from './camera.ts';
+import { SPRING, STEP_FRAMES, springAt } from './springs.ts';
 import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, DRAWER_OPEN_C, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, YOU, rectC, towerTop, type P2, type P3 } from './layout.ts';
 
-/** Remotion spring configs from the synthesis's tokens (mass 1, c = 2ζ√k). Remotion's default spring is never used. */
-export const SPRING = {
-  settle: { stiffness: 380, damping: 31.2, mass: 1 },
-  dock: { stiffness: 800, damping: 33.9, mass: 1 },
-  heavy: { stiffness: 200, damping: 22.6, mass: 1 },
-  detent: { stiffness: 600, damping: 44.1, mass: 1 },
-  effects: { stiffness: 1600, damping: 80, mass: 1 },
-} as const;
-
-/** A spring from 0 to 1 starting at frame `start` (0 before it). */
-export const springAt = (f: number, start: number, config: (typeof SPRING)[keyof typeof SPRING]): number =>
-  f <= start ? 0 : spring({ frame: f - start, fps: FPS, config: { ...config, overshootClamping: false } });
+// the spring tokens and the step ramp live in the leaf springs.ts (the beat modules this file imports take them from there)
+export { SPRING, STEP_FRAMES, springAt };
 
 /** The handshake round C12 (film frames). */
 export const EVENTS_B = {
@@ -103,10 +100,75 @@ export const LAMP_DIMS = BEAT_5.keyDock + 2;
 /** Your lamp's attention steps: the bulb's level and its pool (a step dimmer while you wait). */
 export const LAMP_STEPS = { dim: 0.62, up: 0.9 } as const;
 
-/** What steps down during a beat: everything not in its action. */
-export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'testsBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge' | 'head' | 'index' | 'mouth' | 'folders' | 'loop' | 'you' | 'fixA' | 'fixB' | 'deck' | 'chute' | 'proactive' | 'spike' | 'stress' | 'jaws' | 'bosses';
+/**
+ * A step of your lamp's attention: from `at` it moves `steps` steps (one step: LAMP_STEPS.up − dim; + brighter, −
+ * dimmer, fractions allowed) on spring-effects. Your lamp is LAMP_STEPS.dim plus every step so far (lampAt).
+ */
+export interface LampStep {
+  at: number;
+  steps: number;
+}
+/** Part 1's: up a step as MT1's reply lands (C12), down a step as the intake answers the starter key's dock (beat 5). */
+export const LAMP_PART1: readonly LampStep[] = [
+  { at: EVENTS_B.lampUp, steps: 1 },
+  { at: LAMP_DIMS, steps: -1 },
+];
+/** Your lamp's level at film frame f: part 1's steps, then each beat module's (read here: never at module level). */
+export function lampAt(f: number): number {
+  let k = 0;
+  for (const x of [...LAMP_PART1, ...LAMP_7, ...LAMP_8, ...LAMP_9, ...LAMP_10, ...LAMP_11, ...LAMP_END]) k += x.steps * springAt(f, x.at, SPRING.effects);
+  return LAMP_STEPS.dim + (LAMP_STEPS.up - LAMP_STEPS.dim) * k;
+}
+
+/** The index arm's detents by name (DETENT). */
+export type DetentId = 'you' | 'tests' | 'docs' | 'bug' | 'fresh';
+/** A turn of the index arm to a detent: it leaves the detent it rests on on the frame after `at`, settling on spring-detent. */
+export interface ArmStep {
+  at: number;
+  to: DetentId;
+}
+/**
+ * The arm at film frame f from MT1's next stamp-in on (part 1's detents, then each beat module's, in frame order: each
+ * turn starts from the detent the one before it went to); `before`: its angle until the first of them.
+ */
+export function armAt(f: number, before: number): number {
+  const steps = [...ARM_PART1, ...ARM_7, ...ARM_8, ...ARM_9, ...ARM_10].sort((a, b) => a.at - b.at);
+  let from: number = DETENT.you;
+  let arm = before;
+  for (const d of steps) {
+    if (f > d.at) arm = from + (DETENT[d.to] - from) * springAt(f, d.at, SPRING.detent);
+    from = DETENT[d.to];
+  }
+  return arm;
+}
+
+/** A reply's ride (replyRideAt): emerging from under the deck (0..1), down the chute (0..1), the hop into the tray (0..1), its landing squash and settle. */
+export interface SlipRide {
+  emerge: number;
+  s: number;
+  arc: number;
+  squash: number;
+  settle: number;
+}
+/**
+ * A reply riding the chute into your in-tray (DeskState.replies): MT1's #0408 first, then each beat module's. `ride`:
+ * replyRideAt; `rest`: where it comes to lie (default IN_TRAY_REST; a later reply lies on the earlier ones); `size`: its
+ * length and width (default layout.ts SLIP). footprints.ts casts each while it rides; the lane draws its own.
+ */
+export interface ReplyState {
+  id: string;
+  ride: SlipRide;
+  rest: P3;
+  size?: readonly [number, number];
+}
+
+/**
+ * What steps down during a beat: everything not in its action. A part-2 beat module names its own parts under its prefix
+ * (`b7-rider`, `b8-sheet`, `b9-vellum`, `b11-plates`, `end-card`, ...), so it steps them without a shared edit.
+ */
+export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'testsBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge' | 'head' | 'index' | 'mouth' | 'folders' | 'loop' | 'you' | 'fixA' | 'fixB' | 'deck' | 'chute' | 'proactive' | 'spike' | 'stress' | 'jaws' | 'bosses' | `b${7 | 8 | 9 | 10 | 11}-${string}` | `end-${string}`;
 /** No Thread cord before C17's beat: it first pays out at 7.1 (f3440); before that a Thread is a row on the tape (design D1). */
-export const CORD_FROM = 3440;
+export const CORD_FROM = BEAT_7.cordOut;
 /**
  * Per-beat focus sets (film frames). C12's action is the handshake: the test tower, the card, the
  * mouth, the cell, the arm, the chute, the reply, your in-tray. The bug bay steps down too (its slot
@@ -117,11 +179,28 @@ export const CORD_FROM = 3440;
  * targets in display values (gl/materials.ts), its darkest graphite still over the slate's floor tone.
  */
 const CARD_DEPTH = 1.5;
-/** The step-down ramp, frames (synthesis: 12–16 f). */
-export const STEP_FRAMES = 14;
 /** Everything of act two's world that a counterfactual card steps down while it is up (the card is the beat's action). */
 const ALL_BUT_CARD: readonly FocusId[] = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'testsBay', 'cord', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'you', 'deck', 'chute'];
-export const FOCUS_BEATS: readonly { id: string; from: number; to: number; step: readonly FocusId[]; depth?: number }[] = [
+/**
+ * A beat's focus (stepAt): from `from` its `step` set steps down over STEP_FRAMES (to `depth`, 1 for a beat), and comes
+ * back up over STEP_FRAMES from `to`. Where entries overlap (each live from `from` to `to` + STEP_FRAMES) the one with the
+ * highest `priority` wins (default 0; on a tie the earlier in focusEntries), whole: so two entries that hand over must
+ * agree on what they share at the hand-over frame (desk.test holds every part's step continuous). `own`: a second set on
+ * its own ramp inside the entry (kit.tsx `Step on="own"`, STEP_OWN), in from `own.from` and out from `own.to`; `late`:
+ * parts held on the late set (STEP_LATE, at a full step from f2200: the finished test tower's ramp).
+ */
+export interface FocusEntry {
+  id: string;
+  from: number;
+  to: number;
+  step: readonly FocusId[];
+  depth?: number;
+  priority?: number;
+  own?: { from: number; to: number; step: readonly FocusId[] };
+  late?: readonly FocusId[];
+}
+/** Part 1's focus entries (beats 4-6); part 2's come from the beat modules (focusEntries). */
+export const FOCUS_BEATS: readonly FocusEntry[] = [
   // 4.3, 4.4: while a counterfactual is up, everything else steps down (from its first move to the frame it starts off),
   // half as far again as a beat's step (CARD_DEPTH), so the card is the frame's one lit paper; under the ghost Router the
   // real index arm keeps its detent on every beat at full contrast (STORYBOARD 4.4), and the arrivals riding in (cargo in
@@ -144,8 +223,10 @@ export interface DeskState {
   f: number;
   /** the index arm's angle (radians) */
   arm: number;
-  /** the reply: emerging from the slot (0..1), then progress down the chute 0..1, its landing squash and settle; null before it leaves */
-  slip: { emerge: number; s: number; arc: number; squash: number; settle: number } | null;
+  /** MT1's reply #0408: emerging from the slot (0..1), then progress down the chute 0..1, its landing squash and settle; null before it leaves */
+  slip: SlipRide | null;
+  /** every reply that has left for your in-tray: MT1's (`slip`) first, then each beat module's (state.ts ReplyState) */
+  replies: ReplyState[];
   /** your lamp's level (0..1 scale of its pool and bulb) */
   lamp: number;
   /** the report card in flight: arc progress 0..1, world position (null when not flying) */
@@ -194,6 +275,13 @@ export interface DeskState {
   e5: Beat5State;
   /** beat 6 (desk/beat6.ts): the batches' strip, the reading bar, the decode slip, the stress plate, the review card, the rewind, the reading thread, the answer */
   e6: Beat6State;
+  /** part 2's beats (desk/beat7.ts ... end.ts), each null outside its life: 7-10 in act two's world, 11 and the end in the summary's */
+  e7: Beat7State | null;
+  e8: Beat8State | null;
+  e9: Beat9State | null;
+  e10: Beat10State | null;
+  e11: Beat11State | null;
+  end: EndState | null;
 }
 
 /** The print head's hammer at its stroke h (0 raised clear of the tape, 1 down on the newest cell): it rocks east as it falls, so its drop reads from above. */
@@ -258,14 +346,32 @@ export function tabArc(u: number): P3 {
   return [a[0] + (TAB_REST_B[0] - a[0]) * across, a[1] + (TAB_REST_B[1] - a[1]) * across, a[2] + (TAB_REST_B[2] - a[2]) * down + 10 * Math.sin(Math.PI * Math.min(1, t / 0.55))];
 }
 
+/**
+ * Every focus entry of the film: part 1's, then each part-2 beat module's (read here, never at module level: a beat module
+ * may import modules that import this one).
+ */
+export function focusEntries(): readonly FocusEntry[] {
+  return [...FOCUS_BEATS, ...FOCUS_7, ...FOCUS_8, ...FOCUS_9, ...FOCUS_10];
+}
+/** A ramp in over STEP_FRAMES from `from`, out over STEP_FRAMES from `to` (0..1). */
+const rampAt = (f: number, from: number, to: number): number => Math.min(easings.inOutSine(clamp((f - from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - to) / STEP_FRAMES)));
+/** The focus entry that holds film frame f: of the entries live there, the highest priority (the earliest on a tie). */
+export function focusAt(f: number): FocusEntry | null {
+  let best: FocusEntry | null = null;
+  for (const b of focusEntries()) {
+    if (f < b.from || f >= b.to + STEP_FRAMES) continue;
+    if (!best || (b.priority ?? 0) > (best.priority ?? 0)) best = b;
+  }
+  return best;
+}
 /** The focus step-down at film frame f: ramps in over STEP_FRAMES from a beat's start, out after its end. */
 export function stepAt(f: number): DeskState['step'] {
-  for (const b of FOCUS_BEATS) {
-    if (f < b.from || f >= b.to + STEP_FRAMES) continue;
-    const amount = (b.depth ?? 1) * Math.min(easings.inOutSine(clamp((f - b.from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - b.to) / STEP_FRAMES)));
-    return { amount, ids: b.step };
-  }
-  return { amount: 0, ids: [] };
+  const b = focusAt(f);
+  if (!b) return { amount: 0, ids: [] };
+  const step: DeskState['step'] = { amount: (b.depth ?? 1) * rampAt(f, b.from, b.to), ids: b.step };
+  if (b.own) step.own = { amount: rampAt(f, b.own.from, b.own.to), ids: b.own.step };
+  if (b.late) step.late = b.late;
+  return step;
 }
 
 /** The state of the desk at film frame `f` (pure). */
@@ -304,38 +410,53 @@ export function deskStateAt(f: number): DeskState {
   const testsStep = easings.inOutSine(clamp((f - E.testsStep) / STEP_FRAMES));
   // the index arm: beat 4's detents (it rests at the docs galley's), then to yours (west), settled before the reply moves
   const arm = (f <= E.armTurn ? b4.arm : armRest()) + (DETENT.you - armRest()) * springAt(f, E.armTurn, SPRING.detent);
-  // the reply: one motion from under the deck along the chute's line and down the chute, gathering speed as it comes
-  // out from under the deck and then at a constant pace to the chute's lip (it never slows in the trough), off the lip
-  // in a short arc into your in-tray, landing on spring-dock with a 3% squash
-  let slip: DeskState['slip'] = null;
-  if (f >= E.slipLeave) {
-    const d = replyRun((f - E.slipLeave) / (SLIP_LIP - E.slipLeave)) * (REPLY_LEAD + REPLY_CHUTE);
-    const emerge = clamp(d / REPLY_LEAD);
-    const s = clamp((d - REPLY_LEAD) / REPLY_CHUTE);
-    const arc = clamp((f - SLIP_LIP) / REPLY_ARC);
-    const settle = springAt(f, SLIP_LANDS, SPRING.dock);
-    // its landing (MT1 replyLands, a contact frame): in the tray on its cue, its 3% squash at its deepest there
-    const squash = f < SLIP_LANDS ? 0 : Math.max(0, 1 - (f - SLIP_LANDS) / 4);
-    slip = { emerge, s, arc, squash, settle };
-  }
-  // beat 5 (STORYBOARD 5.1): the intake answers the starter key's dock, and your lamp dims a step again
-  const lamp = LAMP_STEPS.dim + (LAMP_STEPS.up - LAMP_STEPS.dim) * (springAt(f, E.lampUp, SPRING.effects) - springAt(f, LAMP_DIMS, SPRING.effects));
+  // the reply: one motion from under the deck along the chute's line and down the chute (replyRideAt), landing in your
+  // in-tray on MT1's replyLands (a contact frame)
+  const slip = replyRideAt(f, E.slipLeave, SLIP_LANDS);
+  // your lamp: up a step as the reply lands, down a step as the intake answers the starter key's dock (beat 5), then
+  // each later beat's steps (lampAt)
+  const lamp = lampAt(f);
 
-  // the bug bay's pins: one flips per beat, 4 f each, cycling round the six
-  const pins = Array.from({ length: PINS.n }, (_, i) => {
+  // the bug bay's pins: one flips per beat, 4 f each, cycling round the six, until bar 68 takes them (beat10.ts pins10)
+  const cycling = Array.from({ length: PINS.n }, (_, i) => {
     const sinceFrom = f - E.pinsFrom - i * BEAT;
     if (sinceFrom < 0) return 0;
     const cycle = PINS.n * BEAT;
     const k = sinceFrom % cycle;
     return Math.floor(sinceFrom / cycle) % 2 === 0 ? clamp(k / E.pinFlip) : 1 - clamp(k / E.pinFlip);
   });
+  const pins = pins10(f, cycling);
   const galley = ((((f - 2000) % 160) + 160) % 160) / 160;
 
   const next = nextAt(f);
-  // MT1: once the slip is stamped in, the arm turns from you to the fresh bay's detent
-  const armNow = f > EVENTS_D.armTurn ? DETENT.you + (DETENT.fresh - DETENT.you) * springAt(f, EVENTS_D.armTurn, SPRING.detent) : arm;
+  // MT1: once the slip is stamped in, the arm turns from you to the fresh bay's detent; then each later beat's detents (armAt)
+  const armNow = armAt(f, arm);
   const testsSink = springAt(f, EVENTS_D.rest, SPRING.heavy);
-  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withLateHold(f, withBeat6Ramp(f, withBeat5Ramp(f, withOwnRamp(f, stepAt(f))))), next, cache: cacheAt(f), testsSink, b4, e5: beat5At(f), e6: beat6At(f, (x, at) => springAt(x, at, SPRING.dock)) };
+  // part 2's beats (each null outside its life), and every reply that has left for your in-tray
+  const e7 = beat7At(f);
+  const e8 = beat8At(f);
+  const e9 = beat9At(f);
+  const e10 = beat10At(f);
+  const replies: ReplyState[] = [...(slip ? [{ id: '0408', ride: slip, rest: IN_TRAY_REST }] : []), ...replies7(e7), ...replies8(e8), ...replies9(e9), ...replies10(e10)];
+  return { f, arm: armNow, slip, replies, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withLateHold(f, withBeat6Ramp(f, withBeat5Ramp(f, withOwnRamp(f, stepAt(f))))), next, cache: cacheAt(f), testsSink, b4, e5: beat5At(f), e6: beat6At(f, (x, at) => springAt(x, at, SPRING.dock)), e7, e8, e9, e10, e11: beat11At(f), end: endAt(f) };
+}
+
+/**
+ * A reply's ride at film frame f, leaving on `leave` and landing in your in-tray on `lands` (a contact frame): one motion
+ * from under the deck along the chute's line and down the chute, gathering speed as it comes out from under the deck and
+ * then at a constant pace to the chute's lip (it never slows in the trough), off the lip in a short arc (REPLY_ARC) into
+ * the tray, landing on spring-dock with its squash at its deepest on `lands`. Null before it leaves.
+ */
+export function replyRideAt(f: number, leave: number, lands: number): SlipRide | null {
+  if (f < leave) return null;
+  const lip = lands - REPLY_ARC;
+  const d = replyRun((f - leave) / (lip - leave)) * (REPLY_LEAD + REPLY_CHUTE);
+  const emerge = clamp(d / REPLY_LEAD);
+  const s = clamp((d - REPLY_LEAD) / REPLY_CHUTE);
+  const arc = clamp((f - lip) / REPLY_ARC);
+  const settle = springAt(f, lands, SPRING.dock);
+  const squash = f < lands ? 0 : Math.max(0, 1 - (f - lands) / 4);
+  return { emerge, s, arc, squash, settle };
 }
 
 /** The reply's lead-in: hidden under the deck's plate and south rail, on the chute's line produced back north-east, so it slides out of the deck straight into the chute. */
@@ -366,7 +487,7 @@ export const IN_TRAY_REST: P3 = [rectC(YOU.inTray)[0] + 4, YOU.inTray.y1 - 23, 3
  * The reply's pose: on its path (heading and slope from it), turning along the chute's exit curve to lie
  * as it will in the tray, then settling into the tray on spring-dock.
  */
-export function replyPose(slip: NonNullable<DeskState['slip']>): { p: P3; heading: number; slope: number } {
+export function replyPose(slip: SlipRide, rest: P3 = IN_TRAY_REST): { p: P3; heading: number; slope: number } {
   const { emerge, s, arc, settle } = slip;
   if (s >= 1) {
     // off the lip: an arc that leaves at the chute's own heading and slope, then turns and levels to lie in the tray
@@ -378,8 +499,8 @@ export function replyPose(slip: NonNullable<DeskState['slip']>): { p: P3; headin
     const e = easings.inOutSine(u);
     // landed: it settles the last hair onto the tray on spring-dock
     // it hops off the lip (over the trough's walls, so nothing of it passes under them as it turns), then drops into the tray
-    const z = end[2] + (IN_TRAY_REST[2] - end[2]) * u * u + 4 * REPLY_HOP * u * (1 - u) + (u >= 1 ? 1.2 * (1 - settle) : 0);
-    const p: P3 = [end[0] + (IN_TRAY_REST[0] - end[0]) * u, end[1] + (IN_TRAY_REST[1] - end[1]) * u, z];
+    const z = end[2] + (rest[2] - end[2]) * u * u + 4 * REPLY_HOP * u * (1 - u) + (u >= 1 ? 1.2 * (1 - settle) : 0);
+    const p: P3 = [end[0] + (rest[0] - end[0]) * u, end[1] + (rest[1] - end[1]) * u, z];
     return { p, heading: h0 + (0.05 - h0) * e, slope: s0 * (1 - e) };
   }
   const lead = REPLY_LEAD / (REPLY_LEAD + REPLY_CHUTE);
@@ -456,6 +577,8 @@ export const EVENTS_D = {
   /** rest: the c12 step-down ramps out, the finished test bay sinks */
   rest: 2320,
 } as const;
+/** Part 1's arm detents after MT1's reply (armAt): once the next slip is stamped in, the arm turns from you to the fresh bay. */
+export const ARM_PART1: readonly ArmStep[] = [{ at: EVENTS_D.armTurn, to: 'fresh' }];
 
 /**
  * Still (c): from the tab's launch the head, the index arm and the holder are out of the action (their enamel steps under

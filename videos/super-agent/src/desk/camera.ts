@@ -9,6 +9,7 @@
  */
 import { screenBoxAt, type CamPose } from '@aiv/remotion-kit';
 import { Easing } from 'remotion';
+import { BEAT_11, END, at } from '../cues.ts';
 import type { P3 } from './layout.ts';
 
 /** The composition's CSS size. */
@@ -80,10 +81,28 @@ export function projectBox(pose: CamPose, pts: readonly P3[]): { x0: number; y0:
 export const FRAMING_C: Framing = { x: -90, y: 150, zoom: 2.4 };
 
 /**
+ * Beat 8's test sheet (STORYBOARD 8.1-8.5), east of the bays at 0.7x (the director's pick, map-beat8 option C: 1.0x would
+ * break the 700 px/s cap on bar 50's one-bar truck). Provisional: the beat-8 lane may ask for it to be tuned (camera.test
+ * holds every move under the cap).
+ */
+export const FRAMING_SHEET: Framing = { x: 650, y: 40, zoom: 0.7 };
+/**
+ * The whole desk at 0.64× (tightened from the storyboard's 0.5× so the system fills the frame, a framing
+ * the director accepts): every part, the Watchdog and "you · 你" included, inside title-safe; the
+ * target 48 u north of the first pass, so the content sits 30 px lower and the reel on the upper third.
+ * Still (d)'s framing (desk/summary.ts), and beats 9-10's from bar 58's ease-out to bar 65's dolly.
+ */
+export const FRAMING_D: Framing = { x: 85, y: 68, zoom: 0.64 };
+/** The bookend (STORYBOARD 12.1, bar 76): back to the hook's framing for now; the beats 11-13 lane may ask for it to be tuned. */
+export const FRAMING_BOOKEND: Framing = FRAMING_HOOK;
+
+/**
  * The camera's moves from the turn on (film frames >= 1400; act one's, before 1400, is ACT_ONE_MOVE). Each move starts
  * on a downbeat and runs between two held framings on the camera token, its zoom even in log scale (perceptual scale)
  * and its truck even on screen (`moveFraming`); between moves the framing holds exactly (`deskCamera`), so a still at a
- * hold is the static pose. The DOM layer projects through the same pose (`project`).
+ * hold is the static pose. The DOM layer projects through the same pose (`project`). One list drives every segment
+ * (act two and the summary alike pose through `cameraAt`); each move starts where the one before it landed, and the aim
+ * point never runs faster than 700 px/s on screen (TREATMENT Camera; camera.test).
  */
 export interface CameraMove {
   from: number;
@@ -99,10 +118,28 @@ export const CAMERA_MOVES: readonly CameraMove[] = [
   // bar 43's downbeat (6.4): out to the bay floor, one bar, the mirror of bar 34's dolly; the close holds through the
   // recall's rewind, hops and answer (bar 42), and N6 ends 10 f in, while the frame has barely moved
   { from: 3360, to: 3440, a: FRAMING_C, b: FRAMING_B },
+  // bar 50's downbeat (8.1): the truck east to the test sheet, one bar (the step-down leads it: cues.ts BEAT_8.stepDown)
+  { from: at(50), to: at(51), a: FRAMING_B, b: FRAMING_SHEET },
+  // bar 58's downbeat (9.1): out from the sheet to still (d)'s framing as the vellum is laid east of the system, one bar
+  { from: at(58), to: at(59), a: FRAMING_SHEET, b: FRAMING_D },
+  // bar 65's downbeat (10.2, N9: the move is the line): in on the Register, one bar, landing exactly on the summary's start
+  { from: at(65), to: at(66), a: FRAMING_D, b: FRAMING_B },
+  // bar 69's downbeat (the stamp, 11.1): out from the Register to the whole desk, settled three beats later so the labels
+  // land on a still frame before still (d) (the storyboard's one bar; the labels' 6 f leader and 8 f wipe need the last beat)
+  { from: BEAT_11.stamp, to: BEAT_11.stamp + 60, a: FRAMING_B, b: FRAMING_D },
+  // bar 76's downbeat (12.1, C28: the move is the line): back to the hook's framing, one bar
+  { from: END.move[0], to: END.move[1], a: FRAMING_D, b: FRAMING_BOOKEND },
 ];
 /** Bar 34's dolly into the close (B to C) and bar 43's ease-out of it (C to B): the DOM layer and the close's print swap key off them. */
 export const DOLLY_IN = CAMERA_MOVES[1]!;
 export const EASE_OUT = CAMERA_MOVES[2]!;
+/** Part 2's moves, by name (the labels' away windows, desk/film.ts, key off them). */
+export const TO_SHEET = CAMERA_MOVES[3]!;
+export const TO_VELLUM = CAMERA_MOVES[4]!;
+export const TO_REGISTER = CAMERA_MOVES[5]!;
+/** Bar 69's ease-out to still (d) (desk/summary.ts re-exports it under this name). */
+export const EASE_OUT_D = CAMERA_MOVES[6]!;
+export const TO_BOOKEND = CAMERA_MOVES[7]!;
 
 /** The camera token (TREATMENT Motion grammar): cubic-bezier(.65, 0, .35, 1), one bell of speed peaking mid-move. */
 export const CAMERA_EASE = Easing.bezier(0.65, 0, 0.35, 1);
