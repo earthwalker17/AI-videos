@@ -101,7 +101,7 @@ export const CAMERA_MOVES: readonly CameraMove[] = [
 ];
 
 /** The camera token (TREATMENT Motion grammar): cubic-bezier(.65, 0, .35, 1), one bell of speed peaking mid-move. */
-const CAMERA_EASE = Easing.bezier(0.65, 0, 0.35, 1);
+export const CAMERA_EASE = Easing.bezier(0.65, 0, 0.35, 1);
 
 /**
  * A move's framing at progress u (0..1, already eased): the zoom changes evenly in log scale (perceptual scale), and

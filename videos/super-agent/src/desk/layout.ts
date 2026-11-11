@@ -271,6 +271,17 @@ export const FEEDER_H = { chat: 60, ci: 46 } as const;
 
 export const GATE = { bar: { x0: -568, x1: -552, y0: 246, y1: 352 } as Rect, h: 36, fingers: 7, fingerL: 44 } as const;
 export const SPIKE = { x: -646, y: 384, h: 84, baseR: 22 } as const;
+/** Each gate finger's y (south to north) and its root on the bar's west face, the N-S axis it flips about (beat5.ts). */
+export const FINGER_Y: readonly number[] = Array.from({ length: GATE.fingers }, (_, i) => GATE.bar.y0 + 10 + ((GATE.bar.y1 - GATE.bar.y0 - 20) * i) / (GATE.fingers - 1));
+export const FINGER_ROOT = { x: GATE.bar.x0 + 2, z: GATE.h - 10 } as const;
+/**
+ * Beat 5 (STORYBOARD 5.1-5.2; desk/beat5.ts). The starter key docks lying flat just north-east of the gate's bar, where the
+ * summary (summary.ts DOCKED.key, still (d)) keeps it; the Proactive plate (trait 主动), slid out of your desk with its
+ * chore, lies flat on the slate between your desk and the gate, clear west of the reply chute, its words at about 36 px
+ * at 0.85x (gl/plate.ts); the spike stands up out of a slate hatch at SPIKE.
+ */
+export const KEY_DOCK: P3 = [GATE.bar.x1 + 8, GATE.bar.y1 + 30, 2];
+export const PROACTIVE_PLATE = { box: { x0: -810, x1: -470, y0: 104, y1: 168 } as Rect, z: [0, 4] as const } as const;
 /** The intake belt from the gate up to the throat. */
 export const BELT = { from: [-548, 300, 22] as P3, to: [-394, 210, 104] as P3, w: 62 } as const;
 

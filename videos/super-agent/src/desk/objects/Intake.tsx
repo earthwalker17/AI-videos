@@ -11,7 +11,8 @@
  * - the conversation spool beside the chat drum: a spool of cord (graphite until C17 pays the request's
  *   Thread out, vermilion after: design D1), its windings seen through the windows of its top flange.
  * - The Fast Path: a steel gate of fingers across the intake (code, not the Router); survivors ride
- *   the belt up into the Register's throat. (The spike for dropped noise enters at 5.2, f2470.)
+ *   the belt up into the Register's throat. Each finger is its own body: in beat 5 they flip the dropped slips onto
+ *   the spike (desk/beat5.ts; the spike, the slips and the hand-over are objects/Filter.tsx).
  * In C12 all of it steps down (state.ts FOCUS_BEATS).
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
@@ -21,7 +22,7 @@ import { matte, paper } from '../gl/materials.ts';
 import { texture, tooth } from '../gl/text.ts';
 import { Step, WithMats, isStepped } from '../kit.tsx';
 import type { Press } from '../turn.ts';
-import { BELT, FEEDERS, FEEDER_H, GATE, SPOOL, rectC, type P2, type P3, type Rect } from '../layout.ts';
+import { BELT, FEEDERS, FEEDER_H, FINGER_ROOT, FINGER_Y, GATE, SPOOL, rectC, type P2, type P3, type Rect } from '../layout.ts';
 import { CORD_FROM, type DeskState } from '../state.ts';
 import { ACT_ONE_END, GENERIC_FEEDERS } from '../actOne.ts';
 
@@ -342,25 +343,23 @@ function useGateGeometry() {
     const G = GATE.bar;
     const gateBar = slab(G, 0, GATE.h, 3, 1.5);
     const gateCap = slab(inset(G, 2), GATE.h, GATE.h + 3, 2, 0.8);
-    const fingers = merge(
-      Array.from({ length: GATE.fingers }, (_, i) => {
-        const y = G.y0 + 10 + ((G.y1 - G.y0 - 20) * i) / (GATE.fingers - 1);
-        return merge([
-          tube(
-            [
-              [G.x0 + 2, y, GATE.h - 10],
-              [G.x0 - GATE.fingerL * 0.6, y, GATE.h - 12],
-              [G.x0 - GATE.fingerL, y, GATE.h - 18],
-            ],
-            2.6,
-            10,
-            8,
-          ),
-          dome(3, G.x0 - GATE.fingerL, y, GATE.h - 20),
-        ]);
-      }),
+    // each finger its own body (beat 5 flips them, desk/beat5.ts fingersAt), built where it stands at rest
+    const fingers = FINGER_Y.map((y) =>
+      merge([
+        tube(
+          [
+            [G.x0 + 2, y, GATE.h - 10],
+            [G.x0 - GATE.fingerL * 0.6, y, GATE.h - 12],
+            [G.x0 - GATE.fingerL, y, GATE.h - 18],
+          ],
+          2.6,
+          10,
+          8,
+        ),
+        dome(3, G.x0 - GATE.fingerL, y, GATE.h - 20),
+      ]),
     );
-    // (the spike enters at 5.2, f2470: it is not in this shot)
+    // (the spike stands up beside it at 5.2, f2470: objects/Filter.tsx)
     return { gateBar, gateCap, fingers };
   }, []);
 }
@@ -498,6 +497,8 @@ export function Gate({ s, belt }: { s: DeskState; belt?: number | null }) {
     },
     [b],
   );
+  // beat 5: each finger turned about its root's N-S axis, tips up (0 at rest: the gate as still (b) draws it)
+  const turn = s.e5.fingers;
   if (!b || e === null) return null;
   const end = lerp3(BELT.to, BELT.from, e);
   const off: P3 = [end[0] - BELT.from[0], end[1] - BELT.from[1], end[2] - BELT.from[2]];
@@ -509,7 +510,11 @@ export function Gate({ s, belt }: { s: DeskState; belt?: number | null }) {
             <group position={off}>
               <mesh geometry={g.gateBar} material={m.graphite} />
               <mesh geometry={g.gateCap} material={m.enamelShade} />
-              <mesh geometry={g.fingers} material={m.steel} />
+              {g.fingers.map((geo, i) => (
+                <group key={i} position={[FINGER_ROOT.x, FINGER_Y[i]!, FINGER_ROOT.z]} rotation={[0, turn[i] ?? 0, 0]}>
+                  <mesh geometry={geo} material={m.steel} position={[-FINGER_ROOT.x, -FINGER_Y[i]!, -FINGER_ROOT.z]} />
+                </group>
+              ))}
             </group>
           )}
         </WithMats>

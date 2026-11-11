@@ -13,8 +13,11 @@ import { BugBay, DocsBay, FreshBay, RequestCarrier, TestsBay } from './Bay.tsx';
 import { Cache } from './Cache.tsx';
 import { Counterfactual, GhostPlay, SplitPlay } from './Counterfactual.tsx';
 import { DeskUniforms, Dispatch, Hatches } from './Dispatch.tsx';
+import { Batch } from './Batch.tsx';
+import { Filter, FilterHoles } from './Filter.tsx';
 import { Feeders, Gate } from './Intake.tsx';
 import { Cargo, Chute, Cords } from './Links.tsx';
+import { Recall } from './Recall.tsx';
 import { Register } from './Register.tsx';
 import { Backlog, ReelRiders } from './Turn.tsx';
 import { YourDesk } from './YourDesk.tsx';
@@ -68,7 +71,12 @@ export function World({ s }: { s: DeskState }) {
       {riding && <RequestCarrier pose={riding} />}
       {cards && <Cards s={s} />}
       <Cache s={s} />
+      <Filter s={s} />
+      <Batch s={s} />
+      <Recall s={s} />
       <DeskUniforms s={s} />
+      {/* after DeskUniforms: beat 5's hatch takes the desk's third hole slot while it is open */}
+      <FilterHoles s={s} />
     </>
   );
 }

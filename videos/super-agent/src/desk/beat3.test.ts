@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BOTH_FIXES, FIX_A, FIX_B } from '../cues.ts';
+import { BEAT, BOTH_FIXES, FIX_A, FIX_B } from '../cues.ts';
 import { actOneFrameFootprints, fixAOf, fixBOf } from './ActOneFrame.tsx';
-import { FIX_LAMP, LOOP_A, MOUTH, actOneAt, actOneStep, actOneStepA, loopPoint } from './actOne.ts';
+import { FIX_LAMP, FOLDERS, LOOP_A, MOUTH, REQUEST_ON_TAPE, actOneAt, actOneStep, actOneStepA, loopPoint, stackTop } from './actOne.ts';
 import {
   A_CHUTES,
   A_FOLDER_IN,
+  A_FOLDER_TOP,
+  A_STACK_END,
   A_LAST_LAUNCH,
   A_PILE,
   A_POURS,
@@ -16,22 +18,28 @@ import {
   A_SWALLOW_FRAMES,
   A_TAPE_W,
   BREAK,
-  B_RISE,
+  B_POST,
+  B_SLIP,
   EVENT_SIZE,
   FIX_A_FOLDER,
   FOLLOW_UP,
   REPLY_7,
+  RIFFLE,
   STUB,
   TEAR,
   TRAYS,
   TRAY_STUFF,
   aBackAt,
   aPathAt,
+  aStackTopAt,
+  replyLandsB,
   replyPostedB,
+  trayLandsB,
+  trayThrownB,
 } from './beat3.ts';
 import { cameraAt, project } from './camera.ts';
 import { MAX_FOOTPRINTS } from './footprints.ts';
-import { TURN, fixATurnAt, fixBTurnAt, loopTurnAt, shiftAt } from './turn.ts';
+import { fixATurnAt, fixBTurnAt, loopTurnAt, shiftAt } from './turn.ts';
 
 const span = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 const scr = (f: number, p: readonly number[]) => project(cameraAt(f, 15), [p[0], p[1], p[2] ?? 0]);
@@ -46,10 +54,10 @@ describe('beat 3 comes to rest before the turn (f1399)', () => {
     for (const f of span(last, 1399)) expect(json(fixAOf(f)), `f${f}`).toBe(json(fixAOf(1399)));
   });
 
-  it('holds Fix B still once the last of replies 0–6 has landed and jostled, until reply 7 posts (the cue sheet’s f1394)', () => {
-    const settled = FIX_B.replies[6] + 3 + 14 + 8;
-    for (const f of span(settled, REPLY_7.post)) expect(json(fixBOf(f)), `f${f}`).toBe(json(fixBOf(settled)));
-    expect(REPLY_7.post).toBe(TURN.bPost);
+  it('posts reply 7 on the cue sheet’s frame and launches nothing after it: from its landing and jostle every reply holds still to f1399', () => {
+    expect(REPLY_7.post).toBe(FIX_B.reply7);
+    const settled = Math.max(FIX_B.replies[6], FIX_B.reply7) + 3 + 14 + 8;
+    for (const f of span(settled, 1399)) expect(json(fixBOf(f).b.slips), `f${f}`).toBe(json(fixBOf(settled).b.slips));
   });
 
   it('posts reply 7 without a dip: it lifts over its anticipation and the arc starts from there', () => {
@@ -61,20 +69,19 @@ describe('beat 3 comes to rest before the turn (f1399)', () => {
     for (const f of span(BOTH_FIXES + 14, 1399)) {
       expect(actOneStep(f).own?.amount).toBe(0);
       expect(actOneStepA(f)).toBe(0);
-      // the turn's own pull (turn.ts stepIn, f1436) holds the feeders, the heap and the request down: beat 3 hands them over down
+      // the turn holds the feeders, the heap and the request down until its stepOut (turn.ts): beat 3 hands them over down
       expect(actOneStep(f).amount).toBe(1);
       expect(actOneStep(f).ids).toEqual(['intake']);
     }
   });
 
-  // The turn (turn.ts, TurnFrame) is rebuilt next to start from beat 3's f1399 state. Until it does, these seams are open:
-  // `it.fails` passes while they are, and fails (asking for `it`) once the turn has taken beat 3 over.
-  it.fails('turn.ts fixATurnAt(1400) starts from beat 3’s f1399 Fix A (its queue where beat 3 leaves it)', () => {
+  // The turn (turn.ts, TurnFrame) takes beat 3's f1399 state over (turn.test.ts holds the whole frame's shadows equal too).
+  it('turn.ts fixATurnAt(1400) starts from beat 3’s f1399 Fix A (its queue where beat 3 leaves it)', () => {
     const turn = fixATurnAt(1400, loopTurnAt(1400));
     const a = fixAOf(1399).items.filter((x) => x !== null);
     expect(turn.items.filter((x) => x !== null).map((x) => x!.p.map((v) => Math.round(v)))).toEqual(a.map((x) => x!.p.map((v) => Math.round(v))));
   });
-  it.fails('turn.ts fixBTurnAt(1400) continues beat 3’s Fix B (reply 7 in flight, the replies in your in-tray)', () => {
+  it('turn.ts fixBTurnAt(1400) continues beat 3’s Fix B (every reply home in your in-tray, reply 7 too)', () => {
     expect(json(fixBTurnAt(1400, shiftAt).slips)).toBe(json(fixBOf(1400).b.slips));
   });
 });
@@ -214,11 +221,27 @@ describe('Fix B (3.2): eight trays, one per event, none alike', () => {
     expect(new Set(TRAY_STUFF.map((s) => s.dossier.sheets)).size).toBeGreaterThanOrEqual(5);
   });
 
-  it('slides in from the east edge on its cue and fires replies 0–6 on the cue sheet’s frames (anticipation first)', () => {
-    expect(B_RISE.from).toBe(FIX_B.in);
-    for (const tr of TRAYS) expect(scr(FIX_B.in, [tr.c[0] - tr.w / 2 + fixBOf(FIX_B.in).rise, tr.c[1], 7])[0]).toBeGreaterThan(1930);
-    expect(fixBOf(B_RISE.from + B_RISE.frames).rise).toBe(0);
-    expect(B_RISE.from + B_RISE.frames).toBeLessThan(FIX_B.replies[0]);
+  it('posts its trays in one by one from beyond the east edge (2 f apart, each with its anticipation and a 3% squash), then fires replies 0–6 on the cue sheet’s frames', () => {
+    expect(B_POST.from).toBe(FIX_B.in);
+    TRAYS.forEach((tr, k) => {
+      const t0 = trayThrownB(k);
+      expect(t0 - (k ? trayThrownB(k - 1) : t0 - 2)).toBeGreaterThanOrEqual(2);
+      const o = fixBOf(t0).posts[k].off;
+      expect(scr(t0, [tr.c[0] - tr.w / 2 + o[0], tr.c[1] + o[1], o[2]])[0]).toBeGreaterThan(1930);
+      // the anticipation lifts before it travels
+      expect(fixBOf(t0 + 2).posts[k].off[2]).toBeGreaterThan(fixBOf(t0).posts[k].off[2]);
+      expect(fixBOf(t0 + 2).posts[k].off[0]).toBe(fixBOf(t0).posts[k].off[0]);
+      const lands = trayLandsB(k);
+      expect(fixBOf(lands).posts[k].off).toEqual([0, 0, 0]);
+      expect(Math.max(...span(lands, lands + 6).map((f) => fixBOf(f).posts[k].squash))).toBeCloseTo(0.03, 2);
+      for (const f of span(t0 + 3, lands)) {
+        const a = fixBOf(f - 1).posts[k].off;
+        const b = fixBOf(f).posts[k].off;
+        expect(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), `tray ${k} f${f}`).toBeLessThan(110);
+      }
+      // its reply leaves only once it has landed and settled
+      expect(lands + 6).toBeLessThanOrEqual(replyPostedB(k));
+    });
     FIX_B.replies.forEach((leave, k) => {
       expect(replyPostedB(k)).toBe(leave);
       expect(json(fixBOf(leave - 1).b.slips[k])).toBe(json(fixBOf(leave).b.slips[k]));
@@ -226,29 +249,107 @@ describe('Fix B (3.2): eight trays, one per event, none alike', () => {
     });
   });
 
-  it('lands the follow-up in tray 6 on its cue; tray 2’s stub (at least 24 px) tears off on the break mark and stays in tray 2', () => {
+  it('makes its trays big enough to read (120 px and more across) and fills each with its own event (48 px and more) and dossier', () => {
+    for (const tr of TRAYS) expect(tr.w * 1.2).toBeGreaterThanOrEqual(120);
+    for (const [w] of Object.values(EVENT_SIZE)) expect(w * 1.2).toBeGreaterThanOrEqual(48);
+    TRAYS.forEach((tr, k) => {
+      const S = TRAY_STUFF[k];
+      const [ew, ed] = EVENT_SIZE[S.event.kind];
+      const inside = (o: readonly number[], w: number, d: number) => Math.abs(o[0]) + w / 2 < tr.w / 2 - 4 && Math.abs(o[1]) + d / 2 < tr.d / 2 - 4;
+      expect(inside(S.event.o, ew, ed), `event ${k}`).toBe(true);
+      expect(inside(S.dossier.o, S.dossier.w, S.dossier.d), `dossier ${k}`).toBe(true);
+      expect(inside(S.reply.o, B_SLIP.l, B_SLIP.w), `reply ${k}`).toBe(true);
+      // the event and the dossier never overlap
+      expect(S.dossier.o[0] - S.dossier.w / 2 - (S.event.o[0] + ew / 2), `tray ${k}`).toBeGreaterThan(2);
+    });
+  });
+
+  it('lands the follow-up (tray 2’s family and print, 48 px and more) in tray 6 on its cue; on the break mark tray 2’s card tears in two, both halves left in tray 2', () => {
     expect(FOLLOW_UP.lands).toBe(FIX_B.followUp);
     expect(TEAR.at).toBe(FIX_B.breakMark);
     expect(TEAR.at).toBeGreaterThan(FOLLOW_UP.lands);
+    expect(TRAY_STUFF[BREAK.from].event.kind).toBe('ci');
+    expect([FOLLOW_UP.w, FOLLOW_UP.d]).toEqual(EVENT_SIZE.ci);
+    expect(FOLLOW_UP.w * 1.2).toBeGreaterThanOrEqual(48);
     const fu = fixBOf(FIX_B.followUp).followUp!;
     const t6 = TRAYS[BREAK.to];
     expect(Math.abs(fu.p[0] - t6.c[0])).toBeLessThan(t6.w / 2 - FOLLOW_UP.w / 2);
     expect(Math.abs(fu.p[1] - t6.c[1])).toBeLessThan(t6.d / 2 - FOLLOW_UP.d / 2 + 2);
+    // clear of tray 6's own event and dossier
+    const S6 = TRAY_STUFF[BREAK.to];
+    expect(FOLLOW_UP.o[0] - FOLLOW_UP.w / 2).toBeGreaterThan(S6.event.o[0] + EVENT_SIZE[S6.event.kind][0] / 2);
+    expect(FOLLOW_UP.o[0] + FOLLOW_UP.w / 2).toBeLessThan(S6.dossier.o[0] - S6.dossier.w / 2);
     expect(fixBOf(FIX_B.followUp - 30).followUp).toBeNull();
     expect(Math.min(STUB.w, STUB.d) * 1.2).toBeGreaterThanOrEqual(24);
     expect(fixBOf(TEAR.at).tear).toBe(0);
     expect(fixBOf(TEAR.at + 10).tear).toBeGreaterThan(0.9);
     for (const f of span(TEAR.at, TEAR.at + 12)) expect(Math.abs(fixBOf(f + 1).tear - fixBOf(f).tear)).toBeLessThan(0.45);
-    // the stub stays inside tray 2 once torn
+    // the torn half stays inside tray 2, clear of its dossier
     const t2 = TRAYS[BREAK.from];
-    const ev = TRAY_STUFF[BREAK.from].event;
-    const x = ev.o[0] + EVENT_SIZE[ev.kind][0] / 2 + STUB.w / 2 + TEAR.slide[0];
-    expect(Math.abs(x) + STUB.w / 2).toBeLessThan(t2.w / 2);
+    const S2 = TRAY_STUFF[BREAK.from];
+    const x = S2.event.o[0] + STUB.w / 2 + TEAR.slide[0];
+    const reach = Math.hypot(STUB.w, STUB.d) / 2;
+    expect(Math.abs(x) + reach).toBeLessThan(t2.w / 2);
+    expect(x + reach).toBeLessThan(S2.dossier.o[0] - S2.dossier.w / 2 + 6);
   });
 
-  it('has every reply in your in-tray before 3.3 ends, reply 7 posting on the turn’s frame', () => {
-    for (let k = 0; k < 7; k++) expect(fixBOf(1300).b.slips[k].p[2]).toBeGreaterThan(28);
+  it('has every reply in your in-tray by 3.3, reply 7 posting on the cue sheet’s f1300 and landing on top', () => {
+    for (let k = 0; k < 7; k++) expect(fixBOf(1290).b.slips[k].p[2]).toBeGreaterThan(28);
     expect(fixBOf(REPLY_7.post - 1).b.slips[7].p[2]).toBeLessThan(4);
+    expect(fixBOf(replyLandsB(7)).b.slips[7].p[2]).toBeGreaterThan(28);
+  });
+
+  it('works in place on eighths until f1390 (a dossier sheet riffling, nothing launched), every tray at rest from then to the turn', () => {
+    let ticks = 0;
+    for (let f = RIFFLE.from; f < 1400; f++) {
+      const r = fixBOf(f).riffle;
+      for (let k = 0; k < 8; k++) {
+        if (r[k] > 0 && fixBOf(f - 1).riffle[k] === 0) {
+          ticks++;
+          // each riffle starts on an eighth
+          expect((f - 1 - RIFFLE.from) % (BEAT / 2), `tray ${k} f${f}`).toBe(0);
+        }
+        expect(Math.abs(r[k] - fixBOf(f - 1).riffle[k])).toBeLessThan(0.5);
+      }
+    }
+    expect(ticks).toBeGreaterThan(30);
+    for (const f of span(1390, 1399)) expect(json(fixBOf(f)), `f${f}`).toBe(json(fixBOf(1399)));
+    expect(fixBOf(1399).riffle.every((r) => r === 0)).toBe(true);
+  });
+});
+
+describe('the request in 3.1, and Fix A as one session holding everything', () => {
+  it('puts one request on screen: its copy on the tape is vermilion while Fix A holds the focus, the heap’s drained meanwhile', () => {
+    const q = A_QUEUE[A_REQUEST];
+    expect(q.pour!.lands - q.pour!.arc - 3).toBe(REQUEST_ON_TAPE.from);
+    for (let f = REQUEST_ON_TAPE.from; f < 1400; f++) {
+      const copy = fixAOf(f).requestInk!;
+      const heap = actOneAt(f).request.ink;
+      expect(copy + heap, `f${f}`).toBeCloseTo(1, 1);
+      expect(Math.abs(copy - fixAOf(f - 1).requestInk!)).toBeLessThan(0.5);
+    }
+    for (const f of span(1000, 1125)) expect(fixAOf(f).requestInk).toBeGreaterThan(0.95);
+    expect(fixAOf(1399).requestInk).toBe(0);
+    expect(actOneAt(1399).request.ink).toBeCloseTo(1, 6);
+  });
+
+  it('is the fattest folder on the desk (200 px and more across), its stack thickening with every swallow', () => {
+    expect(FIX_A_FOLDER.w * 1.2).toBeGreaterThanOrEqual(200);
+    for (const fl of FOLDERS) expect(A_FOLDER_TOP).toBeGreaterThan(stackTop(fl));
+    let prev = aStackTopAt(FIX_A.in);
+    expect(prev).toBeCloseTo(A_FOLDER_TOP, 9);
+    for (const f of span(FIX_A.in, 1399)) {
+      const t = aStackTopAt(f);
+      expect(t - prev, `f${f}`).toBeLessThan(2);
+      prev = t;
+    }
+    expect(aStackTopAt(1399)).toBeCloseTo(A_STACK_END, 6);
+    expect(A_STACK_END - A_FOLDER_TOP).toBeGreaterThanOrEqual(15);
+    // the pile rides the stack: its lowest piece just on the top sheet on every frame
+    for (const f of [990, 1100, 1250, 1399]) {
+      const A = fixAOf(f);
+      expect(Math.min(...A.pile!.map((p) => p.p[2]))).toBeCloseTo(A.stackTop! + 0.5, 6);
+    }
   });
 });
 
@@ -256,7 +357,7 @@ describe('act one’s shadows fit the shaders, and act one is a pure function of
   it('casts at most MAX_FOOTPRINTS footprints on every frame of act one', () => {
     let most = 0;
     for (let f = 0; f < 1400; f++) {
-      const n = actOneFrameFootprints(f, cameraAt(f, 15)).length;
+      const n = actOneFrameFootprints(f).length;
       most = Math.max(most, n);
       expect(n, `f${f}`).toBeLessThanOrEqual(MAX_FOOTPRINTS);
     }

@@ -93,13 +93,17 @@ export const TAG_BUILT_LINES = { en: ['two levels: built', 'in the public', 'res
  *   corner), its short leader level from the block to the reel frame's east post under the lock (the upper level's own
  *   body, never along the key; the lower level is in plain view under it), clear of the notes band, so the frame's foot
  *   never becomes a wall of text (the C11 critic);
- * - the gate tag (N3, C14) over the feeders, its leader down to the gate's bar;
+ * - the gate tag (N3, C14) over the intake, its text inside title-safe (its ascenders 54 px from the top), set 28 px west
+ *   of where it was so its zh line's strokes pass over the conversation spool's flange at its lowest gap (they touch its
+ *   top edge by at most a pixel; any lower, or any further east, and they overlap it or run on into the Continuous plate),
+ *   its leader down to the north end of the gate's bar along its west edge: clear west of the starter key's bow docked
+ *   beside it, east of the spike and its pile (desk/beat5.ts);
  * - the cache tag (N5, N6) in the close as in still (c); its text stays put through the bar-42 ease-out while its
  *   leader retracts.
  */
 export const ACT2_TAGS: readonly TagSpec[] = [
-  { cue: 'tag-built', words: WORDS.tagBuilt, at: [1824, 96], anchor: 'end', foot: [REEL_FRAME[2].x0 + 8, 330, REEL_FRAME_Z[1] + 4], lines: TAG_BUILT_LINES },
-  { cue: 'tag-gate', words: WORDS.tagGate, at: [112, 70], anchor: 'start', foot: [rectC(GATE.bar)[0], GATE.bar.y1 - 8, GATE.h] },
+  { cue: 'tag-built', words: WORDS.tagBuilt, at: [1800, 96], anchor: 'end', foot: [REEL_FRAME[2].x0 + 8, 330, REEL_FRAME_Z[1] + 4], lines: TAG_BUILT_LINES },
+  { cue: 'tag-gate', words: WORDS.tagGate, at: [84, 84], anchor: 'start', foot: [GATE.bar.x0 + 2, GATE.bar.y1 - 8, GATE.h] },
   { cue: 'tag-cache', words: WORDS.tagCache, at: [1050, 432], anchor: 'start', foot: [-112, 196, 123], leaderUntil: EASE_OUT.from },
 ];
 

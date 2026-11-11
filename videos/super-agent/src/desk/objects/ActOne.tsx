@@ -59,7 +59,8 @@ import { cylinderZ, extrude, fitUv, merge, piece, slab, slipShape, tube } from '
 import type { Press } from '../turn.ts';
 import { HEX, paper, whiteTexture } from '../gl/materials.ts';
 import { INK, print, texture, tooth } from '../gl/text.ts';
-import { Step, isStepped, useDeskMats } from '../kit.tsx';
+import { Step, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
+import { DESK_HEX } from '../gl/desk.ts';
 import type { P2, P3 } from '../layout.ts';
 import { STEP_FRAMES } from '../state.ts';
 
@@ -495,8 +496,17 @@ interface FolderMats {
 
 const mix = (a: string, b: string, t: number): Color => new Color(a).lerp(new Color(b), t);
 
+/** The slate's own tone (linear): what a pressed folder's paper glows to as its own light goes out (desk/turn.ts foldPressAt). */
+const SLATE = new Color(DESK_HEX.base);
+
 function Folder({ fl, s, mats, press }: { fl: FolderLayout; s: FolderState; mats: FolderMats; press?: Press }) {
-  const m = useDeskMats();
+  // pressed at the turn (desk/turn.ts foldPressAt), its pen, flag, clip and post take the slate's tone on the kit's late
+  // ramp (the turn sets it; nothing else is on the late set then), its paper by its own colour, so it goes under the slate
+  // in the slate's tone
+  const ctx = useDeskMats();
+  const sets = useDeskSets();
+  const m = press ? sets.late : ctx;
+  const slate = press?.slate ?? 0;
   const g = useMemo(() => folderGeometry(fl), [fl]);
   const pen = useMemo(() => penGeometry(fl, s), [fl, s]);
   const flag = useMemo(() => (s.flag > 0.01 ? flagGeometry(fl, s.flag) : null), [fl, s.flag]);
@@ -510,7 +520,12 @@ function Folder({ fl, s, mats, press }: { fl: FolderLayout; s: FolderState; mats
     mats.top.color.copy(sheet);
     mats.cover.color.copy(cover);
     mats.card.color.copy(sheet).lerp(new Color(HEX.paperLit), 0.12 * (1 - lit));
-  }, [mats, s.warmth, lit]);
+    // pressed: its own light goes out and the slate's tone comes in (by amount, never alpha), print and all
+    for (const x of [mats.sheet, mats.top, mats.cover, mats.card]) {
+      x.color.multiplyScalar(1 - slate);
+      x.emissive.copy(SLATE).multiplyScalar(slate);
+    }
+  }, [mats, s.warmth, lit, slate]);
   if (s.present <= 0 || (press && press.k >= 1)) return null;
   // F6–F8 are posted in whole (actOne.ts boardAt): the board flies in at full scale and squashes 3% as it lands; its task
   // card is on the stack once the event slip has landed on it, and its clip, riding open on the board's north edge, slides
@@ -520,12 +535,13 @@ function Folder({ fl, s, mats, press }: { fl: FolderLayout; s: FolderState; mats
   const b = s.board;
   const sq = b?.squash ?? 0;
   const open = 1 - s.clip;
-  // pressed into the desk at the turn as one body (desk/turn.ts pressAt): squashed flat with its pen, flag and clip, then
-  // sunk north edge first into its imprint
+  // pressed into the desk at the turn as one body (desk/turn.ts foldPressAt): squashed flat and sunk with its pen, flag and
+  // clip, drawing in from its outline into its imprint
   const drop = -(press?.sink ?? 0);
+  const inset = press?.inset ?? 0;
   return (
     <group position={[fl.c[0] + (b?.off[0] ?? 0), fl.c[1] + (b?.off[1] ?? 0), drop + (b?.off[2] ?? 0)]} rotation={[b?.tilt ?? 0, 0, fl.rot]} scale={[1 + sq / 2, 1 + sq / 2, 1 - sq]}>
-      <group rotation={[-(press?.tilt ?? 0), 0, 0]} scale={[1, 1, press?.scaleZ ?? 1]}>
+      <group rotation={[-(press?.tilt ?? 0), 0, 0]} scale={[1 - (2 * inset) / fl.w, 1 - (2 * inset) / fl.d, press?.scaleZ ?? 1]}>
         <group>
           <group>
             <mesh geometry={g.cover} material={mats.cover} />

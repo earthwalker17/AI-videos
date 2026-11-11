@@ -13,7 +13,8 @@
  * everything on it: ink, never a glow.
  */
 import { useLayoutEffect, useMemo } from 'react';
-import { Path, Shape, type BufferGeometry, type Texture } from 'three';
+import { CanvasTexture, Color, MeshBasicMaterial, Path, Shape, ShapeGeometry, SRGBColorSpace, type BufferGeometry, type Texture } from 'three';
+import { textCanvas } from '@aiv/remotion-kit';
 import { useThree } from '@react-three/fiber';
 import { extrude, merge } from '../geom.ts';
 import { matte, paper, whiteTexture } from '../gl/materials.ts';
@@ -41,24 +42,79 @@ export interface CardPose {
 /** A deterministic jitter in -1..1 from an index (no randomness in frame code). */
 const jitter = (i: number, k = 0): number => (((Math.imul(i * 7919 + k * 104729 + 13, 2654435761) >>> 0) % 2001) / 1000 - 1);
 
-/** The card's sheet: its outline torn along its top edge, the perforation's holes in a row under the tear. */
-function cardShape(w: number, h: number): Shape {
-  const s = new Shape();
+/** The card's outline (counter-clockwise from its south-west corner): its top edge torn, ragged, short steps a few units up and down. */
+function cardOutline(w: number, h: number): P2[] {
   const top = h / 2 - 5;
-  s.moveTo(-w / 2, -h / 2);
-  s.lineTo(w / 2, -h / 2);
-  s.lineTo(w / 2, top);
-  // the tear: ragged, short steps a few units up and down, from east to west
+  const pts: P2[] = [
+    [-w / 2, -h / 2],
+    [w / 2, -h / 2],
+    [w / 2, top],
+  ];
   const n = Math.round(w / 7);
-  for (let i = 1; i < n; i++) s.lineTo(w / 2 - (w * i) / n, top + 2.6 * jitter(i) + (i % 2 ? 1.2 : -0.6));
-  s.lineTo(-w / 2, top);
+  for (let i = 1; i < n; i++) pts.push([w / 2 - (w * i) / n, top + 2.6 * jitter(i) + (i % 2 ? 1.2 : -0.6)]);
+  pts.push([-w / 2, top]);
+  return pts;
+}
+const polyShape = (pts: readonly P2[]): Shape => {
+  const s = new Shape();
+  s.moveTo(...pts[0]);
+  for (const p of pts.slice(1)) s.lineTo(...p);
   s.closePath();
+  return s;
+};
+
+/** The card's sheet: its torn outline, the perforation's holes in a row under the tear. */
+function cardShape(w: number, h: number): Shape {
+  const s = polyShape(cardOutline(w, h));
+  const top = h / 2 - 5;
   for (let x = -w / 2 + 9; x < w / 2 - 5; x += 10) {
     const p = new Path();
     p.absarc(x, top - 9, 1.9, 0, Math.PI * 2, true);
     s.holes.push(p);
   }
   return s;
+}
+
+/** How wide the card's rim is (its cut and torn edge, a darker stock than its face), and its colour. */
+const RIM = 2.4;
+const RIM_HEX = '#77736B';
+
+/** The rim: a band round the card's outline, its inner edge the outline drawn in by RIM. */
+function rimShape(w: number, h: number): Shape {
+  const out = cardOutline(w, h);
+  const sx = (w / 2 - RIM) / (w / 2);
+  const sy = (h / 2 - RIM) / (h / 2);
+  const s = polyShape(out);
+  const hole = new Path();
+  const inner = out.map(([x, y]): P2 => [x * sx, y * sy]).reverse();
+  hole.moveTo(...inner[0]);
+  for (const p of inner.slice(1)) hole.lineTo(...p);
+  hole.closePath();
+  s.holes.push(hole);
+  return s;
+}
+
+/**
+ * The card's contact shadow on whatever lies behind it as the camera sees it: its outline grown and offset down and to
+ * the right of the light, a soft dark sheet just behind the card (it only shows round the card's edges). Light enough
+ * that nothing under it goes below the slate's floor tone.
+ */
+const SHADOW = { grow: 7, dx: 6, dy: -9, opacity: 0.32 } as const;
+function shadowTexture(w: number, h: number): Texture {
+  const pad = SHADOW.grow * 2;
+  const W = w + 2 * pad;
+  const H = h + 2 * pad;
+  const k = 2;
+  const { c, g } = textCanvas(Math.ceil(W * k), Math.ceil(H * k));
+  g.scale(k, k);
+  g.fillStyle = '#000000';
+  g.fillRect(0, 0, W, H);
+  g.filter = 'blur(' + SHADOW.grow * 0.8 * k + 'px)';
+  g.fillStyle = '#FFFFFF';
+  g.fillRect(pad, pad, w, h);
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  return t;
 }
 
 /** The card's face print: grey stock with its tooth and a ruled border a little in from the edge (a printed card, not a panel). */
@@ -91,25 +147,47 @@ export function Counterfactual({ pose, w, h, strike, children }: { pose: CardPos
   const gl = useThree((st) => st.gl);
   const mats = useMemo(() => {
     const face = cardFace(w, h, Math.min(8, gl.capabilities.getMaxAnisotropy()));
-    return { face, card: paper(face, '#FFFFFF', { roughness: 0.92 }), ink: matte(CARD_INK, 0.85, 0, false) };
+    const white = whiteTexture();
+    const shade = shadowTexture(w, h);
+    return {
+      face,
+      white,
+      shade,
+      card: paper(face, '#FFFFFF', { roughness: 0.92 }),
+      rim: paper(white, RIM_HEX, { roughness: 0.9 }),
+      shadow: new MeshBasicMaterial({ color: new Color('#000000'), alphaMap: shade, transparent: true, opacity: SHADOW.opacity, depthWrite: false }),
+      ink: matte(CARD_INK, 0.85, 0, false),
+    };
   }, [w, h, gl]);
   useLayoutEffect(
     () => () => {
-      mats.face.dispose();
-      mats.card.dispose();
-      mats.ink.dispose();
+      for (const x of [mats.face, mats.white, mats.shade, mats.card, mats.rim, mats.shadow, mats.ink]) x.dispose();
     },
     [mats],
   );
   const g = useMemo(() => {
     const sheet = faceUv(extrude(cardShape(w, h), -1.4, 0, 0.3, 1), w, h);
+    const rim = extrude(rimShape(w, h), 0, 0.12, 0);
+    const pad = SHADOW.grow * 2;
+    const shadow = faceUv(
+      new ShapeGeometry(
+        polyShape([
+          [-w / 2 - pad, -h / 2 - pad],
+          [w / 2 + pad, -h / 2 - pad],
+          [w / 2 + pad, h / 2 + pad],
+          [-w / 2 - pad, h / 2 + pad],
+        ]),
+      ),
+      w + 2 * pad,
+      h + 2 * pad,
+    );
     const rule = new Shape();
     rule.moveTo(0, -3.5);
     rule.lineTo(1, -3.5);
     rule.lineTo(1, 3.5);
     rule.lineTo(0, 3.5);
     rule.closePath();
-    return { sheet, rule: extrude(rule, 0, 0.6, 0) };
+    return { sheet, rim, shadow, rule: extrude(rule, 0, 0.6, 0) };
   }, [w, h]);
   useLayoutEffect(() => () => Object.values(g).forEach((x: BufferGeometry) => x.dispose()), [g]);
   // the strike: from the top-left corner to the bottom-right, inset, laid as it is drawn (its pen's end leads)
@@ -119,7 +197,9 @@ export function Counterfactual({ pose, w, h, strike, children }: { pose: CardPos
   const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
   return (
     <group position={pose.c} rotation={[pose.tilt, 0, 0]}>
+      <mesh geometry={g.shadow} material={mats.shadow} position={[SHADOW.dx, SHADOW.dy, -3]} />
       <mesh geometry={g.sheet} material={mats.card} />
+      <mesh geometry={g.rim} material={mats.rim} />
       {children}
       {strike > 0 && <mesh geometry={g.rule} material={mats.ink} position={[a[0], a[1], RULE_Z]} rotation={[0, 0, ang]} scale={[L, 1, 1]} />}
     </group>
@@ -190,25 +270,30 @@ function towerMini(x: number, y: number, r: number): { body: BufferGeometry; ink
   const ink = solid([rect(x - r * 0.75, y + r * 0.78, x + r * 0.75, y + r * 0.96, 0.8), rect(x - r * 0.45, y - r * 0.38 - 1.3, x + r * 0.45, y - r * 0.38 + 1.3, 0.5)], RELIEF * 2.2, RELIEF * 2.2 + 1.2);
   return { body, ink };
 }
-/** The docs galley in plan: a wide low tray, its rails, the type set in lines in it. */
-function galleyMini(x: number, y: number): { body: BufferGeometry; ink: BufferGeometry } {
+/**
+ * The docs galley in plan, as the real one lies in its bay: a wide low tray, its rails on three sides (open at its east
+ * end), the set matter in it as solid slugs (a line of type cast whole: each a bar the line's measure, the last line short),
+ * locked up by a quoin at the open end.
+ */
+function galleyMini(x: number, y: number): { body: BufferGeometry; ink: BufferGeometry; light: BufferGeometry } {
   const w = 92;
   const d = 30;
-  const body = solid([rect(x - w / 2, y - d / 2, x + w / 2, y + d / 2, 1.5)], 0, RELIEF * 0.8);
-  const lines: Shape[] = [];
-  for (let i = 0; i < 4; i++) {
-    const yy = y - d / 2 + 6 + i * 6;
-    // set lines of differing measure (type, never a bar chart)
-    let xx = x - w / 2 + 6;
-    let j = 0;
-    while (xx < x + w / 2 - 10) {
-      const len = 6 + ((i * 5 + j * 3) % 4) * 3;
-      lines.push(rect(xx, yy - 1.1, Math.min(xx + len, x + w / 2 - 6), yy + 1.1, 0.4));
-      xx += len + 3;
-      j++;
-    }
-  }
-  return { body, ink: solid(lines, RELIEF * 0.8, RELIEF * 0.8 + 0.8) };
+  const x0 = x - w / 2;
+  const x1 = x + w / 2;
+  const body = solid([rect(x0, y - d / 2, x1, y + d / 2, 1.5)], 0, RELIEF * 0.8);
+  const rail = 2.2;
+  const rails = solid([rect(x0, y + d / 2 - rail, x1 - 2, y + d / 2), rect(x0, y - d / 2, x1 - 2, y - d / 2 + rail), rect(x0, y - d / 2, x0 + rail, y + d / 2)], RELIEF * 0.8, RELIEF * 0.8 + 1.4);
+  // the slugs, top line first, between the rails
+  const n = 4;
+  const gap = 1.1;
+  const t = (d - 2 * rail - 2 - (n - 1) * gap) / n;
+  const measure = [x1 - 14, x1 - 14, x1 - 14, x0 + rail + 1 + (w - 2 * rail - 16) * 0.58];
+  const slugs = Array.from({ length: n }, (_, i) => {
+    const top = y + d / 2 - rail - 1 - i * (t + gap);
+    return rect(x0 + rail + 1, top - t, measure[i], top, 0.5);
+  });
+  const quoin = rect(x1 - 12, y - d / 2 + rail + 1, x1 - 6, y + d / 2 - rail - 1, 0.6);
+  return { body, ink: merge([rails, solid([quoin], RELIEF * 0.8, RELIEF * 0.8 + 1.6)]), light: solid(slugs, RELIEF * 0.8, RELIEF * 0.8 + 1.2) };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -272,13 +357,14 @@ export function SplitPlay({ play }: { play: number }) {
     const bench = benchMini(DEST[0][0], DEST[0][1]);
     const tower = towerMini(DEST[1][0], DEST[1][1], 20);
     const galley = galleyMini(DEST[2][0], DEST[2][1]);
-    return { pieces: tornPieces(), body: merge([bench.body, tower.body, galley.body]), ink: merge([bench.ink, tower.ink, galley.ink]) };
+    return { pieces: tornPieces(), body: merge([bench.body, tower.body, galley.body]), ink: merge([bench.ink, tower.ink, galley.ink]), slugs: galley.light };
   }, []);
   useLayoutEffect(
     () => () => {
       g.pieces.forEach((x) => x.dispose());
       g.body.dispose();
       g.ink.dispose();
+      g.slugs.dispose();
     },
     [g],
   );
@@ -290,6 +376,7 @@ export function SplitPlay({ play }: { play: number }) {
     <group position={[0, 0, 0.05]}>
       <mesh geometry={g.body} material={m.dark} />
       <mesh geometry={g.ink} material={m.ink} />
+      <mesh geometry={g.slugs} material={m.light} />
       {g.pieces.map((x, i) => {
         const dx = (DEST[i][0] - centres[i]) * 0.42 * e;
         const dy = (DEST[i][1] - SLIP.c[1]) * 0.42 * e;

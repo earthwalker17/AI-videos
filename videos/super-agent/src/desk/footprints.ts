@@ -14,7 +14,10 @@ import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT
 import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, CORD_FROM, DOCK_B, hammerOffset, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
 import { CHORES, TRAY_Z, YOU_POSE_B, strutOnLid, type YouPose } from './you.ts';
 import { HEAP, PIECE, ciHopperFootprints, youPoseAt } from './actOne.ts';
-import { CARD_SPOT, REQUEST_HEAP, WORK_DEPTH as WORK_DEPTH_FP, cardPose, heapPieceAt, ON_REQUEST, type Beat4State, type CardState, type HeapState } from './beat4.ts';
+import { CARD_SPOT, REQUEST_HEAP, WORK_DEPTH as WORK_DEPTH_FP, cardPose, heapPieceAt, ON_REQUEST, type Beat4State, type CardState, type Carry, type HeapState } from './beat4.ts';
+import { SPIKE_BASE, type Beat5State } from './beat5.ts';
+import { BAR_RIDE, DECODE, REVIEW, STRESS_PLATE, TAB_FILE, TRAY, type Beat6State } from './beat6.ts';
+import { DRAWER_OPEN_C, PROACTIVE_PLATE, SPIKE } from './layout.ts';
 
 /** At most this many footprints reach the GPU (the uniform array's size). */
 export const MAX_FOOTPRINTS = 128;
@@ -304,12 +307,12 @@ export function movingFootprints(s: DeskState): Footprint[] {
   // beat 4: the request on its ride, the arrivals on the intake, the counterfactual cards over the slate, the heap's pit
   const b4 = s.b4;
   const r = b4.request.pose;
-  if (r) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [REQUEST.l / 2, REQUEST.w / 2], r: 2, rot: r.heading, z0: r.p[2] - 0.4, z1: r.p[2] + 0.6, contact: carrierContact(r.p[2]) });
+  if (r) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [REQUEST.l / 2, REQUEST.w / 2], r: 2, rot: r.heading, z0: r.p[2] - 0.4, z1: r.p[2] + 0.6, contact: carrierContact(r) });
   for (const a of b4.arrivals) fp.push({ kind: 'rect', c: [a.pose.p[0], a.pose.p[1]], h: a.kind === 'ci' ? [42, 25] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: a.pose.heading, z0: a.pose.p[2] - 0.4, z1: a.pose.p[2] + 0.4, contact: 0 });
   for (const c of b4.carriers) {
     if (c.docked) continue;
     const [hl, hw] = c.kind === 'ci' ? [42, 25] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2];
-    fp.push({ kind: 'rect', c: [c.pose.p[0], c.pose.p[1]], h: [hl, hw], r: 2, rot: c.pose.heading, z0: c.pose.p[2] - 0.4, z1: c.pose.p[2] + 0.4, contact: carrierContact(c.pose.p[2]) });
+    fp.push({ kind: 'rect', c: [c.pose.p[0], c.pose.p[1]], h: [hl, hw], r: 2, rot: c.pose.heading, z0: c.pose.p[2] - 0.4, z1: c.pose.p[2] + 0.4, contact: carrierContact(c.pose) });
   }
   for (const which of ['split', 'ghost'] as const) {
     const c = b4.cards[which];
@@ -332,11 +335,95 @@ export function movingFootprints(s: DeskState): Footprint[] {
     const pose = replyPose(s.slip);
     fp.push({ kind: 'rect', c: [pose.p[0], pose.p[1]], h: [SLIP.l / 2, SLIP.w / 2], r: 3, rot: pose.heading, z0: pose.p[2] - 0.6, z1: pose.p[2] + 0.6, contact: 0 });
   }
+  fp.push(...beat5Footprints(s.e5));
+  // beat 6: #0408's tab, filed in the drawer from the close (objects/Cache.tsx TestTab: the same footprint s.dock gave it), then beat 6's movers
+  if (c && !c.summary) {
+    const tilt = TAB_LEAN_B + (TAB_FILE.lean - TAB_LEAN_B) * c.file;
+    const y = TAB_REST_B[1] - DRAWER_OPEN_C * c.drawer + TAB_FILE.dy * c.file;
+    fp.push(tiltedFp([TAB_REST_B[0], y + (TAB_B.d / 2) * Math.cos(tilt), TAB_REST_B[2] + TAB_FILE.dz * c.file + (TAB_B.d / 2) * Math.sin(tilt)], TAB_B.w, TAB_B.d, tilt, 0.5));
+  }
+  fp.push(...beat6Footprints(s.e6));
   return fp;
 }
 
-/** A carrier's contact shadow by its height over the slate: full riding its groove (1.4 u), gone 5 u up (it closes in and opens out as it lands and lifts, never in one frame). */
-const carrierContact = (z: number): number => 0.4 * Math.min(1, Math.max(0, (5 - z) / 3.6));
+/**
+ * Beat 6's footprints (desk/beat6.ts): each slip of the batches in the air and riding up the belt (paper: no contact),
+ * the reading bar over the strip, the decode slip out of the head's slot, the stress plate in flight and seated on its
+ * hooks, the review card. The thread (2 px) and its "№" tabs (paper flags 22 u tall, standing on paper) cast nothing: from
+ * C17 the Thread cord's 13 footprints come in and the budget holds 128.
+ */
+export function beat6Footprints(e: Beat6State): Footprint[] {
+  const fp: Footprint[] = [];
+  // a slip lying in the gather tray lies flat on its floor (its shadow is under it): only those in the air or riding up the belt cast
+  for (const x of e.strip) {
+    if (x.hidden || x.inTray) continue;
+    fp.push({ kind: 'rect', c: [x.pose.p[0], x.pose.p[1]], h: [(NEXT_SLIP.l / 2) * Math.cos(x.pose.slope), NEXT_SLIP.w / 2], r: 2, rot: x.pose.heading, z0: x.pose.p[2] - 0.4, z1: x.pose.p[2] + 0.4, contact: 0 });
+  }
+  if (e.bar) {
+    const z = TRAY.floor + BAR_RIDE;
+    fp.push(segFp([e.bar.x, TRAY.y0 - 6, z], [e.bar.x, TRAY.y1 + 6, z], 3));
+  }
+  if (e.decode) {
+    const d = e.decode;
+    const len = DECODE.cell * d.out;
+    const dir: P3 = [0, -Math.cos(d.pitch), Math.sin(d.pitch)];
+    fp.push(segFp(d.p, [d.p[0] + dir[0] * len, d.p[1] + dir[1] * len, d.p[2] + dir[2] * len], DECODE.w / 2));
+  }
+  if (e.plate) {
+    const B = STRESS_PLATE.box;
+    const [dx, dy, dz] = e.plate.d;
+    fp.push(rectFp({ x0: B.x0 + dx, x1: B.x1 + dx, y0: B.y0 + dy, y1: B.y1 + dy }, STRESS_PLATE.z[0] + dz, STRESS_PLATE.z[1] + dz, e.plate.flying ? 0 : 0.6, 4));
+  }
+  if (e.review) fp.push({ kind: 'rect', c: [e.review.p[0], e.review.p[1]], h: [(REVIEW.l / 2) * Math.cos(e.review.slope), REVIEW.w / 2], r: 2, rot: e.review.heading, z0: e.review.p[2] - 0.4, z1: e.review.p[2] + 0.4, contact: 0 });
+  return fp;
+}
+
+/** How many of the pile's top slips cast (the ones under them lie in their shadow). */
+const PILE_CASTS = 4;
+
+/**
+ * Beat 5's footprints (desk/beat5.ts): the starter key (in your tray's footprint as it lifts, its contact opening as it
+ * rises, tightening as it docks), the Proactive plate sliding out of your desk (under its slab it shades only what the
+ * slab already does), the spike as it rises out of its hatch (nothing while under the slate; its narrow pit is not
+ * roofed, so its walls stay above the desk's floor tone), its rod and the pile's top slips, and every slip of the filter
+ * in the air, on the fingers, on the belt or in the throat.
+ */
+export function beat5Footprints(e: Beat5State): Footprint[] {
+  const fp: Footprint[] = [];
+  const k = e.key;
+  if (k) {
+    // the tray's key footprint (youFootprints) carried with the key: x from its bow's west edge to its bit, y from its tip to its bow
+    const { key } = CHORES;
+    const r: Rect = { x0: k.p[0] - key.bowR, x1: k.p[0] + key.bit.x[1], y0: k.p[1] + key.shank[0], y1: k.p[1] + key.bowY + key.bowR };
+    fp.push(rectFp(r, k.p[2], k.p[2] + 4, 0.7 * Math.max(0, 1 - k.lift / 4), 4));
+  }
+  const pl = e.plate;
+  if (pl) {
+    const B = PROACTIVE_PLATE.box;
+    fp.push(rectFp({ ...B, y0: B.y0 + pl.dy, y1: B.y1 + pl.dy }, PROACTIVE_PLATE.z[0], PROACTIVE_PLATE.z[1], 0.8, 4));
+  }
+  const sp = e.spike;
+  if (sp) {
+    if (SPIKE_BASE + sp.dz > 0.5) fp.push(circleFp([SPIKE.x, SPIKE.y], SPIKE.baseR, Math.max(0, sp.dz), SPIKE_BASE + sp.dz, Math.min(1, Math.max(0, (sp.dz + 3) / 3))));
+    if (SPIKE.h + sp.dz > 0.5) fp.push(segFp([SPIKE.x, SPIKE.y, Math.max(0, SPIKE_BASE + sp.dz)], [SPIKE.x, SPIKE.y, SPIKE.h + sp.dz], 2.6));
+  }
+  const pile = e.slips.filter((x) => x.onPile);
+  for (const x of pile.slice(-PILE_CASTS)) fp.push({ kind: 'rect', c: [x.p[0], x.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: x.heading, z0: x.p[2] - 0.4, z1: x.p[2] + 0.4, contact: x === pile[0] ? 0.3 : 0 });
+  for (const x of e.slips) {
+    if (x.onPile) continue;
+    // a slip rolled about its length (flipped up on the fingers) shades a narrower strip, over the height it spans
+    const half = (NEXT_SLIP.w / 2) * Math.abs(Math.cos(x.roll));
+    const rise = (NEXT_SLIP.w / 2) * Math.abs(Math.sin(x.roll)) + (NEXT_SLIP.l / 2) * Math.abs(Math.sin(x.slope));
+    fp.push({ kind: 'rect', c: [x.p[0], x.p[1]], h: [NEXT_SLIP.l / 2, Math.max(2, half)], r: 2, rot: x.heading, z0: x.p[2] - 0.4 - rise, z1: x.p[2] + 0.4 + rise, contact: 0 });
+  }
+  return fp;
+}
+
+/**
+ * A carrier's contact shadow: its own (desk/beat4.ts Carry.contact: drawn out as it lifts off the slate and in as it settles
+ * onto its dock, over frames), else by its height over the slate (full lying on it at 1.4 u, gone 5 u up).
+ */
+const carrierContact = (c: Carry): number => 0.4 * (c.contact ?? Math.min(1, Math.max(0, (5 - c.p[2]) / 3.6)));
 
 /** Whether every corner of heap piece i lies under a piece that landed after it (its shadow lies under that piece). */
 function heapCovered(i: number): boolean {
@@ -381,7 +468,9 @@ export function heapFootprintsAt(h: HeapState): Footprint[] {
     const [w, d] = PIECE[p.kind];
     const q = heapPieceAt(p.z, Math.abs(p.z - onReq) < 1e-6, h);
     const inset = 5 * k;
-    fp.push({ kind: 'rect', c: p.c, h: [Math.max(1, w / 2 - inset), Math.max(1, d / 2 - inset)], r: 2, rot: p.rot, z0: q.z - 0.3, z1: q.z + 0.5 * q.k, contact: 0.45 * (1 - k) });
+    // (its plate thins to nothing as it presses flat, so the frame it stops casting changes no shade)
+    const z0 = q.z - 0.3 * (1 - k);
+    fp.push({ kind: 'rect', c: p.c, h: [Math.max(1, w / 2 - inset), Math.max(1, d / 2 - inset)], r: 2, rot: p.rot, z0, z1: z0 + (0.3 + 0.5 * q.k) * (1 - k), contact: 0.45 * (1 - k) });
   });
   return fp;
 }

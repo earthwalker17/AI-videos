@@ -105,7 +105,7 @@ function useCardGeometry() {
 }
 
 /** The card as its two halves about the crease (group origin), the south half turned `fold` of the way over onto the north. */
-function CardHalves({ fold, light, faces }: { fold: number; light: boolean; faces: { body: Material; front: Material; back: Material; transit: Material } }) {
+export function CardHalves({ fold, light, faces }: { fold: number; light: boolean; faces: { body: Material; front: Material; back: Material; transit: Material } }) {
   const g = useCardGeometry();
   return (
     <>

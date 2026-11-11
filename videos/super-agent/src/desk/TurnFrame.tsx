@@ -18,11 +18,10 @@ import { cameraAt, FAR, FOV, NEAR, type Angle } from './camera.ts';
 import { DeskWorld } from './DeskWorld.tsx';
 import { DESK_GROOVE_CUT, DESK_HEX, DESK_HOLES, HOLE_SHUT } from './gl/desk.ts';
 import { PRINT_FONT } from './gl/text.ts';
-import { B4 } from './beat4.ts';
+import { REQUEST_FROM } from './beat4.ts';
 import { keepFilm } from './film.ts';
 import { useDeskSets } from './kit.tsx';
 import type { Rect } from './layout.ts';
-import { ACT_ONE_LABELS } from './ActOneFrame.tsx';
 import { ActOneObjects } from './objects/ActOne.tsx';
 import { TurnChute } from './objects/Links.tsx';
 import { Feeders, Gate } from './objects/Intake.tsx';
@@ -34,12 +33,11 @@ import { TURN, TURN_SPAN, chutePath, imprintsAt, turnAt, turnDeskState, turnFoot
 import type { DeskState } from './state.ts';
 
 /**
- * The labels: your act-one label until the camera moves (then it exits, 6 f), and as they re-enter once the camera
- * has settled: yours at your act-two place, the Router's on the reel frame's east member (both as ROLE_LABELS).
+ * The labels as they enter once the camera has settled (your act-one label left as beat 3 began): yours at your act-two
+ * place, the Router's on the dispatch housing (both as ROLE_LABELS).
  */
 function turnLabels(t: TurnState): RoleLabel[] {
   const out: RoleLabel[] = [];
-  if (t.labels.youA) out.push({ ...ACT_ONE_LABELS[0], ...t.labels.youA });
   if (t.labels.you) out.push({ ...ROLE_LABELS[2], ...t.labels.you });
   if (t.labels.router) out.push({ ...ROLE_LABELS[0], ...t.labels.router });
   return out;
@@ -111,8 +109,8 @@ export function TurnFrame({ f, angle, bloom, objects = true }: TurnFrameProps) {
                 <Feeders s={s} turn={{ spool: t.intake.spool, mail: t.intake.mail, calendar: t.intake.calendar }} />
                 <Gate s={s} belt={t.intake.belt} />
                 {chute && <TurnChute path={chute} posts={t.parts.posts} />}
-                {/* act one's folders and heap until the request starts to rise out of the heap; then the heap and the request as beat 4 moves them (act two draws the same) */}
-                {wf < B4.requestRise ? <ActOneObjects a={t.act} printFamily={print.family} press={t.press} loop={false} stepRequest={t.step > 0} /> : <Backlog a={t.act} heap={s.b4.heap} request={s.b4.request} f={wf} stepRequest={t.step > 0} />}
+                {/* act one's folders and heap until the request starts out of the heap (its crease gathering: beat4.ts REQUEST_FROM); then the heap and the request as beat 4 moves them (act two draws the same) */}
+                {wf < REQUEST_FROM ? <ActOneObjects a={t.act} printFamily={print.family} press={t.press} loop={false} stepRequest={t.step > 0} /> : <Backlog a={t.act} heap={s.b4.heap} request={s.b4.request} f={wf} stepRequest={t.step > 0} />}
                 {wf >= TURN.deckIn && <TurnRegister s={s} t={t} />}
                 <TurnObjects t={t} printFamily={print.family} />
               </>

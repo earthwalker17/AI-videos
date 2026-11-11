@@ -150,8 +150,8 @@ function strutParts(len: number) {
   };
 }
 
-/** The starter key lying north-south (desk coordinates): a ring bow north, a collar, the shank, a toothed bit south-east. */
-function keyGeometry(): { body: BufferGeometry; bow: BufferGeometry } {
+/** The starter key lying north-south (desk coordinates, in its tray): a ring bow north, a collar, the shank, a toothed bit south-east. Its hand-over to the intake draws the same key (objects/Filter.tsx). */
+export function keyGeometry(): { body: BufferGeometry; bow: BufferGeometry } {
   const { c, bowY, bowR, shank, bit } = CHORES.key;
   const [kx, ky] = c;
   const z0 = TRAY_Z.floor;

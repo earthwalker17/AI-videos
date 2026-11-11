@@ -1,31 +1,39 @@
 /**
  * The turn (MT2, film f1400–1660; STORYBOARD 3.3–4.2, synthesis §5 MT2): the routing job lifts off
- * your desk and becomes the Register. One object becomes another by physical means only, one idea at
- * a time (at most two or three motions overlap):
- * 1. 1436–1470: the heap, the feeders and the request step down (the focus pull leads the camera);
- *    on the hit the notes loop dips and lifts, and the eight folders (and Fix A's) are pressed into the
- *    desk, each as one body (squashed flat, then sunk north edge first), leaving their imprints.
- * 2. 1452–1530: the loop turns on edge (its outer edge up), rounds, its tabs fold in over its rim and
- *    it coils into a pack; the hub telescopes out of its centre; Fix A's tape winds in under the clip,
- *    grey stock turning to paper as it leaves the desk. The clip and the tabs ride the outer turn.
- * 3. 1496–1594: Fix B's replies leave your in-tray for their trays as one flock; five trays are pressed
- *    flat into imprints; one at a time, three wall up into the bays of (b) (the docs galley, the bug bench,
- *    the test tower): the nameplate prints, the tray's floor drops and slides away under the slate and the
- *    hatch's leaves shut over the pit. The bays stand closed and idle (no work, no light) until each is
- *    dispatched in beat 4 (desk/beat4.ts).
- * 4. 1530–1612: your desk slides south-west and the lamp narrows (after the tape has left its path); the
+ * your desk and becomes the Register. It takes act one's world over at f1400 exactly as act one and beat 3
+ * left it at f1399 (ActOneFrame: the intake held stepped down, Fix A's queue on its tape, Fix B's eight
+ * replies in your in-tray) and hands act two its world at f1661 (the bays closed under their lids, the reel
+ * locked, the request riding the belt). One object becomes another by physical means only, one idea at a
+ * time (at most two or three motions overlap):
+ * 1. 1400–1440: Fix A's queue moves its last station; everything stills (pens lifted) before the hit.
+ * 2. 1442–1452: on the hit the eight folders and Fix A's are pressed into the desk together, each as one
+ *    body with its pen, flag and pile (squashed on spring-heavy down to −2), drawing in to their imprints
+ *    and taking the slate's tone as they go under; the notes loop dips and lifts.
+ * 3. 1452–1530: the loop turns on edge (its outer edge up), rounds, its tabs fold in over its rim and it
+ *    coils into a pack; the hub telescopes out of its centre. Fix A's tape end lifts off the desk at its
+ *    folder's old mouth and is caught by the rising loop; the coil winds the whole tape in, grey stock
+ *    turning to paper as it leaves the desk, and Fix A's chutes slide back into their feeders as the tape's
+ *    tail passes them. The clip and the tabs ride the outer turn.
+ * 4. 1468–1594: Fix B's replies leave your in-tray for their trays as one flock; five trays are posted
+ *    back out beyond the east edge the way they came in (lifted over the trays that stay); one at a time,
+ *    three wall up into the bays of (b) (the bug bench, the docs galley, the test tower: the last slides
+ *    west along the clear south row first): their grey-stock rims grow into the bays' walls, the floor
+ *    becomes the bay's graphite lid, which drops open like a trapdoor (what lay in the tray falls into the
+ *    pit) and swings shut: the bay stands closed and idle (no work, no light, its nameplate blank) until it
+ *    is dispatched in beat 4 (desk/beat4.ts).
+ * 5. 1530–1612: your desk slides south-west and the lamp narrows (after the tape has left its path); the
  *    deck rolls in collapsed from the north with its log (the fanfold on the slate under it, the filed
  *    tabs in its drawer), its legs telescope up (C9's "Above"), its shade spreading as it rises, and its
  *    parts unfold (throat, head, index arm, loupe, ramp).
- * 5. 1560–1616: the reel glides over the deck, descends and locks; the pilot jewel lights (1618).
- * 6. 1592–1627: the belt runs out of the throat carrying its gate; the first chat slip rides it into the
+ * 6. 1560–1616: the reel glides over the deck, descends and locks; the pilot jewel lights (1618).
+ * 7. 1592–1627: the belt runs out of the throat carrying its gate; the first chat slip rides it into the
  *    throat (1620), the head drops and its row prints with a 3 f ink spread (1624).
- * 7. 1626–1660: every channel into one intake (the spool slides in, mail and calendar press flat into
+ * 8. 1626–1660: every channel into one intake (the spool slides in, mail and calendar press flat into
  *    vellum drawings), the reply chute extends to your in-tray, the Continuous plate turns over on its
  *    cue (1640): the loop's hand-over is complete and your lamp dims one step (to act two's level).
  * At most three of these motions run at once (turn.test.ts). Your lamp stays on, attending, while the loop
- * rises; the request rises out of the old heap from 1648 (desk/beat4.ts), the first thing the hand-off
- * to act two carries over (desk/film.ts).
+ * rises; the request starts out of the old heap from beat4.ts REQUEST_FROM (1645), the first thing the
+ * hand-off to act two carries over (desk/film.ts).
  *
  * Every value is a pure function of the film frame (springs on the synthesis's tokens, the film's move
  * curve). The schedule's order is tested (turn.test.ts): nothing acts before its cause, nothing appears
@@ -34,11 +42,11 @@
 import { clamp, easings } from '@aiv/core';
 import { Easing, spring } from 'remotion';
 import { FPS, cue } from '../cues.ts';
-import { ACT_ONE_END, BULB_A, FOLDERS, LOOP_A, YOU_C_A, YOU_SHIFT_A, actOneAt, actOnePools, ciHopperFootprints, stackTop, youPoseA, type ActOneState, type LoopPose } from './actOne.ts';
-import { A_ITEMS, A_LEN, A_PITCH, A_TAPE_W, A_LIFT, BAY_TRAYS, B_SLIP, FIX_A_FOLDER, IN_TRAY_A_C, IN_TRAY_PILE, PRESS_TRAYS, TRAYS, TRAY_Z, aPathAt, type AItem } from './beat3.ts';
-import { bayDoor, bayShellFootprints, circleFp, pitFootprints, rectFp, registerFootprints, segFp, youFootprints, type Footprint } from './footprints.ts';
-import { BAYS, BELT, CELLS_X, CHUTE, CHUTE_POSTS, DECK, DISPATCH_HOUSING, FANFOLD, FEEDERS, FEEDER_H, GATE, LAMP, LEG_R, LEG_STRUTS, NEXT_SLIP, PRINT_HEAD, REEL, REQUEST, SHEET, SPOOL, TAPE, YOU, rectC, shadowOffset, type BayId, type BayLayout, type P2, type P3, type Pool, type Rect } from './layout.ts';
-import { B4, REEL_LOCK, cellLitAt, requestAt } from './beat4.ts';
+import { ACT_ONE_END, BULB_A, FOLDERS, LOOP_A, YOU_C_A, YOU_SHIFT_A, actOneAt, actOnePools, feederFootprints, folderFootprints, heapFootprints, youPoseA, type ActOneState, type LoopPose } from './actOne.ts';
+import { A_CHUTES, A_FOLDER_IN, A_PITCH, A_QUEUE, A_STACK_END, A_TAPE, A_TAPE_W, BAY_TRAYS, B_SLIP, FIX_A_FOLDER, IN_TRAY_A_C, IN_TRAY_PILE, RETIRE_TRAYS, TRAYS, TRAY_STUFF, TRAY_Z, aPathAt, fixAFootprints, trayRestB, type FixAView } from './beat3.ts';
+import { bayShellFootprints, circleFp, heapFootprintsAt, pitFootprints, rectFp, registerFootprints, segFp, youFootprints, type Footprint } from './footprints.ts';
+import { BAYS, BELT, CELLS_X, CHUTE, CHUTE_POSTS, DECK, DISPATCH_HOUSING, FANFOLD, FEEDERS, GATE, LAMP, LEG_R, LEG_STRUTS, NEXT_SLIP, PRINT_HEAD, REEL, REQUEST, SHEET, SPOOL, TAPE, YOU, shadowOffset, type BayId, type BayLayout, type P2, type P3, type Pool, type Rect } from './layout.ts';
+import { REEL_LOCK, REQUEST_FROM, cellLitAt, heapAt, requestAt } from './beat4.ts';
 import { EMIT, LIGHT_HEX, tint } from './pools.ts';
 import { LAMP_AIM, LAMP_STEPS, SPRING, deskStateAt, hammerOffset, springAt, type DeskState } from './state.ts';
 import { LAMP_FOOT_Z, YOU_POSE_B, lampElbow, type YouPose } from './you.ts';
@@ -65,20 +73,15 @@ export function springOver(f: number, start: number, dur: number, config: (typeo
  * the first slip and its row keep their frames; the Continuous plate turns over on `trait-continuous`.
  */
 export const TURN = {
-  /** 3.3: Fix A's queue moves one station on the beat; Fix B's last reply is posted (3 f anticipation, a 14 f arc) */
+  /** 3.3: Fix A's queue moves its last station on the beat (the cue sheet's last FIX_A step) */
   advance: 1400,
   advanceFrames: 10,
-  bPost: 1394,
-  bArc: 14,
-  /** everything stills, pens lifted (4 f): 16 f of stillness before the hit */
+  /** everything stills, pens lifted (4 f): stillness before the hit */
   still: 1420,
   hit: cue('turn').frame,
-  /** the focus pull: the heap, the feeders and the request step down before the camera moves, and come back for "hears every channel" */
-  stepIn: 1436,
+  /** the intake (the heap, the feeders, the request) comes back from act one's step-down for "hears every channel" */
   stepOut: 1592,
   stepFrames: 16,
-  /** your act-one label leaves as the camera starts (its wipe, then its leader, 6 f) */
-  youOut: 1441,
   /** the loop: a 2% dip (4 f), the lift on spring-heavy to h 160, on edge and round, its tabs folding in over its rim, then it coils */
   dipFrames: 4,
   rise: 1444,
@@ -91,11 +94,14 @@ export const TURN = {
   coilEnd: 1508,
   hub: 1494,
   hubFrames: 14,
-  /** the folders pressed into the desk, Fix A's first then F1..F8, 2 f apart, each over 8 f */
+  /** the folders, act one's eight and Fix A's, pressed into the desk together on the hit (spring-heavy, flat in about 8 f), then gone under the slate */
   press: 1442,
-  pressStagger: 2,
-  pressFrames: 8,
-  /** Fix A's tape winds onto the coil (its desk run leaves the desk before your desk slides over its path) */
+  pressFrames: 14,
+  pressGone: 13,
+  /** Fix A's tape end lifts off the desk at its folder's old mouth and is caught by the rising loop (the camera curve, a small arc) */
+  catch: 1456,
+  catchFrames: 16,
+  /** then the coil winds all of the tape in (its desk run leaves the desk before your desk slides over its path) */
   wind: 1494,
   windEnd: 1530,
   /** your lamp stays on, attending, while the loop rises; once the loop's hand-over is complete (the Continuous plate docks) it pulls its bulb in and dims one step, to act two's level (state.ts LAMP_STEPS.dim) */
@@ -118,17 +124,19 @@ export const TURN = {
   chuteEnd: 1642,
   posts: 1640,
   postFrames: 10,
-  /** Fix B: the replies leave your in-tray as a flock (1.5 f apart; 3 f anticipation, a 14 f arc), the pressed trays' first */
-  replies: 1496,
+  /** Fix B: the replies leave your in-tray as a flock (1.5 f apart; 3 f anticipation, a 14 f arc), the retiring trays' first */
+  replies: 1468,
   replyStagger: 1.5,
   replyArc: 14,
-  /** a tray pressed flat (8 f) 2 f after its reply lands; the bays wall up one at a time (bayTimes) */
-  trayAfter: 2,
-  growFrames: 14,
-  /** the bays in turn (docs, bug, tests): each walls up 16 f after the one before, the test bay's once the coil has left its place (it hovers over its box) */
-  bayFrom: 1526,
+  /** a retiring tray is posted back out 2 f after its reply is home: 3 f anticipation (a 4 u lift), then up and away east, gathering speed */
+  retireAfter: 2,
+  retireAntic: 3,
+  retireFrames: 18,
+  /** the bays wall up one at a time (bayTimes): the bug bench in tray 5's place, the docs galley in tray 3's once your desk has left its box, the test tower once tray 6 has slid west to it */
   bayGap: 16,
-  testsFrom: 1564,
+  growFrames: 14,
+  testsSlide: 1544,
+  testsSlideFrames: 18,
   /** the coil rises over the deck's lamp and glides straight to the reel (clear of the bays), descends and locks */
   glide: 1560,
   glideEnd: 1592,
@@ -208,9 +216,17 @@ export interface LoopTurn {
   fold: number;
 }
 
-/** Fix A's tape wound onto the coil so far (u), and the tape's whole length. */
-const A_SPAN0 = 15;
-export const A_TAPE_LEN = A_LEN + A_SPAN0;
+/**
+ * Fix A's tape in material units (u along the tape, from beat 3's notional lead: beat3.ts A_TAPE at f1399, where the
+ * tape's place d on its path has u = d - A_TAPE.lead). Beat 3 leaves it running from inside the folder's mouth back to
+ * its tail by the chat spout; the turn's advance moves it one station further into the folder; once the folder is
+ * pressed, the tape's end lies on the desk at the folder's old mouth (A_FOLDER_IN), where it lifts off.
+ */
+const A_TAIL_U = A_TAPE.tail - A_TAPE.lead;
+const A_ADV_LEAD = A_TAPE.lead - A_PITCH;
+/** The material at the mouth once the advance is done, and the tape that is left from there to its tail (all of it is wound in). */
+export const A_MOUTH_U = A_FOLDER_IN - A_ADV_LEAD;
+export const A_TAPE_LEN = A_TAIL_U - A_MOUTH_U;
 /** A trapezoid-velocity ease (constant-speed transport with short ramps), 0..1. */
 function transport(t: number, ramp = 0.14): number {
   const x = clamp(t);
@@ -219,8 +235,11 @@ function transport(t: number, ramp = 0.14): number {
   if (x > 1 - ramp) return 1 - (v * (1 - x) * (1 - x)) / (2 * ramp);
   return v * (x - ramp / 2);
 }
+/** The queue's last station (beat 3's advance, one more): how far it has moved toward the folder (u). */
+const advanceAt = (f: number): number => A_PITCH * MOVE(span01(f, TURN.advance, TURN.advance + TURN.advanceFrames));
+/** The tape wound onto the coil so far (u, of A_TAPE_LEN). */
 export function woundAt(f: number): number {
-  return A_PITCH * MOVE(span01(f, TURN.advance, TURN.advance + TURN.advanceFrames)) + (A_TAPE_LEN - A_PITCH) * transport(span01(f, TURN.wind, TURN.windEnd));
+  return A_TAPE_LEN * transport(span01(f, TURN.wind, TURN.windEnd));
 }
 
 function liftAt(f: number): number {
@@ -261,8 +280,7 @@ export function loopTurnAt(f: number): LoopTurn {
     z: h,
   };
   const fold = moveOver(f, TURN.fold, TURN.fold + TURN.foldFrames);
-  const wound = woundAt(f) - A_PITCH;
-  const windK = clamp(wound / (A_TAPE_LEN - A_PITCH));
+  const windK = clamp(woundAt(f) / A_TAPE_LEN);
   const rOut = Math.sqrt(COIL_R0 * COIL_R0 + (REEL.packR * REEL.packR - COIL_R0 * COIL_R0) * windK);
   // the turn: carried round while it winds, the last 0.26 rad on spring-detent at the lock
   const spin = (SPIN_TOTAL + 0.26) * transport(span01(f, TURN.coil, TURN.windEnd)) - 0.26 * springAt(f, TURN.detent, SPRING.detent);
@@ -287,7 +305,8 @@ export function loopTurnAt(f: number): LoopTurn {
 export const coilRim = (C: CoilState): LoopPose => ({ ...LOOP_A, c: C.c, a: C.rOut, b: C.rOut, n: 2, z: C.h, w: C.t });
 
 // ------------------------------------------------------------------------------------------------
-// Fix A's tape: on the desk from its tail to the lift-off, then a free span up to the loop or coil
+// Fix A's tape: as beat 3 left it on the desk; then its end lifts off at the folder's old mouth and is caught by the
+// loop, a free span up to the loop or coil, the rest of the tape on the desk behind it, until the coil has wound it in
 
 export interface TapeSpan {
   /** where it leaves the desk and where it meets the loop/coil */
@@ -299,7 +318,7 @@ export interface TapeSpan {
   len: number;
 }
 export interface FixATurn {
-  /** tape wound so far (u) */
+  /** the tape's material place where it meets the loop or coil (u: the print rides it) */
   wound: number;
   span: TapeSpan;
   /** the desk part: from the lift-off back to the tail (path distance), 0 when it has all left the desk */
@@ -317,11 +336,14 @@ const norm = (a: P3): P3 => {
 };
 const lerp3 = (a: P3, b: P3, t: number): P3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
-/** Where Fix A's tape meets the loop or the coil: on the ribbon's centreline facing the lift-off, or tangent to the coil's outer turn. */
+/** Where the tape lifts off: on its path at the folder's old mouth, on the tape's face. */
+const A_MOUTH: P3 = [aPathAt(A_FOLDER_IN).p[0], aPathAt(A_FOLDER_IN).p[1], aPathAt(A_FOLDER_IN).z - 0.1];
+
+/** Where Fix A's tape meets the loop or the coil: on the ribbon's centreline facing the mouth, or tangent to the coil's outer turn. */
 function attachAt(lt: LoopTurn): { p: P3; w: P3 } {
   if (lt.ribbon) {
     const { L, edge } = lt.ribbon;
-    const t = Math.atan2((A_LIFT[1] - L.c[1]) / L.b, (A_LIFT[0] - L.c[0]) / L.a);
+    const t = Math.atan2((A_MOUTH[1] - L.c[1]) / L.b, (A_MOUTH[0] - L.c[0]) / L.a);
     const cs = Math.cos(t);
     const sn = Math.sin(t);
     const e = 2 / L.n;
@@ -333,54 +355,94 @@ function attachAt(lt: LoopTurn): { p: P3; w: P3 } {
     return { p: [x, y, L.z - 0.6 + (A_TAPE_W / 2) * Math.sin(th)], w: norm([out[0] * Math.cos(th), out[1] * Math.cos(th), Math.sin(th)]) };
   }
   const C = lt.coil!;
-  const d = norm([A_LIFT[0] - C.c[0], A_LIFT[1] - C.c[1], 0]);
+  const d = norm([A_MOUTH[0] - C.c[0], A_MOUTH[1] - C.c[1], 0]);
   return { p: [C.c[0] + d[0] * C.rOut, C.c[1] + d[1] * C.rOut, C.h + C.t / 2], w: [0, 0, 1] };
 }
 
-export function fixATurnAt(f: number, lt: LoopTurn): FixATurn {
-  const wound = woundAt(f);
+/** An item lying on the tape at path distance d (as beat3.ts places it: its nose toward the folder). */
+function onTape(d: number): { p: P3; x: P3; y: P3 } {
+  const { p, z, dir3 } = aPathAt(d);
+  const x: P3 = [-dir3[0], -dir3[1], -dir3[2]];
+  const pl = Math.hypot(dir3[0], dir3[1]) || 1;
+  return { p: [p[0], p[1], z + 0.7], x, y: [dir3[1] / pl, -dir3[0] / pl, 0] };
+}
+/** The queue's places as beat 3 leaves them (A_ITEMS order: A_QUEUE without what the folder swallowed), their material place on the tape. */
+const A_ITEM_U: readonly number[] = A_QUEUE.filter((q) => !q.swallow).map((q) => q.d - A_TAPE.lead);
+const A_ITEM_L: readonly number[] = A_QUEUE.filter((q) => !q.swallow).map((q) => q.l);
+/** Each chute slides back into its feeder (4 f, as it slid out) once the tape's tail has been wound past it. */
+const CHUTE_IN: readonly number[] = A_CHUTES.map((c) => {
+  for (let f = TURN.wind; f <= TURN.windEnd; f++) if (A_FOLDER_IN + A_TAPE_LEN - woundAt(f) < c.d - 24) return f;
+  return TURN.windEnd;
+});
+
+export function fixATurnAt(f: number, lt: LoopTurn): FixAView {
+  const adv = advanceAt(f);
+  const chutes = A_CHUTES.map((_, k) => 1 - MOVE(span01(f, CHUTE_IN[k], CHUTE_IN[k] + 4)));
+  const none: TapeSpan = { a: A_MOUTH, b: A_MOUTH, wa: [0, 1, 0], wb: [0, 1, 0], len: 0 };
+  const base = { stackTop: A_STACK_END, requestInk: 0, folderDy: 0, chutes };
+  if (f < TURN.catch) {
+    // beat 3's tape, one station further in: drawn from inside the folder's mouth (from the mouth once the folder is
+    // pressed: what lay under its cover is never seen) back to its tail
+    const lead = A_ADV_LEAD + (A_PITCH - adv);
+    const d0 = Math.max(lead, f < TURN.press ? A_FOLDER_IN - 14 : A_FOLDER_IN);
+    const d1 = A_TAPE.tail - (A_TAPE.lead - lead);
+    const items = A_ITEM_U.map((u) => ({ ...onTape(u + lead), paper: 0 }));
+    return { ...base, wound: A_MOUTH_U, span: none, deskLen: d1 - d0, spanLen: 0, items, tape: { d0, d1, u0: d0 - lead } };
+  }
+  // the end lifts off and flies up to the loop (the move curve, a small arc), the tape peeling up behind it; then it rides
+  // the loop up and round and the coil winds it in
   const at = attachAt(lt);
-  const a: P3 = [A_LIFT[0], A_LIFT[1], 0.5];
-  const along = sub(at.p, a);
+  const e = CAMERA(span01(f, TURN.catch, TURN.catch + TURN.catchFrames));
+  const flying = e < 1;
+  const l = lerp3(A_MOUTH, at.p, e);
+  const b: P3 = flying ? [l[0], l[1], l[2] + 36 * Math.sin(Math.PI * e)] : at.p;
+  const along = sub(b, A_MOUTH);
   const len = Math.hypot(along[0], along[1], along[2]);
   // the desk-end width: flat, across the tape's heading off the desk
   const hd = norm([along[0], along[1], 0]);
   const wa: P3 = [-hd[1], hd[0], 0];
-  const wb: P3 = at.w[2] > 0.99 ? at.w : at.w[0] * wa[0] + at.w[1] * wa[1] < 0 ? [-at.w[0], -at.w[1], at.w[2]] : at.w;
-  const span: TapeSpan = { a, b: at.p, wa, wb, len };
-  const tail = A_TAPE_LEN - wound;
-  const deskLen = Math.max(0, tail - len);
-  const spanLen = clamp(tail, 0, len);
-  const items = A_ITEMS.map((it: AItem) => {
-    // the item's material place, from the lead end; its place along the tape now, from the coil end
-    const u = it.d + A_SPAN0;
-    const p = u - wound;
-    if (p < it.l / 2) return null;
-    if (p <= len) {
-      const pos = lerp3(at.p, a, p / len);
-      const w = norm(lerp3(wb, wa, p / len));
-      const x = norm(along);
-      return { p: [pos[0], pos[1], pos[2] + 0.8] as P3, x, y: w, paper: clamp((len - p) / 40) };
+  const w = flying ? norm(lerp3(wa, at.w[0] * wa[0] + at.w[1] * wa[1] < 0 ? [-at.w[0], -at.w[1], at.w[2]] : at.w, e)) : at.w;
+  const wb: P3 = w[2] > 0.99 ? w : w[0] * wa[0] + w[1] * wa[1] < 0 ? [-w[0], -w[1], w[2]] : w;
+  const span: TapeSpan = { a: A_MOUTH, b, wa, wb, len };
+  const left = A_TAPE_LEN - woundAt(f);
+  const spanLen = clamp(left, 0, len);
+  const deskLen = Math.max(0, left - len);
+  const uB = A_TAIL_U - left;
+  const into = norm([along[0], along[1], 0]);
+  const items = A_ITEM_U.map((u, i) => {
+    const s = u - uB;
+    // wound in: it threads on into the pack, level, under its top and inside its outer turn, until it is wholly in
+    if (s < 0) {
+      if (s < -A_ITEM_L[i] || flying) return null;
+      return { p: [b[0] - into[0] * s, b[1] - into[1] * s, b[2]] as P3, x: into, y: wb, paper: 1 };
     }
-    const { p: q, dir } = aPathAt(p - len);
-    // on the desk the slip lies along the tape, its nose toward the lift-off
-    return { p: [q[0], q[1], 1.1] as P3, x: [-dir[0], -dir[1], 0] as P3, y: [dir[1], -dir[0], 0] as P3, paper: 0 };
+    if (s <= spanLen && len > 0) {
+      const p = lerp3(b, A_MOUTH, s / len);
+      return { p: [p[0], p[1], p[2] + 0.7] as P3, x: norm(along), y: norm(lerp3(wb, wa, s / len)), paper: clamp((len - s) / 40) };
+    }
+    return { ...onTape(A_FOLDER_IN + (s - spanLen)), paper: 0 };
   });
-  return { wound, span, deskLen, spanLen, items };
+  return { ...base, wound: uB, span, deskLen, spanLen, items, tape: deskLen > 0.5 ? { d0: A_FOLDER_IN, d1: A_FOLDER_IN + deskLen, u0: A_TAIL_U - deskLen } : undefined };
 }
 
 // ------------------------------------------------------------------------------------------------
-// Pressing: a folder or a tray squashed flat as one body, then sunk into the desk north edge first
+/// Pressing: the folders pressed into the desk on the hit; the generic feeders (mail, calendar) pressed flat into vellum
 
-/** A body being pressed into the desk: its height scale, its tilt (radians, north edge down) and how far it has sunk. */
+/**
+ * A body being pressed into the desk: its height scale, its tilt (radians, north edge down) and how far it has sunk; a
+ * folder's also how far it has drawn in from its outline (u: its imprint's embossed edge shows round it) and how far it
+ * has taken the slate's tone (0..1: by amount, its own paper and, on the kit's late set, its pen, flag and clip).
+ */
 export interface Press {
   k: number;
   scaleZ: number;
   tilt: number;
   sink: number;
+  inset?: number;
+  slate?: number;
 }
-/** The press at a frame for a body `depth` u deep and `top` u tall (8 f: squash 0–0.7, tilt, sink 0.7–1). */
-export function pressAt(f: number, start: number, depth: number, top: number, frames: number = TURN.pressFrames): Press {
+/** The feeders' press at a frame for a body `depth` u deep and `top` u tall (squash 0–0.7, tilt, sink 0.7–1). */
+export function pressAt(f: number, start: number, depth: number, top: number, frames: number = TURN.flattenFrames): Press {
   const k = span01(f, start, start + frames);
   const sq = easings.inOutSine(clamp(k / 0.7));
   const scaleZ = 1 - 0.94 * sq;
@@ -389,91 +451,118 @@ export function pressAt(f: number, start: number, depth: number, top: number, fr
   const sink = (top * 0.06 + (depth / 2) * Math.sin(0.06) + 0.8) * clamp((k - 0.7) / 0.3) ** 1.2;
   return { k, scaleZ, tilt, sink };
 }
-/** How deep the desk's imprint under a pressed body is (it is in before the body sinks into it). */
-export const imprintOf = (p: Press): number => clamp((p.k - 0.3) / 0.3);
+/** How far the folders are pressed (0..1: spring-heavy from the hit, never past flat). */
+export const pressedAt = (f: number): number => clamp(springOver(f, TURN.press, TURN.pressFrames, SPRING.heavy));
+/** How far a pressed folder has taken the slate's tone: with its squash, all of it by the time it is flat (before it goes under). */
+export const slateAt = (f: number): number => {
+  const x = clamp((pressedAt(f) - 0.05) / 0.9);
+  return x * x * (3 - 2 * x);
+};
+/** The kit's late step amount that takes graphite, enamel and steel exactly to the slate's tone (gl/materials.ts: 0.45 of the way per unit). */
+export const PRESS_LATE = 1 / 0.45;
+/**
+ * A folder pressed into the desk (act one's eight and Fix A's, together on the hit): one body with its pen, flag, clip
+ * and pile, squashed flat on spring-heavy and sunk 2.4 u (h 0 → −2), drawing in 5 u from its outline into its imprint
+ * and taking the slate's tone as it goes; its top is under the slate, its tone the slate's, before it is dropped.
+ */
+export function foldPressAt(f: number): Press {
+  if (f >= TURN.press + TURN.pressGone) return { k: 1, scaleZ: 0.02, tilt: 0, sink: 2.4, inset: 5, slate: 1 };
+  const s = pressedAt(f);
+  return { k: Math.min(s, 0.999), scaleZ: 1 - 0.98 * s, tilt: 0, sink: 2.4 * s, inset: 5 * easings.inOutSine(s), slate: slateAt(f) };
+}
+/** How deep the desk's imprint under a pressed folder is (its embossed edge in before the folder takes the slate's tone). */
+export const imprintOf = (p: Press): number => clamp((p.k - 0.2) / 0.5);
 
 // ------------------------------------------------------------------------------------------------
-// Fix B: the replies; five trays pressed flat, three walled up into the bays of (b)
+// Fix B: the replies home; five trays posted back out east; three walled up into the bays of (b)
 
+/** A retiring tray on its way out (its offset from its place) until it is beyond the frame's east edge. */
+export interface TrayRetire {
+  off: P3;
+  gone: boolean;
+}
 export interface BayTurn {
   id: BayId;
+  /** the tray's slide toward its bay's place before it walls up (u along x: the test tower's tray) */
+  slide: number;
   /** the tray's growth into the bay's walls (0..1): its rect, wall height, thickness and door interpolate to the bay's */
   grow: number;
-  /** grey stock to graphite and enamel (0..1) */
+  /** grey stock to graphite (0..1) */
   built: number;
-  /** the nameplate's print wiped in (0..1) */
-  print: number;
-  /** the tray's floor: dropped under the slate (0..1), then slid east out of the walls (0..1) */
-  drop: number;
-  slide: number;
-  /** the hatch under it: its leaves (1 open while the floor goes, 0 shut over the pit), and whether its hole in the slate is open */
+  /** its torn, perforated rim straightening into the bay's bevelled walls (0..1) */
+  morph: number;
+  /** its floor becoming the bay's graphite lid: two leaves on their hinges, the seam between them (0..1) */
+  lid: number;
+  /** the lid's leaves dropped open into the pit (0 shut … 1 hanging: objects/Dispatch.tsx Hatch 'lid') */
   leaves: number;
+  /** how far what lay in the tray has fallen into the pit (0..1) */
+  fall: number;
+  /** whether its hatch's hole in the slate is open */
   hole: boolean;
-  /** walled up, its hatch shut: the closed, idle bay (objects/Bay.tsx draws it from here, as act two does) */
+  /** walled up, its lid shut: the closed, idle bay (objects/Bay.tsx draws it from here, as act two does) */
   done: boolean;
 }
 export interface FixBTurn {
   /** each reply slip k (from tray k): its centre, turn, tilt, and how far it has turned to paper */
   slips: { p: P3; rot: number; tilt: number; paper: number }[];
-  /** each tray pressed into the desk (null: not pressed; trays that become bays are never pressed) */
-  press: (Press | null)[];
+  /** each retiring tray posted back out (null: a tray that becomes a bay) */
+  retire: (TrayRetire | null)[];
   /** the trays that become bays (BAY_TRAYS order) */
   bays: BayTurn[];
 }
 
 const IN_TRAY_Z = YOU.top + 3;
-/** The order the replies leave in: the trays that are pressed first (the ones inside a bay's box before the others), then the bays' own. */
-export const REPLY_ORDER: readonly number[] = [7, 3, 2, 0, 1, ...BAY_TRAYS.map((b) => b.k).reverse()];
+/** The order the replies leave in: the retiring trays' first, eastmost first, then the bays' own. */
+export const REPLY_ORDER: readonly number[] = [2, 7, 4, 1, 0, ...BAY_TRAYS.map((b) => b.k)];
 /** Slip k leaves your in-tray. */
 export const replyLeaves = (k: number): number => TURN.replies + TURN.replyStagger * REPLY_ORDER.indexOf(k);
 export const replyLands = (k: number): number => replyLeaves(k) + 3 + TURN.replyArc;
-const overlaps = (a: Rect, b: Rect): boolean => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
-const trayRect = (k: number): Rect => ({ x0: TRAYS[k].c[0] - TRAYS[k].w / 2, x1: TRAYS[k].c[0] + TRAYS[k].w / 2, y0: TRAYS[k].c[1] - TRAYS[k].d / 2, y1: TRAYS[k].c[1] + TRAYS[k].d / 2 });
+/** How far a retiring tray travels east (beyond the frame's east edge from any tray's place, the camera at 0.85x) and how high it lifts (over the trays that stay). */
+const RETIRE_DIST = 900;
+const RETIRE_LIFT = 40;
+export const retireStarts = (k: number): number => replyLands(k) + TURN.retireAfter;
 /** The order the bays wall up in, one at a time. */
-export const BAY_ORDER: readonly BayId[] = ['docs', 'bug', 'tests'];
+export const BAY_ORDER: readonly BayId[] = ['bug', 'docs', 'tests'];
 /**
- * A tray's own change starts 2 f after its reply has come home; a bay's tray also waits for the trays inside its box
- * to be pressed and for the bay before it (one at a time, 16 f apart), and the test bay's for the coil to leave.
+ * Each bay walls up once the trays in its box have gone: the bug bench in tray 5's place once the retiring trays have
+ * flown over it; the docs galley in tray 3's once your desk's east end has left its box; the test tower once tray 6 has
+ * slid west along the south row (clear of the docs galley) and your desk has left its place.
  */
-export const trayStarts = (k: number): number => {
-  const own = replyLands(k) + TURN.trayAfter;
-  const bay = BAY_TRAYS.find((b) => b.k === k);
-  if (!bay) return own;
-  const inside = PRESS_TRAYS.filter((j) => overlaps(trayRect(j), BAYS[bay.id].box)).map((j) => replyLands(j) + TURN.trayAfter + TURN.pressFrames);
-  const i = BAY_ORDER.indexOf(bay.id);
-  const after = i > 0 ? trayStarts(BAY_TRAYS.find((b) => b.id === BAY_ORDER[i - 1])!.k) + TURN.bayGap : TURN.bayFrom;
-  return Math.max(own, ...inside, after, bay.id === 'tests' ? TURN.testsFrom : 0);
-};
-/** A bay's schedule from its tray's start: the walls grow (14 f), the nameplate prints (4 f), the floor drops (2 f) and slides away (8 f), the hatch's leaves shut over the pit (4 f): closed. */
+const BAY_GROW: Readonly<Record<BayId, number>> = { bug: 1510, docs: 1540, tests: TURN.testsSlide + TURN.testsSlideFrames };
+/** A bay's schedule: its tray's slide, the walls grow (14 f), the floor becomes the lid (8 f), the lid drops open (6 f) and swings shut (6 f): closed. */
 export const bayTimes = (k: number) => {
-  const s = trayStarts(k);
-  return { grow: s, print: s + 12, drop: s + 14, slide: s + 16, shut: s + 24, closed: s + 28 };
+  const id = BAY_TRAYS.find((b) => b.k === k)!.id;
+  const g = BAY_GROW[id];
+  return { slide: id === 'tests' ? TURN.testsSlide : g, grow: g, lid: g + 10, open: g + 18, shut: g + 24, closed: g + 30 };
 };
+/** When a tray first changes after its reply is home: a retiring tray's post out, a bay's slide or growth. */
+export const trayStarts = (k: number): number => (RETIRE_TRAYS.includes(k) ? retireStarts(k) : bayTimes(k).slide);
+/** How far the test tower's tray slides west, to the middle of the tower's box (along the clear south row). */
+export const TESTS_SLIDE = (BAYS.tests.box.x0 + BAYS.tests.box.x1) / 2 - TRAYS[BAY_TRAYS.find((b) => b.id === 'tests')!.k].c[0];
 
 function inTraySlot(k: number, shift: P2): P3 {
   const o = IN_TRAY_PILE[k].o;
   return [IN_TRAY_A_C[0] - YOU_SHIFT_A[0] + shift[0] + o[0], IN_TRAY_A_C[1] - YOU_SHIFT_A[1] + shift[1] + o[1], IN_TRAY_Z + 0.9 * k];
 }
-/** Where a reply rests in its tray (tray-local offset from its centre). */
-export const TRAY_REST: P3 = [16, -6, TRAY_Z.floor + 0.6];
-const trayRest = (k: number): P3 => [TRAYS[k].c[0] + TRAY_REST[0], TRAYS[k].c[1] + TRAY_REST[1], TRAY_REST[2]];
+
+/** A retiring tray posted back out: 3 f anticipation (a 4 u lift), then up over the trays that stay and away east, gathering speed. */
+export function retireAt(k: number, f: number): TrayRetire {
+  const t0 = retireStarts(k);
+  if (f < t0) return { off: [0, 0, 0], gone: false };
+  if (f < t0 + TURN.retireAntic) return { off: [0, 0, 4 * MOVE((f - t0) / TURN.retireAntic)], gone: false };
+  const u = (f - t0 - TURN.retireAntic) / TURN.retireFrames;
+  if (u >= 1) return { off: [RETIRE_DIST, 0, 4 + RETIRE_LIFT], gone: true };
+  return { off: [RETIRE_DIST * u * u, 0, 4 + RETIRE_LIFT * MOVE(u)], gone: false };
+}
 
 export function fixBTurnAt(f: number, shiftAt: (f: number) => P2): FixBTurn {
   const slips = IN_TRAY_PILE.map((pile, k) => {
-    // the last reply (k 7) is still in flight at f1400: posted from its tray, it lands on top of the pile
-    if (k === 7 && f < TURN.bPost + 3 + TURN.bArc) {
-      const u = clamp((f - TURN.bPost - 3) / TURN.bArc);
-      const from = trayRest(7);
-      const to = inTraySlot(7, shiftAt(f));
-      const e = Math.sin((u * Math.PI) / 2) ** 2;
-      const p: P3 = [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e, from[2] + (to[2] - from[2]) * e + 4 * 60 * u * (1 - u) + (f < TURN.bPost + 3 ? 3 * clamp((f - TURN.bPost) / 3) : 0)];
-      return { p, rot: 0.2 + (pile.rot - 0.2) * e, tilt: 0.3 * Math.sin(u * Math.PI), paper: 0 };
-    }
     const leave = replyLeaves(k);
+    // in your in-tray as beat 3 left them (it rides your desk)
     if (f < leave) return { p: inTraySlot(k, shiftAt(f)), rot: pile.rot, tilt: 0, paper: 0 };
-    // 3 f anticipation (it lifts 4 u), then an 18 f arc home (apex 70), landing on its tray's floor
+    // 3 f anticipation (it lifts 4 u), then a 14 f arc home (apex 70), landing where it rested in its tray in beat 3
     const from = inTraySlot(k, shiftAt(leave + 3));
-    const to = trayRest(k);
+    const to = trayRestB(k);
     if (f < leave + 3) {
       const a = inTraySlot(k, shiftAt(f));
       return { p: [a[0], a[1], a[2] + 4 * MOVE((f - leave) / 3)] as P3, rot: pile.rot, tilt: 0, paper: 0 };
@@ -481,25 +570,29 @@ export function fixBTurnAt(f: number, shiftAt: (f: number) => P2): FixBTurn {
     const u = clamp((f - leave - 3) / TURN.replyArc);
     const e = Math.sin((u * Math.PI) / 2) ** 2;
     const p: P3 = [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e, from[2] + 4 + (to[2] - from[2] - 4) * e + 4 * 70 * u * (1 - u)];
-    const homeRot = 0.08 * (k % 2 ? 1 : -1);
-    return { p, rot: pile.rot + (homeRot - pile.rot) * e, tilt: 0.25 * Math.sin(u * Math.PI), paper: 0 };
+    const home = TRAY_STUFF[k].reply.rot;
+    return { p: u >= 1 ? to : p, rot: pile.rot + (home - pile.rot) * e, tilt: 0.25 * Math.sin(u * Math.PI), paper: 0 };
   });
-  const press = TRAYS.map((tr, k) => (PRESS_TRAYS.includes(k) ? pressAt(f, trayStarts(k), tr.d, TRAY_Z.rim + 2) : null));
+  const retire = TRAYS.map((_, k) => (RETIRE_TRAYS.includes(k) ? retireAt(k, f) : null));
   const bays = BAY_TRAYS.map(({ k, id }): BayTurn => {
     const T = bayTimes(k);
+    const grow = clamp(springOver(f, T.grow, TURN.growFrames, SPRING.heavy));
     return {
       id,
-      grow: springOver(f, T.grow, TURN.growFrames, SPRING.heavy),
+      slide: id === 'tests' ? TESTS_SLIDE * CAMERA(span01(f, T.slide, T.grow)) : 0,
+      grow,
       built: springAt(f, T.grow, SPRING.effects),
-      print: span01(f, T.print, T.print + 4),
-      drop: moveOver(f, T.drop, T.drop + 2),
-      slide: moveOver(f, T.slide, T.slide + 8),
-      leaves: 1 - easings.inOutSine(span01(f, T.shut, T.shut + 4)),
-      hole: f >= T.drop && f < T.closed,
+      morph: grow,
+      lid: easings.inOutSine(span01(f, T.lid, T.open)),
+      // the leaves drop open gathering speed (Hatch: an angle of open²), then swing back up and shut
+      leaves: f < T.shut ? span01(f, T.open, T.shut) : 1 - easings.inOutSine(span01(f, T.shut, T.closed)),
+      fall: easings.inQuad(span01(f, T.open + 1, T.open + 7)),
+      // the hole opens as the leaves leave the slate (never on a frame they lie shut on it) and closes as they shut
+      hole: f > T.open && f < T.closed,
       done: f >= T.closed,
     };
   });
-  return { slips, press, bays };
+  return { slips, retire, bays };
 }
 
 /** A bay's walls while its tray grows into them: the box, the wall height and thickness, the south wall, the door gap. */
@@ -510,24 +603,26 @@ export interface BayShape {
   southWall: number;
   door: [number, number];
 }
-export function bayShapeAt(k: number, b: BayLayout, grow: number): BayShape {
+/** A tray's door gap in its north wall (30 u wide at its offset from the middle), as the bay's door grows from it. */
+const TRAY_DOOR = 30;
+export function bayShapeAt(k: number, b: BayLayout, grow: number, slide = 0): BayShape {
   const tr = TRAYS[k];
-  const t: Rect = { x0: tr.c[0] - tr.w / 2, x1: tr.c[0] + tr.w / 2, y0: tr.c[1] - tr.d / 2, y1: tr.c[1] + tr.d / 2 };
+  const t: Rect = { x0: tr.c[0] + slide - tr.w / 2, x1: tr.c[0] + slide + tr.w / 2, y0: tr.c[1] - tr.d / 2, y1: tr.c[1] + tr.d / 2 };
   const g = grow;
   const mix = (a: number, c: number) => a + (c - a) * g;
   const box: Rect = { x0: mix(t.x0, b.box.x0), x1: mix(t.x1, b.box.x1), y0: mix(t.y0, b.box.y0), y1: mix(t.y1, b.box.y1) };
-  // the door gap: the tray's (30 u at its offset) to the bay's, relative to the box's west edge
-  const tDoor: [number, number] = [tr.c[0] + tr.door - 15 - t.x0, tr.c[0] + tr.door + 15 - t.x0];
+  // the door gap: the tray's to the bay's, relative to the box's west edge
+  const tDoor: [number, number] = [tr.w / 2 + tr.door - TRAY_DOOR / 2, tr.w / 2 + tr.door + TRAY_DOOR / 2];
   const bDoor: [number, number] = [b.door[0] - b.box.x0, b.door[1] - b.box.x0];
   return {
     box,
-    wallH: mix(tr.wall, b.wallH),
+    wallH: mix(TRAY_Z.rim, b.wallH),
     wall: mix(TRAY_Z.wallT, b.wall),
     southWall: mix(TRAY_Z.wallT + 2, b.southWall),
     door: [box.x0 + mix(tDoor[0], bDoor[0]), box.x0 + mix(tDoor[1], bDoor[1])],
   };
 }
-/** The walls of a bay shape (as footprints.ts bayWalls). */
+/** The walls of a bay shape (as footprints.ts bayWalls): west, east, south, and the north wall either side of the door. */
 export function shapeWalls(s: BayShape): Rect[] {
   const { box, wall, southWall, door } = s;
   return [
@@ -756,7 +851,7 @@ export function registerTapeAt(f: number): RegisterTape {
 }
 
 // ------------------------------------------------------------------------------------------------
-// Labels
+/// Labels
 
 export interface LabelReveal {
   /** the hairline leader drawn (0..1, 6 f), then the label wiped in (0..1, 8 f) */
@@ -764,10 +859,9 @@ export interface LabelReveal {
   wipe: number;
 }
 const reveal = (f: number, from: number): LabelReveal | null => (f < from ? null : { leader: ENTER(clamp((f - from) / 6)), wipe: clamp((f - from - 6) / 8) });
-/** Your act-one label: landed until the camera moves, then it exits over 6 f (its wipe back over 4 f, its leader back into its foot); null once gone. */
-const exitAt = (f: number, from: number): LabelReveal | null => (f < from ? { leader: 1, wipe: 1 } : f > from + 6 ? null : { leader: 1 - clamp((f - from - 2) / 4), wipe: 1 - clamp((f - from) / 4) });
-export function labelsTurnAt(f: number): { youA: LabelReveal | null; you: LabelReveal | null; router: LabelReveal | null } {
-  return { youA: exitAt(f, TURN.youOut), you: reveal(f, TURN.youLabel), router: reveal(f, TURN.routerLabel) };
+/** The act-two labels as they enter once the camera has settled (your act-one label left as beat 3 began: actOne.ts YOU_LABEL_OUT). */
+export function labelsTurnAt(f: number): { you: LabelReveal | null; router: LabelReveal | null } {
+  return { you: reveal(f, TURN.youLabel), router: reveal(f, TURN.routerLabel) };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -781,7 +875,7 @@ export interface TurnState {
   pressA: Press;
   you: YouPose;
   loop: LoopTurn;
-  fixA: FixATurn;
+  fixA: FixAView;
   fixB: FixBTurn;
   deck: DeckTurn;
   parts: PartsTurn;
@@ -793,21 +887,19 @@ export interface TurnState {
   step: number;
 }
 
-export const pressStart = (i: number): number => TURN.press + TURN.pressStagger * i;
-/** The focus step-down: in over 16 f before the camera moves, out over 16 f for "hears every channel". */
+/** The intake's step-down: held from act one (actOne.ts FOCUS_A.intake), out over 16 f for "hears every channel". */
 export function turnStepAt(f: number): number {
-  return Math.min(easings.inOutSine(span01(f, TURN.stepIn, TURN.stepIn + TURN.stepFrames)), 1 - easings.inOutSine(span01(f, TURN.stepOut, TURN.stepOut + TURN.stepFrames)));
+  return 1 - easings.inOutSine(span01(f, TURN.stepOut, TURN.stepOut + TURN.stepFrames));
 }
 
 export function turnAt(f: number): TurnState {
-  const pressA = pressAt(f, pressStart(0), FIX_A_FOLDER.d, 1.2 + FIX_A_FOLDER.sheets * 0.8 + 4);
-  const press = FOLDERS.map((fl, i) => pressAt(f, pressStart(i + 1), fl.d, stackTop(fl) + 34));
+  const p = foldPressAt(f);
   const loop = loopTurnAt(f);
   return {
     f,
     act: heldActOne(f),
-    pressA,
-    press,
+    pressA: p,
+    press: FOLDERS.map(() => p),
     you: youPoseTurn(f),
     loop,
     fixA: fixATurnAt(f, loop),
@@ -822,14 +914,20 @@ export function turnAt(f: number): TurnState {
   };
 }
 
-/** The desk state the act-two objects read during the turn: act two's rest (nothing of (b)'s handshake has happened), the intake's focus step. */
+/**
+ * The desk state the act-two objects read during the turn: act two's rest (nothing of (b)'s handshake has happened), the
+ * intake's step held from act one, and the kit's late ramp carrying the pressed folders' pens, flags and clips to the
+ * slate's tone (while any is still drawn; nothing else is on the late set in the turn).
+ */
 export function turnDeskState(f: number): DeskState {
   const step = turnStepAt(f);
-  return { ...deskStateAt(f), step: { amount: step, ids: step > 0 ? ['intake'] : [] } };
+  const s = deskStateAt(f);
+  const late = f < TURN.press + TURN.pressGone ? PRESS_LATE * slateAt(f) : s.testsStep;
+  return { ...s, step: { amount: step, ids: step > 0 ? ['intake'] : [] }, testsStep: late };
 }
 
-/** Each imprint's depth (beat3.ts IMPRINTS order: F1..F8, Fix A's, then the pressed trays). */
-export const imprintsAt = (t: TurnState): number[] => [...t.press.map(imprintOf), imprintOf(t.pressA), ...PRESS_TRAYS.map((k) => imprintOf(t.fixB.press[k]!))];
+/** Each imprint's depth (beat3.ts IMPRINTS order: F1..F8, then Fix A's). */
+export const imprintsAt = (t: TurnState): number[] => [...t.press.map(imprintOf), imprintOf(t.pressA)];
 
 /** The desk's open hatches during the turn (world rects; one per bay while its floor slides away and its leaves shut). */
 export function turnHoles(t: TurnState): Rect[] {
@@ -839,29 +937,96 @@ export function turnHoles(t: TurnState): Rect[] {
 // ------------------------------------------------------------------------------------------------
 // Light: the frame's footprints and pools
 
-/** A pressed body's footprint: its outline at its squashed height (nothing once it is under the slate). */
-function pressedFp(c: P2, w: number, d: number, rot: number, top: number, p: Press): Footprint[] {
-  if (p.k >= 1) return [];
-  const z1 = top * p.scaleZ - p.sink;
-  if (z1 <= 0.4) return [];
-  return [{ kind: 'rect', c, h: [w / 2, d / 2], r: 3, rot, z0: 0, z1, contact: 0.8 }];
+/**
+ * A footprint of a pressed body (a folder's, its pen's, its flag's): carried by the press, its heights squashed and sunk,
+ * its outline drawn in toward the body's centre in the body's own frame; nothing once it is under the slate.
+ */
+function pressFp(fp: Footprint, c: P2, w: number, d: number, rot: number, p: Press): Footprint | null {
+  if (p.k <= 0) return fp;
+  if (p.k >= 1) return null;
+  const z = (h: number) => h * p.scaleZ - p.sink;
+  const inset = p.inset ?? 0;
+  const sx = Math.max(0.05, 1 - (2 * inset) / w);
+  const sy = Math.max(0.05, 1 - (2 * inset) / d);
+  const cs = Math.cos(rot);
+  const sn = Math.sin(rot);
+  const q = (pt: readonly number[]): P2 => {
+    const dx = pt[0] - c[0];
+    const dy = pt[1] - c[1];
+    const u = (cs * dx + sn * dy) * sx;
+    const v = (-sn * dx + cs * dy) * sy;
+    return [c[0] + cs * u - sn * v, c[1] + sn * u + cs * v];
+  };
+  if (fp.kind === 'rect') {
+    const z1 = z(fp.z1);
+    if (z1 <= 0.4) return null;
+    const own = Math.abs(fp.rot - rot) < 1e-9;
+    return { ...fp, c: q(fp.c), h: own ? [fp.h[0] * sx, fp.h[1] * sy] : fp.h, z0: Math.max(0, z(fp.z0)), z1 };
+  }
+  if (fp.kind === 'seg') {
+    const ha = z(fp.ha);
+    const hb = z(fp.hb);
+    if (Math.max(ha, hb) <= 0.5) return null;
+    const a = q(fp.a);
+    const b = q(fp.b);
+    return { ...fp, a, b, ha, hb };
+  }
+  if (fp.kind === 'circle') {
+    const z1 = z(fp.z1);
+    return z1 <= 0.4 ? null : { ...fp, c: q(fp.c), z0: Math.max(0, z(fp.z0)), z1 };
+  }
+  return fp;
 }
 
+/** A feeder's generic box (and what lies on it) pressed flat into its vellum drawing: its heights squashed and sunk; nothing once flat. */
+function flattenFp(fp: Footprint, p: Press): Footprint | null {
+  if (p.k <= 0) return fp;
+  if (p.k >= 1 || fp.kind !== 'rect') return null;
+  const z1 = fp.z1 * p.scaleZ - p.sink;
+  return z1 <= 0.4 ? null : { ...fp, z0: Math.max(0, fp.z0 * p.scaleZ - p.sink), z1 };
+}
+
+/** The request in the old heap as act one casts it, handed to act two's cast (desk/footprints.ts carrierContact: none above 5 u) over 16 f while the camera moves. */
+const REQUEST_CAST = { from: 1460, frames: 16 } as const;
+const carrierContact = (z: number): number => 0.4 * clamp((5 - z) / 3.6);
 
 export function turnFootprints(t: TurnState): Footprint[] {
+  const f = t.f;
   const fp: Footprint[] = [...youFootprints(t.you)];
   const a = t.act;
-  // the folders, pressed flat and sinking (their pens and flags with them)
+  // the notes loop: its sixteen chords and its clip (act one's while it lies on the desk), up on edge; then the coil until it locks
+  const lt = t.loop;
+  if (lt.ribbon) {
+    const { L, edge } = lt.ribbon;
+    for (let i = 0; i < 16; i++) {
+      const p = loopAt(L, (i / 16) * Math.PI * 2);
+      const q = loopAt(L, ((i + 1) / 16) * Math.PI * 2);
+      fp.push(segFp([p[0], p[1], L.z + edge * A_TAPE_W], [q[0], q[1], L.z + edge * A_TAPE_W], 10 + 2 * (1 - edge)));
+    }
+    const lift = L.z - LOOP_A.z + (L.w / 2) * edge;
+    fp.push(circleFp(loopAt(L, L.clipAt), 26, lift, lift + 7.8, lift < 0.5 ? 0.9 : 0));
+  }
+  if (lt.coil && f < TURN.lock) fp.push(circleFp(lt.coil.c, lt.coil.rOut + 4, lt.coil.h, lt.coil.h + lt.coil.t, 0.6));
+  // act one's folders, pressed with their pens and flags
   FOLDERS.forEach((fl, i) => {
-    if (a.folders[i].present <= 0) return;
-    fp.push(...pressedFp(fl.c, fl.w, fl.d, fl.rot, stackTop(fl), t.press[i]));
+    for (const x of folderFootprints(fl, a.folders[i])) {
+      const y = pressFp(x, fl.c, fl.w, fl.d, fl.rot, t.press[i]);
+      if (y) fp.push(y);
+    }
   });
-  fp.push(...pressedFp(FIX_A_FOLDER.c, FIX_A_FOLDER.w, FIX_A_FOLDER.d, FIX_A_FOLDER.rot, 1.2 + FIX_A_FOLDER.sheets * 0.8, t.pressA));
-  // the feeders
-  fp.push(circleFp(rectC(FEEDERS.chat), (FEEDERS.chat.y1 - FEEDERS.chat.y0) / 2, 0, FEEDER_H.chat, 1));
-  fp.push(...ciHopperFootprints());
-  fp.push(...pressedFp(rectC(FEEDERS.mail), FEEDERS.mail.x1 - FEEDERS.mail.x0, FEEDERS.mail.y1 - FEEDERS.mail.y0, 0, 30, t.intake.mail));
-  fp.push(...pressedFp(rectC(FEEDERS.calendar), FEEDERS.calendar.x1 - FEEDERS.calendar.x0, FEEDERS.calendar.y1 - FEEDERS.calendar.y0, 0, 18, t.intake.calendar));
+  // the feeders: act one's (the generic mail and calendar pressed flat into their vellum drawings), then the intake's spool, belt and gate
+  const fd = feederFootprints();
+  fp.push(...fd.slice(0, fd.length - 4));
+  const [box, envelope, pad, leaf] = fd.slice(fd.length - 4);
+  for (const [x, p] of [
+    [box, t.intake.mail],
+    [envelope, t.intake.mail],
+    [pad, t.intake.calendar],
+    [leaf, t.intake.calendar],
+  ] as const) {
+    const y = flattenFp(x, p);
+    if (y) fp.push(y);
+  }
   if (t.intake.spool !== null) fp.push(circleFp([SPOOL.x, SPOOL.y + t.intake.spool], SPOOL.r, 0, SPOOL.z[1], 1));
   if (t.intake.belt !== null) {
     const e = t.intake.belt;
@@ -872,58 +1037,56 @@ export function turnFootprints(t: TurnState): Footprint[] {
     const gy = end[1] - BELT.from[1];
     fp.push(rectFp({ x0: GATE.bar.x0 + gx, x1: GATE.bar.x1 + gx, y0: GATE.bar.y0 + gy, y1: GATE.bar.y1 + gy }, lift, GATE.h + lift, lift < 1 ? 1 : 0, 3));
   }
-  // the heap's footprint is act one's (the request with it)
-  // the loop or the coil
-  const lt = t.loop;
-  if (lt.ribbon) {
-    const { L, edge } = lt.ribbon;
-    for (let i = 0; i < 16; i++) {
-      const p = loopAt(L, (i / 16) * Math.PI * 2);
-      const q = loopAt(L, ((i + 1) / 16) * Math.PI * 2);
-      fp.push(segFp([p[0], p[1], L.z + edge * A_TAPE_W], [q[0], q[1], L.z + edge * A_TAPE_W], 10 + 2 * (1 - edge)));
+  // the old heap and the request in it: act one's cast (the request's handed to act two's), then beat 4's as the request
+  // starts out of it (desk/beat4.ts REQUEST_FROM), as act two casts them
+  if (f < REQUEST_FROM) {
+    const k = easings.inOutSine(span01(f, REQUEST_CAST.from, REQUEST_CAST.from + REQUEST_CAST.frames));
+    for (const x of heapFootprints(a)) {
+      if (x.kind === 'rect' && x.h[0] === REQUEST.l / 2 && x.h[1] === REQUEST.w / 2 && k > 0) {
+        const z = requestAt(REQUEST_FROM).pose!.p[2];
+        fp.push({ ...x, z0: x.z0 + (z - 0.4 - x.z0) * k, z1: x.z1 + (z + 0.6 - x.z1) * k, contact: x.contact + (carrierContact(z) - x.contact) * k });
+      } else fp.push(x);
     }
+  } else {
+    fp.push(...heapFootprintsAt(heapAt(f)));
+    const r = requestAt(f).pose;
+    if (r) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [REQUEST.l / 2, REQUEST.w / 2], r: 2, rot: r.heading, z0: r.p[2] - 0.4, z1: r.p[2] + 0.6, contact: carrierContact(r.p[2]) });
   }
-  // the coil until it locks (then it is the Register's reel, whose footprint the Register's are)
-  if (lt.coil && t.f < TURN.lock) fp.push(circleFp(lt.coil.c, lt.coil.rOut + 4, lt.coil.h, lt.coil.h + lt.coil.t, 0.6));
-  // Fix A: the tape (a thin line of shadow), the items on the desk, the span
+  // Fix A: its folder pressed with its pile, its tape on the desk and its chutes (as beat 3 casts them), the span up to the loop or coil
   const A = t.fixA;
-  if (A.deskLen > 0) {
-    const n = 8;
-    for (let i = 0; i < n; i++) {
-      const p = aPathAt((A.deskLen * i) / n).p;
-      const q = aPathAt((A.deskLen * (i + 1)) / n).p;
-      fp.push(segFp([p[0], p[1], 0.4], [q[0], q[1], 0.4], A_TAPE_W / 2 - 2));
-    }
-  }
-  if (A.spanLen > 0) fp.push(segFp(A.span.b, lerp3(A.span.b, A.span.a, A.spanLen / A.span.len), A_TAPE_W / 2 - 2));
-  A.items.forEach((it, i) => {
-    if (!it || i > 14) return;
-    const [l, w] = [A_ITEMS[i].l, A_ITEMS[i].w];
-    fp.push({ kind: 'rect', c: [it.p[0], it.p[1]], h: [l / 2, w / 2], r: 2, rot: Math.atan2(it.x[1], it.x[0]), z0: it.p[2] - 0.4, z1: it.p[2] + 0.4, contact: it.p[2] < 3 ? 0.4 : 0 });
+  const fa = fixAFootprints({ ...A, items: [] });
+  const F = FIX_A_FOLDER;
+  const body = pressFp(fa[0], F.c, F.w, F.d, F.rot, t.pressA);
+  if (body) fp.push(body);
+  fp.push(...fa.slice(1));
+  if (A.spanLen > 0.5) fp.push(segFp(A.span.b, lerp3(A.span.b, A.span.a, A.spanLen / A.span.len), A_TAPE_W / 2 - 2));
+  // Fix B: the replies in your in-tray and in the air (home in its tray, a reply casts nothing of its own); each retiring
+  // tray as it is posted out; each bay tray as it slides and walls up (its own rect drawing in under its floor as its
+  // walls take over), the pit under an open hatch, then the closed bay's shell (act two's)
+  const B = t.fixB;
+  B.slips.forEach((s, k) => {
+    if (f >= replyLands(k)) return;
+    fp.push({ kind: 'rect', c: [s.p[0], s.p[1]], h: [B_SLIP.l / 2, B_SLIP.w / 2], r: 2, rot: s.rot, z0: s.p[2] - 0.4, z1: s.p[2] + 0.4, contact: s.p[2] < YOU.top + 12 ? 0.4 : 0 });
   });
-  // Fix B: the trays (pressed, or growing into bays), the replies, the bays' work rising
   TRAYS.forEach((tr, k) => {
-    const p = t.fixB.press[k];
-    if (p) fp.push(...pressedFp(tr.c, tr.w, tr.d, 0, TRAY_Z.rim, p));
+    const R = B.retire[k];
+    if (!R || R.gone) return;
+    const o = R.off;
+    fp.push({ kind: 'rect', c: [tr.c[0] + o[0], tr.c[1] + o[1]], h: [tr.w / 2, tr.d / 2], r: 3, rot: 0, z0: o[2], z1: o[2] + TRAY_Z.rim, contact: o[2] < 0.5 ? 0.8 : 0 });
   });
-  t.fixB.bays.forEach((b, i) => {
-    // closed: act two's shell (objects/Bay.tsx draws it from here); walling up: the growing walls and door; the pit while the floor goes
-    if (b.done) {
-      fp.push(...bayShellFootprints(BAYS[b.id]));
-      return;
-    }
+  B.bays.forEach((b, i) => {
+    const L = BAYS[b.id];
+    if (b.done) return void fp.push(...bayShellFootprints(L));
     const k = BAY_TRAYS[i].k;
-    const s = bayShapeAt(k, BAYS[b.id], b.grow);
-    const h = TRAY_Z.rim + (s.wallH - TRAY_Z.rim) * Math.min(1, b.grow * 1.4);
-    for (const w of shapeWalls(s)) fp.push(rectFp(w, 0, h, 1, 2));
-    if (b.grow > 0) fp.push(rectFp(bayDoor(BAYS[b.id]), 0, (BAYS[b.id].wallH - 6) * b.grow, 1, 2));
-    if (b.hole) fp.push(...pitFootprints(BAYS[b.id].box));
-  });
-  t.fixB.slips.forEach((s, k) => {
-    const p = t.fixB.press[k];
-    if (p && p.k > 0) return;
-    if (!p && t.fixB.bays.find((b, i) => BAY_TRAYS[i].k === k && b.drop > 0)) return;
-    fp.push({ kind: 'rect', c: [s.p[0], s.p[1]], h: [B_SLIP.l / 2, B_SLIP.w / 2], r: 2, rot: s.rot, z0: s.p[2] - 0.4, z1: s.p[2] + 0.4, contact: s.p[2] < YOU.top + 8 ? 0.4 : 0 });
+    const s = bayShapeAt(k, L, b.grow, b.slide);
+    const c: P2 = [(s.box.x0 + s.box.x1) / 2, (s.box.y0 + s.box.y1) / 2];
+    fp.push({ kind: 'rect', c, h: [(s.box.x1 - s.box.x0) / 2, (s.box.y1 - s.box.y0) / 2], r: 3, rot: 0, z0: 0, z1: Math.max(0.4, TRAY_Z.rim * (1 - b.grow)), contact: 0.8 * (1 - b.grow) });
+    if (b.grow > 0) {
+      const h = TRAY_Z.rim + (L.wallH - TRAY_Z.rim) * b.grow;
+      for (const w of shapeWalls(s)) fp.push(rectFp(w, 0, h, b.grow, 2));
+      fp.push(rectFp({ x0: s.door[0], x1: s.door[1], y0: s.box.y1 - s.wall + 2, y1: s.box.y1 - 2 }, 0, (L.wallH - 6) * b.grow, b.grow, 2));
+    }
+    if (b.hole) fp.push(...pitFootprints(L.box));
   });
   // the Register: present once it rolls into the frame, posed with the deck; its legs as they telescope
   if (t.f >= TURN.deckIn) {
@@ -957,10 +1120,7 @@ export function turnFootprints(t: TurnState): Footprint[] {
   // its posts as they telescope down to the desk
   if (t.parts.posts > 0) for (const [x, y] of CHUTE_POSTS) fp.push(circleFp([x, y], 6, 90 * (1 - t.parts.posts), 90, t.parts.posts > 0.99 ? 1 : 0));
   if (t.slip) fp.push({ kind: 'rect', c: [t.slip.p[0], t.slip.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: t.slip.heading, z0: t.slip.p[2] - 0.4, z1: t.slip.p[2] + 0.4, contact: 0 });
-  // the request rising out of the old heap (desk/beat4.ts), as act two casts it
-  const r = requestAt(t.f).pose;
-  if (r && t.f >= B4.requestRise) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [REQUEST.l / 2, REQUEST.w / 2], r: 2, rot: r.heading, z0: r.p[2] - 0.4, z1: r.p[2] + 0.6, contact: r.p[2] < 3 ? 0.4 : 0 });
-  return fp.slice(0, 128);
+  return fp;
 }
 
 /** The chute's centreline from the deck's corner as far as it has extended (0..1 of its length). */

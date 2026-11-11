@@ -17,7 +17,7 @@
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { textCanvas } from '@aiv/remotion-kit';
 import { CanvasTexture, CircleGeometry, Color, MeshBasicMaterial, Path, SRGBColorSpace, Shape, ShapeGeometry, TorusGeometry, type BufferGeometry, type Texture } from 'three';
-import { REQUEST_DOCK, REQUEST_DOCK_HEADING, RIDE, WORK_DEPTH, type BayDispatch, type Carry } from '../beat4.ts';
+import { REQUEST_DOCK, REQUEST_DOCK_HEADING, RIDE, WORK_DEPTH, testsCapOpenAt, type BayDispatch, type Carry } from '../beat4.ts';
 import { bayDoor, bayWalls } from '../footprints.ts';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, tube } from '../geom.ts';
 import { EMIT, Step, WithMats, isStepped, useDeskMats, useDeskSets, type DeskMats } from '../kit.tsx';
@@ -576,7 +576,8 @@ function TestsParts({ s }: { s: DeskState }) {
     lensMats.forEach((x, i) => x.color.copy(out).lerp(lit, s.lamps[i]));
   }, [m, s.testsLight, on, s.lamps, lensMats, lit, out]);
   const T = TOWER;
-  const angle = CAP_OPEN * (1 - s.testsCap);
+  // (it rises shut with the tower and swings open as its task lands on the dossier, before its lamps light: beat4.ts)
+  const angle = CAP_OPEN * testsCapOpenAt(s.f) * (1 - s.testsCap);
   const w = workOf(s.b4.bays.tests, 'tests');
   const docked = s.b4.carriers.find((c) => c.id === 'tests' && c.docked);
   return (

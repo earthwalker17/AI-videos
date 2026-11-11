@@ -18,27 +18,38 @@ import { useFont } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { BufferGeometry, Color, CylinderGeometry, DoubleSide, Float32BufferAttribute, Matrix4, Path, RepeatWrapping, RingGeometry, Shape, type Material, type MeshStandardMaterial, type Texture } from 'three';
 import { HEAP, LOOP_A, FOLDERS, PIECE, REQUEST_A, loopNormal, loopPoint, requestZ, tabAt, TAB, type ActOneState, type LoopPose, type PieceKind } from '../actOne.ts';
-import { A_CHUTES, A_FOLDER_TOP, A_ITEMS, A_PILE, A_PITCH, A_SIZE, A_TAPE_W, BAY_TRAYS, BREAK, B_SLIP, EVENT_SIZE, FIX_A_FOLDER, FOLLOW_UP, STUB, TEAR, TRAYS, TRAY_CARD, TRAY_STUFF, TRAY_Z, aPathAt, followUpAt, tearAt, type AItemKind, type AItemPose, type EventKind, type FixAView } from '../beat3.ts';
+import { A_CHUTES, A_FOLDER_TOP, A_ITEMS, A_PILE, A_PITCH, A_SIZE, A_STACK_END, A_TAPE_W, BAY_TRAYS, BREAK, B_SLIP, EVENT_SIZE, FIX_A_FOLDER, FOLLOW_UP, TEAR, TRAYS, TRAY_CARD, TRAY_STUFF, TRAY_Z, aPathAt, followUpAt, tearAt, type AItemKind, type AItemPose, type EventKind, type FixAView, type TrayPost } from '../beat3.ts';
 import { ON_REQUEST, RIDE, WORK_DEPTH, heapPieceAt, type HeapState, type RequestState } from '../beat4.ts';
-import { bayDoor } from '../footprints.ts';
-import { cylinderZ, disc, extrude, merge, slab, tornShape, tube } from '../geom.ts';
-import { HEX, graphite, paper, stepColour, whiteTexture } from '../gl/materials.ts';
+import { cylinderZ, disc, extrude, merge, planeOn, slab, tornShape, tube } from '../geom.ts';
+import { DESK_HEX } from '../gl/desk.ts';
+import { HEX, enamel, graphite, paper, stepColour, whiteTexture } from '../gl/materials.ts';
 import { PRINT_FONT, cargoMark, texture, tooth } from '../gl/text.ts';
 import { useDeskMats, useDeskSets, useStepMode } from '../kit.tsx';
 import { BAYS, BAY_FLOOR, LEG_R, NEXT_SLIP, REEL, TAPE, TAPE_FLAT_X1, type BayId, type P2, type P3, type Rect } from '../layout.ts';
-import { CLIP_T, TRAY_REST, TURN, bayShapeAt, coilRim, legsAt, replyLands, shapeWalls, turnDeskState, type BayTurn, type CoilState, type Press, type TurnState } from '../turn.ts';
+import { CLIP_T, TURN, bayShapeAt, coilRim, legsAt, replyLands, shapeWalls, turnDeskState, type BayShape, type BayTurn, type CoilState, type Press, type TurnState } from '../turn.ts';
 import { BeetleLight, BugBay, DocsBay, SLOT_IDLE, TestsBay } from './Bay.tsx';
-import { Hatch } from './Dispatch.tsx';
+import { Hatch, shellInside } from './Dispatch.tsx';
 import { bubbleMark } from './Intake.tsx';
-import { TAPE_HEX, clipGeometry, fitUv, loopArc, loopNoteFlips, loopNotes, makeActOnePrint, piece, requestGeometry, slipShape } from './ActOne.tsx';
+import { TAPE_HEX, clipGeometry, fitUv, loopArc, loopNoteFlips, loopNotes, loopNotesAt, makeActOnePrint, piece, requestGeometry, slipShape } from './ActOne.tsx';
+
+/** The slate's own tone (linear): what a pressed folder's stock glows to as its own light goes out (desk/turn.ts foldPressAt). */
+const SLATE = new Color(DESK_HEX.base);
+
+/** Fix A's clip, on the kit's late set while the folder is pressed (the turn ramps it to the slate's tone). */
+function FolderClip({ geometry, pressed }: { geometry: BufferGeometry; pressed: boolean }) {
+  const sets = useDeskSets();
+  const ctx = useDeskMats();
+  return <mesh geometry={geometry} material={(pressed ? sets.late : ctx).graphiteDark} />;
+}
 
 /** Grey stock: the road not taken (STORYBOARD's palette). */
 export const GREY = '#77756F';
 export const GREY_LIGHT = '#8A8781';
 /** Fix B's replies: a paler grey stock, so the jostling pile reads slip by slip on the in-tray. */
 export const GREY_PALE = '#9B9891';
-/** A bay's wall at rest (the kit's graphite) and its nameplate band's enamel. */
+/** A bay's wall at rest (the kit's graphite), and its closed lid's graphite (objects/Dispatch.tsx LidHatch's). */
 const BAY_WALL_HEX = '#626764';
+const LID_HEX = '#5A5E5C';
 
 const lerpHex = (a: string, b: string, t: number): Color => (t >= 1 ? new Color(b) : t <= 0 ? new Color(a) : new Color(a).lerp(new Color(b), t));
 
@@ -63,11 +74,12 @@ const unit = (a: P3): P3 => {
 };
 const add = (a: P3, b: P3, k = 1): P3 => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
 
-/** A pressed body: squashed flat on the desk, tilted north edge down and sunk (the press's one transform). */
-function Pressed({ p, children }: { p?: Press | null; children: ReactNode }) {
+/** A pressed body: squashed flat on the desk and sunk, drawing in from its outline (w × d) by the press's inset (the press's one transform). */
+function Pressed({ p, w, d, children }: { p?: Press | null; w: number; d: number; children: ReactNode }) {
   if (!p || p.k <= 0) return <>{children}</>;
+  const inset = p.inset ?? 0;
   return (
-    <group position={[0, 0, -p.sink]} rotation={[-p.tilt, 0, 0]} scale={[1, 1, p.scaleZ]}>
+    <group position={[0, 0, -p.sink]} rotation={[-p.tilt, 0, 0]} scale={[1 - (2 * inset) / w, 1 - (2 * inset) / d, p.scaleZ]}>
       {children}
     </group>
   );
@@ -185,7 +197,11 @@ function Placed({ matrix, geometry, material }: { matrix: Matrix4; geometry: Buf
 /** The loop's print and tab stock, made once for act one's loop (the print rides the tape as it turns and coils). */
 function useLoopMats(printFamily: string) {
   const len = useMemo(() => loopArc(LOOP_A).len, []);
-  const print = useMemo(() => makeActOnePrint(printFamily, 4, Math.ceil(len), loopNotes(len), loopNoteFlips(LOOP_A, loopNotes(len))), [printFamily, len]);
+  // as act one prints it (objects/ActOne.tsx ActOneObjects: each note at its own tab, every note written by f1399)
+  const print = useMemo(() => {
+    const notes = loopNotesAt(LOOP_A);
+    return makeActOnePrint(printFamily, 4, Math.ceil(len), notes, loopNoteFlips(LOOP_A, notes), FOLDERS.map(() => 1));
+  }, [printFamily, len]);
   const mats = useMats(() => {
     const tape = paper(print.tape, TAPE_HEX.tape);
     tape.side = DoubleSide;
@@ -303,7 +319,7 @@ function Coil({ c, edge, fold, mats }: { c: NonNullable<TurnState['loop']['coil'
  * Grey stock, the road not taken (fixes A and B): an albedo that lights to luma 117 and up where it leads, its shade (a
  * stack's sides, a tray's floor), its light (a top sheet, an event card), the tape's stock, and the holes punched in it.
  */
-export const FIX_HEX = { stock: '#A8A59D', shade: '#86837C', light: '#BFBBB2', tape: '#ADA9A1', item: '#C3BFB6', reply: '#B9B5AC', request: '#74716A', ink: '#3E3D3A', hole: '#232524', band: '#4C4F4D' } as const;
+export const FIX_HEX = { stock: '#A8A59D', shade: '#86837C', light: '#BFBBB2', tape: '#ADA9A1', item: '#C3BFB6', reply: '#B9B5AC', request: '#74716A', ink: '#3E3D3A', hole: '#232524', band: '#4C4F4D', rim: '#8C8982', floor: '#7A7770' } as const;
 
 /** A ribbon along a list of centre points with width vectors, its u by material distance. */
 export function stripGeometry(pts: readonly { p: P3; w: P3; u: number }[], half: number): BufferGeometry | null {
@@ -430,7 +446,6 @@ function chuteGeometry(c: (typeof A_CHUTES)[number], e: number): BufferGeometry 
  * are A_ITEMS by index). Its materials step down with the enclosing `<Step>` (beat 3.2: the focus moves to Fix B).
  */
 export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pressA: TurnState['pressA'] }) {
-  const m = useDeskMats();
   const mode = useStepMode();
   const A = fixA as FixAView;
   const tex = useMemo(() => tapeTexture(), []);
@@ -443,7 +458,8 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
     return {
       cover: extrude(tornShape(F.w, F.d, 3, 'nesw', 1.8, 6), 0, 1.4, 0.4),
       tab: slab({ x0: -16, x1: 20, y0: r.y1 - 2, y1: r.y1 + 10 }, 0, 1.4, 3, 0.3),
-      stack: slab({ x0: r.x0 + 5, x1: r.x1 - 5, y0: r.y0 + 5, y1: r.y1 - 5 }, 1.4, A_FOLDER_TOP - 0.5, 2, 0.4),
+      // the stack from the cover up to the top sheet as Fix A arrives; it thickens with each swallow (scaled in z)
+      stack: slab({ x0: r.x0 + 5, x1: r.x1 - 5, y0: r.y0 + 5, y1: r.y1 - 5 }, 0, A_FOLDER_TOP - 0.5 - 1.4, 2, 0.4),
       sheet: extrude(tornShape(F.w - 14, F.d - 14, 5, 'se', 1.4, 5), A_FOLDER_TOP - 0.5, A_FOLDER_TOP, 0.2),
       clip: slab({ x0: -14, x1: 14, y0: r.y1 - 16, y1: r.y1 - 3 }, A_FOLDER_TOP, A_FOLDER_TOP + 4.5, 2, 0.8),
     };
@@ -475,7 +491,7 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
       out[`k${key}`].side = DoubleSide;
     }
     A_ITEMS.forEach((it, i) => {
-      out[`i${i}`] = paper(kindTex[`${it.kind}${it.v % 4}`], FIX_HEX.item, o);
+      out[`i${i}`] = paper(kindTex[`${it.kind}${it.v % 4}`], it.kind === 'request' ? FIX_HEX.request : FIX_HEX.item, o);
       out[`i${i}`].side = DoubleSide;
     });
     return out;
@@ -483,9 +499,28 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
   // the turn's queue (A_ITEMS by index) turns to paper as it leaves the desk
   useLayoutEffect(() => {
     A.items.forEach((it, i) => {
-      if (it && it.kind === undefined && mats[`i${i}`]) mats[`i${i}`].color.copy(lerpHex(FIX_HEX.item, HEX.paper, it.paper));
+      if (it && it.kind === undefined && mats[`i${i}`]) mats[`i${i}`].color.copy(lerpHex(A_ITEMS[i]?.kind === 'request' ? FIX_HEX.request : FIX_HEX.item, HEX.paper, it.paper));
     });
   }, [A.items, mats]);
+  // the request's copy carries the request's vermilion while Fix A holds the focus (beat3.ts aRequestInkAt; the turn's: grey)
+  const ink = A.requestInk ?? 0;
+  // pressed at the turn (desk/turn.ts foldPressAt): the folder's grey stock and its pile take the slate's tone by amount
+  const slate = pressA.slate ?? 0;
+  useLayoutEffect(() => {
+    for (let v = 0; v < 4; v++) mats[`krequest${v}`]?.color.copy(lerpHex(FIX_HEX.request, HEX.vermilion, ink));
+    if (slate <= 0) {
+      for (const x of Object.values(mats)) x.emissive.setRGB(0, 0, 0);
+      return;
+    }
+    const tone = (x: MeshStandardMaterial, hex: string) => {
+      x.color.set(hex).multiplyScalar(1 - slate);
+      x.emissive.copy(SLATE).multiplyScalar(slate);
+    };
+    tone(mats.cover, FIX_HEX.stock);
+    tone(mats.stack, FIX_HEX.shade);
+    tone(mats.sheet, FIX_HEX.light);
+    for (const key of Object.keys(mats)) if (key.startsWith('k')) tone(mats[key], key.startsWith('krequest') ? FIX_HEX.request : FIX_HEX.item);
+  }, [ink, slate, mats]);
   // the tape along its path: beat 3's stretch (A.tape), or the turn's from the folder back; u by material place (the print travels with it)
   const t0 = A.tape?.d0 ?? 0;
   const t1 = A.tape?.d1 ?? A.deskLen;
@@ -520,6 +555,9 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
     return list.length ? merge(list) : null;
   }, [chuteKey]);
   const dy = A.folderDy ?? 0;
+  // the stack's top (it thickens as the pile grows; the turn's: every swallow done)
+  const top = A.stackTop ?? A_STACK_END;
+  const grow = top - A_FOLDER_TOP;
   // the pile on the folder: beat 3's (pieces on their way up from the mouth too), or the whole pile at rest (the turn)
   const pile: AItemPose[] = A.pile ?? A_PILE.map((P) => ({ p: [F.c[0] + P.o[0], F.c[1] + P.o[1], P.z] as P3, x: [Math.cos(P.rot), Math.sin(P.rot), 0] as P3, y: [-Math.sin(P.rot), Math.cos(P.rot), 0] as P3, paper: 0, kind: P.kind, v: P.v }));
   const local = (it: AItemPose): AItemPose => ({ ...it, p: [it.p[0] - F.c[0], it.p[1] - (F.c[1] - dy), it.p[2]] });
@@ -531,12 +569,14 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
       {chutes && <mesh geometry={chutes} material={mats.chute} />}
       {pressA.k < 1 && (
         <group position={[F.c[0], F.c[1] - dy, 0]} rotation={[0, 0, F.rot]}>
-          <Pressed p={pressA}>
+          <Pressed p={pressA} w={F.w} d={F.d}>
             <mesh geometry={folder.cover} material={mats.cover} />
             <mesh geometry={folder.tab} material={mats.cover} />
-            <mesh geometry={folder.stack} material={mats.stack} />
-            <mesh geometry={folder.sheet} material={mats.sheet} />
-            <mesh geometry={folder.clip} material={m.graphiteDark} />
+            <mesh geometry={folder.stack} material={mats.stack} position={[0, 0, 1.4]} scale={[1, 1, (top - 0.5 - 1.4) / (A_FOLDER_TOP - 0.5 - 1.4)]} />
+            <group position={[0, 0, grow]}>
+              <mesh geometry={folder.sheet} material={mats.sheet} />
+              <FolderClip geometry={folder.clip} pressed={pressA.k > 0} />
+            </group>
             {pile.map((it, k) => (
               <ItemMesh key={k} it={local(it)} geometry={geo[it.kind ?? 'chat']} material={matOf(it, -1)} />
             ))}
@@ -549,9 +589,31 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
 }
 
 // ------------------------------------------------------------------------------------------------
-// Fix B: the trays (pressed flat, or walled up into the bays), what lies in each, the replies, the follow-up and its torn stub
+// Fix B: the trays (posted back out, or walled up into the bays), what lies in each, the replies, the follow-up and its torn stub
 
-/** A tray at rest (tray-local): its torn-edged floor, its low walls (the north wall with its door gap), and the turn's single event card. */
+/**
+ * One grey-stock rim strip (tray-local): a card folded up into a low wall, its outer edge torn (`side`) and a row of punched
+ * holes along it (perforated stock: grey stock is a fix, never built enamel), from (x0, y0) to (x1, y1).
+ */
+function rimStrip(x0: number, x1: number, y0: number, y1: number, side: 'n' | 'e' | 's' | 'w', seed: number): BufferGeometry {
+  const w = x1 - x0;
+  const d = y1 - y0;
+  const s = tornShape(w, d, seed, side, 1.3, 4);
+  const along = w >= d;
+  const len = along ? w : d;
+  const n = Math.floor((len - 8) / 7);
+  for (let i = 0; i < n; i++) {
+    const t = -len / 2 + 4 + 3.5 + i * 7;
+    const h = new Path();
+    h.absarc(along ? t : 0, along ? 0 : t, 1.05, 0, Math.PI * 2, true);
+    s.holes.push(h);
+  }
+  const g = extrude(s, 0, TRAY_Z.rim, 0.6, 1);
+  g.translate((x0 + x1) / 2, (y0 + y1) / 2, 0);
+  return g;
+}
+
+/** A tray at rest (tray-local): its torn-edged floor, its low grey-stock walls (torn and perforated; the north wall with its door gap), and the turn's single event card. */
 export function trayGeometry(w: number, d: number, doorAt: number, seed = 0) {
   const x0 = -w / 2;
   const x1 = w / 2;
@@ -560,11 +622,11 @@ export function trayGeometry(w: number, d: number, doorAt: number, seed = 0) {
   const T = TRAY_Z.wallT;
   const door = 26;
   const walls = merge([
-    slab({ x0, x1, y0, y1: y0 + T + 1 }, 0, TRAY_Z.rim, 1.5, 0.6),
-    slab({ x0, x1: x0 + T, y0, y1 }, 0, TRAY_Z.rim, 1.5, 0.6),
-    slab({ x0: x1 - T, x1, y0, y1 }, 0, TRAY_Z.rim, 1.5, 0.6),
-    slab({ x0, x1: doorAt - door / 2, y0: y1 - T, y1 }, 0, TRAY_Z.rim, 1.5, 0.6),
-    slab({ x0: doorAt + door / 2, x1, y0: y1 - T, y1 }, 0, TRAY_Z.rim, 1.5, 0.6),
+    rimStrip(x0, x1, y0, y0 + T + 1, 's', 31 + seed),
+    rimStrip(x0, x0 + T, y0 + T + 1, y1 - T, 'w', 37 + seed),
+    rimStrip(x1 - T, x1, y0 + T + 1, y1 - T, 'e', 41 + seed),
+    rimStrip(x0, doorAt - door / 2, y1 - T, y1, 'n', 43 + seed),
+    rimStrip(doorAt + door / 2, x1, y1 - T, y1, 'n', 47 + seed),
   ]);
   const floor = extrude(tornShape(w - 2, d - 2, 11 + seed, 'nesw', 1.2, 5), 0, TRAY_Z.floor, 0.3);
   const card = slab({ x0: -TRAY_CARD.w / 2, x1: TRAY_CARD.w / 2, y0: -TRAY_CARD.d / 2, y1: TRAY_CARD.d / 2 }, 0, 0.7, 1.5, 0.2);
@@ -590,84 +652,215 @@ export function useReplyTexture(): Texture {
   return t;
 }
 
-/** The nameplate band on a growing south wall: its print wiped in from the west (u 0..k of the band's texture), the rest blank enamel. */
-function bandGeometry(r: Rect, z: number, k: number): { printed: BufferGeometry | null; blank: BufferGeometry | null } {
-  const w = r.x1 - r.x0;
-  const xk = r.x0 + w * k;
-  const quad = (x0: number, x1: number, u0: number, u1: number) => {
-    const g = new BufferGeometry();
-    g.setAttribute('position', new Float32BufferAttribute([x0, r.y0, z, x1, r.y0, z, x0, r.y1, z, x1, r.y1, z], 3));
-    g.setAttribute('normal', new Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1], 3));
-    g.setAttribute('uv', new Float32BufferAttribute([u0, 0, u1, 0, u0, 1, u1, 1], 2));
-    g.setIndex([0, 1, 2, 1, 3, 2]);
-    return g;
-  };
-  return { printed: k > 0.002 ? quad(r.x0, xk, 0, k) : null, blank: k < 0.998 ? quad(xk, r.x1, k, 1) : null };
-}
-
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
+const lerpRect = (a: Rect, b: Rect, t: number): Rect => ({ x0: a.x0 + (b.x0 - a.x0) * t, x1: a.x1 + (b.x1 - a.x1) * t, y0: a.y0 + (b.y0 - a.y0) * t, y1: a.y1 + (b.y1 - a.y1) * t });
 
-/** The bay at rest for an id (objects/Bay.tsx), closed and idle (desk/beat4.ts: nothing dispatched yet), as act two draws it. */
-function ClosedBay({ id, f }: { id: BayId; f: number }) {
-  const s = useMemo(() => turnDeskState(f), [f]);
-  return id === 'tests' ? <TestsBay s={s} /> : id === 'docs' ? <DocsBay s={s} /> : <BugBay s={s} noRequest />;
+/** A hashed bite, 0..1 (as geom.ts tornShape's). */
+const biteOf = (i: number, seed: number): number => ((Math.imul(i * 7919 + seed * 104729 + 17, 2654435761) >>> 0) % 1000) / 1000;
+/**
+ * A rectangle's outline, centred: its sides in `sides` torn inward by up to `amp` (n points a side, s e n w, kept as it
+ * stretches), its corners rounded by `r`. A tray's grey-stock rim or floor at amp > 0 and r 0; a bay's bevelled wall or
+ * lid at amp 0 (the outline geom.ts rectShape draws).
+ */
+function stripShape(w: number, d: number, seed: number, sides: string, amp: number, r: number, n: readonly number[]): Shape {
+  const x = w / 2;
+  const y = d / 2;
+  const rr = Math.max(0, Math.min(r, x - 0.01, y - 0.01));
+  const S: readonly [number, number, number, number, number, number, string][] = [
+    [-x, -y, x, -y, 0, 1, 's'],
+    [x, -y, x, y, -1, 0, 'e'],
+    [x, y, -x, y, 0, -1, 'n'],
+    [-x, y, -x, -y, 1, 0, 'w'],
+  ];
+  const s = new Shape();
+  s.moveTo(-x + rr, -y);
+  let k = 0;
+  S.forEach(([ax, ay, bx, by, ix, iy, key], e) => {
+    const len = Math.hypot(bx - ax, by - ay);
+    const ux = (bx - ax) / len;
+    const uy = (by - ay) / len;
+    if (sides.includes(key) && amp > 1e-3) {
+      for (let i = 1; i < n[e]; i++) {
+        const t = rr + ((len - 2 * rr) * i) / n[e];
+        const m = amp * biteOf(k + i, seed);
+        s.lineTo(ax + ux * t + ix * m, ay + uy * t + iy * m);
+      }
+    }
+    k += n[e];
+    s.lineTo(bx - ux * rr, by - uy * rr);
+    if (rr > 0) {
+      const [nax, nay, nbx, nby] = S[(e + 1) % 4];
+      const nl = Math.hypot(nbx - nax, nby - nay);
+      s.quadraticCurveTo(bx, by, bx + ((nbx - nax) / nl) * rr, by + ((nby - nay) / nl) * rr);
+    }
+  });
+  s.closePath();
+  return s;
+}
+/** The points a side of a rect is torn at (4 u apart), kept as the rect stretches. */
+const tornCounts = (r: Rect): number[] => {
+  const w = r.x1 - r.x0;
+  const d = r.y1 - r.y0;
+  return [w, d, w, d].map((l) => Math.max(2, Math.round(l / 4)));
+};
+
+/** The outer side of each of a bay shape's walls (footprints.ts bayWalls order: west, east, south, north either side of the door). */
+const WALL_SIDES = ['w', 'e', 's', 'n', 'n'] as const;
+/** A bay tray's walls and floor as built: the torn points and punched holes of each piece at the tray's own size (they stretch with it). */
+function bayTrayPlan(k: number, id: BayId) {
+  const s0 = bayShapeAt(k, BAYS[id], 0);
+  const walls = shapeWalls(s0).map((r) => {
+    const len = Math.max(r.x1 - r.x0, r.y1 - r.y0);
+    return { n: tornCounts(r), holes: Math.max(0, Math.floor((len - 8) / 7)) };
+  });
+  return { walls, floor: tornCounts(inset(s0.box, 1)) };
+}
+/**
+ * A bay tray's walls at a shape: each piece from its grey-stock rim (m 0: its outer side torn, a row of punched holes, a fine
+ * bevel) straightening into the bay's bevelled wall (m 1: the slab objects/Bay.tsx BayBase builds), as tall as `h`.
+ */
+function bayWallsGeometry(k: number, s: BayShape, plan: ReturnType<typeof bayTrayPlan>, m: number, h: number): BufferGeometry {
+  return merge(
+    shapeWalls(s).map((r, i) => {
+      if (m >= 0.999) return slab(r, 0, h, 3, 3);
+      const w = r.x1 - r.x0;
+      const d = r.y1 - r.y0;
+      const sh = stripShape(w, d, 31 + 6 * k + i, WALL_SIDES[i], 1.3 * (1 - m), 3 * m, plan.walls[i].n);
+      const hr = 1.05 * (1 - m);
+      const holes = plan.walls[i].holes;
+      if (hr > 0.08) {
+        const along = w >= d;
+        const len = along ? w : d;
+        for (let j = 0; j < holes; j++) {
+          const t = -len / 2 + (len * (j + 0.5)) / holes;
+          const p = new Path();
+          p.absarc(along ? t : 0, along ? 0 : t, hr, 0, Math.PI * 2, true);
+          sh.holes.push(p);
+        }
+      }
+      const g = extrude(sh, 0, h, 0.6 + 2.4 * m, 2);
+      g.translate((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, 0);
+      return g;
+    }),
+  );
+}
+/** A bay tray's floor over a rect: torn grey stock (m 0) straightening into a plate (m 1). */
+function bayFloorGeometry(k: number, r: Rect, plan: ReturnType<typeof bayTrayPlan>, m: number): BufferGeometry {
+  const g = extrude(stripShape(r.x1 - r.x0, r.y1 - r.y0, 11 + k, 'nesw', 1.2 * (1 - m), 0.8 * m, plan.floor), 0, TRAY_Z.floor, 0.3);
+  g.translate((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, 0);
+  return g;
 }
 
+/** The lid's seam and a leaf's hinge barrels (objects/Dispatch.tsx LidHatch's, so the morph ends on its very geometry). */
+const LID_SEAM = 2.4;
+const LID_TOP = 1.2;
+function lidBarrels(inner: Rect): BufferGeometry {
+  const barrel = (y: number) => {
+    const c = cylinderZ(2.4, 0, 22, 0, 0, 12);
+    c.rotateX(Math.PI / 2);
+    c.translate(2.4, y + 22, -0.6);
+    return c;
+  };
+  return merge([barrel(inner.y0 + 6), barrel(inner.y1 - 28)]);
+}
 /**
- * One of the three trays that wall up into a bay: its walls grow to the bay's (and its door plate with them), its
- * nameplate prints, its floor drops and slides away under the slate over the open hatch, whose leaves then shut over
- * the pit. Closed, it is the bay's own shell (act two's: objects/Bay.tsx), idle until it is dispatched (desk/beat4.ts).
+ * A bay tray's floor becoming the bay's lid (`lid` 0..1): it parts along its middle into two leaves (the seam opening to
+ * LidHatch's), sinks to the lid's height, and its hinges' barrels slide out of the walls; its stock turns to the lid's
+ * graphite (the material, by amount). At 1 it is objects/Dispatch.tsx LidHatch shut, which takes over.
  */
-function BayTray({ k, b, f, slip, slipMat, mats, card }: { k: number; b: BayTurn; f: number; slip: { rot: number } | null; slipMat: MeshStandardMaterial; mats: { wall: MeshStandardMaterial; floor: MeshStandardMaterial; band: MeshStandardMaterial; card: MeshStandardMaterial }; card: BufferGeometry }) {
+function MorphLid({ inner, lid, material }: { inner: Rect; lid: number; material: Material }) {
   const m = useDeskMats();
-  const L = BAYS[b.id];
-  const s = bayShapeAt(k, L, b.grow);
-  const wallH = TRAY_Z.rim + (s.wallH - TRAY_Z.rim) * b.grow;
-  const walls = useGeo(() => merge(shapeWalls(s).map((w) => slab(w, 0, wallH, 3 * b.grow + 1.5 * (1 - b.grow), 3 * b.grow + 0.1 * (1 - b.grow)))), [s.box.x0, s.box.x1, s.box.y0, s.box.y1, s.wall, s.southWall, s.door[0], s.door[1], wallH]);
-  // the door plate grows in its gap with the walls (as the bay's at rest: Bay.tsx BayBase)
-  const door = useGeo(() => merge([slab(bayDoor(L), BAY_FLOOR, L.wallH - 6, 2, 1.5)]), [L]);
-  const doorBar = useGeo(() => merge([slab({ x0: L.door[0] + 10, x1: L.door[1] - 10, y0: L.box.y1 - L.wall / 2 - 2, y1: L.box.y1 - L.wall / 2 + 2 }, L.wallH - 6, L.wallH - 2, 1, 0.6)]), [L]);
-  // the floor: the tray's, grown with its walls; it drops under the slate and slides east out of them
-  const fr = inset(s.box, s.wall);
-  const floor = useGeo(() => slab(fr, 0, TRAY_Z.floor, 2, 0.4), [fr.x0, fr.x1, fr.y0, fr.y1]);
-  const south = shapeWalls(s)[2];
-  const band = useMemo(() => bandGeometry(inset(south, 2), wallH + 0.25, b.print), [south.x0, south.x1, south.y0, south.y1, wallH, b.print]);
-  useLayoutEffect(() => () => Object.values(band).forEach((g) => g?.dispose()), [band]);
-  const fx = (fr.x1 - fr.x0 + 40) * b.slide;
-  const fz = -3.6 * b.drop;
-  // the card and the reply keep their places on the floor as it grows (relative to its centre)
-  const fc: P2 = [(fr.x0 + fr.x1) / 2, (fr.y0 + fr.y1) / 2];
-  const sc = (fr.x1 - fr.x0) / (TRAYS[k].w - 2);
-  if (b.done) return <ClosedBay id={b.id} f={f} />;
-  // built: the walls are the kit's graphite (as the bay's at rest), so the hand-over to the closed bay never jumps
-  const wallMat = b.built >= 0.999 ? m.graphite : mats.wall;
+  const L = (inner.x1 - inner.x0) / 2 - (LID_SEAM / 2) * lid;
+  const leaf = useGeo(() => slab({ x0: 0, x1: L, y0: inner.y0, y1: inner.y1 }, -2.6, 0, 0.8, 0.4), [L, inner.y0, inner.y1]);
+  const barrels = useGeo(() => lidBarrels(inner), [inner.y0, inner.y1]);
+  const top = LID_TOP + (TRAY_Z.floor - LID_TOP) * (1 - lid);
+  const out = -4.8 * (1 - lid);
   return (
     <group>
-      <mesh geometry={walls} material={wallMat} />
-      {b.grow > 0.02 && (
-        <group scale={[1, 1, b.grow]}>
-          <mesh geometry={door} material={m.enamelShade} />
-          <mesh geometry={doorBar} material={m.steel} />
-        </group>
-      )}
-      {b.built > 0.002 && band.blank && <mesh geometry={band.blank} material={mats.band} />}
-      {band.printed && <mesh geometry={band.printed} material={m.printed.nameplate[b.id]} />}
-      {b.slide < 1 && (
-        <group position={[fx, 0, fz]}>
-          <mesh geometry={floor} material={mats.floor} />
-          <group position={[fc[0], fc[1], 0]}>
-            <mesh geometry={card} material={mats.card} position={[TRAY_CARD.dx * sc, TRAY_CARD.dy * sc, TRAY_Z.floor + 0.1]} rotation={[0, 0, 0.06 * (k % 3) - 0.06]} />
-            {slip && <SlipMesh p={[TRAY_REST[0] * sc, TRAY_REST[1] * sc, TRAY_REST[2]]} rot={slip.rot} tilt={0} material={slipMat} />}
-          </group>
-        </group>
-      )}
-      {b.hole && <Hatch box={L.box} open={b.leaves} depth={WORK_DEPTH[b.id]} />}
+      <group position={[inner.x0, 0, top]}>
+        <mesh geometry={leaf} material={material} />
+        <mesh geometry={barrels} material={m.steel} position={[out, 0, 0]} />
+      </group>
+      <group position={[inner.x1, 0, top]} scale={[-1, 1, 1]}>
+        <mesh geometry={leaf} material={material} />
+        <mesh geometry={barrels} material={m.steel} position={[out, 0, 0]} />
+      </group>
     </group>
   );
 }
 
-/** The event families' prints: a chat slip's bubble, a punched card's holes, an envelope's flap, a calendar leaf's grid; `band`: the stripe printed across tray 2's card and its stub, which the follow-up carries too. */
-function eventTexture(kind: EventKind | 'stub' | 'followUp', w: number, d: number, band: boolean): Texture {
+/** The bay at rest for an id, closed and idle, as act two draws it (objects/World.tsx: the bay, its lid shut on the slate: Dispatch.tsx Hatches). */
+function ClosedBay({ id, f }: { id: BayId; f: number }) {
+  const s = useMemo(() => turnDeskState(f), [f]);
+  return (
+    <>
+      {id === 'tests' ? <TestsBay s={s} /> : id === 'docs' ? <DocsBay s={s} /> : <BugBay s={s} noRequest />}
+      <Hatch box={BAYS[id].box} open={0} depth={WORK_DEPTH[id]} look="lid" inner={shellInside(id)} />
+    </>
+  );
+}
+
+/**
+ * One of the three trays that wall up into a bay (desk/turn.ts BayTurn), drawn in the world from beat 3 on (so its rest is
+ * the same geometry it grows from): it slides to its bay's place (the test tower's), its grey-stock rim grows and
+ * straightens into the bay's walls (stock turning to graphite), the door plate rises in its door gap and the blank
+ * nameplate band widens on its south wall; its floor becomes the bay's graphite lid, which drops open like a trapdoor
+ * (what lay in the tray falls into the pit under it) and swings shut. Closed, it is act two's bay (ClosedBay).
+ */
+function BayTray({ k, b, f, mats, contents, post }: { k: number; b: BayTurn; f: number; mats: { wall: MeshStandardMaterial; floor: MeshStandardMaterial; band: MeshStandardMaterial }; contents: ReactNode; post?: TrayPost }) {
+  const m = useDeskMats();
+  const L = BAYS[b.id];
+  const plan = useMemo(() => bayTrayPlan(k, b.id), [k, b.id]);
+  const s = bayShapeAt(k, L, b.grow, b.slide);
+  const h = TRAY_Z.rim + (L.wallH - TRAY_Z.rim) * b.grow;
+  const walls = useGeo(() => bayWallsGeometry(k, s, plan, b.morph, h), [k, plan, b.morph, h, s.box.x0, s.box.x1, s.box.y0, s.box.y1, s.wall, s.southWall, s.door[0], s.door[1]]);
+  // the door plate and its bar rise in the door gap, the blank nameplate band widens along the south wall's top
+  const g = b.grow;
+  const door = useGeo(() => (g < 0.02 ? null : slab({ x0: s.door[0], x1: s.door[1], y0: s.box.y1 - s.wall + 2, y1: s.box.y1 - 2 }, BAY_FLOOR * g, (L.wallH - 6) * g, 2, 1.5 * g)), [g, s.door[0], s.door[1], s.box.y1, s.wall]);
+  const doorBar = useGeo(() => (g < 0.02 ? null : slab({ x0: s.door[0] + 10 * g, x1: s.door[1] - 10 * g, y0: s.box.y1 - s.wall / 2 - 2, y1: s.box.y1 - s.wall / 2 + 2 }, (L.wallH - 6) * g, (L.wallH - 2) * g, 1, 0.6 * g)), [g, s.door[0], s.door[1], s.box.y1, s.wall]);
+  const south = shapeWalls(s)[2];
+  const band = useGeo(() => {
+    if (g < 0.02) return null;
+    const r = inset(south, 2);
+    const cy = (r.y0 + r.y1) / 2;
+    const half = ((r.y1 - r.y0) / 2) * g;
+    return planeOn({ x0: r.x0, x1: r.x1, y0: cy - half, y1: cy + half }, h + 0.25);
+  }, [g, south.x0, south.x1, south.y0, south.y1, h]);
+  // the floor: the tray's, drawn under its walls as they grow (its edge never in sight), straightening to the lid's plate
+  const inner = shellInside(b.id);
+  const fr = lerpRect(inset(bayShapeAt(k, L, 0, b.slide).box, 1), inner, g);
+  const floor = useGeo(() => (b.lid > 0 ? null : bayFloorGeometry(k, fr, plan, b.morph)), [k, plan, b.lid > 0, b.morph, fr.x0, fr.x1, fr.y0, fr.y1]);
+  if (b.done) return <ClosedBay id={b.id} f={f} />;
+  // what lay in the tray rides its floor (and the lid's leaves), then falls into the pit as they drop open
+  const tc: P2 = [TRAYS[k].c[0] + b.slide, TRAYS[k].c[1]];
+  const shift: P2 = [(fr.x0 + fr.x1) / 2 - tc[0], (fr.y0 + fr.y1) / 2 - tc[1]];
+  const top = b.lid > 0 ? LID_TOP + (TRAY_Z.floor - LID_TOP) * (1 - b.lid) : TRAY_Z.floor;
+  const fall = (WORK_DEPTH[b.id] + 6) * b.fall;
+  const wallMat = b.built >= 0.999 ? m.graphite : mats.wall;
+  const off = post?.off ?? [0, 0, 0];
+  const sq = post?.squash ?? 0;
+  return (
+    <group position={[tc[0] + off[0], tc[1] + off[1], off[2]]} scale={[1 + sq / 2, 1 + sq / 2, 1 - sq]}>
+      <group position={[-tc[0], -tc[1], 0]}>
+        <mesh geometry={walls} material={wallMat} />
+        {door && <mesh geometry={door} material={m.enamelShade} />}
+        {doorBar && <mesh geometry={doorBar} material={m.steel} />}
+        {band && <mesh geometry={band} material={mats.band} />}
+        {floor && <mesh geometry={floor} material={mats.floor} />}
+        {b.lid > 0 && b.lid < 1 && <MorphLid inner={inner} lid={b.lid} material={mats.floor} />}
+        {b.lid >= 1 && <Hatch box={L.box} open={b.leaves} depth={WORK_DEPTH[b.id]} look="lid" inner={inner} />}
+        <group position={[tc[0] + shift[0], tc[1] + shift[1], top - TRAY_Z.floor - fall]}>{contents}</group>
+      </group>
+    </group>
+  );
+}
+
+/**
+ * The event families' prints: a chat slip's bubble, a punched card's holes, an envelope's flap, a calendar leaf's grid.
+ * Variant 1 is tray 2's task card and its follow-up: one conversation, the same punches (a pattern no other card has),
+ * so the follow-up in tray 6 reads at once as the torn card's own.
+ */
+function eventTexture(kind: EventKind, w: number, d: number, variant = 0): Texture {
   return texture(
     w,
     d,
@@ -676,30 +869,25 @@ function eventTexture(kind: EventKind | 'stub' | 'followUp', w: number, d: numbe
       const ink = FIX_HEX.ink;
       g.fillStyle = ink;
       if (kind === 'chat') bubbleMark(g, 4, d * 0.18, d * 0.6, ink);
-      else if (kind === 'ci' || kind === 'followUp') {
-        for (let r = 0; r < 2; r++) for (let i = 0; i < 4; i++) if ((i + r * 2) % 3 !== 1) g.fillRect(6 + i * 5, 5 + r * 8, 2.4, 5);
+      else if (kind === 'ci') {
+        if (variant === 1) {
+          // a full row of square punches along its top edge over two long slots: the conversation's own mark, on the card
+          // and on its follow-up alike (torn in two, each half keeps a run of punches and both slots)
+          for (let i = 0; i < 9; i++) g.fillRect(4 + i * 4.3, 3.5, 2.4, 3.6);
+          g.fillRect(5, d * 0.45, w - 10, 2.8);
+          g.fillRect(5, d * 0.68, w - 16, 2.8);
+        } else for (let r = 0; r < 2; r++) for (let i = 0; i < 5; i++) if ((i + r * 2) % 3 !== 1) g.fillRect(6 + i * 6, 6 + r * 9, 2.6, 5.4);
       } else if (kind === 'mail') {
         g.strokeStyle = ink;
-        g.lineWidth = 1.4;
+        g.lineWidth = 1.5;
         g.beginPath();
         g.moveTo(2, 2);
         g.lineTo(w / 2, d * 0.55);
         g.lineTo(w - 2, 2);
         g.stroke();
       } else if (kind === 'leaf') {
-        g.fillRect(0, 0, w, 5);
-        for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) g.fillRect(4 + i * 7, 9 + r * 6, 4, 3.4);
-      }
-      if (band) {
-        g.fillStyle = FIX_HEX.band;
-        g.beginPath();
-        const x = kind === 'stub' ? 0 : w - 14;
-        g.moveTo(x, d);
-        g.lineTo(x + 8, d);
-        g.lineTo(x + 8 + d * 0.5, 0);
-        g.lineTo(x + d * 0.5, 0);
-        g.closePath();
-        g.fill();
+        g.fillRect(0, 0, w, 5.5);
+        for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) g.fillRect(4 + i * 8.6, 10 + r * 7.4, 4.6, 4);
       }
     },
     4,
@@ -711,24 +899,37 @@ export function SlipMesh({ p, rot, tilt, material }: { p: P3; rot: number; tilt:
   return <mesh geometry={g} material={material} position={p} rotation={[tilt, 0, rot]} />;
 }
 
+/** A half of tray 2's card (card-local, its UVs on the whole card's print), torn along the middle on its inner side. */
+function cardHalf(east: boolean): BufferGeometry {
+  const [w, d] = EVENT_SIZE.ci;
+  const g = extrude(tornShape(w / 2, d, 21, east ? 'w' : 'e', 1.6, 3), 0, 0.8, 0.2);
+  g.translate(east ? w / 4 : -w / 4, 0, 0);
+  return fitUv(g, w, d);
+}
+
 function useStuffGeometry() {
   const g = useMemo(() => {
     const event = Object.fromEntries(
       (['chat', 'ci', 'mail', 'leaf'] as const).map((kind) => [kind, kind === 'chat' ? piece('chat', ...EVENT_SIZE.chat) : kind === 'ci' ? piece('ci', ...EVENT_SIZE.ci) : fitUv(extrude(tornShape(...EVENT_SIZE[kind], kind === 'leaf' ? 7 : 9, kind === 'leaf' ? 'n' : '', 1, 4), 0, 0.8, 0.25), ...EVENT_SIZE[kind])]),
     ) as Record<EventKind, BufferGeometry>;
-    const stub = fitUv(extrude(tornShape(STUB.w, STUB.d, 21, 'w', 1.6, 3), 0, 0.8, 0.2), STUB.w, STUB.d);
-    const followUp = fitUv(extrude(tornShape(FOLLOW_UP.w, FOLLOW_UP.d, 21, 'e', 1.6, 3), 0, 0.8, 0.2), FOLLOW_UP.w, FOLLOW_UP.d);
+    const halves = { west: cardHalf(false), east: cardHalf(true) };
+    // the follow-up: a whole card of the same family and size as tray 2's
+    const followUp = piece('ci', FOLLOW_UP.w, FOLLOW_UP.d);
     const dossier = TRAY_STUFF.map((S) => {
       const { w, d, sheets } = S.dossier;
       const h = 0.4 + 0.8 * sheets;
-      return { stack: slab({ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2 }, 0, h - 0.3, 1.5, 0.3), top: fitUv(extrude(tornShape(w - 1, d - 1, sheets, 's', 1, 4), h - 0.3, h, 0.15), w, d) };
+      // the top sheet hinged on its west edge (it riffles about it): built east of x 0, placed at the stack's west edge
+      const top = fitUv(extrude(tornShape(w - 1, d - 1, sheets, 's', 1, 4), 0, 0.3, 0.15), w, d);
+      top.translate((w - 1) / 2, 0, 0);
+      return { stack: slab({ x0: -w / 2, x1: w / 2, y0: -d / 2, y1: d / 2 }, 0, h - 0.3, 1.5, 0.3), top, h };
     });
-    return { event, stub, followUp, dossier };
+    return { event, halves, followUp, dossier };
   }, []);
   useLayoutEffect(
     () => () => {
       Object.values(g.event).forEach((x) => x.dispose());
-      g.stub.dispose();
+      g.halves.west.dispose();
+      g.halves.east.dispose();
       g.followUp.dispose();
       g.dossier.forEach((x) => {
         x.stack.dispose();
@@ -740,50 +941,64 @@ function useStuffGeometry() {
   return g;
 }
 
-/** What lies in tray k (tray-local): its event, its dossier, and on tray 2's card the stub that tears off. */
-function TrayStuffMesh({ k, g, mats, tear }: { k: number; g: ReturnType<typeof useStuffGeometry>; mats: Record<string, MeshStandardMaterial>; tear: number }) {
+/** What lies in tray k (tray-local): its event (tray 2's card in two halves, its east half torn off by `tear`), its dossier (its top sheet riffling by `riffle`). */
+function TrayStuffMesh({ k, g, mats, tear, riffle }: { k: number; g: ReturnType<typeof useStuffGeometry>; mats: Record<string, MeshStandardMaterial>; tear: number; riffle: number }) {
   const S = TRAY_STUFF[k];
   const z = TRAY_Z.floor;
   const ev = S.event;
-  const [ew] = EVENT_SIZE[ev.kind];
-  const stubAt: P2 = [ew / 2 + STUB.gap + STUB.w / 2 + TEAR.slide[0] * tear, TEAR.slide[1] * tear];
+  const D = g.dossier[k];
+  const [cw] = EVENT_SIZE.ci;
   return (
     <>
       <group position={[ev.o[0], ev.o[1], z]} rotation={[0, 0, ev.rot]}>
-        <mesh geometry={g.event[ev.kind]} material={mats[k === BREAK.from ? 'evBand' : `ev${ev.kind}`]} />
-        {k === BREAK.from && <mesh geometry={g.stub} material={mats.stub} position={[stubAt[0], stubAt[1], 0.05 * tear]} rotation={[0, 0, TEAR.rot * tear]} />}
+        {k === BREAK.from ? (
+          <>
+            <mesh geometry={g.halves.west} material={mats.evBreak} />
+            {/* the east half twists about its own middle and slides off, lying apart in the same tray */}
+            <group position={[cw / 4 + TEAR.slide[0] * tear, TEAR.slide[1] * tear, 0.05 * tear]} rotation={[0, 0, TEAR.rot * tear]}>
+              <mesh geometry={g.halves.east} material={mats.evBreak} position={[-cw / 4, 0, 0]} />
+            </group>
+          </>
+        ) : (
+          <mesh geometry={g.event[ev.kind]} material={mats[`ev${ev.kind}`]} />
+        )}
       </group>
       <group position={[S.dossier.o[0], S.dossier.o[1], z]} rotation={[0, 0, S.dossier.rot]}>
-        <mesh geometry={g.dossier[k].stack} material={mats.dossierSide} />
-        <mesh geometry={g.dossier[k].top} material={mats.dossierTop} />
+        <mesh geometry={D.stack} material={mats.dossierSide} />
+        <group position={[-S.dossier.w / 2, 0, D.h - 0.3]} rotation={[0, -riffle, 0]}>
+          <mesh geometry={D.top} material={mats.dossierTop} />
+        </group>
       </group>
     </>
   );
 }
 
 /**
- * Fix B in grey stock (beat 3's eight trays; at the turn three of them grow walls into bays), posed by beat3.ts fixBAt in
- * beat 3 and turn.ts fixBTurnAt from f1400. Each tray holds its own event and dossier; the follow-up (beat3.ts
- * followUpAt) lies in tray 6, and tray 2's stub tears off on the break (tearAt), both pure functions of f unless given.
+ * Fix B in grey stock (beat 3's eight trays; at the turn five are posted back out east and three wall up into bays), posed
+ * by beat3.ts fixBAt in beat 3 and turn.ts fixBTurnAt from f1400. Each tray holds its own event and dossier; the follow-up
+ * (beat3.ts followUpAt) lies in tray 6, and tray 2's card tears in two on the break (tearAt), both pure functions of f
+ * unless given. In beat 3 each tray is posted in on its own (`posts`) and its dossier riffles in place (`riffle`); the
+ * turn passes neither, and the follow-up rides tray 6 into its bay.
  */
-export function FixB({ fixB, f, tear, followUp }: { fixB: TurnState['fixB']; f: number; tear?: number; followUp?: { p: P3; rot: number; tilt: number } | null }) {
+export function FixB({ fixB, f, tear, followUp, posts, riffle }: { fixB: TurnState['fixB']; f: number; tear?: number; followUp?: { p: P3; rot: number; tilt: number } | null; posts?: readonly TrayPost[]; riffle?: readonly number[] }) {
   const sets = useDeskSets();
   const mode = useStepMode();
+  const m = useDeskMats();
   const B = fixB;
   const tk = tear ?? tearAt(f);
   const fu = followUp === undefined ? followUpAt(f) : followUp;
+  const turn = posts === undefined;
   const gs = useMemo(() => TRAYS.map((tr, k) => trayGeometry(tr.w, tr.d, tr.door, k)), []);
   const stuff = useStuffGeometry();
   const slipTex = useReplyTexture();
   const evTex = useMemo(
     () => ({
-      chat: eventTexture('chat', ...EVENT_SIZE.chat, false),
-      ci: eventTexture('ci', ...EVENT_SIZE.ci, false),
-      mail: eventTexture('mail', ...EVENT_SIZE.mail, false),
-      leaf: eventTexture('leaf', ...EVENT_SIZE.leaf, false),
-      band: eventTexture('ci', ...EVENT_SIZE.ci, true),
-      stub: eventTexture('stub', STUB.w, STUB.d, true),
-      followUp: eventTexture('followUp', FOLLOW_UP.w, FOLLOW_UP.d, true),
+      chat: eventTexture('chat', ...EVENT_SIZE.chat),
+      ci: eventTexture('ci', ...EVENT_SIZE.ci),
+      mail: eventTexture('mail', ...EVENT_SIZE.mail),
+      leaf: eventTexture('leaf', ...EVENT_SIZE.leaf),
+      // tray 2's conversation: its card and its follow-up share one print
+      conv: eventTexture('ci', ...EVENT_SIZE.ci, 1),
     }),
     [],
   );
@@ -794,78 +1009,94 @@ export function FixB({ fixB, f, tear, followUp }: { fixB: TurnState['fixB']; f: 
     },
     [gs, evTex],
   );
+  const env = m.enamel.envMap;
   const mats = useMats(() => {
     const o = { stepped: mode };
     const white = whiteTexture();
     const out: Record<string, MeshStandardMaterial> = {
-      tray: paper(white, FIX_HEX.stock, o),
-      floor: paper(white, FIX_HEX.shade, o),
+      tray: paper(white, FIX_HEX.rim, { ...o, roughness: 0.95 }),
+      floor: paper(white, FIX_HEX.floor, o),
       card: paper(white, FIX_HEX.item, o),
       evchat: paper(evTex.chat, FIX_HEX.item, o),
       evci: paper(evTex.ci, FIX_HEX.item, o),
       evmail: paper(evTex.mail, FIX_HEX.item, o),
       evleaf: paper(evTex.leaf, FIX_HEX.item, o),
-      evBand: paper(evTex.band, FIX_HEX.item, o),
-      stub: paper(evTex.stub, FIX_HEX.item, o),
-      followUp: paper(evTex.followUp, FIX_HEX.item, o),
+      evBreak: paper(evTex.conv, FIX_HEX.item, o),
+      followUp: paper(evTex.conv, FIX_HEX.item, o),
       dossierSide: paper(white, FIX_HEX.shade, o),
       dossierTop: paper(white, FIX_HEX.light, o),
     };
+    out.dossierTop.side = DoubleSide;
     TRAYS.forEach((_, k) => (out[`s${k}`] = paper(slipTex, FIX_HEX.reply, o)));
     BAY_TRAYS.forEach(({ k }) => {
-      out[`w${k}`] = graphite(FIX_HEX.stock, { metalness: 0, roughness: 0.7, stepped: mode });
-      out[`b${k}`] = paper(white, FIX_HEX.stock, o);
+      // a bay tray's rim and floor: grey stock on the kit's graphite program from beat 3 on, so walling up and becoming the
+      // lid is a change of amount (colour, sheen), never a swap; its band the blank nameplate's enamel (objects/Bay.tsx)
+      out[`w${k}`] = graphite(FIX_HEX.rim, { metalness: 0, roughness: 0.95, stepped: mode });
+      out[`f${k}`] = graphite(FIX_HEX.floor, { metalness: 0, roughness: 0.9, brush: 0, stepped: mode });
+      if (env) out[`b${k}`] = enamel(white, env, HEX.enamel, { stepped: mode });
     });
     return out;
-  }, [slipTex, evTex, mode]);
+  }, [slipTex, evTex, mode, env]);
   useLayoutEffect(() => {
-    // a walled-up tray turns from grey stock to the bay's graphite, its band to enamel (contrast, never alpha)
+    // a walled-up tray turns from grey stock to the bay's graphite, its floor to the lid's (contrast and sheen, never alpha)
     BAY_TRAYS.forEach(({ k }, i) => {
-      const b = B.bays[i].built;
+      const b = B.bays[i];
       const w = mats[`w${k}`];
-      w.color.copy(lerpHex(FIX_HEX.stock, BAY_WALL_HEX, b));
-      w.metalness = 0.55 * b;
-      w.roughness = 0.7 + (0.42 - 0.7) * b;
-      mats[`b${k}`].color.copy(lerpHex(FIX_HEX.stock, HEX.enamel, b));
+      w.color.copy(lerpHex(FIX_HEX.rim, BAY_WALL_HEX, b.built));
+      w.metalness = 0.55 * b.built;
+      w.roughness = 0.95 + (0.42 - 0.95) * b.built;
+      const fl = mats[`f${k}`];
+      // the floor turns with the walls (the growing bay never reads as a pale tray): it is the lid's graphite by the time it parts
+      fl.color.copy(lerpHex(FIX_HEX.floor, LID_HEX, b.built));
+      fl.metalness = 0.45 * b.built;
+      fl.roughness = 0.9 + (0.55 - 0.9) * b.built;
     });
     // no Worker computes yet: every work slot is dark (they light when a task is dispatched, 4.3 on)
     for (const set of [sets.full, sets.stepped]) for (const s of [set.slotBug, set.slotTests, set.slotDocs]) s.color.set(SLOT_IDLE);
   });
-  const landed = (k: number) => f >= replyLands(k);
-  const trayBody = (k: number) => (
+  const landed = (k: number) => turn && f >= replyLands(k);
+  // what lies in tray k (tray-local): its event and dossier, its reply once home, and (in the turn) the follow-up in tray 6
+  const contents = (k: number) => (
     <>
-      <mesh geometry={gs[k].floor} material={mats.floor} />
-      <mesh geometry={gs[k].walls} material={mats.tray} />
-      <TrayStuffMesh k={k} g={stuff} mats={mats} tear={tk} />
-      {landed(k) && <SlipMesh p={TRAY_REST} rot={B.slips[k].rot} tilt={0} material={mats[`s${k}`]} />}
+      <TrayStuffMesh k={k} g={stuff} mats={mats} tear={tk} riffle={riffle?.[k] ?? 0} />
+      {landed(k) && <SlipMesh p={[TRAY_STUFF[k].reply.o[0], TRAY_STUFF[k].reply.o[1], TRAY_Z.floor + 0.6]} rot={TRAY_STUFF[k].reply.rot} tilt={0} material={mats[`s${k}`]} />}
+      {turn && k === BREAK.to && fu && <mesh geometry={stuff.followUp} material={mats.followUp} position={[FOLLOW_UP.o[0], FOLLOW_UP.o[1], TRAY_Z.floor + 0.9]} rotation={[0, 0, FOLLOW_UP.rot]} />}
     </>
   );
+  // a tray on its post (beat 3) or on its way back out (the turn): carried by its offset, squashed as it lands (3%)
+  const posted = (k: number, off: P3, body: ReactNode) => {
+    const P = posts?.[k];
+    const tr = TRAYS[k];
+    const sq = P?.squash ?? 0;
+    const o = P?.off ?? [0, 0, 0];
+    return (
+      <group key={k} position={[tr.c[0] + o[0] + off[0], tr.c[1] + o[1] + off[1], o[2] + off[2]]} scale={[1 + sq / 2, 1 + sq / 2, 1 - sq]}>
+        {body}
+      </group>
+    );
+  };
+  const bayOf = (k: number) => BAY_TRAYS.findIndex((b) => b.k === k);
   return (
     <group>
-      {TRAYS.map((tr, k) => {
-        const p = B.press[k];
-        if (!p || p.k >= 1) return null;
-        return (
-          <group key={k} position={[tr.c[0], tr.c[1], 0]}>
-            <Pressed p={p}>{trayBody(k)}</Pressed>
-          </group>
+      {TRAYS.map((_, k) => {
+        const i = bayOf(k);
+        if (i >= 0)
+          return <BayTray key={k} k={k} b={B.bays[i]} f={f} post={posts?.[k]} mats={{ wall: mats[`w${k}`], floor: mats[`f${k}`], band: mats[`b${k}`] ?? mats.card }} contents={contents(k)} />;
+        const R = B.retire[k];
+        if (R?.gone) return null;
+        return posted(
+          k,
+          R?.off ?? [0, 0, 0],
+          <>
+            <mesh geometry={gs[k].floor} material={mats.floor} />
+            <mesh geometry={gs[k].walls} material={mats.tray} />
+            {contents(k)}
+          </>,
         );
       })}
-      {BAY_TRAYS.map(({ k }, i) => {
-        const b = B.bays[i];
-        if (b.grow <= 0 && b.drop <= 0) {
-          const tr = TRAYS[k];
-          return (
-            <group key={k} position={[tr.c[0], tr.c[1], 0]}>
-              {trayBody(k)}
-            </group>
-          );
-        }
-        return <BayTray key={k} k={k} b={b} f={f} slip={landed(k) ? { rot: B.slips[k].rot } : null} slipMat={mats[`s${k}`]} mats={{ wall: mats[`w${k}`], floor: mats.floor, band: mats[`b${k}`], card: mats.card }} card={gs[k].card} />;
-      })}
-      {fu && <mesh geometry={stuff.followUp} material={mats.followUp} position={fu.p} rotation={[fu.tilt, 0, fu.rot]} />}
-      {/* the replies in their trays, in flight and in your in-tray (until the turn brings them home) */}
-      {B.slips.map((s, k) => (landed(k) ? null : <SlipMesh key={k} p={s.p} rot={s.rot} tilt={s.tilt} material={mats[`s${k}`]} />))}
+      {!turn && fu && <mesh geometry={stuff.followUp} material={mats.followUp} position={fu.p} rotation={[fu.tilt, 0, fu.rot]} />}
+      {/* the replies in flight and in your in-tray (until the turn brings them home) */}
+      {B.slips.map((s, k) => (landed(k) ? null : <SlipMesh key={k} p={posts && s.p[2] < TRAY_Z.floor + 1 ? [s.p[0] + posts[k].off[0], s.p[1] + posts[k].off[1], s.p[2] + posts[k].off[2]] : s.p} rot={s.rot} tilt={s.tilt} material={mats[`s${k}`]} />))}
     </group>
   );
 }
@@ -878,24 +1109,56 @@ const LOCKED: CoilState = { c: [REEL.x, REEL.y], h: REEL.packZ[0], rIn: REEL.hub
 
 /**
  * The notes loop's clip and tabs riding the Register's reel as the coil left them at the lock, turned with the reel
- * (`angle`, as the coil's spin), until the request's detent winds them in (`sink`, 0..1): drawn in over the pack's top
- * to the hub, under whose cap they go (inside its radius, below its top), then down under the pack's top, so they are
- * already hidden by the hub when they leave (desk/beat4.ts ridersAt).
+ * (`angle`, as the coil's spin), until the request's detent winds them in at the rim (`wind`, 0..1; desk/beat4.ts
+ * ridersAt): each tab, hinged on the rim's top edge where it is fastened to the tape, folds down over its hinge into the
+ * coil, under the next turn of tape (its free end first, hidden by the pack's top as it goes below it); the clip slides
+ * in off the rim's edge as the tape tightens and folds down into the coil the same way about its outer edge. At their
+ * own size all the way (never scaled), each over its own 8 f, so they are gone by the time the reel seats.
  */
-export function ReelRiders({ angle, sink }: { angle: number; sink: number }) {
+export function ReelRiders({ angle, sink: wind }: { angle: number; sink: number }) {
+  const m = useDeskMats();
   const tabMat = useMemo(() => paper(whiteTexture(), TAPE_HEX.tab), []);
   useLayoutEffect(() => () => tabMat.dispose(), [tabMat]);
-  const top = REEL.packZ[1];
-  // drawn in over the pack's top to the hub first (at 15% of their radius they are inside the hub's, under its cap), then
-  // down under the pack's top
-  const inward = Math.min(1, sink / 0.7);
-  const down = Math.max(0, (sink - 0.75) / 0.25);
-  const k = 1 - 0.85 * inward * inward * (3 - 2 * inward);
+  const tab = useGeo(() => tabLocal(), []);
+  const clip = useMemo(() => clipGeometry(LOOP_A), []);
+  useLayoutEffect(() => () => Object.values(clip).forEach((x) => x.dispose()), [clip]);
+  const L = coilRim({ ...LOCKED, spin: angle });
+  const ease = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, t)));
+  // the tabs: each over 8/11 of the wind (one a little after the other round the rim, in the reel's turn), all folded in
+  // by its last frame
+  const tabs = TABS.map((_, k) => {
+    const u = ease((wind - 0.1 - 0.012 * k) / 0.7);
+    const M0 = tabMatrix(L, 1, 1, k, angle);
+    const e = M0.elements;
+    // inward along the rim's radius at the hinge, and down, so its hinge edge ends under the pack's top too
+    const r = Math.hypot(e[12] - REEL.x, e[13] - REEL.y) || 1;
+    const ix = ((REEL.x - e[12]) / r) * 1.6 * u;
+    const iy = ((REEL.y - e[13]) / r) * 1.6 * u;
+    return new Matrix4().makeTranslation(ix, iy, -2 * u * u).multiply(M0).multiply(new Matrix4().makeRotationX((-Math.PI / 2) * u));
+  });
+  // the clip: tipped into the coil as it is drawn in off the rim's edge (its wire handles over the pack's top, its folded
+  // thickness inside the rim), folding down about its outer edge as it goes (under the flange below the pack: hidden all
+  // the way down), so it is foreshortened away as much as it travels
+  const slide = ease(wind / 0.75) * 62;
+  // (gathering pace: the clip is long, so a small tip already sinks its inner end under the pack's top)
+  const fold = ease((wind - 0.12) / 0.78) ** 1.6;
+  const zb = LOOP_A.z + 0.9;
+  const xp = 48 - slide;
+  const cm = clipMatrix(L, 1, angle)
+    .clone()
+    .multiply(CLIP_FROM.clone().invert())
+    .multiply(new Matrix4().makeTranslation(xp, 0, zb - 2.2 * fold * fold))
+    .multiply(new Matrix4().makeRotationY((-Math.PI / 2) * fold))
+    .multiply(new Matrix4().makeTranslation(-xp - slide, 0, -zb))
+    .multiply(CLIP_FROM);
   return (
-    <group position={[REEL.x, REEL.y, top - 14 * down]} scale={[k, k, 1 - 0.7 * down]}>
-      <group position={[-REEL.x, -REEL.y, -top]}>
-        <Riders L={coilRim({ ...LOCKED, spin: angle })} edge={1} fold={1} spin={angle} tabMat={tabMat} />
-      </group>
+    <group>
+      {tabs.map((mx, k) => (
+        <Placed key={k} matrix={mx} geometry={tab} material={tabMat} />
+      ))}
+      <Placed matrix={cm} geometry={clip.body} material={m.enamel} />
+      <Placed matrix={cm} geometry={clip.spine} material={m.graphiteDark} />
+      <Placed matrix={cm} geometry={clip.wire} material={m.steel} />
     </group>
   );
 }

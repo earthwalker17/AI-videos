@@ -25,7 +25,7 @@
 import { clamp, easings, rand } from '@aiv/core';
 import { Easing } from 'remotion';
 import { ARRIVE, BEAT, BOTH_FIXES, FIX_A, FIX_B, LAMP_VISITS, WARMTH, cue } from '../cues.ts';
-import { FOLDER_PRINT } from '../print.ts';
+import { FOLDER_PRINT, LOOP_NOTES } from '../print.ts';
 import { circleFp, rectFp, segFp, youFootprints, type Footprint } from './footprints.ts';
 import { FEEDERS, FEEDER_H, LAMP, YOU, rectC, type P2, type P3, type Pool } from './layout.ts';
 import { LIGHT_HEX, tint } from './pools.ts';
@@ -174,13 +174,14 @@ export function loopNormal(L: LoopPose, t: number): P2 {
 }
 
 /**
- * The tabs stand evenly along the loop's north run, west to east as their folders (each still turned
- * toward its own folder, so a tab and its folder always pair up), from this arc length round from the
- * clip (F1, north-west) down to this one (F8, north-east: the tape south of it stays bare where your label's leader
- * crosses it). The points facing each folder crowd F5–F8 into 50 u of tape at the loop's north-east corner, too tight
- * for a note beside each tab.
+ * The tabs stand along the loop's north run, west to east as their folders (each still turned toward its own folder, so
+ * a tab and its folder always pair up), from this arc length round from TAB_ARC.from (F1, north-west: its note whole on
+ * the tape even while the loop lies open, its end short of the open end) down to this one (F8, north-east: the tape
+ * south of it stays bare where your label's leader crosses it). The points facing each folder crowd F5–F8 into 50 u of
+ * tape at the loop's north-east corner, too tight for a note beside each tab. Each tab's note is centred on it, so the
+ * tabs are spaced by their notes' widths (a long note next to a long one stands further off), never two notes touching.
  */
-export const TAB_ARC = { first: 1330, last: 760, from: (205 * Math.PI) / 180 } as const;
+export const TAB_ARC = { first: 1268, last: 760, from: (205 * Math.PI) / 180 } as const;
 /** The loop's arc length (counter-clockwise, as the tape runs) from parameter angle `from` (default: the clip) to t, by integration on the pose. */
 function arcTo(L: LoopPose, t: number, from: number = L.clipAt): number {
   const N = 720;
@@ -206,7 +207,16 @@ function paramAtArc(L: LoopPose, s: number, from: number): number {
   return (lo + hi) / 2;
 }
 /** Where each tab stands (parameter angle): its arc length is measured from TAB_ARC.from, so the tabs keep still (a)'s places wherever the clip is. */
-const TAB_T: readonly number[] = FOLDERS.map((_, i) => paramAtArc(LOOP_A, TAB_ARC.first + ((TAB_ARC.last - TAB_ARC.first) * i) / (FOLDERS.length - 1), TAB_ARC.from));
+/** A note's width on the tape (u: 15 u mono, its advance 9 u, a 2 u margin each side; objects/ActOne.tsx prints it). */
+export const loopNoteWidth = (s: string): number => s.length * 9 + 4;
+const TAB_GAPS: readonly number[] = FOLDERS.slice(1).map((_, i) => (loopNoteWidth(LOOP_NOTES[i]) + loopNoteWidth(LOOP_NOTES[i + 1])) / 2 + 6);
+const TAB_S: readonly number[] = (() => {
+  const total = TAB_GAPS.reduce((a, b) => a + b, 0);
+  const out: number[] = [TAB_ARC.first];
+  TAB_GAPS.forEach((g) => out.push(out[out.length - 1] - ((TAB_ARC.first - TAB_ARC.last) * g) / total));
+  return out;
+})();
+const TAB_T: readonly number[] = TAB_S.map((s) => paramAtArc(LOOP_A, s, TAB_ARC.from));
 /**
  * Each folder's share of the tape's length at its tab, from the clip (where the tape and its print start): its note is
  * printed at this share of the tape (the slack loop is the tight one scaled, so a share holds for both).
@@ -288,8 +298,16 @@ export interface HeapPiece {
 }
 /** The request: 1.3× a chat slip (layout.ts REQUEST), creased, its south-east corner showing. */
 export const REQUEST_A = { c: [-762, 150] as P2, rot: 0.38, l: 114, w: 52, crease: 38, lift: 0.12 } as const;
-/** The request turns vermilion on its cue (f20), over spring-effects: the request motif. */
+/** The request turns vermilion on its cue (f20), over spring-effects: the request motif. Its spring starts the frame before, so the cue frame already shows it turning. */
 export const REQUEST_INK = cue('request').frame;
+/**
+ * In 3.1 the request is on Fix A's tape: its grey copy (desk/beat3.ts) drops out of the chat spout with the request's
+ * vermilion as the first station's move ends (its 3 f anticipation from FIX_A.steps[0] - 3; beat3.test.ts holds this to
+ * the pour) and keeps it while Fix A holds the focus; the heap's request drains to its paper meanwhile (one request on
+ * screen), and both swap back as the focus moves to Fix B (FOCUS_A.fixA).
+ */
+export const REQUEST_ON_TAPE = { from: FIX_A.steps[0] - 3, to: FIX_B.in + 10 } as const;
+export const requestOnTapeAt = (f: number): number => clamp(springAt(f, REQUEST_ON_TAPE.from, SPRING.effects) - springAt(f, REQUEST_ON_TAPE.to, SPRING.effects));
 /** The pieces that land on the request's west half (f100–150), creasing it: its east flap lifts a quarter of the way with each. */
 const COVER_FRAMES = [100, 110, 130, 150] as const;
 
@@ -573,7 +591,8 @@ export const trayNudgeAt = (f: number): number => CHORE_ARC.nudge * (['key', 'gl
 export const FOCUS_A = {
   // the intake (the feeders, the heap, the request) stays down into the turn, whose own pull holds it there (turn.ts stepIn)
   intake: { from: 400, to: 1e6, ids: ['intake'] as readonly FocusId[] },
-  rest: { from: FIX_A.in, to: BOTH_FIXES, ids: ['folders', 'loop', 'you'] as readonly FocusId[] },
+  // 6 f after Fix A starts to rise: your lamp's swing to it (FIX_LAMP.a) leads the step-down by 5 f
+  rest: { from: FIX_A.in + 6, to: BOTH_FIXES, ids: ['folders', 'loop', 'you'] as readonly FocusId[] },
   fixA: { from: FIX_B.in + 10, to: BOTH_FIXES, ids: ['fixA'] as readonly FocusId[] },
 } as const;
 const ramp = (f: number, r: { from: number; to: number }): number => Math.min(easings.inOutSine(span01(f, r.from, r.from + STEP_FRAMES)), 1 - easings.inOutSine(span01(f, r.to, r.to + STEP_FRAMES)));
@@ -607,7 +626,7 @@ export interface ActOneState {
    * What the lamp attends (n: a folder 1..8; in beat 3 -1 Fix A, -2 Fix B, -3 between them), its aim point (world, eased
    * between visits), its bulb, and its pool's spread (u, across and along) and how far it sits back toward you.
    */
-  lamp: { n: number; aim: P3; bulb: number; sigma: P2; back: number; head: P2 };
+  lamp: { n: number; aim: P3; bulb: number; sigma: P2; back: number; head: P2; pole: P3 };
   folders: FolderState[];
   loop: LoopPose;
   /** the chores: 0 not yet landed … 1 landed (the notes loop's tightening, the key, the sand-glass, the strut) */
@@ -635,11 +654,16 @@ const folderN = (n: number): FolderLayout => FOLDERS[n - 1];
  * whole fix (Fix B's trays are a wide block).
  */
 export const FIX_LAMP = {
-  a: { n: -1, from: FIX_A.in + 12, aim: [-690, -40, 22] as P3, sigma: [124, 132] as P2, head: [-424, 70] as P2 },
-  b: { n: -2, from: FIX_B.in + 12, aim: [236, -22, 8] as P3, sigma: [176, 120] as P2, head: [-176, 100] as P2 },
-  // 3.3: over your desk, the pool wide enough to light both fixes either side of it
-  both: { n: -3, from: BOTH_FIXES, aim: [-236, -50, 36] as P3, sigma: [430, 150] as P2, head: [-268, 112] as P2 },
+  // each swing starts 5 f before the step-down it leads (FOCUS_A: the rest at FIX_A.in + 6, Fix A at FIX_B.in + 10)
+  // (its elbow bends up north-east, where it stands for F3, so only the upper arm and the hood turn west to Fix A: the
+  // elbow never rests on F1's corner)
+  a: { n: -1, from: FIX_A.in + 1, aim: [-650, -76, 30] as P3, sigma: [150, 150] as P2, head: [-424, 70] as P2, pole: [0.6, 0.4, 0.7] as P3 },
+  b: { n: -2, from: FIX_B.in + 5, aim: [236, -22, 8] as P3, sigma: [176, 120] as P2, head: [-176, 100] as P2, pole: HEAD_A.pole },
+  // 3.3: over your desk, the pool wide enough to light both fixes either side of it (4 f before both come back up)
+  both: { n: -3, from: BOTH_FIXES - 4, aim: [-236, -50, 36] as P3, sigma: [430, 150] as P2, head: [-268, 112] as P2, pole: HEAD_A.pole },
 } as const;
+/** On a swing to or from a fix the head leads and its light follows this many frames later (the pool follows the head). */
+export const AIM_LAG = 3;
 /** Every visit of the lamp in act one: the cue sheet's (folders) and beat 3's (the fixes). */
 export const VISITS: readonly (readonly [number, number])[] = [...LAMP_VISITS, ...Object.values(FIX_LAMP).map((v) => [v.from, v.n] as const)];
 /** Where the lamp aims for a folder (its top sheet's centre) or a fix. */
@@ -658,6 +682,11 @@ const headOf = (n: number): P2 => {
   const a = aimOf(n);
   return [YOU_C_A[0] + (a[0] - YOU_C_A[0]) * HEAD_A.k, YOU_C_A[1] + (a[1] - YOU_C_A[1]) * HEAD_A.k];
 };
+/**
+ * Act one's one pool: your lamp on the folder it attends (light is attention), its centre a little toward the lamp
+ * so the folder falls off to its far edge; narrow across, so the neighbours' near edges stay cold.
+ */
+export const POOL_A = { back: 46, sigma: [50, 92] as P2, k: 1.05 } as const;
 /** The pool's spread for a target, and how far back toward you it sits (a folder falls off to its far edge; a fix is lit whole). */
 const poolOf = (n: number): { sigma: P2; back: number } => (n < 0 ? { sigma: Object.values(FIX_LAMP).find((v) => v.n === n)!.sigma, back: 0 } : { sigma: POOL_A.sigma, back: POOL_A.back });
 /** A folder lights up as the lamp arrives over it: within about this distance of its aim (u), over this many frames. */
@@ -693,30 +722,99 @@ function visitAt(f: number): { k: number; v0: number; t0: number; n: number; pre
   const [v0, n] = VISITS[k];
   return { k, v0, t0: k === 0 ? v0 - PRE_SWING.frames : v0, n, prev: k > 0 ? VISITS[k - 1][1] : PRE_SWING.from };
 }
-/** The lamp's aim at f, its pool's spread and its pull back toward you: the head swings on spring-heavy from the last target to this one. */
-export function lampAimAt(f: number): { aim: P3; sigma: P2; back: number; head: P2 } {
-  const v = visitAt(f);
-  const sw = springAt(f, v.t0, SPRING.heavy);
-  const a0 = aimOf(v.prev);
-  const a1 = aimOf(v.n);
-  const p0 = poolOf(v.prev);
-  const p1 = poolOf(v.n);
+/**
+ * The lamp's swings. Every swing starts from where the lamp actually is on its first frame (a swing cut short by the next,
+ * as on bar 11's sixteenths, hands its pose on: never back to the last target), so its head and its light never jump.
+ * The head swings on spring-heavy from its swing's start; its light (the aim, the pool's spread and pull) on its own
+ * clock, AIM_LAG frames later on a swing to or from a fix. A swing to or from a fix is routed round the lamp's base: the
+ * head turns about the base's foot (angle and reach, never through it) and the light turns about the head (the hood
+ * rotates; the pool sweeps an arc), so the bulb never flips across the hood in a frame or two.
+ */
+const LAMP_FOOT: P2 = [LAMP.base[0] + YOU_SHIFT_A[0], LAMP.base[1] + YOU_SHIFT_A[1]];
+const fixSwing = (k: number): boolean => VISITS[k][1] < 0 || (k > 0 && VISITS[k - 1][1] < 0);
+const headStart = (k: number): number => (k === 0 ? VISITS[0][0] - PRE_SWING.frames : VISITS[k][0]);
+const aimStart = (k: number): number => headStart(k) + (fixSwing(k) ? AIM_LAG : 0);
+const lerp2 = (a: P2, b: P2, t: number): P2 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+/** From a to b about c: the angle the short way round and the reach, each in proportion. */
+function aboutC(c: P2, a: P2, b: P2, t: number): P2 {
+  const ra = Math.hypot(a[0] - c[0], a[1] - c[1]);
+  const rb = Math.hypot(b[0] - c[0], b[1] - c[1]);
+  const aa = Math.atan2(a[1] - c[1], a[0] - c[0]);
+  let ab = Math.atan2(b[1] - c[1], b[0] - c[0]);
+  while (ab - aa > Math.PI) ab -= Math.PI * 2;
+  while (aa - ab > Math.PI) ab += Math.PI * 2;
+  const ang = aa + (ab - aa) * t;
+  const r = ra + (rb - ra) * t;
+  return [c[0] + r * Math.cos(ang), c[1] + r * Math.sin(ang)];
+}
+/** The light's pose apart from the head: the aim's offset from the head (plan), its height, the pool's spread and pull. */
+interface LightPose {
+  rel: P2;
+  z: number;
+  sigma: P2;
+  back: number;
+}
+const lightOf = (n: number): LightPose => {
+  const a = aimOf(n);
+  const h = headOf(n);
+  const p = poolOf(n);
+  return { rel: [a[0] - h[0], a[1] - h[1]], z: a[2], sigma: p.sigma, back: p.back };
+};
+/** The head (world plan) and the direction its elbow bends (the arm's pole). */
+interface HeadPose {
+  head: P2;
+  pole: P3;
+}
+const poleOf = (n: number): P3 => (n < 0 ? Object.values(FIX_LAMP).find((v) => v.n === n)!.pole : HEAD_A.pole);
+const headSwing = (k: number, from: HeadPose, f: number): HeadPose => {
+  const sw = springAt(f, headStart(k), SPRING.heavy);
+  const n = VISITS[k][1];
+  const to = poleOf(n);
   return {
-    aim: [a0[0] + (a1[0] - a0[0]) * sw, a0[1] + (a1[1] - a0[1]) * sw, a0[2] + (a1[2] - a0[2]) * sw],
-    sigma: [p0.sigma[0] + (p1.sigma[0] - p0.sigma[0]) * sw, p0.sigma[1] + (p1.sigma[1] - p0.sigma[1]) * sw],
-    back: p0.back + (p1.back - p0.back) * sw,
-    head: (() => {
-      const h0 = headOf(v.prev);
-      const h1 = headOf(v.n);
-      return [h0[0] + (h1[0] - h0[0]) * sw, h0[1] + (h1[1] - h0[1]) * sw] as P2;
-    })(),
+    head: fixSwing(k) ? aboutC(LAMP_FOOT, from.head, headOf(n), sw) : lerp2(from.head, headOf(n), sw),
+    pole: [from.pole[0] + (to[0] - from.pole[0]) * sw, from.pole[1] + (to[1] - from.pole[1]) * sw, from.pole[2] + (to[2] - from.pole[2]) * sw],
   };
+};
+const lightSwing = (k: number, from: LightPose, f: number): LightPose => {
+  const sw = springAt(f, aimStart(k), SPRING.heavy);
+  const to = lightOf(VISITS[k][1]);
+  return {
+    rel: fixSwing(k) ? aboutC([0, 0], from.rel, to.rel, sw) : lerp2(from.rel, to.rel, sw),
+    z: from.z + (to.z - from.z) * sw,
+    sigma: lerp2(from.sigma, to.sigma, sw),
+    back: from.back + (to.back - from.back) * sw,
+  };
+};
+/** Each swing's starting pose: the pose the swing before it had reached on its first frame (index-keyed, built once). */
+const HEAD_FROM: readonly HeadPose[] = (() => {
+  const out: HeadPose[] = [{ head: headOf(PRE_SWING.from), pole: HEAD_A.pole }];
+  for (let k = 1; k < VISITS.length; k++) out.push(headSwing(k - 1, out[k - 1], headStart(k)));
+  return out;
+})();
+const LIGHT_FROM: readonly LightPose[] = (() => {
+  const out: LightPose[] = [lightOf(PRE_SWING.from)];
+  for (let k = 1; k < VISITS.length; k++) out.push(lightSwing(k - 1, out[k - 1], aimStart(k)));
+  return out;
+})();
+/** The swing in force at f on a clock (the last whose start is at or before f; the first before the film). */
+const swingAt = (f: number, start: (k: number) => number): number => {
+  let k = 0;
+  while (k + 1 < VISITS.length && start(k + 1) <= f) k++;
+  return k;
+};
+/** The lamp's aim at f, its pool's spread and its pull back toward you, its head (world plan) and its elbow's pole. */
+export function lampAimAt(f: number): { aim: P3; sigma: P2; back: number; head: P2; pole: P3 } {
+  const kh = swingAt(f, headStart);
+  const { head, pole } = headSwing(kh, HEAD_FROM[kh], f);
+  const ka = swingAt(f, aimStart);
+  const L = lightSwing(ka, LIGHT_FROM[ka], f);
+  return { aim: [head[0] + L.rel[0], head[1] + L.rel[1], L.z], sigma: L.sigma, back: L.back, head, pole };
 }
 
 /** The state of act one at film frame f (pure). */
 export function actOneAt(f: number): ActOneState {
   const { k, v0, t0, n } = visitAt(f);
-  const { aim, sigma, back, head } = lampAimAt(f);
+  const { aim, sigma, back, head, pole } = lampAimAt(f);
   // how lit each folder's top sheet is: the light near it and the head still (a folder the light only sweeps across never
   // lights up), averaged over the last LIT.frames frames, so it comes up and goes down over 4 f, never in one
   const aims = Array.from({ length: LIT.frames + 1 }, (_, k) => (k === 0 ? aim : lampAimAt(f - k).aim));
@@ -787,10 +885,10 @@ export function actOneAt(f: number): ActOneState {
   const still = posts.find((q) => HEAP[q.i].lands === FLIGHT.posted + 15 && q.u > 0);
   const flight = still ? { u: still.u, pos: still.p, tilt: still.tilt } : null;
   const lift = REQUEST_A.lift * COVER_FRAMES.reduce((s, c) => s + springAt(f, c, SPRING.settle), 0) / COVER_FRAMES.length;
-  const request = { ink: springAt(f, REQUEST_INK, SPRING.effects), lift };
+  const request = { ink: springAt(f, REQUEST_INK - 1, SPRING.effects) * (1 - requestOnTapeAt(f)), lift };
   const events = [6, 7, 8].map((m) => eventSlipAt(m, f)).filter((e): e is EventSlip => e !== null);
 
-  return { f, lamp: { n, aim, bulb: BULB_A.level, sigma, back, head }, folders, loop, chores, flight, landed, posts, request, events, step: actOneStep(f), stepA: actOneStepA(f) };
+  return { f, lamp: { n, aim, bulb: BULB_A.level, sigma, back, head, pole }, folders, loop, chores, flight, landed, posts, request, events, step: actOneStep(f), stepA: actOneStepA(f) };
 }
 
 /** Your desk's pose in act one: shifted north-east, the lamp reaching up to the folder it attends, each chore posted in on its cue. */
@@ -808,7 +906,7 @@ export function youPoseA(a: ActOneState): YouPose {
   // the in-tray stands empty in act one (nobody answers you yet: Fix B's replies land there in beat 3)
   return {
     shift: YOU_SHIFT_A,
-    lamp: { base, elbow: lampElbow(base, head, HEAD_A.pole), head, aim: aimL },
+    lamp: { base, elbow: lampElbow(base, head, a.lamp.pole), head, aim: aimL },
     bulb: a.lamp.bulb,
     bulbOut: BULB_A.out,
     strut: 'lid',
@@ -1006,11 +1104,7 @@ export function flagTop(fl: FolderLayout, up: number): P3 {
   return [w[0], w[1], p[2]];
 }
 
-/**
- * Act one's one pool: your lamp on the folder it attends (light is attention), its centre a little toward the lamp
- * so the folder falls off to its far edge; narrow across, so the neighbours' near edges stay cold.
- */
-export const POOL_A = { back: 46, sigma: [50, 92] as P2, k: 1.05 } as const;
+/** Act one's one pool (POOL_A, defined with the lamp's swings, which read it as the module loads). */
 export function actOnePools(a: ActOneState): Pool[] {
   const c = LOOP_A.c;
   const d: P2 = [a.lamp.aim[0] - c[0], a.lamp.aim[1] - c[1]];

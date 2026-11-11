@@ -13,11 +13,14 @@
 import { fillTextChecked, textCanvas, type FontSpec } from '@aiv/remotion-kit';
 import mono500 from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2';
 import mono700 from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-700-normal.woff2';
+import mono500cyr from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-cyrillic-500-normal.woff2';
 import { CanvasTexture, SRGBColorSpace, type Texture } from 'three';
 import { WORDS } from '../../cues.ts';
-import { plateTexture } from './plate.ts';
+import { plateTexture, stressTexture } from './plate.ts';
+import { beat6Textures, type Beat6Textures } from './print6.ts';
+import { STRESS_PLATE } from '../beat6.ts';
 import { CACHE_CELLS, CELLS, CELLS_BEFORE, CELLS_NEXT, DOSSIER, DOSSIER_FINE, FANFOLD, FANFOLD_FINE, GALLEY_FINE, IN_TRAY, NAMEPLATE, NEXT_WORD, POLICY, PRINT_STRINGS, REPLY, REPORT, REPORT_C, SLIPS } from '../../print.ts';
-import { BAYS, CACHE_WINDOW, CARD, CARD_C, CELLS_X, DRAWER, FILED_TABS, TAB_C, DISPATCH, FRESH, NEXT_SLIP, REEL, SLIP, TAPE, TAPE_FLAT_X1, TRAIT_PLATE, rectC, type BayLayout, type WorkerId } from '../layout.ts';
+import { BAYS, CACHE_WINDOW, CARD, CARD_C, CELLS_X, DRAWER, FILED_TABS, TAB_C, DISPATCH, FRESH, NEXT_SLIP, PROACTIVE_PLATE, REEL, SLIP, TAPE, TAPE_FLAT_X1, TRAIT_PLATE, rectC, type BayLayout, type WorkerId } from '../layout.ts';
 
 /** IBM Plex Mono's latin files (its unicode.json `latin` range), the two weights the print uses. */
 const LATIN = 'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD';
@@ -26,8 +29,10 @@ export const PRINT_FONT: FontSpec = {
   sources: [
     { url: mono500, unicodeRange: LATIN, weight: '500' },
     { url: mono700, unicodeRange: LATIN, weight: '700' },
+    // the numero sign alone, from the cyrillic file (the title card's "№": TREATMENT element sheet)
+    { url: mono500cyr, unicodeRange: 'U+2116', weight: '500' },
   ],
-  sample: PRINT_STRINGS.join(' '),
+  sample: `${PRINT_STRINGS.join(' ')} №`,
 };
 
 /** Texels per world unit (about 2.4 per screen pixel at 0.85×). */
@@ -138,10 +143,10 @@ export function cargoMark(g: CanvasRenderingContext2D, kind: string, x: number, 
 
 /**
  * The request's cell on the tape (beat 4 on): its chat mark set high (`REQUEST_MARK_Y`), its vermilion tear-off stub
- * under it (`requestStub`) and, once its Thread is subscribed (beat 4, f1800), the Thread's mark (`threadMark`): a length
- * of vermilion cord tied to the stub's east end, hanging in an open loop down the cell (about 30 x 28 u, 24 px at the
- * 0.85x framing: a meso mark of its own form, never a ring or a glyph line; the cord itself is drawn only from C17,
- * design D1). `x` is the cell's west edge.
+ * under it (`requestStub`) and, once its Thread is subscribed (beat 4, f1800), the Thread's mark (`threadMark`): a
+ * vermilion tab hanging from the stub's east end with an eyelet punched through it (11 x 17 u, about 10 x 15 px at the
+ * 0.85x framing: a mark on the tape of its own form; the cord is drawn only from C17, design D1). `x` is the cell's west
+ * edge.
  */
 export const REQUEST_MARK_Y = 6;
 export function requestStub(g: CanvasRenderingContext2D, x: number): void {
@@ -149,23 +154,22 @@ export function requestStub(g: CanvasRenderingContext2D, x: number): void {
   g.fillRect(x + 6, 29, 28, 5);
 }
 export function threadMark(g: CanvasRenderingContext2D, x: number): void {
-  g.strokeStyle = VERMILION;
-  g.lineWidth = 3.2;
-  g.lineCap = 'round';
-  g.lineJoin = 'round';
-  g.beginPath();
-  // tied round the stub's east end (a knot), then hanging and curling back under the stub
-  g.moveTo(x + 31, 31.5);
-  g.bezierCurveTo(x + 44, 33, x + 46, 58, x + 32, 58.5);
-  g.bezierCurveTo(x + 20, 59, x + 12, 52, x + 16, 44);
-  g.bezierCurveTo(x + 19, 39, x + 26, 41, x + 27, 46);
-  g.stroke();
+  // a vermilion tab hanging from the stub's east end, its eyelet punched through it (where the cord is tied from C17):
+  // a mark on the tape, never a cord (design D1)
   g.fillStyle = VERMILION;
   g.beginPath();
-  g.arc(x + 33, 31.5, 3.6, 0, Math.PI * 2);
+  g.moveTo(x + 27, 32);
+  g.lineTo(x + 38, 32);
+  g.lineTo(x + 38, 46);
+  g.quadraticCurveTo(x + 38, 49, x + 35, 49);
+  g.lineTo(x + 30, 49);
+  g.quadraticCurveTo(x + 27, 49, x + 27, 46);
+  g.closePath();
   g.fill();
-  g.lineCap = 'butt';
-  g.lineJoin = 'miter';
+  g.fillStyle = INK;
+  g.beginPath();
+  g.arc(x + 32.5, 42.5, 2.3, 0, Math.PI * 2);
+  g.fill();
 }
 
 /** Every printed texture of the frame. */
@@ -217,6 +221,15 @@ export interface PrintTextures {
   gauge: Texture;
   lockFace: Texture;
   trait: Texture;
+  /** beat 5: the Proactive plate's face (Proactive · 主动), lying on the slate by the gate */
+  proactive: Texture;
+  /** beat 6: the stress plate's face (gl/plate.ts stressTexture) */
+  stress: Texture;
+  /** beat 6 (still (c)'s stamp-in): the record's ink spread header first, then each summary line a frame later (`recordStagger[k]`, k frames after the stamp; no pointer yet), and the pointer layer's three stages alone on clear paper, printed once its tab has landed */
+  recordStagger: Texture[];
+  recordPointer: Texture[];
+  /** beat 6's own print (gl/print6.ts) */
+  b6: Beat6Textures;
 }
 
 /** The nameplate band on a bay's south wall (its top, inset 2). */
@@ -228,6 +241,7 @@ export const dossierSize = (b: BayLayout): [number, number] => [b.dossier.x1 - b
 export const PRINT_SIZE = {
   tape: [TAPE_FLAT_X1 - TAPE.x0, TAPE.y1 - TAPE.y0],
   trait: [TRAIT_PLATE.box.x1 - TRAIT_PLATE.box.x0 - 10, TRAIT_PLATE.box.y1 - TRAIT_PLATE.box.y0 - 10],
+  proactive: [PROACTIVE_PLATE.box.x1 - PROACTIVE_PLATE.box.x0 - 10, PROACTIVE_PLATE.box.y1 - PROACTIVE_PLATE.box.y0 - 10],
   policy: [74, 86],
   fanfold: [170, 80],
   report: [CARD.w, CARD.d],
@@ -539,14 +553,29 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
   const vellumMail = texture(S.vellumMail[0], S.vellumMail[1], (g) => vellumFeeder(g, 'mail', S.vellumMail), aniso, 'transparent');
   const vellumCalendar = texture(S.vellumCalendar[0], S.vellumCalendar[1], (g) => vellumFeeder(g, 'calendar', S.vellumCalendar), aniso, 'transparent');
 
-  // the neck-collar gauge's face: an arc of ticks, low to high
+  // the neck-collar gauge's face (design D5, an arc gauge): a sector scale over its top, low at its west end where the
+  // needle sits (beat4.ts GAUGE.low) to high at its east, its low zone filled; never a dial of ticks all round (a clock)
   const gauge = texture(
     32,
     32,
     (g) => {
-      for (let i = 0; i <= 8; i++) {
-        const a = Math.PI * (0.75 + (1.5 * i) / 8);
-        rule(g, 16 + Math.cos(a) * 10, 16 + Math.sin(a) * 10, 16 + Math.cos(a) * 14, 16 + Math.sin(a) * 14, i % 4 === 0 ? 1.6 : 0.9);
+      // canvas angles (y down): the world's 160 deg (low) to 20 deg (high), over the top
+      const a0 = -Math.PI * (160 / 180);
+      const a1 = -Math.PI * (20 / 180);
+      g.strokeStyle = INK;
+      g.lineWidth = 1.3;
+      g.beginPath();
+      g.arc(16, 16, 12.5, a0, a1);
+      g.stroke();
+      g.fillStyle = INK;
+      g.beginPath();
+      g.arc(16, 16, 13.8, a0, a0 + Math.PI * (34 / 180));
+      g.arc(16, 16, 11.2, a0 + Math.PI * (34 / 180), a0, true);
+      g.closePath();
+      g.fill();
+      for (let i = 0; i <= 4; i++) {
+        const a = a0 + ((a1 - a0) * i) / 4;
+        rule(g, 16 + Math.cos(a) * 9.6, 16 + Math.sin(a) * 9.6, 16 + Math.cos(a) * 12.5, 16 + Math.sin(a) * 12.5, i === 0 || i === 4 ? 1.5 : 0.9);
       }
     },
     aniso,
@@ -570,6 +599,8 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
 
   // the Continuous plate: its words, Continuous · 连续, engraved on enamel (gl/plate.ts, the trait plates' one face)
   const trait = plateTexture(sans, WORDS.traitContinuous, S.trait, aniso);
+  // the Proactive plate (beat 5): the same face, Proactive · 主动
+  const proactive = plateTexture(sans, WORDS.traitProactive, S.proactive, aniso);
 
   // MT1: the next chat slip (its word, no clock or ID) and the dispatch folder's cover (its kind and the loupe's notch: accepted)
   const chatNext = tex(S.chatNext, (g) => {
@@ -642,19 +673,24 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
   // teaching ID and its vermilion bar) over the pointer, a folded tab's outline and an arrow down: the header
   // column stands over the spill drawer, so the arrow points at the drawer the tab lies in. Tooth under the
   // ink; the ink stamps in over three stages (a 3 f spread, never an alpha fade)
-  const recordPrint: Draw = (g) => {
+  const recordHead: Draw = (g) => {
     const [w, h] = S.record;
     g.strokeStyle = INK;
     g.lineWidth = 1.6;
     g.strokeRect(1.5, 3.5, w - 3, h - 7);
-    REPORT_C.summary.forEach((line, i) => print(g, family, line, 8, 18.5 + i * 18.6, 17.5, 500));
     const cx = RECORD_HEAD_X;
     rule(g, cx - 6, 8, cx - 6, h - 8, 1.1, '#7E7A71');
     print(g, family, REPORT_C.id, cx, 25, 21, 700);
     g.fillStyle = VERMILION;
     g.fillRect(cx + 1, 31, 38, 4.5);
-    // the pointer: a small replica of the tab filed in the drawer below (its proportions, its dog-ear, its vermilion
-    // tick, its ID), set straight over the tab's own place, and the arrow down into the drawer from its centre
+  };
+  const recordLine =
+    (i: number): Draw =>
+    (g) =>
+      print(g, family, REPORT_C.summary[i], 8, 18.5 + i * 18.6, 17.5, 500);
+  // the pointer: a small replica of the tab filed in the drawer below (its proportions, its dog-ear, its vermilion
+  // tick, its ID), set straight over the tab's own place, and the arrow down into the drawer from its centre
+  const recordPointerInk: Draw = (g) => {
     pointerReplica(g, family, POINTER_X - 25, 37.5, 50, 11.4);
     g.strokeStyle = INK;
     g.lineWidth = 2;
@@ -670,6 +706,11 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
     g.closePath();
     g.fill();
   };
+  const recordPrint: Draw = (g) => {
+    recordHead(g);
+    REPORT_C.summary.forEach((_, i) => recordLine(i)(g));
+    recordPointerInk(g);
+  };
   // the record as the head stamps it: its ink at each of the spread's three frames (the speckled first contact, the
   // strokes' cores, the whole print), over the paper's tooth
   const recordInk = [0, 1, 2].map((stage) =>
@@ -679,6 +720,16 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
     }),
   );
   const record = recordInk[2];
+  // beat 6 (still (c), critic item 4): the head prints the header first and each summary line a frame after the one
+  // before, every part over its own 3 f spread; the pointer is its own layer (item 2), printed once its tab has landed
+  const recordParts: { draw: Draw; at: number }[] = [{ draw: recordHead, at: 0 }, ...REPORT_C.summary.map((_, i) => ({ draw: recordLine(i), at: i + 1 }))];
+  const recordStagger = [0, 1, 2, 3, 4, 5].map((k) =>
+    close(S.record, (g) => {
+      toothUnder(g, S.record[0], S.record[1]);
+      for (const p of recordParts) if (k >= p.at) stagedInk(g, S.record[0], S.record[1], TEX_CLOSE, Math.min(2, k - p.at), p.draw);
+    }),
+  );
+  const recordPointer = [0, 1, 2].map((stage) => close(S.record, (g) => stagedInk(g, S.record[0], S.record[1], TEX_CLOSE, stage, recordPointerInk), 'transparent'));
   // the report card: its header strip (the top half: the ID and its bar, the three summary lines the head will
   // print), a perforation, then the body (the rest, as print texture) with the crease it folds along
   const cardC = close(S.cardC, (g) => {
@@ -752,7 +803,11 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
     }),
   ) as Record<WorkerId, Texture>;
 
-  return { trait, tape, tapeInk, tape2Ink, tapeBefore, reelTop, nameplate, dossier, policy, fanfold, fanfoldSide, report, reportTab, galley, reply, inTray, chat, ciCard, request, folder, vellumMail, vellumCalendar, gauge, lockFace, tape2, chatNext, folderFresh, tapeBlank, tapeFirst, reelTopBare, cacheCells, record, recordInk, cardC, cardCBack, filedTabs, fanfoldFine, galleyFine, dossierFine };
+  // beat 6: the stress plate's face; the batch's, the decode's and recall's print (gl/print6.ts)
+  const stress = stressTexture(sans, { head: WORDS.plateHead, arrivals: WORDS.plateArrivals, decision: WORDS.plateDecision }, [STRESS_PLATE.box.x1 - STRESS_PLATE.box.x0 - 10, STRESS_PLATE.box.y1 - STRESS_PLATE.box.y0 - 10], aniso);
+  const b6 = beat6Textures(family, aniso);
+
+  return { stress, recordStagger, recordPointer, b6, trait, proactive, tape, tapeInk, tape2Ink, tapeBefore, reelTop, nameplate, dossier, policy, fanfold, fanfoldSide, report, reportTab, galley, reply, inTray, chat, ciCard, request, folder, vellumMail, vellumCalendar, gauge, lockFace, tape2, chatNext, folderFresh, tapeBlank, tapeFirst, reelTopBare, cacheCells, record, recordInk, cardC, cardCBack, filedTabs, fanfoldFine, galleyFine, dossierFine };
 }
 
 /** The newest cell's step along the tape (u): MT1's second stamp-in moves the tape on by it, so the last report's print clears the cell whole before the next is stamped. */

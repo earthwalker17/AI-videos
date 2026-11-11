@@ -215,8 +215,9 @@ export function Cargo({ s }: { s: DeskState }) {
     // the one transit light, on the carrier in flight: ramped in and out (state.ts transitRamp), dark in its dock frame
     // (one carrier at a time: the report card, MT1's dispatch folder, or still (c)'s report; the request's beetle has its own,
     // objects/Bay.tsx BeetleLight)
-    m.transit.color.set(LIGHT_HEX.work).multiplyScalar(EMIT.transit * Math.max(s.transit, s.next.folderTransit, s.cache?.transit ?? 0));
-  }, [m, s.transit, s.next.folderTransit, s.cache?.transit]);
+    // (beat 6: the answer flying back to the card feeder, desk/beat6.ts)
+    m.transit.color.set(LIGHT_HEX.work).multiplyScalar(EMIT.transit * Math.max(s.transit, s.next.folderTransit, s.cache?.transit ?? 0, s.e6.transit));
+  }, [m, s.transit, s.next.folderTransit, s.cache?.transit, s.e6.transit]);
   // the report card and the reply, each a sheet of its own form (objects/Handshake.tsx)
   return (
     <group>

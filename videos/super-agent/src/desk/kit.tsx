@@ -54,6 +54,10 @@ export interface DeskMats {
     gauge: MeshStandardMaterial;
     lockFace: MeshStandardMaterial;
     trait: MeshStandardMaterial;
+    /** beat 5: the Proactive plate's face (gl/plate.ts) */
+    proactive: MeshStandardMaterial;
+    /** beat 6: the stress plate's face (gl/plate.ts stressTexture) */
+    stress: MeshStandardMaterial;
     /** MT1's next dispatch (gl/text.ts) */
     tape2: MeshStandardMaterial;
     /** the stamp-ins' ink at its first two stages (gl/text.ts tapeInk, tape2Ink) */
@@ -215,6 +219,8 @@ function buildSet(t: PrintTextures, env: Texture, white: Texture, stepped: boole
       gauge: E(t.gauge),
       lockFace: E(t.lockFace),
       trait: E(t.trait),
+      proactive: E(t.proactive),
+      stress: E(t.stress),
       tape2: P(t.tape2, HEX.paper),
       tapeInk: t.tapeInk.map((x) => P(x, HEX.paper)),
       tape2Ink: t.tape2Ink.map((x) => P(x, HEX.paper)),

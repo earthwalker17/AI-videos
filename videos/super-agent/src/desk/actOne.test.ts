@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ROUND2 } from '../lookdev/frames.ts';
-import { FOLDER_PRINT } from '../print.ts';
-import { TEXT_IN, TEXT_OUT, WORDS, cue } from '../cues.ts';
+import { FOLDER_PRINT, LOOP_NOTES } from '../print.ts';
+import { TEXT_OUT, WORDS, cue } from '../cues.ts';
 import { TYPE } from '../look/tokens.ts';
 import { TITLE_CARD } from './ActOneFrame.tsx';
 import {
@@ -52,12 +52,18 @@ import {
   youLabelAt,
   youPoseA,
   youPoseAt,
+  lampAimAt,
+  FIX_LAMP,
+  AIM_LAG,
+  HEAD_A,
+  actOneStep,
+  actOneStepA,
 } from './actOne.ts';
 import { ACT_ONE_MOVE, FRAMING_A, FRAMING_HOOK, cameraAt, deskCamera, framingAt, project, screenToDesk } from './camera.ts';
 import { loopArc, loopNotesAt } from './objects/ActOne.tsx';
-import { CARD_HEX, CARD_POST, cardAt, cardQuad } from './objects/TitleCard.tsx';
+import { CARD_POST, CARD_T, cardAt, cardCorners, cardFootprint, cardMatrix } from './objects/TitleCard.tsx';
 import { MAX_FOOTPRINTS } from './footprints.ts';
-import { YOU, type P2, type P3 } from './layout.ts';
+import { LAMP, YOU, type P2, type P3 } from './layout.ts';
 import { LAMP_ARMS, LAMP_FOOT_Z, YOU_POSE_B } from './you.ts';
 
 const A = actOneAt(ROUND2.stillA);
@@ -209,8 +215,10 @@ describe('act one over time (beats 1–2)', () => {
     expect(dist(at(0).lamp.aim, at(3).lamp.aim)).toBeGreaterThan(0.5);
   });
   it('turns the request vermilion on its cue (f20), over a few frames, never in one', () => {
-    expect(at(REQUEST_INK).request.ink).toBe(0);
-    expect(at(REQUEST_INK + 1).request.ink).toBeLessThan(0.6);
+    // the cue frame already shows it turning (its spring starts the frame before), never all at once
+    expect(at(REQUEST_INK - 1).request.ink).toBe(0);
+    expect(at(REQUEST_INK).request.ink).toBeGreaterThan(0.25);
+    expect(at(REQUEST_INK).request.ink).toBeLessThan(0.6);
     expect(at(REQUEST_INK + 12).request.ink).toBeGreaterThan(0.95);
   });
   it('buries and creases the request from f100: half buried by f150, its east corner clear', () => {
@@ -350,62 +358,89 @@ describe('act one’s camera', () => {
 });
 
 describe('the title card (1.2)', () => {
-  it('lands on the thump and is gone by beat 2, inside title-safe, clear of the notes in C1 and C2', () => {
-    const { rect, frames } = TITLE_CARD;
+  const { frames, place } = TITLE_CARD;
+  const outline = (f: number): P2[] => {
+    const q = cardCorners(TITLE_CARD, cardAt(TITLE_CARD, f));
+    return [q.nw, q.ne, q.se, q.sw].map((w) => project(cameraAt(f, 15), w));
+  };
+  const inside = (q: P2, poly: P2[]) => {
+    let on = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++)
+      if (poly[i][1] > q[1] !== poly[j][1] > q[1] && q[0] < ((poly[j][0] - poly[i][0]) * (q[1] - poly[i][1])) / (poly[j][1] - poly[i][1]) + poly[i][0]) on = !on;
+    return on;
+  };
+  it('is posted in from beyond the frame once C1 has gone, lands on the thump and is wholly off the frame by f380', () => {
     expect(frames.land).toBe(cue('title-thump').frame);
-    // posted in only once C1 has gone, from beyond the frame (every corner of it off the frame as it enters)
     expect(frames.enter).toBeGreaterThanOrEqual(cue('c1').end! + TEXT_OUT);
-    const corners = (f: number) => {
-      const s = cardAt(TITLE_CARD, f);
-      const q = cardQuad(TITLE_CARD, s, cameraAt(f, 15));
-      return q.outer.map((w) => project(cameraAt(f, 15), [w[0] + s.off[0], w[1] + s.off[1], w[2] + s.off[2]]));
-    };
-    for (const c of corners(frames.enter)) expect(c[1] > 1080 || c[0] < 0).toBe(true);
-    // the request's corner (half buried, a corner showing) stays uncovered while the hook teaches it, up to the thump
-    const R = REQUEST_A;
-    const corner: P3 = [R.c[0] + Math.cos(R.rot) * R.l * 0.45, R.c[1] + Math.sin(R.rot) * R.l * 0.45, requestZ() + 1];
-    const inside = (q: P2, poly: P2[]) => {
-      let on = false;
-      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++)
-        if (poly[i][1] > q[1] !== poly[j][1] > q[1] && q[0] < ((poly[j][0] - poly[i][0]) * (q[1] - poly[i][1])) / (poly[j][1] - poly[i][1]) + poly[i][0]) on = !on;
-      return on;
-    };
-    for (let f = frames.enter; f <= frames.land; f++) expect(inside(project(cameraAt(f, 15), corner), corners(f)), `f${f}`).toBe(false);
-    // over its place it lifts (the anticipation), then drops onto it on the thump, its shadow tightening frame by frame
+    for (const c of outline(frames.enter)) expect(c[1] > 1080 || c[0] < 0).toBe(true);
+    expect(cardAt(TITLE_CARD, frames.enter - 1).present).toBe(false);
+    expect(frames.gone).toBeLessThanOrEqual(380);
+    expect(cardAt(TITLE_CARD, frames.gone).present).toBe(false);
+    for (const c of outline(frames.gone - 1)) expect(c[0]).toBeLessThan(0);
+    // it holds still on the desk while its title is read, and leaves only as the title fades
+    expect(frames.leave).toBeGreaterThanOrEqual(cue('title').end!);
+    for (let f = frames.land; f < frames.leave; f++) expect(cardAt(TITLE_CARD, f).off).toEqual([0, 0, 0]);
+  });
+  it('comes to rest over its place with no vertical speed, lifts 3 f, then drops onto it, its contact shadow tightening over the last 4 f', () => {
     const z = (f: number) => cardAt(TITLE_CARD, f).off[2];
     const drop = frames.land - CARD_POST.dropFrames;
-    expect(z(drop)).toBeGreaterThan(z(drop - CARD_POST.liftFrames));
-    for (let f = drop; f < frames.land; f++) expect(z(f + 1)).toBeLessThan(z(f));
-    expect(z(frames.land - 1)).toBeGreaterThan(0);
-    expect(cardAt(TITLE_CARD, frames.land).off).toEqual([0, 0, 0]);
-    expect(frames.gone).toBeLessThanOrEqual(cue('c2').frame - TEXT_IN);
-    expect(frames.leave).toBeGreaterThanOrEqual(cue('title').end! + TEXT_OUT);
-    expect(rect.x).toBeGreaterThanOrEqual(96);
-    expect(rect.y + rect.h).toBeLessThanOrEqual(1026);
-    expect(cardAt(TITLE_CARD, frames.enter - 1).present).toBe(false);
-    expect(cardAt(TITLE_CARD, frames.land).dx).toBe(0);
-    expect(cardAt(TITLE_CARD, frames.gone).present).toBe(false);
-    // it slides out off the frame's west edge (the paper never fades)
-    for (let f = frames.leave; f < frames.gone - 1; f++) expect(cardAt(TITLE_CARD, f + 1).dx).toBeLessThanOrEqual(cardAt(TITLE_CARD, f).dx);
-    expect(cardAt(TITLE_CARD, frames.gone - 1).dx + rect.x + rect.w).toBeLessThan(0);
-  });
-  it('sets the cue sheet’s words exactly, at the film’s title sizes, on the cues’ windows', () => {
-    const lines = TITLE_CARD.lines;
-    expect(lines.filter((l) => l.cue === 'title' && l.size === TYPE.titleEn.size).map((l) => l.text).join(' ')).toBe(WORDS.title.en);
-    expect(lines.filter((l) => l.cue === 'title' && l.size === TYPE.titleZh.size).map((l) => l.text).join('')).toBe(WORDS.title['zh-Hans']);
-    expect(lines.filter((l) => l.cue === 'credit' && l.color === CARD_HEX.ink).map((l) => l.text).join(' ')).toBe(WORDS.credit.en);
-    expect(lines.filter((l) => l.cue === 'credit' && l.color === CARD_HEX.zh).map((l) => l.text).join(' ')).toBe(WORDS.credit['zh-Hans']);
-    for (const l of lines) {
-      expect(l.size).toBeGreaterThanOrEqual(36);
-      expect(l.size).toBeLessThanOrEqual(136);
-      expect(TITLE_CARD.rect.y + l.y).toBeLessThanOrEqual(1026);
+    const lift = drop - CARD_POST.liftFrames;
+    expect(lift - frames.enter).toBeGreaterThanOrEqual(10);
+    // the arc's last step is a fraction of its first: it slows into the hover
+    expect(Math.abs(z(lift) - z(lift - 1))).toBeLessThan(Math.abs(z(frames.enter + 1) - z(frames.enter)) / 4);
+    expect(Math.abs(cardAt(TITLE_CARD, lift).off[0] - cardAt(TITLE_CARD, lift - 1).off[0])).toBeLessThan(4);
+    expect(z(drop)).toBeGreaterThan(z(lift));
+    expect(z(lift)).toBeLessThan(30);
+    for (let f = drop; f < frames.land; f++) {
+      expect(z(f + 1)).toBeLessThan(z(f));
+      expect(cardAt(TITLE_CARD, f + 1).contact).toBeGreaterThan(cardAt(TITLE_CARD, f).contact);
     }
+    expect(cardAt(TITLE_CARD, frames.land).off).toEqual([0, 0, 0]);
+    expect(cardAt(TITLE_CARD, frames.land).contact).toBeGreaterThanOrEqual(0.8);
+    // low on the desk: its underside on the flat paper under it, its shadow a contact shadow
+    expect(place.z).toBeLessThan(5);
+    const fp = cardFootprint(TITLE_CARD, cardAt(TITLE_CARD, 200)) as { z0: number; z1: number };
+    expect(fp.z0).toBeLessThan(5);
+    expect(fp.z1 - fp.z0).toBeCloseTo(CARD_T, 6);
   });
-  it('hovers clear of everything under it, and holds still on screen while the camera moves', () => {
-    for (const f of [170, 240, 320, 370]) expect(cardAt(TITLE_CARD, f).z - 3).toBeGreaterThan(GENERIC_FEEDERS.mailH + 4);
-    expect(cardAt(TITLE_CARD, 240).dx).toBe(0);
-    expect(cardAt(TITLE_CARD, 300).dx).toBe(0);
-    expect(cardAt(TITLE_CARD, 240).z).toBeCloseTo(cardAt(TITLE_CARD, 300).z, 1);
+  it('lies on the desk in the world: it rides the camera move, the request’s corner in view beside it the whole time', () => {
+    // world-locked: its outline on screen is the projection of one fixed place through each frame's camera
+    const a = outline(170);
+    const b = outline(300);
+    expect(Math.abs(a[0][0] - b[0][0]) + Math.abs(a[0][1] - b[0][1])).toBeGreaterThan(100);
+    const w = (q: P2[]) => q[1][0] - q[0][0];
+    expect(w(b) / w(a)).toBeCloseTo(cameraAt(170, 15).focus / cameraAt(300, 15).focus, 1);
+    const R = REQUEST_A;
+    const corner: P3 = [R.c[0] + Math.cos(R.rot) * R.l * 0.42, R.c[1] + Math.sin(R.rot) * R.l * 0.42, requestZ() + 1];
+    for (let f = frames.enter; f < frames.gone; f++) expect(inside(project(cameraAt(f, 15), corner), outline(f)), `f${f}`).toBe(false);
+    // nothing under it but flat paper: clear of the calendar pad, the mail box's envelope, the request and your loop's clip
+    expect(place.x0).toBeGreaterThan(GENERIC_FEEDERS.pad.x1);
+    expect(place.y1).toBeLessThan(GENERIC_FEEDERS.envelope.c[1] - GENERIC_FEEDERS.envelope.d / 2 + 1);
+    expect(place.x0 + place.w).toBeLessThan(LOOP_A.c[0] - LOOP_A.a - 26 - 12);
+  });
+  it('sets the title exactly, every line at least 36 px and at most 136 px wherever the camera is, inside title-safe and above the notes band', () => {
+    const lines = TITLE_CARD.lines;
+    const han = (t: string) => /[一-鿿]/.test(t);
+    expect(lines.filter((l) => !han(l.text)).map((l) => l.text).join(' ')).toBe(WORDS.title.en);
+    expect(lines.filter((l) => han(l.text)).map((l) => l.text).join('')).toBe(WORDS.title['zh-Hans']);
+    for (const l of lines) expect(l.weight).toBe(han(l.text) ? TYPE.titleZh.weight : TYPE.titleEn.weight);
+    for (let f = frames.land; f < frames.leave; f += 4) {
+      const m = cardMatrix(TITLE_CARD, cardAt(TITLE_CARD, f), cameraAt(f, 15));
+      const sx = Math.hypot(m[0], m[1]);
+      const sy = Math.hypot(m[2], m[3]);
+      for (const l of lines) {
+        expect(l.size * Math.min(sx, sy), `f${f} ${l.text}`).toBeGreaterThanOrEqual(36);
+        expect(l.size * Math.max(sx, sy)).toBeLessThanOrEqual(136);
+        const p = (x: number, y: number): P2 => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+        const top = p(l.x, l.y - l.size);
+        const bottom = p(l.x, l.y + l.size * 0.15);
+        expect(top[0]).toBeGreaterThanOrEqual(96);
+        expect(top[1]).toBeGreaterThanOrEqual(54);
+        expect(bottom[1]).toBeLessThan(868);
+      }
+    }
+    // the card's own words never run past its edge
+    for (const l of lines) expect(l.x + l.text.length * l.size * (han(l.text) ? 1 : 0.6)).toBeLessThan(place.w - 8);
   });
 });
 
@@ -430,7 +465,10 @@ describe('still (a)’s critic fixes', () => {
       const L = actOneAt(f).loop;
       const notes = loopNotesAt(L);
       const arc = loopArc(L);
-      for (let i = 1; i < notes.length; i++) expect(Math.abs(notes[i] - notes[i - 1])).toBeGreaterThan(70);
+      // no two notes touch: the gap between neighbours' ends is 4 u or more
+      for (let i = 1; i < notes.length; i++) expect(Math.abs(notes[i] - notes[i - 1]) - (LOOP_NOTES[i].length * 9 + 4 + LOOP_NOTES[i - 1].length * 9 + 4) / 2, `notes ${i - 1}-${i} f${f}`).toBeGreaterThan(4);
+      // every note whole on the tape, open or shut (F1's "reply ok" was cut by the open end)
+      notes.forEach((u, i) => expect(u + (LOOP_NOTES[i].length * 9 + 4) / 2, `note ${i} f${f}`).toBeLessThan(arc.len - 6));
       FOLDERS.forEach((fl, i) => {
         let t = tabAt(L, fl);
         while (t < L.clipAt) t += Math.PI * 2;
@@ -460,5 +498,48 @@ describe('still (a)’s critic fixes', () => {
       return Math.abs(lx) < fl.w / 2 + 2 && Math.abs(ly) < fl.d / 2 + 2;
     };
     for (let i = 0; i < FOLDERS.length; i++) for (let j = 0; j < FOLDERS.length; j++) if (i !== j) for (const p of outline(i)) expect(inside(p, j), `F${i + 1} into F${j + 1}`).toBe(false);
+  });
+});
+
+describe('your lamp’s swings (f0–1399)', () => {
+  const moves = Array.from({ length: 1401 }, (_, i) => {
+    const a = lampAimAt(i - 1);
+    const b = lampAimAt(i);
+    return { aim: Math.hypot(b.aim[0] - a.aim[0], b.aim[1] - a.aim[1]), head: Math.hypot(b.head[0] - a.head[0], b.head[1] - a.head[1]), b };
+  });
+  it('starts every swing from where the lamp is: its aim and head never jump in a frame, bar 11’s sixteenths included', () => {
+    for (let i = 1; i < moves.length - 1; i++) {
+      const f = i - 1;
+      expect(moves[i].aim, `aim f${f}`).toBeLessThan(200);
+      expect(moves[i].head, `head f${f}`).toBeLessThan(60);
+      // a jump is one frame's move far beyond both its neighbours' (the swing cut short snapping back to its target)
+      expect(moves[i].aim, `aim spike f${f}`).toBeLessThanOrEqual(Math.max(moves[i - 1].aim, moves[i + 1].aim) + 70);
+    }
+    for (let f = 800; f < 870; f++) expect(moves[f + 1].aim, `bar 11 f${f}`).toBeLessThan(150);
+  });
+  it('swings to each fix with its head leading and routed round its base, the bulb never flipping across the hood', () => {
+    const foot = [LAMP.base[0] + YOU_SHIFT_A[0], LAMP.base[1] + YOU_SHIFT_A[1]];
+    const bulb = (f: number) => {
+      const a = lampAimAt(f);
+      const d = [a.aim[0] - a.head[0], a.aim[1] - a.head[1], a.aim[2] - HEAD_A.z];
+      const l = Math.hypot(d[0], d[1], d[2]);
+      return [a.head[0] + (d[0] / l) * 76, a.head[1] + (d[1] / l) * 76, HEAD_A.z + (d[2] / l) * 76];
+    };
+    for (const v of Object.values(FIX_LAMP)) {
+      // the light holds still while the head starts (the pool follows the head)
+      const a0 = lampAimAt(v.from);
+      const h1 = lampAimAt(v.from + AIM_LAG - 1);
+      expect(Math.hypot(h1.head[0] - a0.head[0], h1.head[1] - a0.head[1])).toBeGreaterThan(5);
+      for (let f = v.from - 2; f < v.from + 24; f++) {
+        const h = lampAimAt(f).head;
+        expect(Math.hypot(h[0] - foot[0], h[1] - foot[1]), `head f${f}`).toBeGreaterThan(50);
+        expect(dist(bulb(f + 1), bulb(f)), `bulb f${f}`).toBeLessThan(80);
+      }
+    }
+    // the swing leads the step-down by 5 f (the rest at Fix A, Fix A itself at Fix B)
+    expect(actOneStep(FIX_LAMP.a.from + 4).own!.amount).toBeCloseTo(0, 9);
+    expect(actOneStep(FIX_LAMP.a.from + 6).own!.amount).toBeGreaterThan(0);
+    expect(actOneStepA(FIX_LAMP.b.from + 4)).toBeCloseTo(0, 9);
+    expect(actOneStepA(FIX_LAMP.b.from + 6)).toBeGreaterThan(0);
   });
 });

@@ -9,12 +9,15 @@
  * and Fix B (desk/beat3.ts) through the turn's own components (objects/Turn.tsx FixA, FixB), so at
  * f1400 TurnFrame takes over the same objects in the same poses.
  */
-import { Stage3D, useFont, type CamPose } from '@aiv/remotion-kit';
+import { Stage3D, useFont } from '@aiv/remotion-kit';
 import { useLayoutEffect, useMemo } from 'react';
 import { AbsoluteFill } from 'remotion';
 import { FIX_A, FIX_B, WORDS } from '../cues.ts';
 import { useFilmFonts } from '../look/fonts.ts';
-import { TYPE } from '../look/tokens.ts';
+import { NOTES, TYPE } from '../look/tokens.ts';
+import { GREY_TEXT, Label } from '../kit/text.tsx';
+import { cueReveal } from './onScreen.ts';
+import type { FilmFonts } from '../look/fonts.ts';
 import { ACT_ONE_END, YOU_SHIFT_A, actOneAt, actOneFootprints, actOnePools, youLabelAt } from './actOne.ts';
 import { fixAAt, fixAFootprints, fixBAt, fixBFootprints } from './beat3.ts';
 import { cameraAt, FAR, FOV, NEAR, type Angle } from './camera.ts';
@@ -28,7 +31,7 @@ import { Feeders } from './objects/Intake.tsx';
 import { CARD_HEX, CardText, CardWorld, cardAt, cardFootprint, type CardSpec } from './objects/TitleCard.tsx';
 import { FixA, FixB } from './objects/Turn.tsx';
 import { YourDesk } from './objects/YourDesk.tsx';
-import { Overlay, type RoleLabel } from './Overlay.tsx';
+import { Overlay, notesLookDesk, type RoleLabel } from './Overlay.tsx';
 import { Step } from './kit.tsx';
 import { deskStateAt, type DeskState } from './state.ts';
 import type { Press } from './turn.ts';
@@ -41,33 +44,53 @@ import type { Press } from './turn.ts';
 export const ACT_ONE_LABELS: readonly RoleLabel[] = [{ text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [YOU.inTray.x1 - 2 + YOU_SHIFT_A[0], YOU.inTray.y0 + 14 + YOU_SHIFT_A[1], YOU.top + 18], dx: 172, dy: -40, anchor: 'start' }];
 
 /**
- * The title card (STORYBOARD 1.2): lower-left, inside title-safe, over the notes band (free from C1's fade at f140 to
- * C2's wipe at f400), clear of your desk at 1.2x (the frame opens on your lamp, laptop and empty chore tray). Posted in
- * once C1 has gone, it lands on the thump (`title-thump`, f160) as the camera starts to ease out; the title
- * wipes in on `title`, the credit on `credit`; both fade by f380, and the card lifts and slides away.
+ * The title card (STORYBOARD 1.2): a bone index card posted in once C1 has gone, landing on the thump (`title-thump`,
+ * f160) as the camera starts to ease out. It lies low on the desk in the world, so it rides the move with the desk: on the
+ * flat tail of the heap south of the request (its showing corner stays in view the whole time), east of the calendar pad
+ * and west of your loop's clip, above the notes band at the hook's 1.6x and inside title-safe at 1.2x. Its underside
+ * rests on the flat leaves and the envelope under its north-west corner (the heap's tail; HEAP pieces 3, 7, 13 and the
+ * calendar's torn leaf). The title wipes in on `title`; its lettering is 36 u and 31 u (58 px and 50 px at the hook, 43 px
+ * and 37 px at 1.2x). The credit (a text cue) is set as a line in the notes band, knocked out of whatever it crosses
+ * (your loop's tape comes up under it as the camera eases out). Both fade by f380, as the card slides off the west edge
+ * (wholly off on f379).
  */
 const [TITLE_EN_1, TITLE_EN_2] = [WORDS.title.en.slice(0, WORDS.title.en.indexOf(' the ')), WORDS.title.en.slice(WORDS.title.en.indexOf(' the ') + 1)];
-const CREDIT_EN = WORDS.credit.en;
-const CREDIT_EN_CUT = CREDIT_EN.indexOf(' by ') + 4;
-const CREDIT_ZH = WORDS.credit['zh-Hans'];
-const CREDIT_ZH_CUT = CREDIT_ZH.indexOf('·') + 1;
 export const TITLE_CARD: CardSpec = {
-  rect: { x: 96, y: 446, w: 656, h: 580 },
-  // posted in once C1 has gone (f140): an 11 f arc, a 4 f lift, a 4 f drop onto the thump (TitleCard.tsx CARD_POST)
-  frames: { enter: 141, land: 160, leave: 380, gone: 392 },
-  mark: 'No.',
-  // top left: over bare slate west of the feeders in the hook, so the desk shows through it
-  hole: { x: 46, y: 48, r: 13 },
+  place: { x0: -878, y1: 82, w: 294, d: 134, z: 3.4 },
+  frames: { enter: 141, land: 160, leave: 374, gone: 380 },
+  mark: '№',
+  // top right: over the card's own margin, clear of the lettering
+  hole: { x: 279, y: 14, r: 5 },
   lines: [
-    { text: TITLE_EN_1, size: TYPE.titleEn.size, weight: TYPE.titleEn.weight, color: CARD_HEX.ink, x: 52, y: 150, cue: 'title' },
-    { text: TITLE_EN_2, size: TYPE.titleEn.size, weight: TYPE.titleEn.weight, color: CARD_HEX.ink, x: 52, y: 246, cue: 'title' },
-    { text: WORDS.title['zh-Hans'], size: TYPE.titleZh.size, weight: TYPE.titleZh.weight, color: CARD_HEX.zh, x: 52, y: 330, cue: 'title' },
-    { text: CREDIT_EN.slice(0, CREDIT_EN_CUT).trimEnd(), size: TYPE.sublineEn.size, weight: TYPE.sublineEn.weight, color: CARD_HEX.ink, x: 52, y: 410, cue: 'credit' },
-    { text: CREDIT_EN.slice(CREDIT_EN_CUT), size: TYPE.sublineEn.size, weight: TYPE.sublineEn.weight, color: CARD_HEX.ink, x: 52, y: 458, cue: 'credit' },
-    { text: CREDIT_ZH.slice(0, CREDIT_ZH_CUT), size: TYPE.sublineZh.size, weight: TYPE.sublineZh.weight, color: CARD_HEX.zh, x: 52, y: 512, cue: 'credit' },
-    { text: CREDIT_ZH.slice(CREDIT_ZH_CUT).trimStart(), size: TYPE.sublineZh.size, weight: TYPE.sublineZh.weight, color: CARD_HEX.zh, x: 52, y: 560, cue: 'credit' },
+    { text: TITLE_EN_1, size: 36, weight: TYPE.titleEn.weight, color: CARD_HEX.ink, x: 20, y: 41, cue: 'title' },
+    { text: TITLE_EN_2, size: 36, weight: TYPE.titleEn.weight, color: CARD_HEX.ink, x: 20, y: 79, cue: 'title' },
+    { text: WORDS.title['zh-Hans'], size: 31, weight: TYPE.titleZh.weight, color: CARD_HEX.zh, x: 20, y: 120, cue: 'title' },
   ],
 };
+/** The credit: a text cue, set in the notes band like every line meant to be read (screen-fixed, still while read). */
+export const CREDIT_CUE = 'credit';
+
+/**
+ * The credit in the notes band (NOTES: the tick, the EN line, the zh line; a 6 f wipe in, a 6 f fade out), each line
+ * knocked out of the desk's tone 3 px round its letters: as the camera eases out your loop's tape comes up under the
+ * line's east end, and the knockout keeps the letters off it.
+ */
+function CreditLine({ f, fonts, ready }: { f: number; fonts: FilmFonts; ready: boolean }) {
+  const r = cueReveal(CREDIT_CUE, f);
+  if (!r.visible || !ready) return null;
+  const look = notesLookDesk(fonts);
+  const ko = { color: DESK_HEX.base, width: 3 };
+  const clip = r.wipe >= 1 ? undefined : `inset(0px ${((1 - r.wipe) * (1920 - NOTES.x)).toFixed(2)}px 0px 0px)`;
+  return (
+    <div style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, clipPath: clip, opacity: r.opacity }}>
+      <svg width={1920} height={1080} style={{ display: 'block', overflow: 'visible' }}>
+        <rect x={NOTES.tick.x} y={NOTES.tick.top} width={NOTES.tick.width} height={NOTES.tick.height} fill={look.tick} />
+        <Label x={NOTES.x} y={NOTES.enBaseline} text={WORDS.credit.en} family={look.en.family} size={look.en.size} weight={look.en.weight} color={look.en.color} knockout={ko} />
+        <Label x={NOTES.x} y={NOTES.zhBaseline} text={WORDS.credit['zh-Hans']} family={look.zh.family} size={look.zh.size} weight={look.zh.weight} color={look.zh.color} knockout={ko} />
+      </svg>
+    </div>
+  );
+}
 
 /** Beat 3's Fix A and Fix B (desk/beat3.ts): pure schedules of the film frame, which the turn takes over from f1400. */
 export const fixAOf = (f: number) => fixAAt(f);
@@ -77,10 +100,10 @@ export const fixBOf = (f: number) => fixBAt(f);
 const UNPRESSED: Press = { k: 0, scaleZ: 1, tilt: 0, sink: 0 };
 
 /** Act one's footprints at a frame: the world's, the title card's, Fix A's and Fix B's in beat 3 (at most MAX_FOOTPRINTS: actOne.test.ts). */
-export function actOneFrameFootprints(f: number, pose: CamPose) {
+export function actOneFrameFootprints(f: number) {
   const a = actOneAt(f);
   const fp = actOneFootprints(a);
-  const card = cardFootprint(TITLE_CARD, cardAt(TITLE_CARD, f), pose);
+  const card = cardFootprint(TITLE_CARD, cardAt(TITLE_CARD, f));
   if (card) fp.push(card);
   if (f >= FIX_A.in) fp.push(...fixAFootprints(fixAOf(f)));
   if (f >= FIX_B.in) fp.push(...fixBFootprints(fixBOf(f)));
@@ -112,7 +135,7 @@ export function ActOneFrame({ f, angle, bloom, objects = true }: ActOneFrameProp
   const a = useMemo(() => actOneAt(wf), [wf]);
   const s = useMemo((): DeskState => ({ ...deskStateAt(wf), step: a.step, testsStep: a.stepA }), [wf, a]);
   const pose = useMemo(() => cameraAt(wf, angle), [wf, angle]);
-  const footprints = useMemo(() => actOneFrameFootprints(wf, pose), [wf, pose]);
+  const footprints = useMemo(() => actOneFrameFootprints(wf), [wf]);
   const pools = useMemo(() => actOnePools(a), [a]);
   const fa = useMemo(() => (wf >= FIX_A.in ? fixAOf(wf) : null), [wf]);
   const fb = useMemo(() => (wf >= FIX_B.in ? fixBOf(wf) : null), [wf]);
@@ -131,25 +154,22 @@ export function ActOneFrame({ f, angle, bloom, objects = true }: ActOneFrameProp
                 <YourDesk s={s} />
                 <Feeders s={s} />
                 <ActOneObjects a={a} printFamily={print.family} />
-                <CardWorld spec={TITLE_CARD} f={wf} pose={pose} printFamily={print.family} />
+                <CardWorld spec={TITLE_CARD} f={wf} printFamily={print.family} />
                 {fa && (
                   // Fix A steps down on its own ramp (STEP_LATE: actOne.ts actOneStepA) while the focus is on Fix B (3.2)
                   <Step on='late'>
                     <FixA fixA={fa} pressA={UNPRESSED} />
                   </Step>
                 )}
-                {fb && (
-                  <group position={[fb.rise, 0, 0]}>
-                    <FixB fixB={fb.b} f={wf} tear={fb.tear} followUp={fb.followUp} />
-                  </group>
-                )}
+                {fb && <FixB fixB={fb.b} f={wf} tear={fb.tear} followUp={fb.followUp} posts={fb.posts} riffle={fb.riffle} />}
               </>
             )}
           </DeskWorld>
         </Stage3D>
       )}
       <Overlay f={f} pose={pose} fonts={fonts} ready={all} labels={labels} />
-      {all && <CardText spec={TITLE_CARD} f={wf} family={fonts.sans} />}
+      {all && <CardText spec={TITLE_CARD} f={wf} family={fonts.sans} pose={pose} />}
+      <CreditLine f={f} fonts={fonts} ready={all} />
     </AbsoluteFill>
   );
 }

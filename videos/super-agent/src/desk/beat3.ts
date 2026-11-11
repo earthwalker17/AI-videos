@@ -23,8 +23,8 @@
  */
 import { clamp } from '@aiv/core';
 import { Easing } from 'remotion';
-import { FIX_A, FIX_B } from '../cues.ts';
-import { FOLDERS, MOUTH, YOU_SHIFT_A, type FeederId } from './actOne.ts';
+import { BEAT, FIX_A, FIX_B } from '../cues.ts';
+import { FOLDERS, MOUTH, YOU_SHIFT_A, requestOnTapeAt, type FeederId } from './actOne.ts';
 import { segFp, type Footprint } from './footprints.ts';
 import { FEEDERS, YOU, rectC, type BayId, type P2, type P3 } from './layout.ts';
 import { SPRING, springAt } from './state.ts';
@@ -53,10 +53,18 @@ function transport(t: number, ramp = 0.2): number {
 // ------------------------------------------------------------------------------------------------
 // Fix A: the folder, the tape's path, the chutes
 
-/** The one session's folder (fat: its stack and the pile on it are one session's whole context). */
-export const FIX_A_FOLDER = { c: [-640, -104] as P2, w: 124, d: 132, rot: 0, sheets: 20 } as const;
-/** The folder's top sheet (the pile lies on it). */
-export const A_FOLDER_TOP = 1.2 + FIX_A_FOLDER.sheets * 0.8;
+/**
+ * The one session's folder: the fattest on the desk (over 200 px across at 1.2x, its stack taller than any act-one
+ * folder's), its stack and the pile on it one session's whole context. North of the notes band, clear of your loop.
+ */
+export const FIX_A_FOLDER = { c: [-640, -92] as P2, w: 176, d: 172, rot: 0, sheets: 30 } as const;
+/** The folder's stack (act one's sheet: 1.4 u) as Fix A arrives: its top sheet, which the pile lies on. */
+export const A_FOLDER_TOP = 1.2 + FIX_A_FOLDER.sheets * 1.4;
+/** Each item lifted onto the pile thickens the stack under it this much (the context grows), over A_GROW_FRAMES on the move curve once it lands. */
+export const A_GROW = 4.5;
+export const A_GROW_FRAMES = 8;
+/** A pile piece's thickness (they lie on each other: one session's context, all of it mixed). */
+const PILE_T = 0.8;
 /** The tape: grey stock with punched sprocket holes (a station is A_PITCH: two holes). */
 export const A_TAPE_W = 32;
 /** The row the tape runs east along into the folder, and its bend up the feeders. */
@@ -285,6 +293,8 @@ export const A_REQUEST = A_QUEUE.findIndex((q) => q.kind === 'request');
 /** Every pour, in landing order. */
 export const A_POURS: readonly { q: number; from: FeederId; lands: number; arc: number; apex: number }[] = A_QUEUE.flatMap((q, i) => (q.pour ? [{ q: i, ...q.pour }] : [])).sort((a, b) => a.lands - b.lands);
 
+/** The folder's stack top once every swallow has thickened it (as the turn takes it over). */
+export const A_STACK_END = A_FOLDER_TOP + A_GROW * A_QUEUE.filter((q) => q.swallow).length;
 /** The pile on the folder: PILE0, then each swallowed item in order (its kind, its seeded place and turn on the top sheet). */
 export const A_PILE: readonly { kind: AItemKind; v: number; o: P2; rot: number; z: number; q: number | null }[] = (() => {
   const list: { kind: AItemKind; v: number; q: number | null }[] = PILE0.map((kind, i) => ({ kind, v: (i + 1) % 4, q: null }));
@@ -292,13 +302,18 @@ export const A_PILE: readonly { kind: AItemKind; v: number; o: P2; rot: number; 
     if (q.swallow) list[q.swallow.m] = { kind: q.kind, v: q.v, q: i };
   });
   return list.map((p, m) => {
-    // askew, every one a little further off square than the last few: the pile grows untidy
-    const spread = 12 + 2 * m;
-    return { ...p, o: [(hash(m, 1) * 2 - 1) * spread, (hash(m, 2) * 2 - 1) * (spread + 4)] as P2, rot: (hash(m, 3) * 2 - 1) * (0.35 + 0.03 * m) + (m % 2 ? 0.6 : -0.1), z: A_FOLDER_TOP + 0.5 + 0.9 * m };
+    // stacked one on another, every one a little further off square than the last: the pile grows tall and untidy
+    // (z: its place once every swallow has thickened the stack, as the turn finds it; beat 3 lowers it by the growth to come)
+    const spread = 3 + 0.9 * m;
+    return { ...p, o: [12 + (hash(m, 1) * 2 - 1) * spread, 10 + (hash(m, 2) * 2 - 1) * spread] as P2, rot: (hash(m, 3) * 2 - 1) * (0.14 + 0.025 * m) + (m % 2 ? 0.22 : -0.08), z: A_STACK_END + 0.5 + PILE_T * m };
   });
 })();
 /** The swallow: from the mouth, up and over onto the pile, in 8 f (move curve, a small arc). */
 export const A_SWALLOW_FRAMES = 8;
+/** The frames the swallowed items land on the pile (each thickens the stack from then on). */
+const A_LANDS: readonly number[] = A_QUEUE.flatMap((q) => (q.swallow ? [q.swallow.at + A_SWALLOW_FRAMES] : []));
+/** The folder's stack top at f: its sheets, thickened by each item swallowed so far (from its landing, exactly at rest after). */
+export const aStackTopAt = (f: number): number => A_FOLDER_TOP + A_GROW * A_LANDS.reduce((s, t) => s + MOVE(span01(f, t, t + A_GROW_FRAMES)), 0);
 
 /** The places on the tape at f1400 (for the turn): their kind, size, path distance and variant, from the folder back. */
 export interface AItem {
@@ -368,13 +383,24 @@ export interface FixAView extends Omit<FixATurn, 'items'> {
   chutes?: number[];
   /** how far south the folder (and its pile) still is as it slides in (u) */
   folderDy?: number;
+  /** its stack's top (it thickens with each swallow; the turn's: A_STACK_END) */
+  stackTop?: number;
+  /** the request's copy in the request's own vermilion (0 grey stock … 1), while Fix A holds the focus */
+  requestInk?: number;
 }
 
-/** A folder-local pile pose in world. */
-const pileWorld = (k: number, dy: number): AItemPose => {
+/**
+ * One request on screen in 3.1: the copy on the tape carries the request's vermilion while Fix A holds the focus (from
+ * its pour out of the chat spout until the focus moves to Fix B) and the heap's request drains to its paper meanwhile
+ * (actOne.ts actOneAt); both over spring-effects, crossing in the same frames. From 3.2 on the heap's is the request again.
+ */
+export const aRequestInkAt = (f: number): number => requestOnTapeAt(f);
+
+/** A pile piece's pose in world, on the stack as thick as it is at this point (`top`). */
+const pileWorld = (k: number, dy: number, top: number): AItemPose => {
   const P = A_PILE[k];
   const F = FIX_A_FOLDER;
-  return { ...flat([F.c[0] + P.o[0], F.c[1] + P.o[1] - dy, P.z], P.rot), paper: 0, kind: P.kind, v: P.v };
+  return { ...flat([F.c[0] + P.o[0], F.c[1] + P.o[1] - dy, P.z - (A_STACK_END - top)], P.rot), paper: 0, kind: P.kind, v: P.v };
 };
 
 /** Fix A at film frame f of beat 3 (pure). */
@@ -391,9 +417,10 @@ export function fixAAt(f: number): FixAView {
     if (d > A_LEN - q.l) return null;
     return { ...onTape(d), kind: q.kind, v: q.v };
   });
+  const top = aStackTopAt(f);
   const pile: AItemPose[] = [];
   A_PILE.forEach((P, m) => {
-    const rest = pileWorld(m, dy);
+    const rest = pileWorld(m, dy, top);
     if (P.q === null) return void pile.push(rest);
     const q = A_QUEUE[P.q];
     const at = q.swallow!.at;
@@ -424,6 +451,8 @@ export function fixAAt(f: number): FixAView {
     pile,
     chutes: A_CHUTES.map((_, k) => aChuteAt(k, f)),
     folderDy: dy,
+    stackTop: top,
+    requestInk: aRequestInkAt(f),
   };
 }
 
@@ -436,9 +465,9 @@ export function fixAFootprints(A: FixAView): Footprint[] {
   const fp: Footprint[] = [];
   const F = FIX_A_FOLDER;
   const dy = A.folderDy ?? 0;
-  // the folder's body up to its top sheet (a fixed height: a box grown with the pile, a piece in the air on its way up
-  // included, shaded the pile's own top pieces whenever it changed)
-  fp.push({ kind: 'rect', c: [F.c[0], F.c[1] - dy], h: [F.w / 2, F.d / 2], r: 3, rot: F.rot, z0: 0, z1: A_FOLDER_TOP + 0.6, contact: 0.8 });
+  // the folder's body up to its top sheet, thickening with the stack (just under the pile's lowest piece, so it never
+  // shades the pile; a piece in the air on its way up is not part of it)
+  fp.push({ kind: 'rect', c: [F.c[0], F.c[1] - dy], h: [F.w / 2, F.d / 2], r: 3, rot: F.rot, z0: 0, z1: (A.stackTop ?? A_STACK_END) + 0.4, contact: 0.8 });
   if (A.tape) {
     const { d0, d1 } = A.tape;
     const cuts = [d0, A_CUM[1], A_CUM[9], (A_CUM[9] + A_CUM[19]) / 2, A_CUM[19], A_CUM[19] + 240, A_CUM[19] + 480, d1];
@@ -469,7 +498,7 @@ export function fixAFootprints(A: FixAView): Footprint[] {
 // Fix B: eight trays, one per event, firing their replies at your in-tray
 
 export interface Tray {
-  /** 0..7: the north row west to east, then the south row */
+  /** 0..7: the north row west to east, the middle row, then the south row */
   i: number;
   c: P2;
   w: number;
@@ -479,22 +508,22 @@ export interface Tray {
   door: number;
 }
 /**
- * Scattered in two loose rows east of your desk, inside title-safe and north of the notes band; each its own size, so no
- * two read alike (instances of one role are never drawn identically: TREATMENT BANNED, identical parallel modules).
+ * Eight trays east of your desk in three loose rows (3, 3, 2), inside title-safe, north of the notes band and clear of
+ * F8; each its own size (none alike: TREATMENT BANNED, identical parallel modules), 120–187 px across at 1.2x.
  */
 const TRAY_SPEC: readonly [number, number, number, number, number, number][] = [
   // cx, cy, w, d, wall, door
-  [102, 68, 82, 66, 38, -14],
-  [192, 44, 88, 72, 44, 10],
-  [282, 76, 78, 62, 34, 0],
-  [358, 30, 66, 70, 40, -12],
-  [110, -72, 90, 70, 42, 12],
-  [200, -106, 78, 78, 36, -8],
-  [288, -64, 84, 66, 46, 14],
-  [366, -112, 64, 76, 38, -4],
+  [118, 90, 108, 92, 38, -14],
+  [236, 86, 104, 100, 44, 10],
+  [354, 66, 108, 88, 34, 0],
+  [124, -22, 120, 88, 40, -12],
+  [246, -30, 100, 94, 42, 12],
+  [354, -37, 100, 90, 36, -8],
+  [150, -136, 156, 84, 46, 14],
+  [322, -138, 146, 88, 38, -4],
 ];
 export const TRAYS: readonly Tray[] = TRAY_SPEC.map(([x, y, w, d, wall, door], i) => ({ i, c: [x, y] as P2, w, d, wall, door }));
-/** The tray's floor and rim (grey stock), and the walls they grow at the turn (the bay family's height). */
+/** The tray's floor and rim (grey stock, its top edge torn and punched), and the walls they grow at the turn (the bay family's height). */
 export const TRAY_Z = { floor: 1.6, rim: 7, wall: 40, wallT: 5, southWall: 16 } as const;
 /** Each tray's event card (the turn's single card size; beat 3 draws each tray's own event, TRAY_STUFF). */
 export const TRAY_CARD = { w: 38, d: 24, dx: -16, dy: 8 } as const;
@@ -502,42 +531,59 @@ export const TRAY_CARD = { w: 38, d: 24, dx: -16, dy: 8 } as const;
 export const B_SLIP = { w: 22, l: 46 } as const;
 
 export type EventKind = 'chat' | 'ci' | 'mail' | 'leaf';
-/** An event card's size per family (u): a notched chat slip, a punched card, an envelope, a calendar leaf. */
-export const EVENT_SIZE: Record<EventKind, P2> = { chat: [40, 18], ci: [36, 24], mail: [36, 24], leaf: [32, 28] };
+/** An event card's size per family (u): a notched chat slip, a punched card, an envelope, a calendar leaf (48 px and more at 1.2x). */
+export const EVENT_SIZE: Record<EventKind, P2> = { chat: [48, 22], ci: [44, 30], mail: [44, 30], leaf: [40, 34] };
 /** What lies in each tray (tray-local): its event, its dossier (a little stack: its own context), and where its reply rests before it fires. */
 export interface TrayStuff {
   event: { kind: EventKind; o: P2; rot: number };
   dossier: { o: P2; rot: number; w: number; d: number; sheets: number };
   reply: { o: P2; rot: number };
 }
-export const TRAY_STUFF: readonly TrayStuff[] = [
-  { event: { kind: 'chat', o: [-14, 14], rot: 0.08 }, dossier: { o: [24, 12], rot: -0.12, w: 22, d: 28, sheets: 3 }, reply: { o: [2, -14], rot: 0.14 } },
-  { event: { kind: 'ci', o: [-18, 16], rot: -0.1 }, dossier: { o: [22, 14], rot: 0.08, w: 26, d: 32, sheets: 6 }, reply: { o: [4, -16], rot: -0.12 } },
-  { event: { kind: 'ci', o: [-16, 8], rot: 0.04 }, dossier: { o: [24, 14], rot: 0.16, w: 20, d: 24, sheets: 2 }, reply: { o: [8, -14], rot: 0.18 } },
-  { event: { kind: 'leaf', o: [-12, 16], rot: -0.18 }, dossier: { o: [16, 16], rot: -0.06, w: 22, d: 26, sheets: 4 }, reply: { o: [2, -14], rot: 0.3 } },
-  { event: { kind: 'mail', o: [-20, 12], rot: 0.12 }, dossier: { o: [22, 12], rot: -0.18, w: 28, d: 30, sheets: 7 }, reply: { o: [4, -14], rot: -0.06 } },
-  { event: { kind: 'chat', o: [-12, 20], rot: -0.06 }, dossier: { o: [18, 18], rot: 0.12, w: 22, d: 30, sheets: 5 }, reply: { o: [2, -14], rot: 0.2 } },
-  { event: { kind: 'leaf', o: [-20, 12], rot: 0.16 }, dossier: { o: [24, 14], rot: -0.04, w: 20, d: 26, sheets: 3 }, reply: { o: [6, -14], rot: -0.16 } },
-  { event: { kind: 'mail', o: [-8, 18], rot: -0.14 }, dossier: { o: [16, 12], rot: 0.1, w: 18, d: 24, sheets: 2 }, reply: { o: [0, -16], rot: 0.1 } },
+const STUFF_SPEC: readonly [EventKind, number, number, number][] = [
+  // the event's family, the dossier's sheets and size (w, d)
+  ['chat', 3, 28, 34],
+  ['ci', 6, 30, 38],
+  ['ci', 2, 26, 32],
+  ['leaf', 4, 28, 34],
+  ['mail', 7, 32, 36],
+  ['chat', 5, 28, 38],
+  ['leaf', 3, 26, 32],
+  ['mail', 2, 24, 30],
 ];
-/** Tray 2's task card carries a stub (where its follow-up should join, the band printed across both); the follow-up lands in tray 6 instead. */
+/** The event against the tray's west wall to the north, its dossier against the east wall, its reply along the south (each nudged and turned its own way). */
+export const TRAY_STUFF: readonly TrayStuff[] = TRAYS.map((tr, k) => {
+  const [kind, sheets, dw, dd] = STUFF_SPEC[k];
+  const [ew, ed] = EVENT_SIZE[kind];
+  const j = (n: number, a: number) => (hash(k, n) * 2 - 1) * a;
+  return {
+    event: { kind, o: [-tr.w / 2 + 9 + ew / 2 + j(1, 2), tr.d / 2 - 9 - ed / 2 + j(2, 2)] as P2, rot: j(3, 0.12) },
+    dossier: { o: [tr.w / 2 - 10 - dw / 2 + j(4, 2), tr.d / 2 - 10 - dd / 2 + j(5, 3)] as P2, rot: j(6, 0.14), w: dw, d: dd, sheets },
+    reply: { o: [j(7, 6) - 4, -tr.d / 2 + 9 + B_SLIP.w / 2 + 2] as P2, rot: j(8, 0.2) },
+  };
+});
+/** Tray 2's task card tears in two on the break mark; its follow-up (the same family, the same punches) has landed in tray 6. */
 export const BREAK = { from: 2, to: 6 } as const;
-/** The stub on tray 2's card (card-local, east of it), at least 24 px, and the follow-up card's place in tray 6. */
-export const STUB = { w: 20, d: 22, gap: 0.6 } as const;
-export const FOLLOW_UP = { lands: FIX_B.followUp, arc: 16, from: [640, -30, 70] as P3, o: [-6, -14] as P2, rot: -0.1, w: 34, d: 24 } as const;
-/** The stub tears off (it twists and slides away from its card, spring-settle) once the follow-up has landed elsewhere: the break. */
-export const TEAR = { at: FIX_B.breakMark, slide: [7, -4] as P2, rot: 0.42 } as const;
+/** The follow-up: the same family as tray 2's card at its size, posted from beyond the east edge into tray 6, between its event and its dossier. */
+export const FOLLOW_UP = { lands: FIX_B.followUp, arc: 16, from: [640, -30, 70] as P3, o: [4, 16] as P2, rot: -0.1, w: EVENT_SIZE.ci[0], d: EVENT_SIZE.ci[1] } as const;
+/**
+ * The break: on the cue, tray 2's card (where its follow-up should have joined it) tears across its middle and its east
+ * half twists and slides off on spring-settle, both halves left lying in tray 2. `STUB` is the half that moves.
+ */
+export const TEAR = { at: FIX_B.breakMark, slide: [12, -10] as P2, rot: 0.38 } as const;
+export const STUB = { w: EVENT_SIZE.ci[0] / 2, d: EVENT_SIZE.ci[1] } as const;
 
 /**
- * At the turn eight event trays become three task bays: the three whose replies come home first wall up into
- * (b)'s bays; the other five are pressed flat into the desk.
+ * At the turn eight event trays become three task bays (desk/turn.ts): the two that already stand where a bay will
+ * (tray 5 inside the bug bay's box, tray 3 inside the docs galley's) wall up in place, and tray 6 slides west along the
+ * clear south row to the test tower's place and walls up there; the other five are posted back out beyond the east
+ * edge the way they came in (lifted over the trays that stay), so nothing is pressed away or vanishes.
  */
 export const BAY_TRAYS: readonly { k: number; id: BayId }[] = [
-  { k: 4, id: 'tests' },
-  { k: 5, id: 'docs' },
-  { k: 6, id: 'bug' },
+  { k: 5, id: 'bug' },
+  { k: 3, id: 'docs' },
+  { k: 6, id: 'tests' },
 ];
-export const PRESS_TRAYS: readonly number[] = [0, 1, 2, 3, 7];
+export const RETIRE_TRAYS: readonly number[] = [0, 1, 2, 4, 7];
 
 /** Your in-tray in act one (world): YOU.inTray at the act-one shift. */
 export const IN_TRAY_A_C: P2 = [rectC(YOU.inTray)[0] + YOU_SHIFT_A[0], rectC(YOU.inTray)[1] + YOU_SHIFT_A[1]];
@@ -554,52 +600,99 @@ export const IN_TRAY_PILE: readonly { o: P2; rot: number }[] = [
 ];
 
 // ------------------------------------------------------------------------------------------------
-// Imprints: every act-one folder, Fix A's and the five pressed trays, pressed into the desk at the turn (history at −2)
+// Imprints: every act-one folder and Fix A's, pressed into the desk at the turn (history at −2)
 
 export const IMPRINTS: readonly { c: P2; w: number; d: number; rot: number }[] = [
   ...FOLDERS.map((fl) => ({ c: fl.c, w: fl.w, d: fl.d, rot: fl.rot })),
   { c: FIX_A_FOLDER.c, w: FIX_A_FOLDER.w, d: FIX_A_FOLDER.d, rot: FIX_A_FOLDER.rot },
-  ...PRESS_TRAYS.map((k) => ({ c: TRAYS[k].c, w: TRAYS[k].w, d: TRAYS[k].d, rot: 0 })),
 ];
 
 // ---- Fix B over time
 
-/** Fix B's trays slide in from beyond the east edge on the move curve (one block: they arrive together and tick in parallel). */
-export const B_RISE = { from: FIX_B.in, frames: 24, dx: 560 } as const;
-export const bRiseAt = (f: number): number => B_RISE.dx * (1 - MOVE(span01(f, B_RISE.from, B_RISE.from + B_RISE.frames)));
+/**
+ * Fix B's trays are posted in one by one from beyond the east edge, in tray order (the north row west to east first),
+ * 2 f apart (never one block): each a 3 f anticipation (a 4 u lift where it leaves), a 12 f low arc that comes down onto
+ * its place, and a 3% squash as it lands (the Post relationship).
+ */
+export const B_POST = { from: FIX_B.in, stagger: 2, antic: 3, arc: 12, apex: 22, z0: 40, squash: 0.03, squashFrames: 6 } as const;
+/** Where every tray is thrown from: its west edge just past the frame's east edge at 1.2x. */
+const B_SOURCE_X = 540;
+export const trayThrownB = (k: number): number => B_POST.from + B_POST.stagger * k;
+export const trayLandsB = (k: number): number => trayThrownB(k) + B_POST.antic + B_POST.arc;
+/** A tray on its post: its offset from its place (u) and its landing squash (0 at rest). */
+export interface TrayPost {
+  off: P3;
+  squash: number;
+}
+export function trayPostAt(k: number, f: number): TrayPost {
+  const tr = TRAYS[k];
+  const t0 = trayThrownB(k);
+  const lands = trayLandsB(k);
+  const from: P3 = [B_SOURCE_X - (tr.c[0] - tr.w / 2), -16, B_POST.z0];
+  if (f < t0 + B_POST.antic) return { off: [from[0], from[1], from[2] + 4 * MOVE(span01(f, t0, t0 + B_POST.antic))], squash: 0 };
+  if (f < lands) {
+    // decelerating across, its height coming straight down onto its place at the end (its shadow tightening)
+    const u = (f - t0 - B_POST.antic) / B_POST.arc;
+    const k2 = (1 - u) * (1 - u);
+    return { off: [from[0] * k2, from[1] * k2, (from[2] + 4) * k2 + 4 * B_POST.apex * u * (1 - u) * (1 - u)], squash: 0 };
+  }
+  return { off: [0, 0, 0], squash: B_POST.squash * bump(f, lands, B_POST.squashFrames) };
+}
 
 /** A reply resting in its tray (world). */
 export const trayRestB = (k: number): P3 => [TRAYS[k].c[0] + TRAY_STUFF[k].reply.o[0], TRAYS[k].c[1] + TRAY_STUFF[k].reply.o[1], TRAY_Z.floor + 0.6];
 const IN_TRAY_FLOOR = YOU.top + 3;
 const inTraySlotA = (k: number): P3 => [IN_TRAY_A_C[0] + IN_TRAY_PILE[k].o[0], IN_TRAY_A_C[1] + IN_TRAY_PILE[k].o[1], IN_TRAY_FLOOR + 0.9 * k];
-/** Reply 7 is posted at f1394 (turn.ts TURN.bPost, the cue sheet's note on FIX_B), a 14 f arc. */
-export const REPLY_7 = { post: 1394, arc: 14 } as const;
+/** Reply 7, the last, is posted on the cue sheet's `FIX_B.reply7` (f1300, bar 17 beat 2: in 3.3, so nothing launches in the rest before the turn), a 14 f arc. */
+export const REPLY_7 = { post: FIX_B.reply7, arc: 14 } as const;
 /** Replies post with 3 f anticipation (a 4 u lift) and a 14 f arc (apex 60); the earlier ones jostle as each lands. */
 export const B_ARC = 14;
 const JOSTLE = { frames: 8, u: 2.4, rot: 0.05 } as const;
 export const replyPostedB = (k: number): number => (k === 7 ? REPLY_7.post : FIX_B.replies[k]);
 export const replyLandsB = (k: number): number => replyPostedB(k) + 3 + B_ARC;
 
-/** The follow-up: flown in from beyond the east edge (as the trays came), landing in tray 6. */
+/**
+ * The trays work in place, in parallel (3.2–3.3): on eighths one tray or another riffles its dossier, the top sheet's
+ * free edge lifting off the stack and falling back (8 f), each tray every fourth eighth; nothing is launched. The last
+ * riffle is back down by RIFFLE.until, so every tray is in its rest pose before the turn.
+ */
+export const RIFFLE = { from: 1150, until: 1390, every: 4, frames: 8, lift: 0.95 } as const;
+const RIFFLE_PHASE: readonly number[] = [0, 2, 1, 3, 1, 3, 0, 2];
+export function riffleAt(k: number, f: number): number {
+  const e = Math.floor((f - RIFFLE.from) / (BEAT / 2));
+  let out = 0;
+  // the riffle under way at f started on this eighth or the one before
+  for (const j of [e, e - 1]) {
+    if (j < 0 || (j - RIFFLE_PHASE[k]) % RIFFLE.every !== 0) continue;
+    const t0 = RIFFLE.from + j * (BEAT / 2);
+    if (t0 + RIFFLE.frames > RIFFLE.until) continue;
+    out = Math.max(out, RIFFLE.lift * bump(f, t0, RIFFLE.frames));
+  }
+  return out;
+}
+
+/** The follow-up: posted from beyond the east edge (as the trays came), landing in tray 6. */
 export function followUpAt(f: number): { p: P3; rot: number; tilt: number } | null {
   const t0 = FOLLOW_UP.lands - FOLLOW_UP.arc - 3;
   if (f < t0) return null;
   const tr = TRAYS[BREAK.to];
   const rest: P3 = [tr.c[0] + FOLLOW_UP.o[0], tr.c[1] + FOLLOW_UP.o[1], TRAY_Z.floor + 0.9];
   if (f >= FOLLOW_UP.lands) return { p: rest, rot: FOLLOW_UP.rot, tilt: 0 };
-  if (f < t0 + 3) return { p: FOLLOW_UP.from, rot: FOLLOW_UP.rot + 0.4, tilt: 0 };
+  if (f < t0 + 3) return { p: [FOLLOW_UP.from[0], FOLLOW_UP.from[1], FOLLOW_UP.from[2] + 4 * MOVE(span01(f, t0, t0 + 3))], rot: FOLLOW_UP.rot + 0.4, tilt: 0 };
   const u = clamp((f - t0 - 3) / FOLLOW_UP.arc);
   const e = MOVE(u);
-  const l = lerp3(FOLLOW_UP.from, rest, e);
+  const l = lerp3([FOLLOW_UP.from[0], FOLLOW_UP.from[1], FOLLOW_UP.from[2] + 4], rest, e);
   return { p: [l[0], l[1], l[2] + 4 * 30 * u * (1 - u) * (1 - u)], rot: FOLLOW_UP.rot + 0.4 * (1 - e), tilt: 0.2 * Math.sin(u * Math.PI) };
 }
-/** The stub's tear: 0 on its card … 1 torn off and lying apart (spring-settle from TEAR.at). */
+/** The tear: 0 whole … 1 its east half twisted off and lying apart (spring-settle from TEAR.at). */
 export const tearAt = (f: number): number => springAt(f, TEAR.at, SPRING.settle);
 
 export interface FixBBeat3 {
   b: FixBTurn;
-  /** how far east the trays still are as they slide in (u) */
-  rise: number;
+  /** each tray on its post (offset and squash) */
+  posts: TrayPost[];
+  /** each tray's dossier riffling (0 at rest) */
+  riffle: number[];
   followUp: { p: P3; rot: number; tilt: number } | null;
   tear: number;
 }
@@ -636,20 +729,23 @@ function replyAt(k: number, f: number): FixBTurn['slips'][number] {
   return { p: jx || jy ? [to[0] + jx, to[1] + jy, to[2]] : to, rot: pile.rot + jr, tilt: 0, paper: 0 };
 }
 
-/** Fix B at film frame f of beat 3 (pure): the trays (none pressed, none walled up yet), the replies, the follow-up and the tear. */
+/** Fix B at film frame f of beat 3 (pure): the trays on their posts (none pressed, none walled up yet), the replies, the riffles, the follow-up and the tear. */
 export function fixBAt(f: number): FixBBeat3 {
-  const none = { grow: 0, built: 0, print: 0, drop: 0, slide: 0, leaves: 1, hole: false, done: false };
+  const none = { slide: 0, grow: 0, built: 0, morph: 0, lid: 0, leaves: 0, fall: 0, hole: false, done: false };
   const b: FixBTurn = {
     slips: TRAYS.map((_, k) => replyAt(k, f)),
-    press: TRAYS.map((_, k) => (PRESS_TRAYS.includes(k) ? { k: 0, scaleZ: 1, tilt: 0, sink: 0 } : null)),
+    retire: TRAYS.map((_, k) => (RETIRE_TRAYS.includes(k) ? { off: [0, 0, 0] as P3, gone: false } : null)),
     bays: BAY_TRAYS.map(({ id }) => ({ id, ...none })),
   };
-  return { b, rise: bRiseAt(f), followUp: followUpAt(f), tear: tearAt(f) };
+  return { b, posts: TRAYS.map((_, k) => trayPostAt(k, f)), riffle: TRAYS.map((_, k) => riffleAt(k, f)), followUp: followUpAt(f), tear: tearAt(f) };
 }
 
-/** Fix B's footprints: the trays (sliding in), each reply in the air or in your in-tray, the follow-up in the air. */
+/** Fix B's footprints: each tray on its post (its contact once down), each reply in the air or in your in-tray, the follow-up in the air. */
 export function fixBFootprints(B: FixBBeat3): Footprint[] {
-  const fp: Footprint[] = TRAYS.map((tr): Footprint => ({ kind: 'rect', c: [tr.c[0] + B.rise, tr.c[1]], h: [tr.w / 2, tr.d / 2], r: 3, rot: 0, z0: 0, z1: TRAY_Z.rim, contact: 0.8 }));
+  const fp: Footprint[] = TRAYS.map((tr, k): Footprint => {
+    const o = B.posts[k].off;
+    return { kind: 'rect', c: [tr.c[0] + o[0], tr.c[1] + o[1]], h: [tr.w / 2, tr.d / 2], r: 3, rot: 0, z0: o[2], z1: o[2] + TRAY_Z.rim, contact: o[2] < 0.5 ? 0.8 : 0 };
+  });
   B.b.slips.forEach((s, k) => {
     const inTray = s.p[2] < TRAY_Z.floor + 4 && Math.hypot(s.p[0] - trayRestB(k)[0], s.p[1] - trayRestB(k)[1]) < 1;
     if (inTray) return;

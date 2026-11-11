@@ -47,10 +47,11 @@ export function poolsAt(s: DeskState): Pool[] {
   const slot = BAYS.bug.slot;
   const pools: Pool[] = [
     // the Register's hooded reading lamp, on the window (it never blooms: a pool only); in still (c) its light
-    // gathers on the inline record (the hood is over the newest cells), so the stubs east of it sit a step below
-    s.cache ? { c: [CACHE_POOL_X, cellY], z: [118, 170], sigma: [96, 40], rgb: tint(LIGHT_HEX.reading, CACHE_POOL_K * s.cache.lamp) } : { c: [newest + 70, cellY], z: [118, 170], sigma: [130, 40], rgb: tint(LIGHT_HEX.reading, 2.4) },
-    // the stamp-in: the newest cell lights as the report's header prints into it
-    { c: [newest, cellY], z: [118, 140], sigma: [40, 30], rgb: tint(LIGHT_HEX.reading, s.cache ? 0 : 1.05 * Math.max(s.cellLit, s.b4.cellLit)) },
+    // gathers on the inline record (the hood is over the newest cells) as the record prints (beat 6: CacheState.gather,
+    // never a jump), so the stubs east of it sit a step below
+    readingPool(newest, cellY, s.cache ? s.cache.gather : 0, s.cache?.lamp ?? 1),
+    // the stamp-in: the newest cell lights as the report's header prints into it; it dims with the other cells as the record stamps in
+    { c: [newest, cellY], z: [118, 140], sigma: [40, 30], rgb: tint(LIGHT_HEX.reading, 1.05 * Math.max(s.cellLit, s.b4.cellLit) * (1 - (s.cache?.dim ?? 0))) },
     // your lamp on your in-tray, where the reply lands: its maximum on the tray, a step brighter once it has
     { c: LAMP_AIM, z: [0, 140], sigma: [74, 66], rgb: tint(LIGHT_HEX.yours, 3.6 * s.lamp) },
     // the bug bay's work slot: cast forward (south) from the slot onto its bench, no halo round the walls
@@ -66,6 +67,12 @@ export function poolsAt(s: DeskState): Pool[] {
   return pools;
 }
 
+/** The reading lamp's pool: on the window (k 0), gathered onto still (c)'s record (k 1), every term between them in step. */
+function readingPool(newest: number, cellY: number, k: number, lamp: number): Pool {
+  const mix = (a: number, b: number) => a + (b - a) * k;
+  return { c: [mix(newest + 70, CACHE_POOL_X), cellY], z: [118, 170], sigma: [mix(130, 96), 40], rgb: tint(LIGHT_HEX.reading, mix(2.4, CACHE_POOL_K * lamp)) };
+}
+
 /** The light on a counterfactual card while it is up (desk/beat4.ts cardPose): at its centre, on its heights only; dark while none is. */
 function cardPool(s: DeskState): Pool {
   const { split, ghost } = s.b4.cards;
@@ -76,7 +83,7 @@ function cardPool(s: DeskState): Pool {
   return { c: [at[0], at[1]], z: [205, 290], sigma: [180, 120], rgb: tint(LIGHT_HEX.reading, CARD_LIGHT * k) };
 }
 /** The card's light: its stock lit to a light grey stock, the frame's brightest paper while the rest is stepped down. */
-const CARD_LIGHT = 1.35;
+const CARD_LIGHT = 1.55;
 
 /** Three vec4 per pool, for `uniform vec4 uPool[3 * MAX_POOLS]`: (cx, cy, zmin, zmax), (sx, sy, 0, 0), (r, g, b, 0). */
 export function packPools(pools: readonly Pool[], out: Float32Array = new Float32Array(MAX_POOLS * 12)): Float32Array {

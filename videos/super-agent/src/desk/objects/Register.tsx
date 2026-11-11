@@ -17,11 +17,12 @@ import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { CanvasTexture, CircleGeometry, Matrix4, Path, SRGBColorSpace, Shape, type BufferGeometry, type Material, type MeshStandardMaterial, type Texture } from 'three';
 import { TAPE_ROWS, type TapeCell } from '../beat4.ts';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
-import { HEX, paper } from '../gl/materials.ts';
+import { HEX, paper, stepColour } from '../gl/materials.ts';
 import { Step, WithMats, isStepped, useDeskMats, useDeskSets, type DeskMats } from '../kit.tsx';
 import { CACHE_WINDOW, CELLS_X, CROSS, DECK, DECK_PLATE, DISPATCH_HOUSING, DRAWER, DRAWER_OPEN_C, FANFOLD, INDEX, JEWEL, LEG_R, LEG_STRUTS, LOCK, LOUPE, MOUTH, POLICY_CARD, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, TAPE, TAPE_FLAT_X1, THROAT, TRAIT_PLATE, WINDOW, rectC, type P2, type P3, type Rect } from '../layout.ts';
 import { INK, NEWEST_STEP, PRINT_SIZE, REQUEST_MARK_Y, TEX, cargoMark, requestStub, stagedInk, texture, threadMark, tooth } from '../gl/text.ts';
 import { FiledTabs } from './Cache.tsx';
+import { REWIND_TURN, THREAD_ROW } from '../beat6.ts';
 import { DETENT, EVENTS_B, EVENTS_D, closeAt, hammerOffset, loupeAt, type DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
@@ -237,7 +238,12 @@ function useRegisterGeometry() {
     const gx = THROAT.box.x0 + 8;
     const gy = THROAT.box.y0 - 34;
     const gaugeBody = disc(28, top - 2, top + 3, { cx: gx, cy: gy, bevel: 1.2 });
-    const gaugeFace = plane(48, 48, gx, gy, top + 3.2);
+    // (its face round, as its back is: one shape face down and face up, design D5)
+    const gaugeFace = (() => {
+      const c = new CircleGeometry(24, 48);
+      c.translate(gx, gy, top + 3.2);
+      return c;
+    })();
     // the needle at its hub, pointing +x: posed per frame (beat4.ts GAUGE: low)
     const needle = (() => {
       const s = new Shape();
@@ -573,6 +579,38 @@ const NEWEST_STEP_U = NEWEST_STEP / (TAPE_FLAT_X1 - TAPE.x0);
 const CELL_STEP_U = (CELLS_X[1][1] - CELLS_X[1][0] + 4) / (TAPE_FLAT_X1 - TAPE.x0);
 /** One stub's step along the tape in still (c). */
 const STUB_STEP_U = (CACHE_WINDOW.stub + CACHE_WINDOW.bar) / (TAPE_FLAT_X1 - TAPE.x0);
+/** Beat 6's rewind: how far the bare tape runs back (the Thread's row's run out from under the reel), in the tape texture's u. */
+const REWIND_U = (THREAD_ROW.from - THREAD_ROW.x0) / (TAPE_FLAT_X1 - TAPE.x0);
+/** The print head's dip as it stamps (u). */
+const HEAD_DIP = 2.4;
+/** The holder's hinge along the south rail's lower edge (y, z) and how far it folds down to hang against the rail's face (radians). */
+const HOPPER_HINGE = [DECK.y0, MOUTH.z[0]] as const;
+const HOPPER_FOLD = 1.42;
+
+/**
+ * MT1's printed tape as the close's print swap fades it off over the window's cards (beat 6, from the bar-34 dolly: state.ts
+ * CacheState.fade): the same print, transparent, as it is and in the stepped set.
+ */
+function useTapeFade(): { full: MeshStandardMaterial; stepped: MeshStandardMaterial } {
+  const { textures } = useDeskSets();
+  const mats = useMemo(() => {
+    const make = (stepped: boolean) => {
+      const m = paper(textures.tape2, HEX.paper, { stepped });
+      m.transparent = true;
+      m.depthWrite = false;
+      return m;
+    };
+    return { full: make(false), stepped: make(true) };
+  }, [textures]);
+  useLayoutEffect(
+    () => () => {
+      mats.full.dispose();
+      mats.stepped.dispose();
+    },
+    [mats],
+  );
+  return mats;
+}
 
 /**
  * The loupe on its swing arm, turned `a` about its pivot (MT1: it scans the policy card). Its lens
@@ -681,6 +719,20 @@ function GaugeFlip({ flip, c, children }: { flip: number; c: P2; children: React
   );
 }
 
+/**
+ * The pilot jewel's own emitter in act two: its light stepped with the deck by the step's amount (a set's emitters are
+ * stepped whole, so handing the jewel from one set to the other would darken or light it in one frame).
+ */
+function useJewel(amount: number) {
+  const { full } = useDeskSets();
+  const mat = useMemo(() => full.jewel.clone(), [full]);
+  useLayoutEffect(() => () => mat.dispose(), [mat]);
+  useLayoutEffect(() => {
+    mat.color.copy(amount > 0 ? stepColour(full.jewel.color, amount) : full.jewel.color);
+  }, [mat, full, amount]);
+  return mat;
+}
+
 export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
   const m = useDeskMats();
   const g = useRegisterGeometry();
@@ -688,6 +740,12 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
   const stubs = useStubTops();
   const C = s.cache;
   const b4 = s.b4;
+  const tapeFade = useTapeFade();
+  const fadeOpacity = C ? 1 - C.fade : 1;
+  useLayoutEffect(() => {
+    tapeFade.full.opacity = fadeOpacity;
+    tapeFade.stepped.opacity = fadeOpacity;
+  }, [tapeFade, fadeOpacity]);
   useLayoutEffect(() => {
     // the tape advances one cell, driven by the reel's detent: the old print slides east, fresh tape comes out of the head
     // (beat 4's rows: each state moves on with its next stamp-in's detent, the last with MT1's first, f2183)
@@ -699,8 +757,9 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
     // (MT1's second stamp-in moves it on by the newest cell's width, so #0408's print clears that cell whole)
     if (stamped) stamped.offset.x = -NEWEST_STEP_U * s.next.tape;
     const bare = m.printed.tapeBlank.map;
-    if (bare) bare.offset.x = -STUB_STEP_U * (C?.tape ?? 0);
-  }, [m, rows, b4.tape.row, b4.tape.advance, s.tape, s.next.tape, C?.tape]);
+    // beat 6's rewind runs the bare tape back the way the request's Thread's row comes out from under the reel
+    if (bare) bare.offset.x = -STUB_STEP_U * (C?.tape ?? 0) + REWIND_U * s.e6.rewind;
+  }, [m, rows, b4.tape.row, b4.tape.advance, s.tape, s.next.tape, C?.tape, s.e6.rewind]);
   const T = turn;
   // each stamp-in inks its cell over 3 f (the ink's stages), the frame after the head comes down
   const inkStage = (ink: number) => (ink <= 0 ? -1 : Math.min(2, Math.ceil(ink * 3 - 1e-6) - 1));
@@ -708,6 +767,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
   // beat 4's rows as stamped since the turn (the bare leader before the first)
   // the deck's body, the window, the tape: stepped down together while a counterfactual is up (state.ts FOCUS_BEATS 'deck')
   const deckOn = isStepped(s.step, 'deck');
+  const jewel = useJewel(deckOn === 'own' ? (s.step.own?.amount ?? 0) : deckOn ? s.step.amount : 0);
   const rowSet = deckOn ? 'stepped' : 'full';
   const rowMat = (d: DeskMats) => (b4.tape.row < 0 ? d.printed.tapeBlank : rows[b4.tape.row][b4.tape.stage][rowSet]);
   const lastRow = rows[rows.length - 1][2][rowSet];
@@ -725,8 +785,11 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
           : rowMat;
   // the reel: beat 4's detents bring it from where the coil locked to its rest (0) by MT1, then MT1's and the cache's detents
   const reelTurn = s.reel + s.next.reel + (C?.reel ?? 0);
-  const reelAngle = b4.reel - 0.26 * reelTurn;
-  const hammer = T ? T.hammer : Math.max(s.stamp, s.next.stamp, C?.stamp ?? 0);
+  // beat 6.4: the reel rewinds over 24 f (it spins back nearly a turn and a half, beat6.ts REWIND_TURN)
+  const reelAngle = b4.reel - 0.26 * reelTurn + REWIND_TURN * s.e6.rewind;
+  const hammer = T ? T.hammer : Math.max(s.stamp, s.next.stamp, C?.stamp ?? 0, s.e6.hammer);
+  // the head dips as its hammer drops for the cache's record and the review's row (still (c)'s critic item 4)
+  const headDip = T ? 0 : Math.max(C?.dip ?? 0, s.e6.hammer);
   return (
     <group>
       {/* the gantry */}
@@ -779,9 +842,9 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
             <>
               <mesh geometry={g.frameMembers} material={d.graphite} />
               <mesh geometry={g.frameCaps} material={d.enamelShade} />
-              <mesh geometry={g.bosses} material={d.enamel} />
-              {/* the tape, the window and its lamp */}
+              {/* the tape, the window and its lamp; from the close the window's cards replace the printed tape by an 8 f print swap (objects/Cache.tsx): the print fades off over them */}
               {tapeMat && <mesh geometry={g.tapeFlat} material={tapeMat(d)} />}
+              {!T && C && C.fade < 1 && <mesh geometry={g.tapeFlat} material={tapeFade[deckOn ? 'stepped' : 'full']} position={[0, 0, 0.45]} />}
               {tapeMat && <mesh geometry={g.tapeRise} material={d.paper} />}
               <mesh geometry={g.win} material={d.graphite} />
               {/* the window's bars; in still (c) they slide with the shrinking cards (objects/Cache.tsx) */}
@@ -796,8 +859,13 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
           )}
         </WithMats>
       </Step>
+      {/* the reel frame's enamel bosses: with the deck, and in still (c) stepped under the lit record (state.ts CACHE_STEP) */}
+      <Step on={deckOn || isStepped(s.step, 'bosses')}>
+        <WithMats>{(d) => <mesh geometry={g.bosses} material={d.enamel} />}</WithMats>
+      </Step>
       {/* the throat, the print head */}
       <Hinge angle={T?.parts.head} x={PRINT_HEAD.box.x0} z={DECK.top}>
+      <group position={[0, 0, -HEAD_DIP * headDip]}>
       <Step on={isStepped(s.step, 'head')}>
         <WithMats>
           {(n) => (
@@ -810,6 +878,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
           )}
         </WithMats>
       </Step>
+      </group>
       </Hinge>
       <Lift z={T?.parts.throat}>
       <Step on={deckOn}>
@@ -817,11 +886,13 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
           {(d) => (
             <>
               <mesh geometry={g.throat} material={d.graphiteDark} />
-              <mesh geometry={g.cheeks} material={d.enamel} />
               <mesh geometry={g.collar} material={d.steel} />
             </>
           )}
         </WithMats>
+      </Step>
+      <Step on={deckOn || isStepped(s.step, 'jaws')}>
+        <WithMats>{(d) => <mesh geometry={g.cheeks} material={d.enamel} />}</WithMats>
       </Step>
       </Lift>
       <Lift z={T?.parts.throat}>
@@ -833,7 +904,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
               <GaugeFlip flip={b4.gauge.flip} c={g.gauge}>
                 <mesh geometry={g.gaugeBody} material={n.graphite} />
                 <mesh geometry={g.gaugeFace} material={n.printed.gauge} />
-                <mesh geometry={g.needle} material={n.rubber} position={[g.gauge[0], g.gauge[1], 0]} rotation={[0, 0, b4.gauge.needle]} />
+                <mesh geometry={g.needle} material={n.rubber} position={[g.gauge[0], g.gauge[1], 0]} rotation={[0, 0, b4.gauge.needle + s.e6.needle]} />
                 <mesh geometry={g.gaugeHub} material={n.steel} />
               </GaugeFlip>
             </>
@@ -849,7 +920,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
               <mesh geometry={g.policyBase} material={n.graphiteDark} />
               <mesh geometry={g.policyCard} material={n.printed.policy} />
               <mesh geometry={g.pin} material={n.enamel} />
-              <LoupeSwing a={T ? s.next.loupe + T.parts.loupe : s.next.loupe} lens={g.lens}>
+              <LoupeSwing a={T ? s.next.loupe + T.parts.loupe : s.next.loupe + s.e5.loupe} lens={g.lens}>
                 <mesh geometry={g.loupeRing} material={n.steel} />
                 <mesh geometry={g.lens} material={n.printed.lens} />
                 <mesh geometry={g.loupeArm} material={n.graphite} />
@@ -889,7 +960,14 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
         </Step>
       </group>
       <Step on={isStepped(s.step, 'mouth')}>
-        <WithMats>{(n) => <mesh geometry={g.hopper} material={n.enamelShade} />}</WithMats>
+        <WithMats>
+          {(n) => (
+            // folding down to hang against the rail's face (on spring-heavy), out of the record's way
+            <group position={[0, HOPPER_HINGE[0], HOPPER_HINGE[1]]} rotation={[HOPPER_FOLD * (C?.hopper ?? 0), 0, 0]}>
+              <mesh geometry={g.hopper} material={n.enamelShade} position={[0, -HOPPER_HINGE[0], -HOPPER_HINGE[1]]} />
+            </group>
+          )}
+        </WithMats>
       </Step>
       {/* the sealed shell key */}
       <Step on={isStepped(s.step, 'lock')}>
@@ -910,7 +988,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
         <WithMats>
           {(d) => (
             <>
-              <mesh geometry={g.jewel} material={T && T.jewel < 0.5 ? d.graphiteDark : d.jewel} />
+              <mesh geometry={g.jewel} material={T ? (T.jewel < 0.5 ? d.graphiteDark : d.jewel) : jewel} />
               <mesh geometry={g.bezel} material={d.steel} />
               {/* the Continuous plate behind the reel, on its brackets */}
               <mesh geometry={g.traitBrackets} material={d.graphite} />

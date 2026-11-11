@@ -26,8 +26,10 @@
 import { clamp, easings } from '@aiv/core';
 import { Curve } from '@aiv/remotion-kit';
 import { Easing, spring } from 'remotion';
-import { BEAT, BEAT_4, FPS } from '../cues.ts';
+import { BEAT, BEAT_4, BEAT_5, FPS } from '../cues.ts';
 import { armRest, beat4At, hammerStroke, hatchRiseAt, inkSpread, type Beat4State } from './beat4.ts';
+import { beat5At, type Beat5State } from './beat5.ts';
+import { E6, beat6At, type Beat6State } from './beat6.ts';
 import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, DRAWER_OPEN_C, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, YOU, rectC, towerTop, type P2, type P3 } from './layout.ts';
 
 /** Remotion spring configs from the synthesis's tokens (mass 1, c = 2ζ√k). Remotion's default spring is never used. */
@@ -94,14 +96,14 @@ export const DETENT = {
   fresh: Math.atan2(rectC(FRESH.box)[1] - INDEX.pivot[1], rectC(FRESH.box)[0] - INDEX.pivot[0]),
 } as const;
 
-/** Beat 5's downbeat: the starter key leaves your tray and your lamp dims a step (cues.ts trait-proactive). */
-export const LAMP_DIMS = 2340;
+/** Beat 5: your lamp dims a step as the intake answers the starter key's dock, 2 f after it (cues.ts key-dock; beat5.ts E5.answer). */
+export const LAMP_DIMS = BEAT_5.keyDock + 2;
 
 /** Your lamp's attention steps: the bulb's level and its pool (a step dimmer while you wait). */
 export const LAMP_STEPS = { dim: 0.62, up: 0.9 } as const;
 
 /** What steps down during a beat: everything not in its action. */
-export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'testsBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge' | 'head' | 'index' | 'mouth' | 'folders' | 'loop' | 'you' | 'fixA' | 'fixB' | 'deck' | 'chute';
+export type FocusId = 'intake' | 'gate' | 'belt' | 'plate' | 'fanfold' | 'policy' | 'docsBay' | 'bugBay' | 'testsBay' | 'freshBay' | 'cord' | 'reel' | 'lock' | 'gauge' | 'head' | 'index' | 'mouth' | 'folders' | 'loop' | 'you' | 'fixA' | 'fixB' | 'deck' | 'chute' | 'proactive' | 'spike' | 'stress' | 'jaws' | 'bosses';
 /** No Thread cord before C17's beat: it first pays out at 7.1 (f3440); before that a Thread is a row on the tape (design D1). */
 export const CORD_FROM = 3440;
 /**
@@ -109,17 +111,30 @@ export const CORD_FROM = 3440;
  * mouth, the cell, the arm, the chute, the reply, your in-tray. The bug bay steps down too (its slot
  * keeps working and the request's vermilion stays), and so do the reel's face and the lock.
  */
+/**
+ * How far a counterfactual steps the rest down (the step amount's full value: 1 for a beat): 0.68 of the way to the step's
+ * targets in display values (gl/materials.ts), its darkest graphite still over the slate's floor tone.
+ */
+const CARD_DEPTH = 1.5;
 /** Everything of act two's world that a counterfactual card steps down while it is up (the card is the beat's action). */
 const ALL_BUT_CARD: readonly FocusId[] = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'testsBay', 'cord', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'you', 'deck', 'chute'];
-export const FOCUS_BEATS: readonly { id: string; from: number; to: number; step: readonly FocusId[] }[] = [
-  // 4.3, 4.4: while a counterfactual is up, everything else steps down (from its first move to the frame it starts off);
-  // under the ghost Router the real index arm keeps its detent on every beat at full contrast (STORYBOARD 4.4), and the
-  // arrivals riding in (cargo in motion) never step
-  { id: 'split', from: BEAT_4.splitCard - 1, to: BEAT_4.splitStrike + 5, step: ALL_BUT_CARD },
-  { id: 'ghost', from: BEAT_4.ghostCard - 1, to: BEAT_4.ghostStrike + 5, step: ALL_BUT_CARD.filter((x) => x !== 'index') },
+export const FOCUS_BEATS: readonly { id: string; from: number; to: number; step: readonly FocusId[]; depth?: number }[] = [
+  // 4.3, 4.4: while a counterfactual is up, everything else steps down (from its first move to the frame it starts off),
+  // half as far again as a beat's step (CARD_DEPTH), so the card is the frame's one lit paper; under the ghost Router the
+  // real index arm keeps its detent on every beat at full contrast (STORYBOARD 4.4), and the arrivals riding in (cargo in
+  // motion) never step
+  { id: 'split', from: BEAT_4.splitCard - 1, to: BEAT_4.splitStrike + 5, step: ALL_BUT_CARD, depth: CARD_DEPTH },
+  { id: 'ghost', from: BEAT_4.ghostCard - 1, to: BEAT_4.ghostStrike + 5, step: ALL_BUT_CARD.filter((x) => x !== 'index'), depth: CARD_DEPTH },
   { id: 'c12', from: 2130, to: 2320, step: ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'cord', 'reel', 'lock', 'gauge'] },
-  // N5 at the window (still C): the report, the window, the head, the mouth and the drawer are the action
-  { id: 'n5', from: 3040, to: 3216, step: ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'cord', 'reel', 'lock', 'gauge'] },
+  // beat 5.2-5.3 (C14, then the filter under bar 34's dolly): the Fast Path and the Slow Path are the action (the feeders,
+  // the gate, the spike and its pile, the belt, the loupe over its policy card, the head the kept slips feed into); the
+  // rest of the Register, the bays, your desk and both trait plates step down from 8 f before the spike stands up, and
+  // come back up as the dolly closes on the throat, 6 f before it lands (5.1's hand-over runs at full contrast, so
+  // nothing ramps against C12's ramp out at 2320-2334)
+  { id: 'b5', from: BEAT_5.spikeIn - 8, to: 2700, step: ['deck', 'reel', 'lock', 'fanfold', 'plate', 'proactive', 'docsBay', 'bugBay', 'freshBay', 'chute', 'you', 'index', 'mouth', 'gauge'] },
+  // N5 at the window (still C): the report, the window, the head, the mouth and the drawer are the action; beat 6's stress
+  // plate, read under N4 before it, steps down with the rest (it stays on the rail)
+  { id: 'n5', from: 3040, to: 3216, step: ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'cord', 'reel', 'lock', 'gauge', 'stress'] },
 ];
 /** The step-down ramp, frames (synthesis: 12–16 f). */
 export const STEP_FRAMES = 14;
@@ -174,6 +189,10 @@ export interface DeskState {
   testsSink: number;
   /** beat 4 (desk/beat4.ts): the bays' dispatches, the tape's rows, the reel, the request, the heap, the counterfactual cards; still (b)'s from f2140 */
   b4: Beat4State;
+  /** beat 5 (desk/beat5.ts): the starter key's hand-over, the Proactive plate, the spike, the filter's slips, the gate's fingers, the loupe and punch for the kept slips */
+  e5: Beat5State;
+  /** beat 6 (desk/beat6.ts): the batches' strip, the reading bar, the decode slip, the stress plate, the review card, the rewind, the reading thread, the answer */
+  e6: Beat6State;
 }
 
 /** The print head's hammer at its stroke h (0 raised clear of the tape, 1 down on the newest cell): it rocks east as it falls, so its drop reads from above. */
@@ -242,7 +261,7 @@ export function tabArc(u: number): P3 {
 export function stepAt(f: number): DeskState['step'] {
   for (const b of FOCUS_BEATS) {
     if (f < b.from || f >= b.to + STEP_FRAMES) continue;
-    const amount = Math.min(easings.inOutSine(clamp((f - b.from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - b.to) / STEP_FRAMES)));
+    const amount = (b.depth ?? 1) * Math.min(easings.inOutSine(clamp((f - b.from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - b.to) / STEP_FRAMES)));
     return { amount, ids: b.step };
   }
   return { amount: 0, ids: [] };
@@ -298,7 +317,7 @@ export function deskStateAt(f: number): DeskState {
     const squash = f < SLIP_LANDS ? 0 : Math.max(0, 1 - (f - SLIP_LANDS) / 4);
     slip = { emerge, s, arc, squash, settle };
   }
-  // beat 5 (f2340, STORYBOARD 5.1): events trip the intake by themselves, and your lamp dims a step again
+  // beat 5 (STORYBOARD 5.1): the intake answers the starter key's dock, and your lamp dims a step again
   const lamp = LAMP_STEPS.dim + (LAMP_STEPS.up - LAMP_STEPS.dim) * (springAt(f, E.lampUp, SPRING.effects) - springAt(f, LAMP_DIMS, SPRING.effects));
 
   // the bug bay's pins: one flips per beat, 4 f each, cycling round the six
@@ -315,7 +334,7 @@ export function deskStateAt(f: number): DeskState {
   // MT1: once the slip is stamped in, the arm turns from you to the fresh bay's detent
   const armNow = f > EVENTS_D.armTurn ? DETENT.you + (DETENT.fresh - DETENT.you) * springAt(f, EVENTS_D.armTurn, SPRING.detent) : arm;
   const testsSink = springAt(f, EVENTS_D.rest, SPRING.heavy);
-  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withOwnRamp(f, stepAt(f)), next, cache: cacheAt(f), testsSink, b4 };
+  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withOwnRamp(f, stepAt(f)), next, cache: cacheAt(f), testsSink, b4, e5: beat5At(f), e6: beat6At(f, (x, at) => springAt(x, at, SPRING.dock)) };
 }
 
 /** The reply's lead-in: hidden under the deck's plate and south rail, on the chute's line produced back north-east, so it slides out of the deck straight into the chute. */
@@ -437,9 +456,16 @@ export const EVENTS_D = {
   rest: 2320,
 } as const;
 
-/** Still (c): from the tab's launch the head, the index arm and the holder are out of the action (their enamel steps under the lit record). */
+/**
+ * Still (c): from the tab's launch the head, the index arm and the holder are out of the action (their enamel steps under
+ * the lit record), and so are the throat's enamel jaws and the reel frame's bosses (still (c)'s critic, item 6: the
+ * enamel highlights must not beat the paper). They come back up a few frames after N5's step-down ramps out, before the
+ * head stamps the review comment in (6.4).
+ */
 export const CACHE_SETTLE = 3127;
-const CACHE_STEP: readonly FocusId[] = ['head', 'index', 'mouth'];
+const CACHE_STEP: readonly FocusId[] = ['head', 'index', 'mouth', 'jaws', 'bosses'];
+/** When the own set ramps back up: after N5's ramp out, a stagger behind it. */
+export const CACHE_UNSTEP = 3216 + STEP_FRAMES + 2;
 /** The own parts' lag behind the bays when C12's step-down ramps out at the rest. */
 const OWN_LAG = 3;
 
@@ -451,7 +477,7 @@ export function withOwnRamp(f: number, step: DeskState['step']): DeskState['step
   const E = EVENTS_D;
   // still (c): once the record is in and the tab is falling, the print head, the index and the emptied holder step down
   // with the other parts out of the action, so the inline record and the drawer are the frame's brightest
-  if (f >= CACHE_SETTLE && f < CACHE_SETTLE + 200) return { ...step, own: { amount: easings.inOutSine(clamp((f - CACHE_SETTLE) / STEP_FRAMES)), ids: CACHE_STEP } };
+  if (f >= CACHE_SETTLE && f < CACHE_UNSTEP + STEP_FRAMES) return { ...step, own: { amount: Math.min(easings.inOutSine(clamp((f - CACHE_SETTLE) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - CACHE_UNSTEP) / STEP_FRAMES))), ids: CACHE_STEP } };
   if (f < E.slipOut || f >= E.rest + OWN_LAG + STEP_FRAMES) return step;
   const r = (a: number) => easings.inOutSine(clamp((f - a) / STEP_FRAMES));
   // at the rest they come back up a few frames after the bays (a stagger, never one block)
@@ -609,8 +635,12 @@ export function loupeAt(a: number): P2 {
 // By f3150 the tab is seated and the frame holds.
 
 export const EVENTS_C = {
-  /** from here the window holds the cache's cells (the batching beats before it are not built) */
-  from: 3000,
+  /**
+   * From the bar-34 dolly onto the close the window holds cards (desk/beat6.ts WINDOW_CARDS: the cells the tape held after
+   * MT1, in still (c)'s card style), which replace the printed tape by the close shot's 8 f print swap (closeAt); the test
+   * report's tab #0408 stays in the drawer (objects/Cache.tsx draws it from here)
+   */
+  from: 2640,
   /** the card rises out of the request bay's work slot (4 f), then flies 18 f under the transit light into the mouth (ejecting on the beat) */
   cardOut: 3076,
   cardEject: 3080,
@@ -619,18 +649,26 @@ export const EVENTS_C = {
   shrink: 3100,
   shrinkFrames: 6,
   shrinkStagger: 1,
-  /** the header strip tears off along its perforation, flies to the head (6 f) and feeds down through the slot in its cap (4 f) */
-  header: 3100,
-  headerFrames: 6,
-  slotFrames: 4,
-  /** the head drops (4 f) and the record stamps in with a 3 f ink spread; the stubs dim one step (4 f) */
-  stampIn: 3110,
-  dim: 3112,
+  /**
+   * the header strip tears off along its perforation (3 f anticipation once the card has docked), flies to the head in an
+   * arc (8 f, eased in and out: under 60 px a frame at 2.4x, still (c)'s critic item 1) and feeds down through the slot
+   * in its cap (3 f)
+   */
+  header: 3102,
+  headerFrames: 8,
+  slotFrames: 3,
+  /** the head dips as it drops (4 f) and the record stamps in: the header's ink first, each summary line a frame later, each over 3 f (item 4); the stubs dim one step (4 f) */
+  stampIn: 3114,
+  dim: 3116,
   /** on the downbeat the body folds along its crease (8 f); a 2 f hold; the tab drops into the drawer (6 f, the move curve) and lands on spring-dock */
   fold: 3120,
   foldFrames: 8,
   tabDrop: 3130,
   tabFrames: 6,
+  /** the record's pointer prints 2 f after the tab it points to has landed (item 2), over a 3 f spread */
+  pointer: 3138,
+  /** the emptied holder folds down to hang against the south rail's face on spring-heavy as soon as the tab has left it (item 5) */
+  hopper: 3131,
 } as const;
 
 export interface CacheState {
@@ -662,6 +700,20 @@ export interface CacheState {
   lamp: number;
   /** the spill drawer pulling open to take the tab (0..1 of layout.ts DRAWER_OPEN_C, spring-detent) */
   drawer: number;
+  /** beat 6: the window's cards replacing the printed tape (0..1: the close's 8 f print swap); from the summary on, still (d)'s window (its own cards) */
+  fade: number;
+  summary: boolean;
+  /** the record's ink: frames since the stamp (gl/text.ts recordStagger), the pointer's ink stage (-1 none, 0..2) */
+  stagger: number;
+  pointer: number;
+  /** the reading lamp's light gathering onto the record as it prints (0 the window's pool, 1 still (c)'s) */
+  gather: number;
+  /** the test report's tab #0408 filing back behind the drawer's front as the drawer opens (0..1, spring-dock) */
+  file: number;
+  /** the emptied holder folded up against the rail (0..1, spring-heavy) */
+  hopper: number;
+  /** the head's dip as it stamps (0..1) */
+  dip: number;
 }
 
 /**
@@ -690,7 +742,7 @@ export const TAB_REST_C: P3 = [rectC(DRAWER.box)[0] - 3, DRAWER.box.y0 + 5.5 - D
 export const TAB_LEAN_C = 0.38;
 export const TAB_TURN_C = -0.03;
 
-/** Still (c)'s report at film frame f (pure); null before the cache's cells are in the window. */
+/** Still (c)'s report at film frame f (pure); null before the close's cards are in the window. */
 export function cacheAt(f: number): CacheState | null {
   const E = EVENTS_C;
   if (f < E.from) return null;
@@ -702,8 +754,8 @@ export function cacheAt(f: number): CacheState | null {
   const dockAt = E.cardEject + E.cardFly;
   const docked = f >= dockAt && f <= E.tabDrop ? { settle: springAt(f, dockAt, SPRING.dock), headerOn: f < E.header - ANTICIPATE } : null;
   const feedEnd = E.header + E.headerFrames + E.slotFrames;
-  // the strip tears off and draws back a hair (3 f anticipation), then flies to the head on the film's enter curve
-  const strip = f >= E.header - ANTICIPATE && f < feedEnd ? { fly: f < E.header ? -0.05 * Math.sin((Math.PI * (f - E.header + ANTICIPATE)) / ANTICIPATE) : ENTER((f - E.header) / E.headerFrames), feed: clamp((f - E.header - E.headerFrames) / E.slotFrames) } : null;
+  // the strip tears off and draws back a hair (3 f anticipation), then flies to the head in an arc, eased in and out
+  const strip = f >= E.header - ANTICIPATE && f < feedEnd ? { fly: f < E.header ? -0.05 * Math.sin((Math.PI * (f - E.header + ANTICIPATE)) / ANTICIPATE) : sine((f - E.header) / E.headerFrames), feed: clamp((f - E.header - E.headerFrames) / E.slotFrames) } : null;
   const stamp = clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2));
   const ink = clamp((f - E.stampIn) / 3);
   const shrink = [0, 1, 2, 3, 4].map((i) => sine((f - E.shrink - (4 - i) * E.shrinkStagger) / E.shrinkFrames));
@@ -718,14 +770,21 @@ export function cacheAt(f: number): CacheState | null {
   const squash = f < landAt ? 0 : Math.max(0, 1 - (f - landAt) / 4) * Math.min(1, (f - landAt + 1) / 1.5);
   // the drawer pulls open on the fold's downbeat, ready before the tab drops
   const drawer = f - E.fold >= SETTLED ? 1 : springAt(f, E.fold, SPRING.detent);
-  return { out, card, transit, docked, strip, stamp, ink, shrink, tape: 0, reel: 0, dim, fold, drop, landed, squash, lamp: 1, drawer };
+  // beat 6 (from the close until the summary, whose world is still (d)'s): the print swap, the record's staggered ink and
+  // its pointer, the reading light gathering on the record, the #0408 tab filing back, the holder folding away, the head's dip
+  const summary = f >= E6.until;
+  const fade = summary ? 1 : sine((f - E.from) / 8) + 0;
+  const stagger = f - E.stampIn;
+  const pointer = summary ? 2 : f < E.pointer ? -1 : Math.min(2, f - E.pointer);
+  const gather = summary ? 1 : sine((f - E.stampIn) / 6);
+  const file = summary ? 0 : f - E.fold >= 2 * SETTLED ? 1 : springAt(f, E.fold, SPRING.dock);
+  const hopper = summary ? 0 : f - E.hopper >= 40 ? 1 : springAt(f, E.hopper, SPRING.heavy);
+  const dip = summary ? 0 : stamp;
+  return { out, card, transit, docked, strip, stamp, ink, shrink, tape: 0, reel: 0, dim, fold, drop, landed, squash, lamp: 1, drawer, fade, summary, stagger, pointer, gather, file, hopper, dip };
 }
 
 /** Frames after which a cache spring rests exactly (no sub-pixel creep in a hold). */
 const SETTLED = 12;
 
-/** The film's enter curve, bezier(.05, .7, .1, 1) (TREATMENT Motion grammar), clamped to 0..1. */
-const ENTER_CURVE = Easing.bezier(0.05, 0.7, 0.1, 1);
-const ENTER = (t: number): number => ENTER_CURVE(clamp(t));
 /** Cargo anticipates by 3 f (TREATMENT Motion grammar). */
 const ANTICIPATE = 3;
