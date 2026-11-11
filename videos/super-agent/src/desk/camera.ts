@@ -96,9 +96,13 @@ export const CAMERA_MOVES: readonly CameraMove[] = [
   { from: 1440, to: 1600, a: FRAMING_A, b: FRAMING_B },
   // bar 34's downbeat (5.3): in on the throat and the reading window, one bar
   { from: 2640, to: 2720, a: FRAMING_B, b: FRAMING_C },
-  // bar 42's downbeat (6.4): out to the bay floor, two bars
-  { from: 3280, to: 3440, a: FRAMING_C, b: FRAMING_B },
+  // bar 43's downbeat (6.4): out to the bay floor, one bar, the mirror of bar 34's dolly; the close holds through the
+  // recall's rewind, hops and answer (bar 42), and N6 ends 10 f in, while the frame has barely moved
+  { from: 3360, to: 3440, a: FRAMING_C, b: FRAMING_B },
 ];
+/** Bar 34's dolly into the close (B to C) and bar 43's ease-out of it (C to B): the DOM layer and the close's print swap key off them. */
+export const DOLLY_IN = CAMERA_MOVES[1]!;
+export const EASE_OUT = CAMERA_MOVES[2]!;
 
 /** The camera token (TREATMENT Motion grammar): cubic-bezier(.65, 0, .35, 1), one bell of speed peaking mid-move. */
 export const CAMERA_EASE = Easing.bezier(0.65, 0, 0.35, 1);

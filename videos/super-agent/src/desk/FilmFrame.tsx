@@ -16,7 +16,7 @@ import { TYPE } from '../look/tokens.ts';
 import { ActOneFrame } from './ActOneFrame.tsx';
 import { cameraAt, type Angle } from './camera.ts';
 import { DeskFrame } from './DeskFrame.tsx';
-import { ACT2_TAGS, BUILT_TO, act2LabelsAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
+import { ACT2_TAGS, BUILT_TO, SUMMARY_BUILT_TO, act2LabelsAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
 import { PRINT_FONT } from './gl/text.ts';
 import { keepTexture } from './marks.ts';
 import { Proposed } from './objects/Proposed.tsx';
@@ -80,8 +80,8 @@ function AnimaticSlate({ f }: { f: number }) {
   if (!ready || f < BUILT_TO) return null;
   const size = TYPE.label.size;
   const shown = SLATE_CUES.filter((e) => cueReveal(e.id, f).visible);
-  // the summary's sign-off (still (d)) is built: no mark over it
-  const built = f >= SPAN_D[0] && f <= SPAN_D[1];
+  // the summary's sign-off (still (d)) is built up to the trait plates' retirement (session 5): no mark over it
+  const built = f >= SPAN_D[0] && f < SUMMARY_BUILT_TO;
   let y = 132;
   return (
     <AbsoluteFill>

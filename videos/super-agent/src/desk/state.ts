@@ -30,6 +30,7 @@ import { BEAT, BEAT_4, BEAT_5, FPS } from '../cues.ts';
 import { armRest, beat4At, hammerStroke, hatchRiseAt, inkSpread, type Beat4State } from './beat4.ts';
 import { beat5At, type Beat5State } from './beat5.ts';
 import { E6, beat6At, type Beat6State } from './beat6.ts';
+import { DOLLY_IN, EASE_OUT } from './camera.ts';
 import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, DRAWER_OPEN_C, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, YOU, rectC, towerTop, type P2, type P3 } from './layout.ts';
 
 /** Remotion spring configs from the synthesis's tokens (mass 1, c = 2ζ√k). Remotion's default spring is never used. */
@@ -718,10 +719,10 @@ export interface CacheState {
 
 /**
  * The close shot's fine print (TREATMENT Type: printed fields swap by an 8 f cross-fade at the start of a
- * camera move, on those objects only): in from bar 34's dolly (f2640), out from bar 42's (f3280).
+ * camera move, on those objects only): in from bar 34's dolly (f2640), out from bar 43's ease-out (f3360).
  */
 export function closeAt(f: number): number {
-  return sine((f - 2640) / 8) * (1 - sine((f - 3280) / 8));
+  return sine((f - DOLLY_IN.from) / 8) * (1 - sine((f - EASE_OUT.from) / 8));
 }
 
 /** The card's flight from the request bay's slot into the mouth (an arc `apex` over the chord). */

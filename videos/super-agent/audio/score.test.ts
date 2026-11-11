@@ -9,6 +9,8 @@ import { BEAT_5, BEAT_6, FIX_A, FIX_B, LAMP_VISITS, MT1, WARMTH, at, cues } from
 import { FOLDERS, actOneAt } from '../src/desk/actOne.ts';
 import { ACT_ONE_CAMERA, FOLDER_X, actOneFrameAt, flagSnaps, swings, warmthAt } from './actOne.ts';
 import { ACT_ONE_MOVE, CAMERA_EASE, moveFraming } from '../src/desk/camera.ts';
+import { replyLandsB, replyPostedB } from '../src/desk/beat3.ts';
+import { EVENTS_B, EVENTS_C } from '../src/desk/state.ts';
 import { arrange, marks } from './arrangement.ts';
 import { BATCH_CHORDS, TAB_LANDS } from './keepUp.ts';
 import { REPLY_FLIGHT } from './fixes.ts';
@@ -74,6 +76,19 @@ describe('act one follows the picture', () => {
       expect(got.x, `f${f}`).toBeCloseTo(fr.x, 3);
       expect(got.halfW, `f${f}`).toBeCloseTo(960 / fr.zoom, 3);
     }
+  });
+
+  it('lands on the picture’s own contact frames where the cue sheet has none (beat3.ts, state.ts EVENTS_B/EVENTS_C)', () => {
+    // each reply is posted on its cue and lands REPLY_FLIGHT later, reply 7 included
+    for (let k = 0; k < 8; k++) {
+      expect(replyPostedB(k), `reply ${k}`).toBe(k === 7 ? FIX_B.reply7 : FIX_B.replies[k]);
+      expect(replyLandsB(k) - replyPostedB(k), `reply ${k}`).toBe(REPLY_FLIGHT);
+    }
+    // the cache's pointer tab lands TAB_LANDS after the fold, on BEAT_6's fold
+    expect(EVENTS_C.fold).toBe(BEAT_6.cacheFold);
+    expect(EVENTS_C.tabDrop + EVENTS_C.tabFrames - EVENTS_C.fold).toBe(TAB_LANDS);
+    // the tests voice stops as the test lamps go out
+    expect(at(TESTS_DONE.bar, TESTS_DONE.beat)).toBe(EVENTS_B.lampsOut);
   });
 
   it('lights each motif with the picture’s warmth, and sounds a falling tone where a flag snaps up', () => {

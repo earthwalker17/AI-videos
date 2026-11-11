@@ -443,7 +443,7 @@ const events: CueEvent[] = [
 
   // 5 · Prompting each run, handed over (bars 30-34), by design
   line('n3', at(30), at(31, 4)),
-  mark('trait-proactive', at(30, 2), 'the starter key lifts off your tray into the intake: the Proactive plate docks'),
+  mark('trait-proactive', at(30, 2), 'the starter key lifts off your tray toward the intake'),
   mark('key-dock', BEAT_5.keyDock, 'the starter key docks on the intake as its trip'),
   mark('plate-proactive', BEAT_5.plateDock, 'the Proactive plate docks on the intake; your lamp has dimmed a step'),
   shown('text', 'tag-gate', at(30), at(33, 4.5), WORDS.tagGate),
@@ -452,7 +452,7 @@ const events: CueEvent[] = [
 
   // 6 · How one Router keeps up (bars 35-43): batching, context as a cache, recall
   line('c15', at(35), at(36, 4.5)),
-  hit('batch', at(36), 'the queued strip is read in one sweep: the held ticks release as one chord'),
+  hit('batch', at(36), 'the queued strip is read in one sweep and drawn into the Register: the held ticks release as one chord'),
   line('n4', at(36, 4.5), at(38, 4)),
   hit('plate-detent', at(37), 'the stress plate sets: a soft mechanical detent'),
   shown('text', 'plate', at(37), at(39), read(WORDS.plateHead, WORDS.plateArrivals, WORDS.plateDecision)),
@@ -460,11 +460,11 @@ const events: CueEvent[] = [
   line('n5', at(39, 2), at(41, 1.5)),
   mark('cache-eject', BEAT_6.cacheEject, 'the request bay’s report card ejects toward the reading window'),
   hit('cache-fold', BEAT_6.cacheFold, 'the body folds into a pointer tab: paper, then a pointer tick as it lands in the drawer'),
-  shown('text', 'tag-cache', at(39, 3), at(43, 3), WORDS.tagCache),
+  shown('text', 'tag-cache', at(40), at(43), WORDS.tagCache),
   mark('review-card', BEAT_6.recall.card, 'a GitHub review comment, a punched card, enters the throat'),
   mark('review-in', BEAT_6.recall.stampIn, 'nothing subscribes to it: it is stamped in as a new row'),
-  line('n6', at(41, 3.5), at(43, 3)),
-  hit('recall', BEAT_6.recall.rewind, 'the reel rewinds over 24 f as the camera eases out'),
+  line('n6', at(41, 2), at(43, 1.5)),
+  hit('recall', BEAT_6.recall.rewind, 'the reel rewinds over 24 f in the close; the camera eases out on bar 43'),
   ...BEAT_6.recall.hops.map((f, i) => mark(`hop-${i + 1}`, f, ['the thread hops to the request’s stub: A4', 'to its Thread’s row: D5', 'to its bay’s last report: A4 (F♯5 is kept for the stamp)'][i]!)),
   mark('recall-answer', BEAT_6.recall.answer, 'a short answer goes back'),
 
@@ -507,7 +507,7 @@ const events: CueEvent[] = [
 
   // 11 · Sign-off, old ideas, meaning (bars 69-75)
   hit('stamp', at(69), 'your desk stamps the reply green: a felt stamp thump, and the motif completes as A4, D5, F♯5'),
-  span('rest', 'rest-signoff', at(69, 3), at(70, 3.5), 'the route traced at 0.5×: the held Dmaj9 and the scratching drag'),
+  span('rest', 'rest-signoff', at(69, 3), at(70, 3.5), 'the route traced at 0.64×: the held Dmaj9 and the scratching drag'),
   line('n11', at(70, 3.5), at(72, 3)),
   shown('text', 'ideas', at(70, 4), at(74, 2.5), read(WORDS.ideaFastSlow, WORDS.ideaBatching, WORDS.ideaCache, WORDS.ideaDuplex, WORDS.ideaSplit, WORDS.ideaControl)),
   shown('text', 'key-map', at(70, 4.5), at(76, 1.5), read(WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch)),
