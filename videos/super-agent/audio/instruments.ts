@@ -17,7 +17,8 @@
  *   fallTone     a short falling, closing tone                   a session tile fading
  *   hum          a low held tone, two beating strings, low-passed the lid strut: keep it running
  *   softPulse    a short, round sine blip                        beat 5's sixteenth pulse (listening)
- *   loupeBell    an FM bell, inharmonic 1:3.5, soft              a slip the loupe judges (the model)
+ *   loupeBell    an FM bell, inharmonic 1:3.5, soft              a slip the loupe judges (the model), the Watchdog's sweep
+ *   stripTone    a held, round tone exactly n samples long       a chart lane's strip, as long as its slowest run
  *
  * Deterministic: float64 phases and filter state, randomness only from the film seed through
  * the kit's seeded noise (@aiv/core's hash).
@@ -207,6 +208,8 @@ export interface BowOptions {
   amp?: (t: number) => number;
   /** vibrato depth, cents (default 5) */
   vibrato?: number;
+  /** a pitch offset over the note, cents (t in s from its onset; read at the control rate): the Router's chord detuning into two (N9) */
+  bend?: (t: number) => number;
 }
 
 /**
@@ -231,17 +234,19 @@ export function bowedNote(midi: number, o: BowOptions): Float32Array {
   const releaseAt = o.len - o.release;
   let vibPh = phase0;
   let cents = 0;
+  let bend = 0;
   let env = 0;
   for (let i = 0; i < n; i++) {
     const t = i / SR;
-    // control rate: every 32 samples (1.5 kHz) for the bow, the vibrato and the envelope
+    // control rate: every 32 samples (1.5 kHz) for the bow, the vibrato, the bend and the envelope
     if ((i & 31) === 0) {
       for (let p = 0; p < P; p++) lvl[p] = amps[p] * (1 + 0.2 * bow[p](t));
       cents = depth * smooth((t - o.attack * 0.6) / 1.2) * Math.sin(vibPh) * (1 + 0.25 * wander(t));
+      if (o.bend) bend = o.bend(t);
       env = smooth(t / o.attack) * (t > releaseAt ? smooth((o.len - t) / o.release) : 1) * (o.amp ? o.amp(t) : 1);
     }
     vibPh = wrap(vibPh + (TAU * 4.7) / SR);
-    const f = f0 * centsRatio(cents);
+    const f = f0 * centsRatio(o.bend ? cents + bend : cents);
     let y = 0;
     for (let p = 0; p < P; p++) {
       y += lvl[p] * Math.sin(ph[p]);
@@ -382,4 +387,26 @@ export function loupeBell(midi: number, o: { vel?: number; tau?: number } = {}):
   const y = fmBell(midiHz(midi), { ratio: 3.5, index: 1.1, tau, len: tau * 5, attack: 0.003 });
   new Biquad('lowpass', 6000, 0.7).run(y);
   return norm(y, peakDb(o.vel ?? 0.6));
+}
+
+// --- part two's colours (session 5) ---------------------------------------------------------------
+
+/**
+ * A chart lane's strip (STORYBOARD 8.2): a round tone (a sine with a little second and third harmonic under a
+ * 2.6 kHz low-pass) held level for exactly `n` samples: an 8 ms attack, a slow 1 dB sag, and a 30 ms release that
+ * ends on the last sample, so the ear hears each strip for as long as it slides.
+ */
+export function stripTone(midi: number, o: { n: number; vel?: number }): Float32Array {
+  const f0 = midiHz(midi);
+  const out = new Float32Array(o.n);
+  const len = o.n / SR;
+  const lp = new Biquad('lowpass', 2600, 0.7);
+  let p = 0;
+  for (let i = 0; i < o.n; i++) {
+    const t = i / SR;
+    const env = smooth(t / 0.008) * smooth((len - t) / 0.03) * (1 - 0.11 * (t / len));
+    out[i] = lp.tick(env * (Math.sin(p) + 0.3 * Math.sin(2 * p) + 0.12 * Math.sin(3 * p)));
+    p = wrap(p + (TAU * f0) / SR);
+  }
+  return norm(out, peakDb(o.vel ?? 0.6), 0);
 }

@@ -6,7 +6,7 @@
  * T.span), a frame of one of the cue sheet's plain-data schedules (LAMP_VISITS, FIX_A, BEAT_4, ...
  * in src/cues.ts, which the picture reads too) through T.frame, or the bar grid (T.beat).
  */
-import { SR, dbToGain, type Place, type StereoClip, type Timeline } from '@aiv/pipeline/audio/kit';
+import { SR, dbToGain, panGains, type Place, type StereoClip, type Timeline } from '@aiv/pipeline/audio/kit';
 import { fmMallet } from './instruments.ts';
 
 /** Pitches (MIDI, A4 = 69). */
@@ -23,6 +23,7 @@ export const M = {
   Fs3: 54,
   G3: 55,
   A3: 57,
+  Bb3: 58,
   B3: 59,
   C4: 60,
   Cs4: 61,
@@ -34,6 +35,7 @@ export const M = {
   A4: 69,
   B4: 71,
   C5: 72,
+  Cs5: 73,
   D5: 74,
   E5: 76,
   F5: 77,
@@ -116,6 +118,59 @@ export const LV = {
   ratchet: -25,
   hopNote: -17,
   answer: -15,
+  // part one's two late sounds (session 5): the older reply's paper tick, the stress plate's unhook
+  paperTick: -19,
+  unhook: -17,
+  // ===== part two (session 5): bars 44-84 =====
+  // beat 7
+  cordRun: -29,
+  cordPluck: -24,
+  notice: -30,
+  tally: -22,
+  /** the job capsule's held tone (its strike on the peel is LV.capsuleStrike) */
+  capsule: -27,
+  capsuleStrike: -19,
+  receipt: -21,
+  dockChord: -20,
+  dossier: -26,
+  /** the sharp contact a hit needs over the bass pulse and the pad (QA's onset finder: the loudest 5 ms rise within 120 ms) */
+  contact: -13,
+  // beat 8
+  /** the tick row's rain: one clip, normalised on its loudest (inked) tick */
+  rain: -24,
+  /** the thinned pulse: a soft FM mallet on 1 and 3 with the bass, the pad gone */
+  pulseMallet: -22,
+  stamp8: -22,
+  /** the lanes' strips: the two baselines in lighter print, two levels in full */
+  strip: -25,
+  stripHero: -23,
+  bracket: -24,
+  notch: -21,
+  stack: -21,
+  // beat 9
+  lid: -34,
+  vellum: -30,
+  strutHum: -27,
+  vellumTap: -24,
+  lampOn: -22,
+  slipDrop: -22,
+  sweep: -17,
+  stuck: -24,
+  pencil: -26,
+  // beat 10
+  etch: -15,
+  fixEcho: -26,
+  reach: -17,
+  report: -17,
+  pop: -19,
+  // beats 11-13
+  /** the scratching drag along the trace: it runs into rest-signoff, which must stay 20 dB under the mix */
+  drag: -33,
+  label: -20,
+  keySet: -22,
+  theme: -26,
+  collar: -22,
+  endMotif: -18,
 } as const;
 
 /** The score's landmarks, in samples, read from the cue sheet. */
@@ -142,8 +197,8 @@ export interface Marks {
   signoff: [number, number];
   /** the bare desk at the end (rest `rest-tail`), [start, end) */
   tail: [number, number];
-  /** bar 44 downbeat (mark `beat-7`): where the animatic bed (bed.ts) takes over */
-  bed: number;
+  /** bar 44 downbeat (mark `beat-7`): part two, beats 7-13 (continuity.ts numbers its pad lines apart from part one's) */
+  two: number;
   /** the film's end */
   end: number;
 }
@@ -162,7 +217,7 @@ export function marks(T: Timeline): Marks {
     intrusion: T.span('silence-intrusion'),
     signoff: T.span('rest-signoff'),
     tail: T.span('rest-tail'),
-    bed: T.cue('beat-7'),
+    two: T.cue('beat-7'),
     end: T.n,
   };
 }
@@ -248,4 +303,22 @@ export function desk(T: Timeline, mx: Placer): Desk {
     },
     fx,
   };
+}
+
+/**
+ * A mono clip as a stereo one that moves while it sounds: equal-power gains from `pan(t)` (t in s from the clip's
+ * start, -1 left .. +1 right), read every 32 samples. Placed at pan 0 (the mixer's balance is unity there), it is
+ * exactly the mono clip placed at a fixed pan wherever pan(t) holds still.
+ */
+export function panned(clip: Float32Array, pan: (t: number) => number): StereoClip {
+  const l = new Float32Array(clip.length);
+  const r = new Float32Array(clip.length);
+  let gl = 0;
+  let gr = 0;
+  for (let i = 0; i < clip.length; i++) {
+    if ((i & 31) === 0) [gl, gr] = panGains(pan(i / SR));
+    l[i] = clip[i] * gl;
+    r[i] = clip[i] * gr;
+  }
+  return { l, r };
 }

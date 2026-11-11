@@ -2,9 +2,10 @@
  * The score of "Who Routes the Agents?": one stereo track, `mix` (video.json audio.tracks:
  * {"source": "audio:mix"}), built on the shared score kit (@aiv/pipeline/audio/kit).
  *
- * Session 4 (the build): bars 1-43 (0:00-1:54.7) are laid on the picture's contact frames;
- * bars 44-84 (to 3:44.0) are an animatic bed (bed.ts) that session 5 replaces. arrangement.ts
- * lists the parts. The whole film is mixed and mastered as one.
+ * Bars 1-43 (0:00-1:54.7) were laid on the picture's contact frames in session 4 (approved as
+ * built, 2026-11-12), bars 44-84 (to 3:44.0) on part two's schedules in session 5. arrangement.ts
+ * lists the parts. The whole film is mixed and mastered as one. Part two places nothing a reader
+ * must hear on the Workers' bus: it stays behind its wall (levels.ts throughWall) from MT1 on.
  *
  *   arrangement.ts  the parts, on the cue sheet's grid and schedules (ctx.cues through the kit's timeline)
  *   instruments.ts  the film's voices, built from kit primitives
@@ -23,7 +24,7 @@
  * kit's AAC margin (1.1 dB), so -2.6 dBTP here and the AAC delivery stays under qa's -1 dBTP. The
  * last 2 s fade to nothing (`rest-tail`).
  *
- * The report (the stage's log) prints the master, the loudness of bars 1-43 and of the bed alone,
+ * The report (the stage's log) prints the master, the loudness of bars 1-43 and of bars 44-84 alone,
  * the rests and silences measured as `aiv qa` measures them (unweighted, on the master's output),
  * each hit's onset, how far each UI sound sits under the bed, and the mixer's levels.
  *
@@ -197,7 +198,7 @@ export function renderMix(ctx: ScoreContext): { l: Float32Array; r: Float32Array
   const one = part(0, half);
   const two = part(half, m.end);
   const lines = [
-    `score: bars 1-43 laid (0-${(half / SR).toFixed(2)} s), bars 44-84 the animatic bed (to ${(m.end / SR).toFixed(2)} s), ${m.end} samples`,
+    `score: bars 1-43 laid (0-${(half / SR).toFixed(2)} s), bars 44-84 laid (to ${(m.end / SR).toFixed(2)} s), ${m.end} samples`,
     `master: ${r.lufs.toFixed(2)} LUFS, LRA ${r.lra.toFixed(1)} LU, true peak ${r.truePeakDb.toFixed(2)} dBTP (limit ${r.limitDb.toFixed(2)}), sample peak ${r.samplePeakDb.toFixed(2)} dBFS, PLR ${(r.truePeakDb - r.lufs).toFixed(1)} dB`,
     `master: gain ${r.gainDb.toFixed(1)} dB, glue max ${r.glueMaxGrDb.toFixed(1)} dB, limiter max ${r.limiterMaxGrDb.toFixed(1)} dB at ${r.limiterMaxAt.toFixed(2)} s (over 3 dB for ${r.limitedOver3.toFixed(2)} s), ${r.iterations} pass(es)`,
     `master: limiter over 3 dB at ${r.limiterEvents.map((e) => `${e.at.toFixed(2)} s (${e.grDb.toFixed(1)})`).join(', ') || 'nowhere'}`,

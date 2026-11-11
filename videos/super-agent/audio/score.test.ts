@@ -1,23 +1,36 @@
 // The score's building blocks: its landmarks on the cue sheet, its sync with the picture's
-// schedules (every sound on its contact frame), and its voices. The full render is exercised by
+// schedules (every sound on its contact frame), the copies of the picture's layout part two's pans
+// read, the mixed film's halves, rests and hits, and its voices. The full render is exercised by
 // `aiv audio super-agent --verify` (two fresh processes, identical bytes); its levels are in
 // out/super-agent/audio/audio.json and the stage's log (index.ts prints the report).
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { hashString } from '@aiv/core';
 import type { ScoreContext } from '@aiv/pipeline/audio';
 import { peakOf, timeline, type Place, type StereoClip } from '@aiv/pipeline/audio/kit';
-import { BEAT_5, BEAT_6, FIX_A, FIX_B, LAMP_VISITS, MT1, WARMTH, at, cues } from '../src/cues.ts';
+import { BEAT_5, BEAT_6, BEAT_7, BEAT_8, BEAT_9, BEAT_10, BEAT_11, END, FIX_A, FIX_B, LAMP_VISITS, MT1, WARMTH, at, cues } from '../src/cues.ts';
 import { FOLDERS, actOneAt } from '../src/desk/actOne.ts';
 import { ACT_ONE_CAMERA, FOLDER_X, actOneFrameAt, flagSnaps, swings, warmthAt } from './actOne.ts';
-import { ACT_ONE_MOVE, CAMERA_EASE, moveFraming } from '../src/desk/camera.ts';
+import { ACT_ONE_MOVE, CAMERA_EASE, CAMERA_MOVES, FRAMING_B as DESK_B, FRAMING_HOOK as DESK_HOOK, moveFraming } from '../src/desk/camera.ts';
 import { replyLandsB, replyPostedB } from '../src/desk/beat3.ts';
 import { EVENTS_B, EVENTS_C } from '../src/desk/state.ts';
 import { KICK_FLY, STRIKES } from '../src/desk/beat5.ts';
+import { CI_MOUTH, E6 } from '../src/desk/beat6.ts';
+import { OLDER_REPLY } from '../src/desk/turn.ts';
+import { BAYS, CORDS, FEEDERS, FRESH, INDEX, LAMP, MAST, PRINT_HEAD, REEL, TAPE, THROAT, YOU, rectC } from '../src/desk/layout.ts';
+import { DOCKED, FLAG, FRAMING_D as DESK_D, HANDLE, MACHINES, QUERIES, VELLUM, WATCHDOG, clipC } from '../src/desk/summary.ts';
 import { arrange, marks } from './arrangement.ts';
-import { BATCH_CHORDS, KEY_STRIKE_LEAD, TAB_LANDS } from './keepUp.ts';
+import { BATCH_CHORDS, KEY_STRIKE_LEAD, PLATE_UNHOOK, TAB_LANDS } from './keepUp.ts';
 import { REPLY_FLIGHT } from './fixes.ts';
-import { TESTS_DONE } from './levels.ts';
-import { detent, gateClack, inkClick, inkSwell, paperFold, paperTear, paperThump, plateTap, pointerTick, printTap, ratchet, sandTrickle, sketchScratch, woodKnock, woodblockHop } from './foley.ts';
-import { bowedNote, brightPluck, chirp, fallTone, feltPiano, fmMallet, hum, loupeBell, marimba, sineBass, smear, softPulse, woodTick } from './instruments.ts';
+import { OLDER_REPLY_LANDS, TESTS_DONE } from './levels.ts';
+import { CAMERA_PLAN, FRAMING_B, FRAMING_D, FRAMING_HOOK, FRAMING_SHEET, X, framingAt, panAt } from './places.ts';
+import { capsulePan } from './waiting.ts';
+import { STAMPS, stampFrame } from './evidence.ts';
+import { stuckLoop } from './persistent.ts';
+import { END_MOTIFS, LAST_NOTE } from './endCard.ts';
+import { DETUNE } from './continuity.ts';
+import { renderMix } from './index.ts';
+import { cordRun, detent, gateClack, inkClick, inkSwell, lidClick, paperFold, paperTear, paperThump, paperTick, plateTap, pointerTick, printTap, ratchet, sandTrickle, sketchScratch, softPop, tickRain, unhook, vellumLay, vellumTap, woodKnock, woodblockHop } from './foley.ts';
+import { bowedNote, brightPluck, chirp, fallTone, feltPiano, fmMallet, hum, loupeBell, marimba, sineBass, smear, softPulse, stripTone, woodTick } from './instruments.ts';
 
 const SR = 48_000;
 const ctx: ScoreContext = {
@@ -48,7 +61,7 @@ describe('the score on the cue sheet', () => {
     expect(m.intrusion).toEqual([S(at(63)), S(at(63, 3))]);
     expect(m.signoff).toEqual([S(at(69, 3)), S(at(70, 3.5))]);
     expect(m.tail).toEqual([S(at(84, 4)), S(cues.filmFrames)]);
-    expect(m.bed).toBe(S(at(44)));
+    expect(m.two).toBe(S(at(44)));
     expect(m.end).toBe(ctx.filmSamples);
   });
 });
@@ -79,7 +92,7 @@ describe('act one follows the picture', () => {
     }
   });
 
-  it('lands on the picture’s own contact frames where the cue sheet has none (beat3.ts, state.ts EVENTS_B/EVENTS_C)', () => {
+  it('lands on the picture’s own contact frames where the cue sheet has none (beat3.ts, state.ts EVENTS_B/EVENTS_C, turn.ts, beat6.ts)', () => {
     // each reply is posted on its cue and lands REPLY_FLIGHT later, reply 7 included
     for (let k = 0; k < 8; k++) {
       expect(replyPostedB(k), `reply ${k}`).toBe(k === 7 ? FIX_B.reply7 : FIX_B.replies[k]);
@@ -90,6 +103,9 @@ describe('act one follows the picture', () => {
     expect(EVENTS_C.tabDrop + EVENTS_C.tabFrames - EVENTS_C.fold).toBe(TAB_LANDS);
     // the tests voice stops as the test lamps go out
     expect(at(TESTS_DONE.bar, TESTS_DONE.beat)).toBe(EVENTS_B.lampsOut);
+    // the older reply's paper tick and the stress plate's unhook (session 5)
+    expect(OLDER_REPLY_LANDS).toBe(OLDER_REPLY.lands);
+    expect(PLATE_UNHOOK).toBe(E6.plateExit);
   });
 
   it('lights each motif with the picture’s warmth, and sounds a falling tone where a flag snaps up', () => {
@@ -113,12 +129,66 @@ describe('act one follows the picture', () => {
   });
 });
 
+describe('part two pans by the picture’s layout and camera (audio/places.ts)', () => {
+  it('copies the layout it reads, each copy equal to its source', () => {
+    const mid = (a: number, b: number) => (a + b) / 2;
+    expect(X.spool).toBe(CORDS.vermilion[0][0]);
+    expect(X.mast).toBe(MAST.x);
+    expect(X.terminal).toBe(CORDS.vermilion[CORDS.vermilion.length - 1][0]);
+    expect(X.throat).toBe(mid(THROAT.box.x0, THROAT.box.x1));
+    expect(X.printHead).toBe(mid(PRINT_HEAD.box.x0, PRINT_HEAD.box.x1));
+    expect(X.tape).toBe(mid(TAPE.x0, TAPE.x1));
+    expect(X.reel).toBe(REEL.x);
+    expect(X.index).toBe(INDEX.pivot[0]);
+    expect(X.bugBay).toBe(rectC(BAYS.bug.box)[0]);
+    expect(X.bugDoor).toBe(mid(...BAYS.bug.door));
+    expect(X.glassDocked).toBe(DOCKED.glass[0]);
+    expect(X.inTray).toBe(rectC(YOU.inTray)[0]);
+    expect(X.laptop).toBe(rectC(YOU.laptop)[0]);
+    expect(X.lampHead).toBe(LAMP.head[0]);
+    expect(X.chatFeeder).toBe(rectC(FEEDERS.chat)[0]);
+    expect(X.repoPort).toBe(CI_MOUTH.to[0]);
+    expect(X.stuckBay).toBe(rectC(FRESH.box)[0]);
+    expect(X.flag).toBe(FLAG[0]);
+    expect(X.machines).toEqual(MACHINES.map((mc) => mc.c[0]));
+    expect(X.plan).toBe(VELLUM.plan.c[0]);
+    expect(X.cabinet).toBe(VELLUM.cabinet.c[0]);
+    expect(X.loop).toBe(mid(VELLUM.loop.x0, VELLUM.loop.x1));
+    expect(X.tethers).toBeCloseTo(mid(VELLUM.loop.x1, MACHINES.reduce((s, mc) => s + clipC(mc)[0], 0) / MACHINES.length), 6);
+    expect(X.watchdog).toBe(WATCHDOG.c[0]);
+    expect(X.query).toBe(QUERIES[0].at[0]);
+    expect(X.handle).toBe(HANDLE.c[0]);
+  });
+
+  it('moves the camera as the picture does: its framings, and every move from bar 44 on (src/desk/camera.ts)', () => {
+    const same = (a: { x: number; zoom: number }, b: { x: number; zoom: number }) => [a.x, a.zoom, b.x, b.zoom];
+    expect(same(FRAMING_B, FRAMING_HOOK)).toEqual(same(DESK_B, DESK_HOOK));
+    expect([FRAMING_D.x, FRAMING_D.zoom]).toEqual([DESK_D.x, DESK_D.zoom]);
+    const moves = CAMERA_MOVES.filter((mv) => mv.from >= at(44));
+    expect(moves.map((mv) => [mv.from, mv.to, ...same(mv.a, mv.b)]), 'part two’s camera changed: re-derive the pans (audio/places.ts)').toEqual(CAMERA_PLAN.map((mv) => [mv.from, mv.to, ...same(mv.a, mv.b)]));
+    expect(CAMERA_PLAN[0].b).toEqual(FRAMING_SHEET);
+    for (const mv of moves)
+      for (let f = mv.from; f <= mv.to; f += 4) {
+        const fr = moveFraming(mv, CAMERA_EASE((f - mv.from) / (mv.to - mv.from)));
+        expect(framingAt(f).x, `f${f}`).toBeCloseTo(fr.x, 3);
+        expect(framingAt(f).zoom, `f${f}`).toBeCloseTo(fr.zoom, 6);
+      }
+  });
+
+  it('pans the part-one sounds added in session 5 where the picture puts them', () => {
+    // the older reply lands in your in-tray at FRAMING_B (levels.ts IN_TRAY_PAN -0.25)
+    expect(panAt(X.inTray, OLDER_REPLY_LANDS)).toBeCloseTo(-0.25, 1);
+  });
+});
+
 /** A placement as the recorder saw it. */
 interface Placed {
   at: number;
   part: string;
   bus: string;
   len: number;
+  db: number;
+  pan: number;
   until?: number;
   sum: number;
 }
@@ -129,7 +199,7 @@ function record(): Placed[] {
       const l = clip instanceof Float32Array ? clip : clip.l;
       let sum = 0;
       for (let i = 0; i < l.length; i += 97) sum += l[i] * ((i % 7) + 1);
-      calls.push({ at, part: p.part, bus: p.bus, len: l.length, ...(p.until !== undefined ? { until: p.until } : {}), sum });
+      calls.push({ at, part: p.part, bus: p.bus, len: l.length, db: p.db ?? 0, pan: p.pan ?? 0, ...(p.until !== undefined ? { until: p.until } : {}), sum });
     },
   });
   return calls;
@@ -139,13 +209,28 @@ describe('every sound on its contact frame', () => {
   const placed = record();
   const partsAt = (s: number) => placed.filter((p) => p.at === s).map((p) => p.part);
   const has = (part: string, s: number) => placed.some((p) => p.part === part && p.at === s);
+  const of = (part: string, a = 0, b = Infinity) => placed.filter((p) => p.part === part && p.at >= a && p.at < b);
+  const ROUTER = ['pad', 'bass', 'ticks'];
 
   it('places a sound on every hit in bars 1-43, and on the marks with a picture event', () => {
     const hits = cues.events.filter((e) => e.kind === 'hit' && e.frame < at(44));
     expect(hits.length).toBeGreaterThan(15);
     for (const e of hits) expect(partsAt(S(e.frame)), e.id).not.toEqual([]);
-    const marked = ['fix-a', 'fix-b', 'fix-b-break', 'trait-continuous', 'thread-row', 'gauge', 'ghost-router', 'arm-tests', 'arm-docs', 'report-up', 'stamp-in', 'reply-lands', 'dispatch-fresh', 'key-dock', 'plate-proactive', 'spike-in', 'cache-eject', 'review-card', 'review-in', 'hop-1', 'hop-2', 'hop-3', 'recall-answer', 'flyover', 'intrusion', 'stamp', 'bookend'];
+    const marked = ['fix-a', 'fix-b', 'fix-b-break', 'trait-continuous', 'thread-row', 'gauge', 'ghost-router', 'arm-tests', 'arm-docs', 'report-up', 'stamp-in', 'reply-lands', 'dispatch-fresh', 'key-dock', 'plate-proactive', 'spike-in', 'cache-eject', 'review-card', 'review-in', 'hop-1', 'hop-2', 'hop-3', 'recall-answer'];
     for (const id of marked) expect(partsAt(T.cue(id)), id).not.toEqual([]);
+  });
+
+  it('places a sound on every hit in bars 44-84 and on part two’s marks with a picture event; the silent ones stay silent', () => {
+    const hits = cues.events.filter((e) => e.kind === 'hit' && e.frame >= at(44));
+    expect(hits.length).toBe(16);
+    for (const e of hits) expect(partsAt(S(e.frame)).filter((p) => !ROUTER.includes(p)), e.id).not.toEqual([]);
+    // (the stacks sound as each is done, BEAT_8.stacks[].done: the beat-8 test below)
+    const sounded = ['cord-out', 'clip-on', 'tally', 'door-ghost-strike', 'job-receipt', 'glass-dock', 'plate-productive', 'sheet-ticks', 'strips', 'bracket', 'notches', 'lid', 'vellum', 'trait-persistent', 'machine-lamp', 'slip-drop', 'watchdog', 'flag', 'query-open', 'tear', 'fix-cards', 'windings', 'reach', 'handle', 'report-68', 'act-one-card', ...BEAT_11.ideas.map((_, i) => `idea-${i + 1}`), 'lamp-turn-1'];
+    for (const id of sounded) expect(partsAt(T.cue(id)).filter((p) => !ROUTER.includes(p)), id).not.toEqual([]);
+    // the hatched slip glides in silence, the plates retire inside the rest, the split is the pad's (no onset), the rest is the picture's alone
+    // (the second rider arrives on the peel's frame, whose capsule is the sound there)
+    const silent = ['hatch', 'tally-ghost', 'rider-arrives', 'door-ghost', 'strut-lift', 'split', 'pins-68', 'plates-retire', 'step-down', 'lamp-turn-2', 'dissolve', 'card-leaves'];
+    for (const id of silent) expect(partsAt(T.cue(id)).filter((p) => !ROUTER.includes(p)), id).toEqual([]);
   });
 
   it('taps a woodblock on every swing of your lamp but the one that began before the film', () => {
@@ -178,6 +263,161 @@ describe('every sound on its contact frame', () => {
     });
     expect(has('pointer', S(BEAT_6.cacheFold + TAB_LANDS))).toBe(true);
     expect(placed.filter((p) => p.part === 'hop-note').map((p) => p.at)).toEqual(BEAT_6.recall.hops.map(S));
+    // session 5: the older reply's paper tick, the stress plate's dry unhook; beat 6's asks stay silent
+    expect(of('paper-tick').map((p) => p.at)).toEqual([S(OLDER_REPLY_LANDS)]);
+    expect(of('unhook').map((p) => p.at)).toEqual([S(PLATE_UNHOOK)]);
+  });
+
+  it('beat 7: the cord and its flyover, the tally, the capsule out and back, the two replies (BEAT_7)', () => {
+    const B = BEAT_7;
+    expect(of('cord-run').map((p) => [p.at, p.len])).toEqual([[S(B.cordOut), Math.ceil(((B.cordTaut - B.cordOut) / 30) * SR)]]);
+    expect(of('cord-pluck').map((p) => p.at)).toEqual(B.riders.map((r) => S(r.clipOn)));
+    // the flyover: the motif an octave up over the bar line, A5 a sixteenth before the guide, D6 on it; the Router's pulse skipped there
+    const guide = S(B.riders[0].guide);
+    expect(of('motif', guide - T.beats(0.25), guide + 1).map((p) => p.at)).toEqual([guide - T.beats(0.25), guide]);
+    expect(has('bass', guide)).toBe(false);
+    expect(has('bass', T.beat(45, 3))).toBe(true);
+    expect(has('notice', guide)).toBe(true);
+    expect(has('tally', S(B.tally.print))).toBe(true);
+    expect(of('strike', S(B.tally.ghostStrike), S(B.tally.ghostStrike) + 1).length).toBe(2);
+    expect(has('strike', S(B.doorGhost.strike))).toBe(true);
+    // the capsule: struck and held from the peel, out to the side rail over its arc, held there, back over the dock's 8 f
+    expect(of('capsule').map((p) => p.at)).toEqual([S(B.peel.lift), S(B.peel.lift)]);
+    expect(capsulePan(B.peel.lift)).toBeCloseTo(capsulePan(B.peel.dock), 9);
+    expect(capsulePan(B.peel.rail)).toBeGreaterThan(capsulePan(B.peel.lift) + 0.08);
+    expect(capsulePan((B.peel.rail + B.peel.dockFrom) / 2)).toBeCloseTo(capsulePan(B.peel.rail), 9);
+    expect(has('receipt', S(B.peel.receipt))).toBe(true);
+    expect(has('trickle', S(B.glass.dock))).toBe(true);
+    expect(has('plate', S(B.glass.plateDock))).toBe(true);
+    // the capsule docks back as a chord, strummed in under 10 ms
+    const chord = of('dock-chord');
+    expect(chord.length).toBe(3);
+    expect(chord[0].at).toBe(S(B.peel.dock));
+    expect(chord[2].at - chord[0].at).toBeLessThan(T.s(0.01));
+    // 7.4: the index's detent stands in for the Router's tick; the chat reply, one felt-piano note; the dossier, its slap and thump, the pulse aside
+    expect(has('arm-tick', S(B.reply.indexWest))).toBe(true);
+    expect(has('ticks', S(B.reply.indexWest))).toBe(false);
+    expect(has('ticks', S(B.glass.dock))).toBe(false);
+    expect(of('reply', S(B.reply.lands), S(B.reply.lands) + 1).length).toBe(1);
+    expect(of('dossier').map((p) => p.at)).toEqual([S(B.dossier.lands), S(B.dossier.lands)]);
+    expect(has('bass', S(B.dossier.lands))).toBe(false);
+  });
+
+  it('beat 8: no pad, the thinned pulse, the rain, strips exactly as long as their slides, the bracket, notches, stacks (BEAT_8)', () => {
+    const B = BEAT_8;
+    const [b50, b58] = [T.beat(50), T.beat(58)];
+    // no pad starts in bars 50-57, and every line before them has released by a second into bar 50
+    expect(of('pad', b50, b58)).toEqual([]);
+    for (const p of of('pad', 0, b50)) expect(p.at + p.len, `pad at f${p.at / 1600}`).toBeLessThanOrEqual(b50 + T.s(0.8) + 1);
+    for (let bar = 50; bar <= 57; bar++)
+      for (const b of [1, 3]) {
+        expect(has('bass', T.beat(bar, b)), `bass ${bar}.${b}`).toBe(true);
+        expect(has('pulse-mallet', T.beat(bar, b)), `mallet ${bar}.${b}`).toBe(T.beat(bar, b) !== S(B.stacks[2].done));
+      }
+    expect(of('rain').map((p) => p.at)).toEqual([S(B.ticks.from)]);
+    expect(of('rain')[0].len / SR).toBeCloseTo((B.ticks.to - B.ticks.from) / 30, 1);
+    // the strips: each as long as its slide (stripFrames x p95), so the halving is heard
+    const strips = of('strip');
+    B.lanes.forEach((lane, i) => {
+      expect(strips[i].at).toBe(S(lane.slide));
+      expect(strips[i].len).toBe(S(lane.slide + lane.p95 * B.stripFrames) - S(lane.slide));
+    });
+    expect(strips[2].len / strips[0].len).toBeCloseTo(B.lanes[2].p95 / B.lanes[0].p95, 3);
+    expect(strips[3].at).toBe(S(B.longRun.from));
+    expect(strips[3].len).toBe(S(B.longRun.from + B.longRun.frames) - S(B.longRun.from));
+    expect(of('stamp-8').map((p) => p.at)).toEqual([S(B.caveat), ...STAMPS.map((id) => S(stampFrame(id)))]);
+    expect(of('bracket').map((p) => p.at)).toEqual([S(B.bracket), S(B.bracket)]);
+    expect(of('notch').map((p) => p.at)).toEqual(B.notches.filter((n) => n.punched).map((n) => S(n.f)));
+    expect(has('ticks', S(B.notches[1].f))).toBe(false);
+    expect(has('ticks', S(B.longRun.from))).toBe(false);
+    const stacks = of('stack');
+    expect(stacks.map((p) => p.at)).toEqual([...B.stacks.map((s) => S(s.done)), S(B.stacks[2].done)]);
+  });
+
+  it('beat 9: the lid, the vellum laid, the strut handed over, the Watchdog’s sweeps over the stuck loop, the bass out (BEAT_9)', () => {
+    const B = BEAT_9;
+    expect(of('lid').map((p) => p.at)).toEqual([S(B.lidClick)]);
+    expect(of('vellum').map((p) => p.at)).toEqual([...B.lays, B.watchdog].map(S));
+    expect(has('strut-hum', S(B.strut.dock))).toBe(true);
+    expect(has('vellum-tap', S(B.strut.plateDock))).toBe(true);
+    expect(has('lamp-on', S(B.machineLamp))).toBe(true);
+    expect(has('slip-drop', S(B.slipDrop))).toBe(true);
+    expect(of('sweep').map((p) => p.at)).toEqual(B.sweeps.flatMap((f) => [S(f), S(f)]));
+    expect(of('stuck').map((p) => p.at)).toEqual(stuckLoop().map(([f]) => S(f)));
+    expect(stuckLoop().length).toBe(16);
+    expect(has('pencil', S(B.flag))).toBe(true);
+    expect(of('bass', T.beat(58), T.beat(71))).toEqual([]);
+    expect(of('pad', T.beat(58), T.beat(58) + 1).length).toBe(4);
+  });
+
+  it('beat 10: the minor second, one etch note per machine after it, the pencil marks, the split into two, bar 68’s handshake (BEAT_10)', () => {
+    const B = BEAT_10;
+    const intr = S(B.hatch.register);
+    expect(of('intrusion').map((p) => p.at)).toEqual([intr, intr + T.s(0.012)]);
+    // the first machine's note comes on its own beat, after the D-E♭
+    expect(of('etch').map((p) => p.at)).toEqual(B.etch.map(S));
+    expect(S(B.etch[0])).toBeGreaterThan(intr);
+    expect(of('pencil', S(B.etch[0])).map((p) => p.at)).toEqual([B.query, B.windings, B.handle].map(S));
+    expect(has('tear', S(B.tear))).toBe(true);
+    expect(of('fix-echo').map((p) => [p.at, p.pan])).toEqual([
+      [S(B.cards.rise), -0.9],
+      [S(B.cards.rise), 0.9],
+    ]);
+    // the split: every pad line held through it (not just releasing) is two halves, placed as stereo clips (centred: they pan themselves)
+    const split = S(B.split);
+    const through = of('pad').filter((p) => p.at < split && p.at + p.len > split + T.s(0.8));
+    expect(through.length).toBe(8);
+    expect(through.every((p) => p.pan === 0)).toBe(true);
+    const halves = new Map<string, number>();
+    for (const p of through) halves.set(`${p.at}:${p.len}`, (halves.get(`${p.at}:${p.len}`) ?? 0) + 1);
+    expect([...halves.values()].every((n) => n % 2 === 0)).toBe(true);
+    expect(DETUNE.cents).toBeGreaterThan(0);
+    expect(has('reach', S(B.reach))).toBe(true);
+    expect(has('ink-click', S(B.reportUp))).toBe(true);
+    expect(has('print', S(B.stampIn))).toBe(true);
+    // reporting back falls D5 to A4
+    expect(of('report').map((p) => p.at)).toEqual([S(B.stampIn), S(B.stampIn) + T.beats(0.5)]);
+    expect(has('pop', S(B.replyLands))).toBe(true);
+    // then everything holds until the stamp: nothing new starts in the 20 f before it
+    expect(placed.filter((p) => p.at > S(B.replyLands) && p.at < S(BEAT_11.stamp))).toEqual([]);
+  });
+
+  it('beats 11-13: the stamp and the drag, the labels on their beats, the theme, the half-speed motif, the bookend alone, the end card’s mallet (BEAT_11, END)', () => {
+    const B = BEAT_11;
+    const m = marks(T);
+    const stamp = S(B.stamp);
+    expect(has('stamp', stamp)).toBe(true);
+    const done = of('motif', stamp, stamp + T.beats(2));
+    expect(done.map((p) => p.at)).toEqual([0, 0.5, 1].map((b) => stamp + T.beats(b)));
+    expect(done.every((p) => p.until === m.signoff[0])).toBe(true);
+    // the drag follows the trace out and home: it starts on the stamp (outside the rest) and ends where the trace does
+    expect(of('drag').map((p) => [p.at, p.len])).toEqual([[S(B.trace.out[0]), Math.ceil(((B.trace.home[1] - B.trace.out[0]) / 30) * SR)]]);
+    expect(of('label').map((p) => p.at)).toEqual(B.ideas.map(S));
+    for (const f of B.ideas) expect(has('ticks', S(f)), `tick f${f}`).toBe(false);
+    expect(has('key', S(B.keyMap))).toBe(true);
+    const theme = of('theme');
+    expect(theme.length).toBe(7);
+    expect(theme[0].at).toBe(S(B.actOneCard.rise));
+    expect(Math.max(...theme.map((p) => p.at))).toBeLessThan(S(B.actOneCard.rise) + T.beats(2));
+    expect(has('collar', S(B.collar.to))).toBe(true);
+    expect(of('motif', S(B.lampTurns[0]), S(B.lampTurns[0]) + T.beats(2)).map((p) => p.at)).toEqual([S(B.lampTurns[0]), S(B.lampTurns[0]) + T.beats(1)]);
+    // the bookend: the motif once, with no felt-piano answer and nothing else of yours after it
+    const turn = S(END.bookend.turn);
+    expect(of('motif', turn, turn + T.beats(4)).map((p) => p.at)).toEqual([turn, turn + T.beats(0.5)]);
+    expect(placed.filter((p) => p.at >= turn && p.at < turn + T.beats(4) && !['motif', 'pad', 'ticks'].includes(p.part))).toEqual([]);
+    // the frame-0 rhythm: one tick a beat from bar 76, softer and softer through the dissolve, none once the card has landed
+    const ticks = of('ticks', T.beat(76));
+    expect(ticks.map((p) => p.at)).toEqual([0, 1, 2, 3, 5, 6, 7, 8, 9].map((b) => T.beat(76) + T.beats(b)));
+    for (let i = 1; i < ticks.length; i++) expect(ticks[i].db).toBeLessThanOrEqual(ticks[i - 1].db);
+    expect(ticks[ticks.length - 1].at).toBeLessThan(S(END.card.land));
+    // the end card: the solo mallet from its landing, never more than 3.5 beats between notes, the last decaying before the tail
+    const land = S(END.card.land);
+    const solo = of('motif', land).map((p) => p.at);
+    expect(solo[0]).toBe(land);
+    expect(solo.length).toBe(END_MOTIFS.length * 2 + 1);
+    for (let i = 1; i < solo.length; i++) expect(solo[i] - solo[i - 1]).toBeLessThanOrEqual(T.beats(3.5));
+    expect(solo[solo.length - 1]).toBe(land + T.beats(LAST_NOTE));
+    expect(placed.filter((p) => p.at >= land && p.part !== 'motif')).toEqual([]);
   });
 
   it('keeps the rests and silences: nothing starts in a silence, and only their own quiet sounds in a rest', () => {
@@ -192,6 +432,10 @@ describe('every sound on its contact frame', () => {
     expect(inSpan('rest-tail')).toEqual([]);
     // the fresh bay rises inside the rest: its pluck, no knock
     expect(partsAt(S(MT1.dispatchFresh))).toEqual(['rest-pluck']);
+  });
+
+  it('keeps part two’s sounds off the Workers’ bus, which is behind its wall from MT1 on', () => {
+    expect(placed.filter((p) => p.bus === 'workers' && p.at >= S(at(44)))).toEqual([]);
   });
 
   it('lets the tests voice stop as its lamps go out, and gives the Router’s tick on 2 and 4 from bar 21', () => {
@@ -211,6 +455,36 @@ describe('every sound on its contact frame', () => {
   }, 180_000);
 });
 
+describe('the mastered film (index.ts renderMix), as the stage renders it', () => {
+  // the stage's own seed (render.ts scoreContext: FNV-1a of the slug), so this is the mix that ships, read off its report as aiv audio prints it
+  const stage: ScoreContext = { ...ctx, seed: hashString('super-agent') };
+  let lines: string[] = [];
+  beforeAll(() => {
+    lines = renderMix(stage).lines;
+  }, 400_000);
+
+  it('balances its halves: bars 44-84 alone near -14.3 LUFS, so bars 1-43 stay where they were approved', () => {
+    const m = lines.find((l) => l.startsWith('loudness:'))!.match(/bars 1-43 alone (-?[\d.]+) LUFS.*bars 44-84 alone (-?[\d.]+) LUFS/)!;
+    const [one, two] = [Number(m[1]), Number(m[2])];
+    expect(two).toBeGreaterThan(-14.8);
+    expect(two).toBeLessThan(-13.8);
+    // the approved master had bars 1-43 alone at -13.79 LUFS (2026-11-12)
+    expect(Math.abs(one - -13.79)).toBeLessThan(0.3);
+  });
+
+  it('keeps every rest 20 dB under the mix and every silence silent, as QA measures them', () => {
+    const rests = lines.filter((l) => l.startsWith('qa: rest') || l.startsWith('qa: silence'));
+    expect(rests.length).toBe(6);
+    for (const l of rests) expect(l, l).toMatch(/ ok$/);
+  });
+
+  it('gives every hit of bars 44-84 a contact QA’s onset finder hears within a frame', () => {
+    const hits = lines.find((l) => l.startsWith('qa: hits'))!;
+    const missed = [...hits.matchAll(/([\w-]+) \(f(\d+)\)/g)].filter((mm) => Number(mm[2]) >= at(44)).map((mm) => mm[1]);
+    expect(missed, hits).toEqual([]);
+  });
+});
+
 describe('the voices', () => {
   const seed = 7;
   const mono: [string, () => Float32Array, number][] = [
@@ -228,6 +502,7 @@ describe('the voices', () => {
     ['hum', () => hum(38, { len: 4.7, attack: 0.25 }), 0.7],
     ['softPulse', () => softPulse(62, { vel: 0.6 }), 0.6],
     ['loupeBell', () => loupeBell(81, { vel: 0.55 }), 0.55],
+    ['stripTone', () => stripTone(66, { n: 46_400, vel: 0.6 }), 0.6],
     ['woodblockHop', () => woodblockHop(seed, 1), 1],
     ['sketchScratch', () => sketchScratch(seed, { len: 0.3 }), 1],
     ['sketchScratch, dry', () => sketchScratch(seed, { len: 0.22, k: 2, dry: true }), 1],
@@ -243,6 +518,13 @@ describe('the voices', () => {
     ['paperFold', () => paperFold(seed), 1],
     ['pointerTick', () => pointerTick(seed, 0), 1],
     ['ratchet', () => ratchet(seed, { len: 0.8 }), 1],
+    ['paperTick', () => paperTick(seed, 0), 1],
+    ['unhook', () => unhook(seed, 0), 1],
+    ['cordRun', () => cordRun(seed, { len: 1.1 }), 1],
+    ['lidClick', () => lidClick(seed, 0), 1],
+    ['vellumLay', () => vellumLay(seed, { len: 0.4 }), 1],
+    ['vellumTap', () => vellumTap(seed, 0), 1],
+    ['softPop', () => softPop(seed, 0), 1],
   ];
   it.each(mono)('%s is finite, peaks at its velocity and is the same every time', (_, make, vel) => {
     const a = make();
@@ -273,5 +555,28 @@ describe('the voices', () => {
     const swell = inkSwell(seed, { len: 1 });
     expect(Math.max(peakOf(swell.l), peakOf(swell.r))).toBeCloseTo(1, 5);
     expect(swell.l).not.toEqual(swell.r);
+  });
+
+  it('a bowed note with no bend is the note it always was; a bend of zero changes nothing, and its halves sum to the whole', () => {
+    const o = { seed, k: 3, len: 1.5, attack: 0.3, release: 0.4 };
+    const a = bowedNote(57, o);
+    expect(bowedNote(57, { ...o, bend: () => 0 })).toEqual(a);
+    const half = bowedNote(57, { ...o, amp: () => 0.5 });
+    for (let i = 0; i < a.length; i += 101) expect(half[i] * 2).toBeCloseTo(a[i], 6);
+    expect(bowedNote(57, { ...o, bend: (t) => 9 * t })).not.toEqual(a);
+  });
+
+  it('holds a strip’s tone for exactly its samples, ending on silence; rains its ticks at their pans', () => {
+    const s = stripTone(62, { n: 25_120 });
+    expect(s.length).toBe(25_120);
+    expect(Math.abs(s[s.length - 1])).toBeLessThan(1e-3);
+    expect(Math.abs(s[Math.floor(s.length / 2)])).toBeGreaterThan(0);
+    const rain = tickRain(seed, [
+      { t: 0, amp: 1, pan: -1 },
+      { t: 0.1, amp: 1, pan: 1 },
+    ]);
+    const at = (i: number, c: Float32Array) => peakOf(c.subarray(i, i + 480));
+    expect(at(0, rain.l)).toBeGreaterThan(10 * at(0, rain.r));
+    expect(at(4800, rain.r)).toBeGreaterThan(10 * at(4800, rain.l));
   });
 });

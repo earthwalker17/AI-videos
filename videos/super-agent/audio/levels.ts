@@ -5,6 +5,7 @@
  *   f1440 (`turn`)        every voice (mallet, marimba, pluck, felt piano) collapses into one
  *                         D-major unison arpeggio, centred; the ink is a soft spreading swell
  *   f1640 (`trait-continuous`)  the Continuous plate docks: an enamel tap
+ *   f1656                 the older reply, the chute's first delivery, lands in your in-tray: a paper tick
  *   f1680 (`request-in`)  the request is stamped in: a print tap and the motif's first station
  *   f1720 (`strike-split`) the counterfactual card is struck: a dry scratch
  *   f1760 (`dispatch-bug`) a hatch opens, the bug bay rises: a low wooden knock, the motif's second
@@ -28,7 +29,7 @@ import { rand } from '@aiv/core';
 import { Svf, dbToGain, smooth, type Mixer } from '@aiv/pipeline/audio/kit';
 import { MT1 } from '../src/cues.ts';
 import { LV, M, type Desk, type Marks } from './common.ts';
-import { inkClick, inkSwell, plateTap, printTap, sketchScratch, woodKnock } from './foley.ts';
+import { inkClick, inkSwell, paperTick, plateTap, printTap, sketchScratch, woodKnock } from './foley.ts';
 import { brightPluck, feltPiano, fmMallet, marimba, smear, woodTick } from './instruments.ts';
 
 const { D4, Fs4, A4, D5, Fs5, A5 } = M;
@@ -52,6 +53,11 @@ export const WORKERS: readonly Worker[] = [
   { id: 'docs', midi: Fs4, cue: 'dispatch-docs', pan: 0.65, cells: [[1, 2.5, 3.75]] },
 ];
 
+/** The older reply lands in your in-tray on this film frame (src/desk/turn.ts OLDER_REPLY.lands; held by score.test.ts). */
+export const OLDER_REPLY_LANDS = 1656;
+/** Your in-tray across FRAMING_B (layout.ts YOU.inTray's centre x -520: places.ts panAt). */
+const IN_TRAY_PAN = -0.25;
+
 /** The beat the test lamps start going out on (bar 27 beat 4: src/desk/state.ts EVENTS_B.lampsOut, f2140). */
 export const TESTS_DONE = { bar: 27, beat: 4 } as const;
 
@@ -72,6 +78,7 @@ export function levels(d: Desk): void {
 
   // ===== 4.2-4.3: the request stamped in, the split struck, the first dispatch ========================
   foley(T.cue('trait-continuous'), plateTap(seed, 0), { part: 'plate', db: LV.plate, pan: -0.1, sends: { hall: 0.2 } });
+  foley(d.f(OLDER_REPLY_LANDS), paperTick(seed, 0), { part: 'paper-tick', db: LV.paperTick, pan: IN_TRAY_PAN, sends: { hall: 0.1 } });
   const reqIn = T.cue('request-in');
   foley(reqIn, printTap(seed, 0), { part: 'print', db: LV.print, pan: -0.05, sends: { hall: 0.1 } });
   d.motif(reqIn, { pan: -0.2, db: LV.motif - 3 });

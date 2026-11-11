@@ -13,7 +13,8 @@
  *   6.1  batching (BEAT_6.batches): each waiting slip butting into the strip is a soft held tick,
  *        its pitch held under it; on the sweep (`batch`, `batch-2`) the held pitches are released
  *        as one struck chord on the downbeat (its notes 3 ms apart): five notes, then eight for the longer strip
- *   6.2  `plate-detent` the stress plate sets: a soft mechanical detent
+ *   6.2  `plate-detent` the stress plate sets: a soft mechanical detent; on bar 39's downbeat it lifts off
+ *        its hooks and flies back out (a dry unhook)
  *   6.3  `cache-eject` the report card ejects (an ink click); `cache-fold` the body folds (paper),
  *        and a pointer tick as its tab lands in the drawer 16 f later (src/desk/state.ts EVENTS_C:
  *        fold 8 f, a 2 f hold, the tab's 6 f drop)
@@ -25,7 +26,7 @@
 import { rand } from '@aiv/core';
 import { BEAT_5, BEAT_6 } from '../src/cues.ts';
 import { LV, M, type Desk } from './common.ts';
-import { detent, gateClack, inkClick, paperFold, plateTap, pointerTick, printTap, ratchet, woodblockHop } from './foley.ts';
+import { detent, gateClack, inkClick, paperFold, plateTap, pointerTick, printTap, ratchet, unhook, woodblockHop } from './foley.ts';
 import { bowedNote, feltPiano, fmMallet, loupeBell, marimba, softPulse, woodTick } from './instruments.ts';
 
 const { D3, A3, D4, Fs4, A4, D5, E5, A5 } = M;
@@ -42,6 +43,9 @@ const THROAT_PAN = -0.05;
 export const KEY_STRIKE_LEAD = 6;
 /** The tab lands in the drawer this long after the fold starts (src/desk/state.ts EVENTS_C: foldFrames 8 + 2 f hold + tabFrames 6). */
 export const TAB_LANDS = 16;
+
+/** The stress plate lifts off its hooks on this film frame (src/desk/beat6.ts E6.plateExit; held by score.test.ts). */
+export const PLATE_UNHOOK = 3040;
 
 /** The samples this part marks on a beat the Router's tick would also sound (continuity.ts leaves them to it). */
 export const keepUpBeats = (d: Desk): number[] => [d.f(BEAT_6.recall.stampIn)];
@@ -102,6 +106,7 @@ export function keepUp(d: Desk): void {
     });
   });
   foley(T.cue('plate-detent'), detent(seed, 0), { part: 'detent', db: LV.detent, pan: 0.3, sends: { hall: 0.12 } });
+  foley(d.f(PLATE_UNHOOK), unhook(seed, 0), { part: 'unhook', db: LV.unhook, pan: 0.3, sends: { hall: 0.1 } });
 
   // ===== 6.3: context as a cache ==============================================================================
   foley(T.cue('cache-eject'), inkClick(seed, 6), { part: 'ink-click', db: LV.click, pan: 0.3 });

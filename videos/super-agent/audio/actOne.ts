@@ -39,7 +39,7 @@ export const FOLDER_X: readonly number[] = [-598, -448, -320, -180, -40, 98, 226
  */
 export const ACT_ONE_CAMERA = { hook: { x: -600, zoom: 1.6 }, a: { x: -296, zoom: 1.2 }, from: 160, to: 320 } as const;
 /** The camera token: cubic-bezier(.65, 0, .35, 1) at progress t (Newton's method on the curve's x, then its y). */
-function cameraEase(t: number): number {
+export function cameraEase(t: number): number {
   const [x1, y1, x2, y2] = [0.65, 0, 0.35, 1];
   const bez = (u: number, p1: number, p2: number) => 3 * (1 - u) * (1 - u) * u * p1 + 3 * (1 - u) * u * u * p2 + u * u * u;
   const dBez = (u: number, p1: number, p2: number) => 3 * (1 - u) * (1 - u) * p1 + 6 * (1 - u) * u * (p2 - p1) + 3 * u * u * (1 - p2);

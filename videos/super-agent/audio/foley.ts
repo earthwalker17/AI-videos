@@ -19,10 +19,18 @@
  *   paperFold      a card folding along its crease
  *   pointerTick    the pointer tab landing in its drawer
  *   ratchet        the reel rewinding: a train of small clicks that speeds up and slows (not a whoosh)
+ *   paperTick      a light slip landing in a tray (the older reply, f1656)
+ *   unhook         a plate lifting off its hooks: two small dry clicks (the stress plate, f3040)
+ *   cordRun        a cord paying out through its guide: a soft, twisted friction (beat 7)
+ *   tickRain       a row of tiny ticks printing, some inked: a soft rain, each tick at its own pan (beat 8)
+ *   lidClick       a laptop lid shutting: a soft latch over a small low thump (beat 9)
+ *   vellumLay      a vellum sheet laid down flat: airy, filtered noise (beat 9)
+ *   vellumTap      a vellum plate settling: a soft, papery tap (beat 9)
+ *   softPop        a reply landing (beat 10): a small round pop, its pitch falling
  *
  * Deterministic: every noise stream is seeded from the film seed (the kit's seedOf, @aiv/core's hash).
  */
-import { Biquad, ModalBank, SR, Svf, TAU, norm, seedOf, slowNoise, smooth, uni, whiteNoise, type Mode, type StereoClip } from '@aiv/pipeline/audio/kit';
+import { Biquad, ModalBank, SR, Svf, TAU, clamp, norm, seedOf, slowNoise, smooth, uni, whiteNoise, type Mode, type StereoClip } from '@aiv/pipeline/audio/kit';
 
 /** A strike: a Hann pulse `ms` long, roughened with a little seeded noise. */
 function strike(s: number, ms: number, grit: number): Float32Array {
@@ -58,9 +66,10 @@ export function woodblockHop(seed: number, k: number, pitch = 820): Float32Array
 /**
  * A pencil (or pen) stroke on paper: band-passed noise whose centre moves along the stroke, its
  * level grained by the paper's tooth and the hand's pressure. `dry` is shorter-grained and
- * brighter, one quick stroke: the ink strike-through.
+ * brighter, one quick stroke: the ink strike-through. `attack` (s, default 12 ms dry, 25 ms not) is the stroke's
+ * raised-cosine onset: a struck card that is a hit starts in 2 ms, so its stroke carries the hit over a bass pulse.
  */
-export function sketchScratch(seed: number, o: { len: number; k?: number; dry?: boolean }): Float32Array {
+export function sketchScratch(seed: number, o: { len: number; k?: number; dry?: boolean; attack?: number }): Float32Array {
   const k = o.k ?? 0;
   const n = Math.ceil(o.len * SR);
   const out = new Float32Array(n);
@@ -74,7 +83,7 @@ export function sketchScratch(seed: number, o: { len: number; k?: number; dry?: 
     const t = i / SR;
     if ((i & 31) === 0) bp.set(c0 + (c1 - c0) * (t / o.len), o.dry ? 1.4 : 1.0);
     bp.tick(noise());
-    const env = smooth(t / (o.dry ? 0.012 : 0.025)) * smooth((o.len - t) / (o.dry ? 0.04 : 0.07)) * (0.75 + 0.25 * hand(t));
+    const env = smooth(t / (o.attack ?? (o.dry ? 0.012 : 0.025))) * smooth((o.len - t) / (o.dry ? 0.04 : 0.07)) * (0.75 + 0.25 * hand(t));
     out[i] = hp.tick(bp.bpn) * env * (0.5 + 0.5 * Math.abs(tooth(t)));
   }
   return norm(out, 0);
@@ -338,6 +347,172 @@ export function ratchet(seed: number, o: { len: number; k?: number }): Float32Ar
     const a = 0.55 + 0.45 * Math.sin(Math.PI * u);
     for (let j = 0; j < clip.length && i + j < n; j++) out[i + j] += a * clip[j];
     c++;
+  }
+  return norm(out, 0);
+}
+
+// --- part two's sounds (session 5) ------------------------------------------------------------------
+
+/** A light slip landing in a tray: a 3 ms breath of paper (1.5-6 kHz) over a small body round 1.9 kHz. */
+export function paperTick(seed: number, k: number): Float32Array {
+  const y = body(
+    seedOf(seed, 'paper-tick', k),
+    [
+      [1900, 0.006, 0.5],
+      [3300, 0.003, 0.3],
+      [640, 0.01, 0.25],
+    ],
+    { ms: 0.6, grit: 0.4, len: 0.06, lowpass: 6500 },
+  );
+  const noise = whiteNoise(seedOf(seed, 'paper-tick-air', k));
+  const hp = new Biquad('highpass', 1500, 0.7);
+  const lp = new Biquad('lowpass', 6000, 0.7);
+  for (let i = 0; i < y.length; i++) y[i] += 0.8 * lp.tick(hp.tick(noise())) * Math.exp(-i / (0.003 * SR));
+  return norm(y, 0);
+}
+
+/** A plate lifting off its hooks: two small, dry metallic clicks 9 ms apart (the second softer) and a 12 ms scrape. */
+export function unhook(seed: number, k: number): Float32Array {
+  const click = (s: number) =>
+    body(
+      s,
+      [
+        [3100, 0.003, 1],
+        [4700, 0.002, 0.5],
+        [1400, 0.006, 0.4],
+      ],
+      { ms: 0.3, grit: 0.3, len: 0.05, lowpass: 8000 },
+    );
+  const a = click(seedOf(seed, 'unhook', k));
+  const b = click(seedOf(seed, 'unhook-2', k));
+  const lag = Math.round(0.009 * SR);
+  const out = new Float32Array(a.length + lag);
+  for (let i = 0; i < a.length; i++) out[i] += a[i];
+  for (let i = 0; i < b.length; i++) out[i + lag] += 0.6 * b[i];
+  const noise = whiteNoise(seedOf(seed, 'unhook-scrape', k));
+  const hp = new Biquad('highpass', 2500, 0.7);
+  const n = Math.round(0.012 * SR);
+  for (let i = 0; i < n; i++) out[i + lag] += 0.12 * hp.tick(noise()) * Math.sin((Math.PI * i) / n);
+  return norm(out, 0);
+}
+
+/** A cord paying out through its guide over `len` s: noise band-passed round 1.1 kHz, its level twisted (the cord's lay), eased in and out. */
+export function cordRun(seed: number, o: { len: number; k?: number }): Float32Array {
+  const k = o.k ?? 0;
+  const n = Math.ceil(o.len * SR);
+  const out = new Float32Array(n);
+  const noise = whiteNoise(seedOf(seed, 'cord-run', k));
+  const twist = slowNoise(seedOf(seed, 'cord-twist', k), 34);
+  const bp = new Svf();
+  bp.set(1100, 1.6);
+  const hp = new Biquad('highpass', 400, 0.7);
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    bp.tick(noise());
+    out[i] = hp.tick(bp.bpn) * smooth(t / 0.05) * smooth((o.len - t) / 0.12) * (0.6 + 0.4 * Math.abs(twist(t)));
+  }
+  return norm(out, 0);
+}
+
+/** One tick of the rain: when (s from the clip's start), how loud (0..1) and where (pan). */
+export interface RainTick {
+  t: number;
+  amp: number;
+  pan: number;
+}
+/** A row of tiny ticks printing (STORYBOARD 8.1, "a soft rain"): each a 2 ms body of its own pitch round 3 kHz, placed at its own pan. */
+export function tickRain(seed: number, ticks: readonly RainTick[]): StereoClip {
+  const s = seedOf(seed, 'tick-rain');
+  const end = Math.max(...ticks.map((tk) => tk.t)) + 0.03;
+  const n = Math.ceil(end * SR);
+  const l = new Float32Array(n);
+  const r = new Float32Array(n);
+  ticks.forEach((tk, c) => {
+    const f = 3000 * (0.9 + 0.2 * uni(s, c));
+    const clip = body(
+      seedOf(s, 'tick', c),
+      [
+        [f, 0.002, 1],
+        [f * 1.8, 0.0012, 0.35],
+        [900, 0.004, 0.2],
+      ],
+      { ms: 0.25, grit: 0.25, len: 0.02, lowpass: 9000 },
+    );
+    const a = ((clamp(tk.pan, -1, 1) + 1) * Math.PI) / 4;
+    const gl = Math.cos(a) * tk.amp;
+    const gr = Math.sin(a) * tk.amp;
+    const i0 = Math.round(tk.t * SR);
+    for (let j = 0; j < clip.length && i0 + j < n; j++) {
+      l[i0 + j] += gl * clip[j];
+      r[i0 + j] += gr * clip[j];
+    }
+  });
+  return norm({ l, r }, 0);
+}
+
+/** A laptop lid shutting: a soft plastic latch (1.6 kHz) over a small, low thump of the lid's mass. */
+export function lidClick(seed: number, k: number): Float32Array {
+  return body(
+    seedOf(seed, 'lid-click', k),
+    [
+      [1600, 0.01, 1],
+      [2900, 0.005, 0.45],
+      [380, 0.03, 0.6],
+      [120, 0.05, 0.5],
+    ],
+    { ms: 1.4, grit: 0.2, len: 0.22, lowpass: 5000 },
+  );
+}
+
+/** A vellum sheet laid down flat over `len` s: a breath of air (3-7 kHz, falling) as it comes down, and a smaller one as it settles; no landing thump. */
+export function vellumLay(seed: number, o: { len: number; k?: number }): Float32Array {
+  const k = o.k ?? 0;
+  const n = Math.ceil(o.len * SR);
+  const out = new Float32Array(n);
+  const noise = whiteNoise(seedOf(seed, 'vellum-lay', k));
+  const grain = slowNoise(seedOf(seed, 'vellum-grain', k), 60);
+  const bp = new Svf();
+  const hp = new Biquad('highpass', 2000, 0.7);
+  for (let i = 0; i < n; i++) {
+    const u = i / n;
+    if ((i & 31) === 0) bp.set(5200 - 1600 * u, 0.7);
+    bp.tick(noise());
+    const fall = u < 0.85 ? Math.sin((Math.PI * u) / 0.85) ** 1.5 : 0;
+    const settle = 0.35 * smooth((u - 0.72) / 0.08) * Math.exp(-Math.max(0, u - 0.8) * 30);
+    out[i] = hp.tick(bp.bpn) * (fall + settle) * (0.75 + 0.25 * grain(i / SR)) * smooth((1 - u) / 0.04);
+  }
+  return norm(out, 0);
+}
+
+/** A vellum plate settling: a soft, papery tap (a 12 ms breath under 2.2 kHz over a small body round 520 Hz). */
+export function vellumTap(seed: number, k: number): Float32Array {
+  const y = body(
+    seedOf(seed, 'vellum-tap', k),
+    [
+      [520, 0.02, 0.6],
+      [1300, 0.01, 0.3],
+    ],
+    { ms: 2, grit: 0.3, len: 0.12, lowpass: 3000 },
+  );
+  const noise = whiteNoise(seedOf(seed, 'vellum-tap-air', k));
+  const lp = new Biquad('lowpass', 2200, 0.7);
+  for (let i = 0; i < y.length; i++) y[i] += 0.7 * lp.tick(noise()) * smooth(i / (0.001 * SR)) * Math.exp(-i / (0.012 * SR));
+  return norm(y, 0);
+}
+
+/** A reply landing (STORYBOARD 10.3, "a soft pop"): a round sine whose pitch falls 820 → 480 Hz in about 30 ms, a 1 ms attack, an 18 ms decay, a breath of noise on its front. */
+export function softPop(seed: number, k: number): Float32Array {
+  const len = 0.12;
+  const n = Math.ceil(len * SR);
+  const out = new Float32Array(n);
+  const noise = whiteNoise(seedOf(seed, 'soft-pop', k));
+  const lp = new Biquad('lowpass', 3000, 0.7);
+  let p = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    const f = 480 + 340 * Math.exp(-t / 0.012);
+    out[i] = lp.tick(smooth(t / 0.001) * Math.exp(-t / 0.018) * (Math.sin(p) + 0.25 * noise() * Math.exp(-t / 0.002)));
+    p += (TAU * f) / SR;
   }
   return norm(out, 0);
 }
