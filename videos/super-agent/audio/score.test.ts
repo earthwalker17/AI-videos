@@ -7,7 +7,8 @@ import type { ScoreContext } from '@aiv/pipeline/audio';
 import { peakOf, timeline, type Place, type StereoClip } from '@aiv/pipeline/audio/kit';
 import { BEAT_5, BEAT_6, FIX_A, FIX_B, LAMP_VISITS, MT1, WARMTH, at, cues } from '../src/cues.ts';
 import { FOLDERS, actOneAt } from '../src/desk/actOne.ts';
-import { FOLDER_X, flagSnaps, swings, warmthAt } from './actOne.ts';
+import { ACT_ONE_CAMERA, FOLDER_X, actOneFrameAt, flagSnaps, swings, warmthAt } from './actOne.ts';
+import { ACT_ONE_MOVE, CAMERA_EASE, moveFraming } from '../src/desk/camera.ts';
 import { arrange, marks } from './arrangement.ts';
 import { BATCH_CHORDS, TAB_LANDS } from './keepUp.ts';
 import { REPLY_FLIGHT } from './fixes.ts';
@@ -60,6 +61,19 @@ describe('act one follows the picture', () => {
 
   it('pans by the folders the picture lays out (src/desk/actOne.ts FOLDERS)', () => {
     expect(FOLDER_X).toEqual(FOLDERS.map((fl) => fl.c[0]));
+  });
+
+  it('pans through act one’s camera as the picture moves it (src/desk/camera.ts ACT_ONE_MOVE on the camera token)', () => {
+    const { from, to, a, b } = ACT_ONE_MOVE;
+    expect([from, to]).toEqual([ACT_ONE_CAMERA.from, ACT_ONE_CAMERA.to]);
+    expect([a.x, a.zoom, b.x, b.zoom]).toEqual([ACT_ONE_CAMERA.hook.x, ACT_ONE_CAMERA.hook.zoom, ACT_ONE_CAMERA.a.x, ACT_ONE_CAMERA.a.zoom]);
+    const ease = CAMERA_EASE;
+    for (let f = 0; f <= 400; f += 5) {
+      const fr = f <= from ? a : f >= to ? b : moveFraming(ACT_ONE_MOVE, ease((f - from) / (to - from)));
+      const got = actOneFrameAt(f);
+      expect(got.x, `f${f}`).toBeCloseTo(fr.x, 3);
+      expect(got.halfW, `f${f}`).toBeCloseTo(960 / fr.zoom, 3);
+    }
   });
 
   it('lights each motif with the picture’s warmth, and sounds a falling tone where a flag snaps up', () => {
@@ -214,6 +228,13 @@ describe('the voices', () => {
     expect(a.every((x) => Number.isFinite(x))).toBe(true);
     expect(peakOf(a)).toBeCloseTo(vel, 5);
     expect(make()).toEqual(a);
+  });
+
+  it('starts the ratchet on its hit: its first click within 2 ms of the clip’s start', () => {
+    const r = ratchet(seed, { len: 0.8 });
+    const first = r.findIndex((x) => Math.abs(x) > 0.05 * peakOf(r));
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(first / 48000).toBeLessThan(0.002);
   });
 
   it('keeps the sketch’s smear when no attack or release is given', () => {

@@ -32,11 +32,38 @@ const { D2, D3, G3, A3, B3, C4, D4, E4, F4, G4, A4, B4, C5, D5, E5, F5 } = M;
 
 /** Each folder's centre x (world u, src/desk/actOne.ts FOLDERS[n - 1].c[0]), folders 1-8. */
 export const FOLDER_X: readonly number[] = [-598, -448, -320, -180, -40, 98, 226, 384];
-/** Act one's camera (src/desk/camera.ts FRAMING_A): centre x and the half-width it shows at 1.2× (960 px / 1.2). */
-const FRAME_X = -296;
-const HALF_W = 800;
-/** A folder's pan: where it stands across the frame, a little narrowed. */
-export const folderPan = (n: number): number => clamp((0.9 * (FOLDER_X[n - 1] - FRAME_X)) / HALF_W, -0.9, 0.9);
+/**
+ * Act one's camera across the frame (src/desk/camera.ts; score.test.ts holds these equal): the hook's framing
+ * (FRAMING_HOOK, centre x -600 at 1.6×) until f160, then ACT_ONE_MOVE on the camera token, cubic-bezier(.65, 0, .35, 1),
+ * to FRAMING_A (centre x -296 at 1.2×) by f320, its zoom even in log scale and its centre trucking with 1/zoom (camera.ts moveFraming).
+ */
+export const ACT_ONE_CAMERA = { hook: { x: -600, zoom: 1.6 }, a: { x: -296, zoom: 1.2 }, from: 160, to: 320 } as const;
+/** The camera token: cubic-bezier(.65, 0, .35, 1) at progress t (Newton's method on the curve's x, then its y). */
+function cameraEase(t: number): number {
+  const [x1, y1, x2, y2] = [0.65, 0, 0.35, 1];
+  const bez = (u: number, p1: number, p2: number) => 3 * (1 - u) * (1 - u) * u * p1 + 3 * (1 - u) * u * u * p2 + u * u * u;
+  const dBez = (u: number, p1: number, p2: number) => 3 * (1 - u) * (1 - u) * p1 + 6 * (1 - u) * u * (p2 - p1) + 3 * u * u * (1 - p2);
+  let u = t;
+  for (let i = 0; i < 8; i++) {
+    const dx = dBez(u, x1, x2);
+    if (Math.abs(dx) < 1e-9) break;
+    u = clamp(u - (bez(u, x1, x2) - t) / dx, 0, 1);
+  }
+  return bez(u, y1, y2);
+}
+/** The frame's centre x and the half-width it shows (960 px / zoom) at film frame f. */
+export function actOneFrameAt(f: number): { x: number; halfW: number } {
+  const { hook, a, from, to } = ACT_ONE_CAMERA;
+  const u = f <= from ? 0 : f >= to ? 1 : cameraEase((f - from) / (to - from));
+  const r = a.zoom / hook.zoom;
+  const w = (1 - r ** -u) / (1 - 1 / r);
+  return { x: hook.x + (a.x - hook.x) * w, halfW: 960 / (hook.zoom * r ** u) };
+}
+/** A folder's pan at film frame f: where it stands across the frame then, a little narrowed. */
+export const folderPan = (n: number, f: number): number => {
+  const fr = actOneFrameAt(f);
+  return clamp((0.9 * (FOLDER_X[n - 1] - fr.x)) / fr.halfW, -0.9, 0.9);
+};
 
 interface Tile {
   /** its motif, cycled */
@@ -116,7 +143,6 @@ export function actOne(d: Desk): void {
   // ===== the folder motifs, lit by the folders' warmth ===========================================
   TILES.forEach((tile, i) => {
     const n = i + 1;
-    const pan = folderPan(n);
     const drift = slowNoise(seedOf(seed, 'tile-drift', i), 0.22);
     const arrive = ARRIVE[n];
     const onsets: number[] = [];
@@ -126,7 +152,7 @@ export function actOne(d: Desk): void {
       // a spawned folder's motif starts on the frame its board lands
       const t0 = d.f(arrive);
       for (let j = 0; t0 + T.beats((j * 4) / tile.perBar) < m.hub; j++) onsets.push(t0 + T.beats((j * 4) / tile.perBar));
-      foley(t0, paperThump(seed, 10 + n), { part: 'board-lands', db: LV.boardLands, pan, sends: { hall: 0.1 } });
+      foley(t0, paperThump(seed, 10 + n), { part: 'board-lands', db: LV.boardLands, pan: folderPan(n, arrive), sends: { hall: 0.1 } });
     }
     onsets
       .filter((at) => at < m.hub)
@@ -135,21 +161,21 @@ export function actOne(d: Desk): void {
         // the motif's gain is the warmth squared: it falls about as fast as the sketch's 1.6 s light, and sits at its floor when the flag snaps up
         const light = Math.max(DIM, w * w);
         const clip = marimba(tile.notes[c % tile.notes.length], { seed, k: i * 1000 + c, vel: 0.55 + 0.3 * rand(seed, `tile-vel-${i}`, c), cents: 12 * drift(at / T.ctx.sampleRate), bright: 0.35 });
-        music(at, clip, { part: 'tiles', db: LV.tiles + gainToDb(light), pan, sends: { hall: 0.25 } });
+        music(at, clip, { part: 'tiles', db: LV.tiles + gainToDb(light), pan: folderPan(n, toFrame(at)), sends: { hall: 0.25 } });
       });
   });
 
   // ===== your lamp's swings ======================================================================
-  swings(T).forEach(({ at, folder, step }, k) => {
+  swings(T).forEach(({ at, frame, folder, step }, k) => {
     // the film opens mid-swing: the first swing began before frame 0 (src/desk/actOne.ts PRE_SWING), so its tap is not heard
     if (k === 0) return;
     const db = LV.hop + (step <= 0.25 ? LV.hopSixteenths : step <= 0.5 ? LV.hopEighths : 0);
-    foley(at, woodblockHop(seed, k, 760 + 30 * ((folder - 1) % 4)), { part: 'hop', db, pan: folderPan(folder), sends: { hall: 0.12 } });
+    foley(at, woodblockHop(seed, k, 760 + 30 * ((folder - 1) % 4)), { part: 'hop', db, pan: folderPan(folder, frame), sends: { hall: 0.12 } });
   });
 
   // a folder left to cool: a short falling tone as its flag snaps up
   flagSnaps(toFrame(m.hub) - BEAT / 2).forEach(({ frame, folder }) => {
-    music(d.f(frame), fallTone(TILES[folder - 1].notes[0] + 12, { vel: 0.6 }), { part: 'tile-fade', db: LV.tileFade, pan: folderPan(folder), sends: { hall: 0.3 } });
+    music(d.f(frame), fallTone(TILES[folder - 1].notes[0] + 12, { vel: 0.6 }), { part: 'tile-fade', db: LV.tileFade, pan: folderPan(folder, frame), sends: { hall: 0.3 } });
   });
 
   // ===== the hook ================================================================================

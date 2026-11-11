@@ -99,7 +99,6 @@ export const LV = {
   gauge: -22,
   ghost: -22,
   restPluck: -29,
-  /** the pad in a rest, relative to its level outside */
   /** the pad in a rest, relative to its level outside: at -19 (the sketch's) the pad alone sat only 21 dB under the mix */
   restPad: -22,
   // beats 5 and 6

@@ -2,7 +2,7 @@
  * Bars 13-18 (f960-1439): the two easy fixes and the breath (STORYBOARD 3.1-3.3, Sound column).
  *
  *   Fix A, hard left (`fix-a`, f960): its tape runs in (a soft paper slide); then one plodding
- *   marimba note on each of its queue's steps (FIX_A.steps, one station a beat from f1000), a
+ *   marimba note on each of its queue's steps (FIX_A.steps, one station a beat from f980), a
  *   second line a semitone away smearing into each a sixteenth later. While the picture's focus is
  *   on Fix B (FIX_B.in + 10 to BOTH_FIXES, src/desk/actOne.ts FOCUS_A.fixA) it sits back 3 dB.
  *   Fix B, hard right (`fix-b`, f1120): its trays slide in (a soft slide); each reply leaving its

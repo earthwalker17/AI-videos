@@ -8,7 +8,7 @@
  *   f1680 (`request-in`)  the request is stamped in: a print tap and the motif's first station
  *   f1720 (`strike-split`) the counterfactual card is struck: a dry scratch
  *   f1760 (`dispatch-bug`) a hatch opens, the bug bay rises: a low wooden knock, the motif's second
- *                         station (into its Worker), and a beat later its marimba voice (A4)
+ *                         station (into its Worker), and from its next cell, two beats on, its marimba voice (A4)
  *   f1800 (`thread-row`)  the Thread's row inks in: an ink click; f1826 (`gauge`) a tiny click
  *   f1840-1920            the ghost Router (`ghost-router`): its backlog piles at its door as a
  *                         smeared cluster growing for a bar; f1920 (`strike-ghost`) a dry scratch,
@@ -95,7 +95,7 @@ export function levels(d: Desk): void {
   for (const [k, id] of (['arm-tests', 'arm-docs'] as const).entries())
     music(T.cue(id), woodTick(1180 + 70 * k, { seed, k: 500 + k, vel: 0.7 }), { part: 'arm-tick', db: LV.armTick, pan: 0.15, sends: { hall: 0.15 } });
 
-  // ===== the Workers: a knock on the dispatch, the voice a beat later ===================================
+  // ===== the Workers: a knock on the dispatch, the voice from its next cell (two beats on for bug and docs) ======
   const testsDone = T.beat(TESTS_DONE.bar, TESTS_DONE.beat);
   const last = m.rest[0] - T.beats(1);
   WORKERS.forEach((w, wi) => {

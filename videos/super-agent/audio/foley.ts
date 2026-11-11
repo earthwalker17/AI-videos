@@ -321,7 +321,8 @@ export function ratchet(seed: number, o: { len: number; k?: number }): Float32Ar
   const s = seedOf(seed, 'ratchet', o.k ?? 0);
   const n = Math.ceil((o.len + 0.03) * SR);
   const out = new Float32Array(n);
-  let phase = 0;
+  // the first click lands on the clip's first sample, so the ratchet starts on its hit
+  let phase = 1;
   let c = 0;
   for (let i = 0; i < Math.ceil(o.len * SR); i++) {
     const u = i / (o.len * SR);
