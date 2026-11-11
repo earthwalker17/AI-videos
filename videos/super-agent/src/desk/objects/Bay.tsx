@@ -17,7 +17,7 @@
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { textCanvas } from '@aiv/remotion-kit';
 import { CanvasTexture, CircleGeometry, Color, MeshBasicMaterial, Path, SRGBColorSpace, Shape, ShapeGeometry, TorusGeometry, type BufferGeometry, type Texture } from 'three';
-import { REQUEST_DOCK, REQUEST_DOCK_HEADING, RIDE, WORK_DEPTH, testsCapOpenAt, type BayDispatch, type Carry } from '../beat4.ts';
+import { REQUEST_DOCK, REQUEST_DOCK_HEADING, RIDE, SHADE_TONE, WORK_DEPTH, liftOf, testsCapOpenAt, workLift, type BayDispatch, type Carry } from '../beat4.ts';
 import { bayDoor, bayWalls } from '../footprints.ts';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, tube } from '../geom.ts';
 import { EMIT, Step, WithMats, isStepped, useDeskMats, useDeskSets, type DeskMats } from '../kit.tsx';
@@ -141,7 +141,7 @@ function BayBase({ b, slot, slotMat, tools = sharedTools, door = 0, close = 0, w
 }
 
 /** A bay's work while it is dispatched (beat4.ts hatchRiseAt): drawn once its hatch's leaves part, at its height as it rises. */
-export const workOf = (d: BayDispatch, id: BayId): { work: boolean; workZ: number } => ({ work: d.rise > 0 || d.hatch > 0, workZ: -WORK_DEPTH[id] * (1 - d.rise) });
+export const workOf = (d: BayDispatch, id: BayId): { work: boolean; workZ: number } => ({ work: d.rise > 0 || d.hatch > 0, workZ: workLift(d, id) });
 
 /** The nameplate's print at its ink's stages (gl/text.ts stagedInk), made from its printed texture: its ink is what is darker than the plate's white. */
 function plateStages(printed: Texture): Texture[] {
@@ -357,11 +357,21 @@ function useTracer() {
   return tracer;
 }
 
-/** The request riding its dispatch (beat4.ts requestAt): out of the housing, down the ramp, along its groove, up onto its folder; the transit light through its beetle while it moves. */
+/**
+ * The request riding its dispatch (beat4.ts requestAt): out of the housing, down the ramp, along its groove, up onto its
+ * folder; the transit light through its beetle while it moves. Coming down onto its folder it darkens into the pins' shade
+ * over the frames before the shade takes it (beat4.ts requestShadeAt), so the shade lands on it as a step of nothing.
+ */
 export function RequestCarrier({ pose }: { pose: Carry }) {
   const tracer = useTracer();
   const g = useMemo(() => requestParts(), []);
   useLayoutEffect(() => () => Object.values(g).forEach((x) => x.dispose()), [g]);
+  const tone = 1 - (1 - SHADE_TONE) * (pose.shade ?? 0);
+  useLayoutEffect(() => {
+    // (written every frame: its own materials, nothing carried from a frame before)
+    tracer.body.color.set(HEX.vermilion).multiplyScalar(tone);
+    tracer.print.color.set(HEX.vermilion).multiplyScalar(tone);
+  }, [tracer, tone]);
   const squash = 1 - 0.03 * pose.squash;
   return (
     <group position={pose.p} rotation={[0, -pose.slope, pose.heading, 'ZYX']} scale={[1 + 0.015 * pose.squash, 1, squash]}>
@@ -742,7 +752,7 @@ export function FreshBay({ s }: { s: DeskState }) {
   // stepped down with the other bays at the summary (desk/summary.ts)
   return (
     <Step on={isStepped(s.step, 'freshBay')}>
-      <group position={[0, 0, -HATCH_DEPTH * (1 - n.rise)]}>
+      <group position={[0, 0, liftOf(n.rise, HATCH_DEPTH)]}>
         <BayBase b={FRESH} slot="slotFresh" door={n.door}>
           <WithMats>{(mm) => <FreshParts m={mm} />}</WithMats>
         </BayBase>

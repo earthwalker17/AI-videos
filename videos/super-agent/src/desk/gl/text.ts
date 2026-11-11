@@ -17,6 +17,7 @@ import mono500cyr from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-cyrillic-5
 import { CanvasTexture, SRGBColorSpace, type Texture } from 'three';
 import { WORDS } from '../../cues.ts';
 import { plateTexture, stressTexture } from './plate.ts';
+import { beat5Textures, type Beat5Textures } from './print5.ts';
 import { beat6Textures, type Beat6Textures } from './print6.ts';
 import { STRESS_PLATE } from '../beat6.ts';
 import { CACHE_CELLS, CELLS, CELLS_BEFORE, CELLS_NEXT, DOSSIER, DOSSIER_FINE, FANFOLD, FANFOLD_FINE, GALLEY_FINE, IN_TRAY, NAMEPLATE, NEXT_WORD, POLICY, PRINT_STRINGS, REPLY, REPORT, REPORT_C, SLIPS } from '../../print.ts';
@@ -228,6 +229,8 @@ export interface PrintTextures {
   /** beat 6 (still (c)'s stamp-in): the record's ink spread header first, then each summary line a frame later (`recordStagger[k]`, k frames after the stamp; no pointer yet), and the pointer layer's three stages alone on clear paper, printed once its tab has landed */
   recordStagger: Texture[];
   recordPointer: Texture[];
+  /** beat 5's own print (gl/print5.ts): the filter's asks and noise */
+  b5: Beat5Textures;
   /** beat 6's own print (gl/print6.ts) */
   b6: Beat6Textures;
 }
@@ -806,8 +809,9 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
   // beat 6: the stress plate's face; the batch's, the decode's and recall's print (gl/print6.ts)
   const stress = stressTexture(sans, { head: WORDS.plateHead, arrivals: WORDS.plateArrivals, decision: WORDS.plateDecision }, [STRESS_PLATE.box.x1 - STRESS_PLATE.box.x0 - 10, STRESS_PLATE.box.y1 - STRESS_PLATE.box.y0 - 10], aniso);
   const b6 = beat6Textures(family, aniso);
+  const b5 = beat5Textures(family, aniso);
 
-  return { stress, recordStagger, recordPointer, b6, trait, proactive, tape, tapeInk, tape2Ink, tapeBefore, reelTop, nameplate, dossier, policy, fanfold, fanfoldSide, report, reportTab, galley, reply, inTray, chat, ciCard, request, folder, vellumMail, vellumCalendar, gauge, lockFace, tape2, chatNext, folderFresh, tapeBlank, tapeFirst, reelTopBare, cacheCells, record, recordInk, cardC, cardCBack, filedTabs, fanfoldFine, galleyFine, dossierFine };
+  return { stress, recordStagger, recordPointer, b5, b6, trait, proactive, tape, tapeInk, tape2Ink, tapeBefore, reelTop, nameplate, dossier, policy, fanfold, fanfoldSide, report, reportTab, galley, reply, inTray, chat, ciCard, request, folder, vellumMail, vellumCalendar, gauge, lockFace, tape2, chatNext, folderFresh, tapeBlank, tapeFirst, reelTopBare, cacheCells, record, recordInk, cardC, cardCBack, filedTabs, fanfoldFine, galleyFine, dossierFine };
 }
 
 /** The newest cell's step along the tape (u): MT1's second stamp-in moves the tape on by it, so the last report's print clears the cell whole before the next is stamped. */

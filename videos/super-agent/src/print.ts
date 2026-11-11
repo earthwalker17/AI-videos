@@ -94,6 +94,8 @@ export const CELLS_NEXT = [
   { code: '0405', kind: 'chat', clock: '13:58', request: true },
 ] as const;
 export const NEXT_WORD = 'ask';
+/** Beat 5: the stamps on the noise the gate's rules drop (gl/print5.ts): a bot's post, a reaction alone, a duplicate, a CI ping. */
+export const NOISE_STAMPS = { bot: 'BOT', react: '+1', dup: 'DUP', ci: 'CI' } as const;
 
 /**
  * Still (c), context as a cache: the request's progress report. Its header carries the teaching ID
@@ -149,6 +151,7 @@ export const PRINT_STRINGS: readonly string[] = [
   ...LOOP_NOTES,
   ...HEAP_CLOCKS,
   NEXT_WORD,
+  ...Object.values(NOISE_STAMPS),
   ...FANFOLD_FINE,
   ...GALLEY_FINE,
   ...DOSSIER_FINE,

@@ -4,7 +4,9 @@
  * - the window's cards from the close on (beat6.ts WINDOW_CARDS): the cells the tape held after MT1, newest first, in
  *   still (c)'s card style (a stub at the west end: its kind as a small mark over two punched holes and a perforation,
  *   the body with its full mark), so the shrink to stubs tears the bodies away from what was there;
- * - the batch's slips (the chat slip with its kind marked at its nose: the band each shows in the shingled strip);
+ * - the strip's slips (beat6.ts STRIP_KINDS), each with its kind at its nose (the band each shows in the shingled strip):
+ *   a chat ask (its word in one of three places, a square nose with the chat mark, its tail's swallow notch) and a CI event
+ *   (plain paper, a clipped nose corner with the CI mark, a square tail); cut-outs are alpha, never blended;
  * - the decode slip and the answer: punched cells, a hole cut through each as it is punched (cut out, never drawn);
  * - the review's stub, the request's Thread's row (its vermilion Thread mark), the "№" tab each hop opens.
  * Readable marks are drawn as set (fillTextChecked): they never pass the shot's keep filter (marks.ts), which is for
@@ -13,17 +15,20 @@
 import { fillTextChecked } from '@aiv/remotion-kit';
 import type { Texture } from 'three';
 import { DECODE, THREAD_ROW, WINDOW_CARDS } from '../beat6.ts';
-import { CACHE_WINDOW, TAPE } from '../layout.ts';
+import { NEXT_WORD } from '../../print.ts';
+import { CACHE_WINDOW, NEXT_SLIP, TAPE } from '../layout.ts';
 import { INK, TEXTURE_INK, TEX_CLOSE, cargoMark, rule, texture, threadMark, tooth, toothUnder, type Draw } from './text.ts';
 
 const VERMILION = '#E8603F';
 const TAPE_H = TAPE.y1 - TAPE.y0;
+/** A strip slip's print (the chat slip's size). */
+const STRIP = { w: NEXT_SLIP.l, h: NEXT_SLIP.w } as const;
 
 export interface Beat6Textures {
   /** the window's cards from the close on (beat6.ts WINDOW_CARDS), newest first */
   windowCards: Texture[];
-  /** a slip of the batch (96 x 40) */
-  stripSlip: Texture;
+  /** the strip's slips (96 x 40, nose east at u 1): a chat ask by its print variant, a CI event */
+  tray: { chat: Texture[]; ci: Texture };
   /** the decode slip (3 cells) and the answer (2 cells), by how many cells are punched */
   decode: Texture[];
   answer: Texture[];
@@ -107,34 +112,59 @@ function punchedSlip(cells: number, punched: number): Draw {
 export function beat6Textures(family: string, aniso: number): Beat6Textures {
   const close = (size: readonly [number, number], draw: Draw, bg?: string) => texture(size[0], size[1], draw, aniso, bg, TEX_CLOSE);
   const windowCards = WINDOW_CARDS.map((card) => close([card.x1 - card.x0, TAPE_H], windowCard(card.x1 - card.x0, card.kind, card.request, false)));
-  const stripSlip = texture(
-    96,
-    40,
+  const traySlip = (draw: Draw, cut: (g: CanvasRenderingContext2D) => void) =>
+    texture(
+      STRIP.w,
+      STRIP.h,
+      (g) => {
+        draw(g);
+        tooth(g, STRIP.w, STRIP.h);
+        // its cut-outs (the tray draws the slip as a flat card: alpha-tested, never blended)
+        g.save();
+        g.globalCompositeOperation = 'destination-out';
+        g.beginPath();
+        cut(g);
+        g.closePath();
+        g.fill();
+        g.restore();
+      },
+      aniso,
+    );
+  // the nose band (its east 17 u, what the shingled strip shows of each slip): the kind's mark, a rule behind it
+  const noseMark = (g: CanvasRenderingContext2D, kind: 'chat' | 'ci') => {
+    rule(g, 77.5, 3, 77.5, 37, 0.6, '#C4BEB2');
+    g.save();
+    g.translate(80, 11.5);
+    g.scale(0.44, 0.8);
+    cargoMark(g, kind, 0, 0, '#4E4C46');
+    g.restore();
+  };
+  const chat = [0, 1, 2].map((v) =>
+    traySlip(
+      (g) => {
+        // the chat slip's word, as faint as the shot keeps it (marks.ts), its place by variant (beat 5's asks)
+        g.font = `500 25px ${family}`;
+        g.fillStyle = TEXTURE_INK;
+        g.textBaseline = 'alphabetic';
+        fillTextChecked(g, NEXT_WORD, 16 + 5 * v, 29 - (v % 2) * 3);
+        noseMark(g, 'chat');
+      },
+      (g) => {
+        // its tail's swallow notch
+        g.moveTo(-1, -1);
+        g.lineTo(9, 20);
+        g.lineTo(-1, 41);
+      },
+    ),
+  );
+  const ci = traySlip(
+    (g) => noseMark(g, 'ci'),
     (g) => {
-      // the chat slip's word, as faint as the shot keeps it (marks.ts), and its kind marked at its nose: the band the shingled strip shows
-      g.font = `500 25px ${family}`;
-      g.fillStyle = TEXTURE_INK;
-      g.textBaseline = 'alphabetic';
-      fillTextChecked(g, 'ask', 18, 29);
-      g.save();
-      g.translate(77, 12);
-      g.scale(0.46, 0.8);
-      cargoMark(g, 'chat', 0, 0, '#4E4C46');
-      g.restore();
-      rule(g, 74.5, 3, 74.5, 37, 0.6, '#C4BEB2');
-      tooth(g, 96, 40);
-      // its tail's swallow notch, cut out (the tray draws the slip as a flat card: alpha-tested, never blended)
-      g.save();
-      g.globalCompositeOperation = 'destination-out';
-      g.beginPath();
-      g.moveTo(-1, -1);
-      g.lineTo(9, 20);
-      g.lineTo(-1, 41);
-      g.closePath();
-      g.fill();
-      g.restore();
+      // its clipped nose corner (north-east): the card feeder's cards' corner (never a word or a number on it)
+      g.moveTo(STRIP.w - 11, -1);
+      g.lineTo(STRIP.w + 1, -1);
+      g.lineTo(STRIP.w + 1, 11);
     },
-    aniso,
   );
   const decode = [0, 1, 2, 3].map((p) => close([DECODE.w, DECODE.cell * 3], punchedSlip(3, p), '#FFFFFF'));
   const answer = [0, 1, 2].map((p) => close([DECODE.w, DECODE.cell * 2], punchedSlip(2, p), '#FFFFFF'));
@@ -186,5 +216,5 @@ export function beat6Textures(family: string, aniso: number): Beat6Textures {
     },
     '#FFFFFF',
   );
-  return { windowCards, stripSlip, decode, answer, reviewStub, threadRow, numberTab };
+  return { windowCards, tray: { chat, ci }, decode, answer, reviewStub, threadRow, numberTab };
 }

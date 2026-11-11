@@ -23,7 +23,7 @@ import { CACHE_WINDOW, CELLS_X, CROSS, DECK, DECK_PLATE, DISPATCH_HOUSING, DRAWE
 import { INK, NEWEST_STEP, PRINT_SIZE, REQUEST_MARK_Y, TEX, cargoMark, requestStub, stagedInk, texture, threadMark, tooth } from '../gl/text.ts';
 import { FiledTabs } from './Cache.tsx';
 import { REWIND_TURN, THREAD_ROW } from '../beat6.ts';
-import { DETENT, EVENTS_B, EVENTS_D, closeAt, hammerOffset, loupeAt, type DeskState } from '../state.ts';
+import { DETENT, EVENTS_B, EVENTS_D, HEAD_DIP, closeAt, hammerOffset, headDipAt, loupeAt, type DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 
@@ -581,8 +581,8 @@ const CELL_STEP_U = (CELLS_X[1][1] - CELLS_X[1][0] + 4) / (TAPE_FLAT_X1 - TAPE.x
 const STUB_STEP_U = (CACHE_WINDOW.stub + CACHE_WINDOW.bar) / (TAPE_FLAT_X1 - TAPE.x0);
 /** Beat 6's rewind: how far the bare tape runs back (the Thread's row's run out from under the reel), in the tape texture's u. */
 const REWIND_U = (THREAD_ROW.from - THREAD_ROW.x0) / (TAPE_FLAT_X1 - TAPE.x0);
-/** The print head's dip as it stamps (u). */
-const HEAD_DIP = 2.4;
+/** The hammer's offset inside the dipping head, lifted back by the head's dip, so its stroke onto the tape is the same. */
+const withDip = (o: readonly [number, number, number], dz: number): [number, number, number] => [o[0], o[1], o[2] + dz];
 /** The holder's hinge along the south rail's lower edge (y, z) and how far it folds down to hang against the rail's face (radians). */
 const HOPPER_HINGE = [DECK.y0, MOUTH.z[0]] as const;
 const HOPPER_FOLD = 1.42;
@@ -785,11 +785,12 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
           : rowMat;
   // the reel: beat 4's detents bring it from where the coil locked to its rest (0) by MT1, then MT1's and the cache's detents
   const reelTurn = s.reel + s.next.reel + (C?.reel ?? 0);
-  // beat 6.4: the reel rewinds over 24 f (it spins back nearly a turn and a half, beat6.ts REWIND_TURN)
+  // beat 6.4: the reel rewinds over 24 f (it spins back half a turn, beat6.ts REWIND_TURN)
   const reelAngle = b4.reel - 0.26 * reelTurn + REWIND_TURN * s.e6.rewind;
   const hammer = T ? T.hammer : Math.max(s.stamp, s.next.stamp, C?.stamp ?? 0, s.e6.hammer);
-  // the head dips as its hammer drops for the cache's record and the review's row (still (c)'s critic item 4)
-  const headDip = T ? 0 : Math.max(C?.dip ?? 0, s.e6.hammer);
+  // the head presses down with its hammer for the cache's record and the review's row (still (c)'s critic item 4: a dip
+  // you see, its footprint going with it), the hammer's own stroke onto the tape unchanged by it
+  const headDip = T ? 0 : headDipAt(s);
   return (
     <group>
       {/* the gantry */}
@@ -873,7 +874,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
               <mesh geometry={g.head} material={n.graphite} />
               <mesh geometry={g.headCap} material={n.enamel} />
               {/* the hammer: raised clear of the tape at rest, it rocks east and comes down onto the newest cell */}
-              <mesh geometry={g.headHammer} material={n.steel} position={T ? [0, 0, -9 * hammer] : hammerOffset(hammer)} />
+              <mesh geometry={g.headHammer} material={n.steel} position={T ? [0, 0, -9 * hammer] : withDip(hammerOffset(hammer), HEAD_DIP * headDip)} />
             </>
           )}
         </WithMats>

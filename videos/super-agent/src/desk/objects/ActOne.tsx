@@ -20,7 +20,6 @@
 import { rand } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, Path, Quaternion, Shape, Vector3, type MeshStandardMaterial, type Texture } from 'three';
-import { FIX_A } from '../../cues.ts';
 import { FOLDER_PRINT, LOOP_NOTES } from '../../print.ts';
 import { chatSlipPrint, leafPrint } from './Intake.tsx';
 import {
@@ -33,6 +32,7 @@ import {
   PEN,
   PIECE,
   REQUEST_A,
+  REQUEST_STEPPED_FROM,
   SHEET,
   SHEET_PRINT,
   TAB,
@@ -62,7 +62,6 @@ import { INK, print, texture, tooth } from '../gl/text.ts';
 import { Step, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
 import { DESK_HEX } from '../gl/desk.ts';
 import type { P2, P3 } from '../layout.ts';
-import { STEP_FRAMES } from '../state.ts';
 
 // the slip helpers live in geom.ts (Intake.tsx needs them too); the turn imports them from here
 export { fitUv, piece, slipShape };
@@ -507,6 +506,8 @@ function Folder({ fl, s, mats, press }: { fl: FolderLayout; s: FolderState; mats
   const sets = useDeskSets();
   const m = press ? sets.late : ctx;
   const slate = press?.slate ?? 0;
+  // the slate as lit where it lies (desk/turn.ts slateToneAt), or its bare tone
+  const tone = press?.tone;
   const g = useMemo(() => folderGeometry(fl), [fl]);
   const pen = useMemo(() => penGeometry(fl, s), [fl, s]);
   const flag = useMemo(() => (s.flag > 0.01 ? flagGeometry(fl, s.flag) : null), [fl, s.flag]);
@@ -521,11 +522,14 @@ function Folder({ fl, s, mats, press }: { fl: FolderLayout; s: FolderState; mats
     mats.cover.color.copy(cover);
     mats.card.color.copy(sheet).lerp(new Color(HEX.paperLit), 0.12 * (1 - lit));
     // pressed: its own light goes out and the slate's tone comes in (by amount, never alpha), print and all
+    const target = tone ? new Color(tone[0], tone[1], tone[2]) : SLATE;
     for (const x of [mats.sheet, mats.top, mats.cover, mats.card]) {
       x.color.multiplyScalar(1 - slate);
-      x.emissive.copy(SLATE).multiplyScalar(slate);
+      x.emissive.copy(target).multiplyScalar(slate);
+      // its sheen goes with its own light (metalness on a colour going to black: nothing reflected at the end)
+      x.metalness = slate;
     }
-  }, [mats, s.warmth, lit, slate]);
+  }, [mats, s.warmth, lit, slate, tone]);
   if (s.present <= 0 || (press && press.k >= 1)) return null;
   // F6–F8 are posted in whole (actOne.ts boardAt): the board flies in at full scale and squashes 3% as it lands; its task
   // card is on the stack once the event slip has landed on it, and its clip, riding open on the board's north edge, slides
@@ -670,7 +674,7 @@ function Heap({ a, print: tex, stepRequest = false }: { a: ActOneState; print: A
   // keeps its colour when the intake steps down in beat 2 (it is the film's tracer), steps down with the rest of act one
   // as beat 3's fixes take the focus (the kit's own ramp), then stays down with the heap (the intake's: both are fully
   // stepped when it changes sets, so nothing jumps) into the turn's pull
-  const reqStep = stepRequest || a.f >= FIX_A.in + STEP_FRAMES ? true : ('own' as const);
+  const reqStep = stepRequest || a.f >= REQUEST_STEPPED_FROM ? true : ('own' as const);
   const reqMats = useMemo(() => {
     const white = whiteTexture();
     return { paper: paper(white, REQUEST_PAPER, { roughness: 0.82, stepped: reqStep }), shade: paper(white, REQUEST_PAPER_SHADE, { roughness: 0.85, stepped: reqStep }) };

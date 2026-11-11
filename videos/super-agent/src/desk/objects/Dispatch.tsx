@@ -11,11 +11,11 @@
  */
 import { useLayoutEffect, useMemo } from 'react';
 import { BoxGeometry, CircleGeometry, Color, MeshBasicMaterial, Path, PlaneGeometry, Shape, Vector4, type BufferGeometry, type ShaderMaterial } from 'three';
-import { WORK_DEPTH, lidShown, type Carrier } from '../beat4.ts';
+import { SHADE_TONE, WORK_DEPTH, lidShown, type Carrier } from '../beat4.ts';
 import { cylinderZ, dome, extrude, frame, merge, slab } from '../geom.ts';
 import { DESK_GROOVE_CUT, DESK_HOLES, HOLE_SHUT, makeDeskMaterial } from '../gl/desk.ts';
-import { STEP_OWN, graphite, stepColour } from '../gl/materials.ts';
-import { EMIT, Step, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
+import { HEX, STEP_OWN, graphite, paper, stepColour } from '../gl/materials.ts';
+import { EMIT, Step, isStepped, useDeskMats, useDeskSets, useStepMode } from '../kit.tsx';
 import { BAYS, DISPATCH, FRESH, HATCH_DEPTH, NEXT_SLIP, PUNCH, rectC, type BayId, type BayLayout, type Rect } from '../layout.ts';
 import { EVENTS_D, closeAt, type DeskState } from '../state.ts';
 import { slotColour } from './Bay.tsx';
@@ -393,15 +393,34 @@ export function Dispatch({ s }: { s: DeskState }) {
   );
 }
 
-/** A task's carrier (beat4.ts carriersAt): the CI card that asked for the test run, the chat slip that asked for docs; on its ride or docked on its bay's dossier, landing with a 3% squash. */
+/**
+ * A task's carrier (beat4.ts carriersAt): the CI card that asked for the test run, the chat slip that asked for docs; on its
+ * ride or docked on its bay's dossier, landing with a 3% squash. Its own print's materials (as the kit's, in the set it is
+ * drawn in), so it can darken into its dock's shade over the frames before the shade takes it (beat4.ts shadeAt).
+ */
 export function TaskCarrier({ c }: { c: Carrier }) {
-  const m = useDeskMats();
+  const sets = useDeskSets();
+  const mode = useStepMode();
+  const mats = useMemo(() => ({ ci: paper(sets.textures.ciCard, HEX.paper, { roughness: 0.9, stepped: mode }), chat: paper(sets.textures.chatNext, HEX.paper, { roughness: 0.9, stepped: mode }) }), [sets, mode]);
+  useLayoutEffect(
+    () => () => {
+      mats.ci.dispose();
+      mats.chat.dispose();
+    },
+    [mats],
+  );
+  const tone = 1 - (1 - SHADE_TONE) * (c.pose.shade ?? 0);
+  useLayoutEffect(() => {
+    // (written every frame: nothing carried from a frame before)
+    mats.ci.color.set(HEX.paper).multiplyScalar(tone);
+    mats.chat.color.set(HEX.paper).multiplyScalar(tone);
+  }, [mats, tone]);
   const g = useMemo(() => ({ ci: ciGeometry(), slip: slipGeometry(false) }), []);
   useLayoutEffect(() => () => Object.values(g).forEach((x) => x.dispose()), [g]);
   const q = c.pose.squash;
   return (
     <group position={c.pose.p} rotation={[0, -c.pose.slope, c.pose.heading, 'ZYX']} scale={[1 + 0.015 * q, 1, 1 - 0.03 * q]}>
-      <mesh geometry={c.kind === 'ci' ? g.ci : g.slip} material={c.kind === 'ci' ? m.printed.ciCard : m.printed.chatNext} />
+      <mesh geometry={c.kind === 'ci' ? g.ci : g.slip} material={c.kind === 'ci' ? mats.ci : mats.chat} />
     </group>
   );
 }

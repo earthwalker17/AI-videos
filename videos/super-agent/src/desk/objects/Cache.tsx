@@ -27,7 +27,7 @@ import { slab } from '../geom.ts';
 import { HEX, paper } from '../gl/materials.ts';
 import { isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
 import { CACHE_WINDOW, CARD_C, CELLS_X, DRAWER, DRAWER_OPEN_C, FILED_TABS, MOUTH, PRINT_HEAD, TAB_C, TAPE, WINDOW, rectC, type P3 } from '../layout.ts';
-import { TAB_LEAN_B, TAB_LEAN_C, TAB_REST_B, TAB_REST_C, TAB_TURN_C, type CacheState, type DeskState } from '../state.ts';
+import { HEAD_DIP, TAB_LEAN_B, TAB_LEAN_C, TAB_REST_B, TAB_REST_C, TAB_TURN_C, headDipAt, type CacheState, type DeskState } from '../state.ts';
 import { CardHalves } from './Handshake.tsx';
 
 const Z_CARD = TAPE.z + 0.35;
@@ -323,8 +323,9 @@ export function Cache({ s }: { s: DeskState }) {
       : [atSlot[0], atSlot[1] + (W + 4) * st.feed, atSlot[2]]
     : null;
   const stripTurn = st ? Math.min(1, Math.max(0, st.fly) * 1.1) : 0;
-  // the slot opens with the close (a shutter: the slit widens to its height over the print swap's frames)
+  // the slot opens with the close (a shutter: the slit widens to its height over the print swap's frames); it is the head's, so it dips with it
   const slotOpen = c.fade;
+  const dip = -HEAD_DIP * headDipAt(s);
   return (
     <group>
       {/* the window: the cards, their stubs, the record; the bars slide with the cards */}
@@ -334,10 +335,10 @@ export function Cache({ s }: { s: DeskState }) {
       ))}
       {!c.summary && <TestTab c={c} />}
       {/* the slot in the print head's south face: the header strip feeds through it, the decode slip and the answer come out of it */}
-      {slotOpen > 0 && <mesh geometry={g.slot} material={m.graphiteDark} position={[SLOT.x, SLOT.y, SLOT.z]} scale={[1, 1, SLOT.h * slotOpen]} />}
+      {slotOpen > 0 && <mesh geometry={g.slot} material={m.graphiteDark} position={[SLOT.x, SLOT.y, SLOT.z + dip]} scale={[1, 1, SLOT.h * slotOpen]} />}
       {/* its lips come out of the face as the shutter opens (flush, inside the head, before) */}
       {slotOpen > 0 &&
-        g.lips.map((l, i) => <mesh key={i} geometry={l} material={m.enamelShade} position={[0, 2.6 * (1 - slotOpen), SLOT.z + (i === 0 ? 1 : -1) * (1 - slotOpen) * (SLOT.h / 2 + 0.8)]} />)}
+        g.lips.map((l, i) => <mesh key={i} geometry={l} material={m.enamelShade} position={[0, 2.6 * (1 - slotOpen), SLOT.z + dip + (i === 0 ? 1 : -1) * (1 - slotOpen) * (SLOT.h / 2 + 0.8)]} />)}
       {c.out !== null && (
         // rising out of the request bay's work slot, its lower part still in the slot
         <group position={[CARD_C.from[0], CARD_C.from[1], CARD_C.from[2] - D * (1 - c.out)]} rotation={[RISE_TILT, 0, 0]}>

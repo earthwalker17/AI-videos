@@ -11,10 +11,10 @@
  */
 import { SHADOW_K, shadowOffset, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CORDS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MAST, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, TAPE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
 import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT_SLIP, REQUEST, SINK, type BayId } from './layout.ts';
-import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, CORD_FROM, DOCK_B, hammerOffset, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
-import { CHORES, TRAY_Z, YOU_POSE_B, strutOnLid, type YouPose } from './you.ts';
+import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, CORD_FROM, DOCK_B, HEAD_DIP, hammerOffset, headDipAt, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
+import { CHORES, TRAY_Z, YOU_POSE_B, strutEnds, type YouPose } from './you.ts';
 import { HEAP, PIECE, ciHopperFootprints, youPoseAt } from './actOne.ts';
-import { CARD_SPOT, REQUEST_HEAP, WORK_DEPTH as WORK_DEPTH_FP, cardPose, heapPieceAt, ON_REQUEST, type Beat4State, type CardState, type Carry, type HeapState } from './beat4.ts';
+import { CARD_SPOT, REQUEST_HEAP, RIDE, WORK_DEPTH as WORK_DEPTH_FP, cardPose, heapFloor, heapPieceAt, liftOf, ON_REQUEST, type Beat4State, type CardState, type Carry, type HeapState } from './beat4.ts';
 import { SPIKE_BASE, type Beat5State } from './beat5.ts';
 import { BAR_RIDE, DECODE, REVIEW, STRESS_PLATE, TAB_FILE, TRAY, type Beat6State } from './beat6.ts';
 import { DRAWER_OPEN_C, PROACTIVE_PLATE, SPIKE } from './layout.ts';
@@ -70,13 +70,24 @@ export function bayShellFootprints(b: BayLayout, door = 0): Footprint[] {
   const lift = door * (b.wallH - 2);
   return [...bayWalls(b).map((w) => rectFp(w, 0, b.wallH, 1, 2)), rectFp(bayDoor(b), lift, b.wallH - 6 + lift, lift < 1 ? 1 : 0, 2)];
 }
+/**
+ * How far below the top of a part a footprint ends when that top is a receiver the part lights (the bay floor plate's top,
+ * the test tower's cap, the galley's rails): exactly at a footprint's top the shader's own-shade test (gl/light.ts: a
+ * receiver under z1 - 0.5 is shaded) is a coin flip a hair of motion turns over, so a floor would go dark for frames on
+ * its spring's last wobble. A quarter unit under it, the shadow it casts on the slate is the same to the eye.
+ */
+const TOP_CLEAR = 0.25;
 /** A bay's work in place: its floor plate, its work slot, its dossier (the superstructure is its own). */
-const bayWorkOf = (b: BayLayout): Footprint[] => [rectFp(b.box, 0, BAY_FLOOR, 1, 6), rectFp(b.slot, BAY_FLOOR, 40, 1, 4), rectFp(b.dossier, BAY_FLOOR, BAY_FLOOR + 4 + b.sheets * SHEET, 1, 4)];
+const bayWorkOf = (b: BayLayout): Footprint[] => [rectFp(b.box, 0, BAY_FLOOR - TOP_CLEAR, 1, 6), rectFp(b.slot, BAY_FLOOR, 40, 1, 4), rectFp(b.dossier, BAY_FLOOR, BAY_FLOOR + 4 + b.sheets * SHEET, 1, 4)];
+/** The test tower's footprint (its cap's top a receiver: TOP_CLEAR). */
+const towerFp = (): Footprint => circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome - TOP_CLEAR, 1);
+/** The docs galley's footprint (its rails' tops a receiver: TOP_CLEAR). */
+const galleyFp = (): Footprint => rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1] - TOP_CLEAR, 1, 4);
 /** Each bay's superstructure: the bug bench, its pins and the request's folder; the test tower; the docs galley. */
 function superFootprints(id: BayId): Footprint[] {
   if (id === 'bug') return [rectFp(BENCH.top, BENCH.z[0], BENCH.z[1], 0.4), rectFp(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 0.7), rectFp(BENCH.top, BENCH.z[0], BENCH.z[1] + PINS.h, 0, 4)];
-  if (id === 'tests') return [circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1)];
-  return [rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1], 1, 4)];
+  if (id === 'tests') return [towerFp()];
+  return [galleyFp()];
 }
 /**
  * A beat-4 bay at its dispatch (desk/beat4.ts): its shell, and its work once its hatch is open, at its height as it rises
@@ -88,7 +99,8 @@ export function dispatchedBayFootprints(id: BayId, d: { hole: boolean; hatch: nu
   // closed: its shell round its lid (the lid lies flush, under the slate's surface, and casts nothing)
   if (d.hatch <= 0 && d.rise <= 0) return fp;
   const work = [...bayWorkOf(b), ...superFootprints(id)].map((x) => (x.kind === 'rect' || x.kind === 'circle' ? { ...x, contact: x.contact * d.contact } : x));
-  fp.push(...shiftFootprints(work, -depth * (1 - Math.min(1, d.rise))));
+  // at the height its work is drawn at (objects/Bay.tsx workOf), its overshoot included: a part never leaves its footprint
+  fp.push(...shiftFootprints(work, liftOf(d.rise, depth)));
   if (d.hole) fp.push(...pitFootprints(b.box));
   return fp;
 }
@@ -125,9 +137,10 @@ export function youFootprints(pose: YouPose): Footprint[] {
   if (pose.held.key > 0.5) fp.push(rectFp(R({ x0: key.c[0] - key.bowR, x1: key.c[0] + key.bit.x[1], y0: key.c[1] + key.shank[0], y1: key.c[1] + key.bowY + key.bowR }), TRAY_Z.floor, TRAY_Z.floor + 4, 0.7, 4));
   if (pose.held.glass > 0.5) fp.push(rectFp(R({ x0: glass.c[0] - glass.half[0] + 1, x1: glass.c[0] + glass.half[0] - 1, y0: glass.c[1] - glass.half[1], y1: glass.c[1] + glass.half[1] }), TRAY_Z.floor, TRAY_Z.floor + 27, 0.8, 4));
   if (pose.held.strut > 0.5) {
-    if (pose.strut === 'tray') fp.push(rectFp(R({ x0: strut.c[0] - strut.half[0], x1: strut.c[0] + strut.half[0], y0: strut.c[1] - strut.half[1], y1: strut.c[1] + strut.half[1] }), TRAY_Z.floor, TRAY_Z.floor + 8, 0.7, 4));
+    if (pose.strut === 'tray' && pose.strutMix === undefined) fp.push(rectFp(R({ x0: strut.c[0] - strut.half[0], x1: strut.c[0] + strut.half[0], y0: strut.c[1] - strut.half[1], y1: strut.c[1] + strut.half[1] }), TRAY_Z.floor, TRAY_Z.floor + 8, 0.7, 4));
     else {
-      const s = strutOnLid();
+      // on the lid, or on its way from the lid to its recess (the turn)
+      const s = strutEnds(pose);
       fp.push(segFp(at3(s.a), at3(s.b), 3.4));
     }
   }
@@ -159,7 +172,7 @@ export function shiftFootprints(fps: readonly Footprint[], dz: number): Footprin
 
 /** The test tower's bay and its tower (they sink together once it has finished). */
 function testsFootprints(): Footprint[] {
-  return [...bayFootprints(BAYS.tests), circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1)];
+  return [...bayFootprints(BAYS.tests), towerFp()];
 }
 
 /**
@@ -167,7 +180,7 @@ function testsFootprints(): Footprint[] {
  * reel and its frame, the head, throat, window and reading lamp, the drawer, mouth and lock, the fanfold, the trait
  * plate and the ramp. The turn (desk/turn.ts) leaves out what it draws itself.
  */
-export function registerFootprints(o: { legs?: boolean; fanfold?: boolean; trait?: boolean } = {}): Footprint[] {
+export function registerFootprints(o: { legs?: boolean; fanfold?: boolean; trait?: boolean; headDip?: number } = {}): Footprint[] {
   o = { legs: true, fanfold: true, trait: true, ...o };
   const fp: Footprint[] = [];
   // the deck's shade: its outline as a canopy carried down the key by its shadow's offset, so the desk and the bays'
@@ -191,7 +204,8 @@ export function registerFootprints(o: { legs?: boolean; fanfold?: boolean; trait
   fp.push(circleFp([REEL.x, REEL.y], REEL.r, REEL.flangeZ[0], REEL.packZ[1], 0.6));
   fp.push(circleFp([REEL.x, REEL.y], REEL.hubR, REEL.packZ[1], REEL.hubZ[1], 0.6));
   for (const m of REEL_FRAME) fp.push(rectFp(m, REEL_FRAME_Z[0], REEL_FRAME_Z[1], 0.7));
-  fp.push(rectFp(PRINT_HEAD.box, PRINT_HEAD.z[0], PRINT_HEAD.z[1] + 4, 0.8));
+  // the head's top goes down with its dip (beat 6: state.ts headDipAt), so its cap never falls into its own shadow
+  fp.push(rectFp(PRINT_HEAD.box, PRINT_HEAD.z[0], PRINT_HEAD.z[1] + 4 - (o.headDip ?? 0), 0.8));
   fp.push(rectFp(THROAT.box, THROAT.z[0], THROAT.z[1], 0));
   const wf = WINDOW.frame;
   const bar = WINDOW.bar;
@@ -221,9 +235,9 @@ export function registerFootprints(o: { legs?: boolean; fanfold?: boolean; trait
  * hatch (0..1); `you`: your desk's pose; `b4`: the bays as beat 4 dispatches them (closed, rising, working: desk/beat4.ts;
  * omitted: every bay at work, as still (b) and later).
  */
-export function staticFootprints(testsSink = 0, you: YouPose = YOU_POSE_B, b4?: Beat4State['bays']): Footprint[] {
+export function staticFootprints(testsSink = 0, you: YouPose = YOU_POSE_B, b4?: Beat4State['bays'], headDip = 0): Footprint[] {
   const fp: Footprint[] = [];
-  fp.push(...registerFootprints());
+  fp.push(...registerFootprints({ headDip }));
   // the bays: every one under 80; in beat 4 each is its shell until it is dispatched, then its work rises out of its hatch
   const working = (id: BayId) => !b4 || (b4[id].rise >= 1 - 1e-4 && !b4[id].hole);
   for (const id of ['tests', 'docs', 'bug'] as const) {
@@ -238,9 +252,9 @@ export function staticFootprints(testsSink = 0, you: YouPose = YOU_POSE_B, b4?: 
     fp.push(rectFp(FOLDER.box, FOLDER.z[0], FOLDER.z[1], 0.7));
   }
   if (testsSink > 0) fp.push(...shiftFootprints(testsFootprints(), -SINK * testsSink));
-  else if (working('tests')) fp.push(circleFp([TOWER.x, TOWER.y], TOWER.r + 2, TOWER.base, towerTop() + TOWER.dome, 1));
+  else if (working('tests')) fp.push(towerFp());
   if (working('bug')) fp.push(rectFp(BENCH.top, BENCH.z[0], BENCH.z[1] + PINS.h, 0, 4));
-  if (working('docs')) fp.push(rectFp(GALLEY_TRAY.box, GALLEY_TRAY.z[0], GALLEY_TRAY.z[1], 1, 4));
+  if (working('docs')) fp.push(galleyFp());
   // you
   fp.push(...youFootprints(you));
   // the chute and its posts
@@ -283,7 +297,7 @@ export function movingFootprints(s: DeskState): Footprint[] {
     }
   }
   // the print head's hammer, raised over the tape at rest, its shadow closing on the newest cell as it comes down
-  const hammer = Math.max(s.stamp, s.next.stamp, s.cache?.stamp ?? 0);
+  const hammer = Math.max(s.stamp, s.next.stamp, s.cache?.stamp ?? 0, s.e6.hammer);
   const [hx, , hz] = hammerOffset(hammer);
   fp.push(rectFp({ x0: PRINT_HEAD.box.x1 - 4 + hx, x1: PRINT_HEAD.box.x1 + 10 + hx, y0: TAPE.y0 + 6, y1: TAPE.y1 - 6 }, TAPE.z + 3 + hz, TAPE.z + 16 + hz, 0, 1));
   // the Thread cord and its guide, from 7.1 only (design D1)
@@ -302,17 +316,18 @@ export function movingFootprints(s: DeskState): Footprint[] {
     if (n.hole) fp.push(...pitFootprints(FRESH.box));
     const F = CARD_FILE;
     const fresh = [...bayFootprints(FRESH), rectFp({ x0: F.x0 - F.cheek, x1: F.x1 + F.cheek, y0: F.y - F.r, y1: F.y + F.r }, BAY_FLOOR, F.z + F.cheekR, 1, 6)].map((x) => (x.kind === 'rect' || x.kind === 'circle' ? { ...x, contact: x.contact * n.contact } : x));
-    fp.push(...shiftFootprints(fresh, -HATCH_DEPTH * (1 - Math.min(1, n.rise))));
+    fp.push(...shiftFootprints(fresh, liftOf(n.rise, HATCH_DEPTH)));
   }
   // beat 4: the request on its ride, the arrivals on the intake, the counterfactual cards over the slate, the heap's pit
   const b4 = s.b4;
   const r = b4.request.pose;
-  if (r) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [REQUEST.l / 2, REQUEST.w / 2], r: 2, rot: r.heading, z0: r.p[2] - 0.4, z1: r.p[2] + 0.6, contact: carrierContact(r) });
-  for (const a of b4.arrivals) fp.push({ kind: 'rect', c: [a.pose.p[0], a.pose.p[1]], h: a.kind === 'ci' ? [42, 25] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: a.pose.heading, z0: a.pose.p[2] - 0.4, z1: a.pose.p[2] + 0.4, contact: 0 });
+  // (on its dispatch ride its own top never under its footprint's: carrierSpan)
+  if (r) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [REQUEST.l / 2, REQUEST.w / 2], r: 2, rot: r.heading, ...(s.f >= RIDE.out ? carrierSpan(r, REQUEST.l / 2, 0.6) : { z0: r.p[2] - 0.4, z1: r.p[2] + 0.6 }), contact: carrierContact(r) });
+  for (const a of b4.arrivals) fp.push({ kind: 'rect', c: [a.pose.p[0], a.pose.p[1]], h: a.kind === 'ci' ? [42, 25] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: a.pose.heading, ...carrierSpan(a.pose, a.kind === 'ci' ? 42 : NEXT_SLIP.l / 2, 0.4), contact: 0 });
   for (const c of b4.carriers) {
     if (c.docked) continue;
     const [hl, hw] = c.kind === 'ci' ? [42, 25] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2];
-    fp.push({ kind: 'rect', c: [c.pose.p[0], c.pose.p[1]], h: [hl, hw], r: 2, rot: c.pose.heading, z0: c.pose.p[2] - 0.4, z1: c.pose.p[2] + 0.4, contact: carrierContact(c.pose) });
+    fp.push({ kind: 'rect', c: [c.pose.p[0], c.pose.p[1]], h: [hl, hw], r: 2, rot: c.pose.heading, ...carrierSpan(c.pose, hl, 0.4), contact: carrierContact(c.pose) });
   }
   for (const which of ['split', 'ghost'] as const) {
     const c = b4.cards[which];
@@ -360,7 +375,8 @@ export function beat6Footprints(e: Beat6State): Footprint[] {
     fp.push({ kind: 'rect', c: [x.pose.p[0], x.pose.p[1]], h: [(NEXT_SLIP.l / 2) * Math.cos(x.pose.slope), NEXT_SLIP.w / 2], r: 2, rot: x.pose.heading, z0: x.pose.p[2] - 0.4, z1: x.pose.p[2] + 0.4, contact: 0 });
   }
   if (e.bar) {
-    const z = TRAY.floor + BAR_RIDE;
+    // rising with the tray out of the deck plate (objects/Batch.tsx), then riding over the strip
+    const z = TRAY.floor - 2 + (BAR_RIDE + 2) * e.bar.up;
     fp.push(segFp([e.bar.x, TRAY.y0 - 6, z], [e.bar.x, TRAY.y1 + 6, z], 3));
   }
   if (e.decode) {
@@ -395,7 +411,14 @@ export function beat5Footprints(e: Beat5State): Footprint[] {
     // the tray's key footprint (youFootprints) carried with the key: x from its bow's west edge to its bit, y from its tip to its bow
     const { key } = CHORES;
     const r: Rect = { x0: k.p[0] - key.bowR, x1: k.p[0] + key.bit.x[1], y0: k.p[1] + key.shank[0], y1: k.p[1] + key.bowY + key.bowR };
-    fp.push(rectFp(r, k.p[2], k.p[2] + 4, 0.7 * Math.max(0, 1 - k.lift / 4), 4));
+    const f0 = rectFp(r, k.p[2], k.p[2] + 4, 0.7 * Math.max(0, 1 - k.lift / 4), 4);
+    // turned with the key about its rest point (its sway in flight, its kick on the slate)
+    if (k.yaw !== 0 && f0.kind === 'rect') {
+      const [dx, dy] = [f0.c[0] - k.p[0], f0.c[1] - k.p[1]];
+      f0.c = [k.p[0] + dx * Math.cos(k.yaw) - dy * Math.sin(k.yaw), k.p[1] + dx * Math.sin(k.yaw) + dy * Math.cos(k.yaw)];
+      f0.rot = k.yaw;
+    }
+    fp.push(f0);
   }
   const pl = e.plate;
   if (pl) {
@@ -417,6 +440,17 @@ export function beat5Footprints(e: Beat5State): Footprint[] {
     fp.push({ kind: 'rect', c: [x.p[0], x.p[1]], h: [NEXT_SLIP.l / 2, Math.max(2, half)], r: 2, rot: x.heading, z0: x.p[2] - 0.4 - rise, z1: x.p[2] + 0.4 + rise, contact: 0 });
   }
   return fp;
+}
+
+/**
+ * The heights a flat carrier's footprint spans (its centre plane at p, its top `top` over it, `hl` its half length, tilted
+ * by its slope): its top a quarter unit under the lowest point of the carrier's own top face, so the carrier never shades
+ * itself (a footprint's top exactly at a receiver is a coin flip of its shade: a tilted card read two-toned, half of it
+ * under its own footprint, and flattened to one tone in a frame as it landed).
+ */
+function carrierSpan(c: Carry, hl: number, top: number): { z0: number; z1: number } {
+  const z1 = c.p[2] + top * Math.cos(c.slope) - hl * Math.abs(Math.sin(c.slope)) - 0.25;
+  return { z0: Math.min(c.p[2] - 0.4, z1 - 0.5), z1 };
 }
 
 /**
@@ -466,7 +500,7 @@ export function heapFootprintsAt(h: HeapState): Footprint[] {
   HEAP.forEach((p, i) => {
     if (heapCovered(i)) return;
     const [w, d] = PIECE[p.kind];
-    const q = heapPieceAt(p.z, Math.abs(p.z - onReq) < 1e-6, h);
+    const q = heapPieceAt(p.z, Math.abs(p.z - onReq) < 1e-6, h, heapFloor(p.c, p.rot, w, d, p.z));
     const inset = 5 * k;
     // (its plate thins to nothing as it presses flat, so the frame it stops casting changes no shade)
     const z0 = q.z - 0.3 * (1 - k);
@@ -488,7 +522,7 @@ export function cardFootprint(c: CardState, which: 'split' | 'ghost'): Footprint
 
 /** All footprints at a frame (static first). Throws past MAX_FOOTPRINTS. */
 export function footprintsAt(s: DeskState): Footprint[] {
-  const all = [...staticFootprints(s.testsSink, youPoseAt(s.f), s.b4.bays), ...movingFootprints(s)];
+  const all = [...staticFootprints(s.testsSink, youPoseAt(s.f), s.b4.bays, HEAD_DIP * headDipAt(s)), ...movingFootprints(s)];
   if (all.length > MAX_FOOTPRINTS) throw new Error(`desk: ${all.length} footprints, over the ${MAX_FOOTPRINTS} the shaders hold`);
   return all;
 }

@@ -143,7 +143,12 @@ function faceUv(g: BufferGeometry, w: number, h: number): BufferGeometry {
   return g;
 }
 
-export function Counterfactual({ pose, w, h, strike, children }: { pose: CardPose; w: number; h: number; strike: number; children?: React.ReactNode }) {
+/**
+ * A counterfactual card at its pose; `inFrame`: how far it is in (beat4.ts cardIn, 0 off frame .. 1 at its place): its contact
+ * shadow, which reaches past the card's lowest edge, comes in and goes with it, so on the last frame the card is drawn
+ * (wholly beyond the frame's top) nothing of its shadow is left at the frame's edge to vanish the frame after.
+ */
+export function Counterfactual({ pose, w, h, strike, inFrame = 1, children }: { pose: CardPose; w: number; h: number; strike: number; inFrame?: number; children?: React.ReactNode }) {
   const gl = useThree((st) => st.gl);
   const mats = useMemo(() => {
     const face = cardFace(w, h, Math.min(8, gl.capabilities.getMaxAnisotropy()));
@@ -190,6 +195,11 @@ export function Counterfactual({ pose, w, h, strike, children }: { pose: CardPos
     return { sheet, rim, shadow, rule: extrude(rule, 0, 0.6, 0) };
   }, [w, h]);
   useLayoutEffect(() => () => Object.values(g).forEach((x: BufferGeometry) => x.dispose()), [g]);
+  // (written every frame)
+  const shadowK = Math.min(1, Math.max(0, inFrame / 0.2));
+  useLayoutEffect(() => {
+    mats.shadow.opacity = SHADOW.opacity * shadowK * shadowK * (3 - 2 * shadowK);
+  }, [mats, shadowK]);
   // the strike: from the top-left corner to the bottom-right, inset, laid as it is drawn (its pen's end leads)
   const a: P2 = [-w / 2 + 18, h / 2 - 30];
   const b: P2 = [w / 2 - 18, -h / 2 + 14];

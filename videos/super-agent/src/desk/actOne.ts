@@ -301,12 +301,13 @@ export const REQUEST_A = { c: [-762, 150] as P2, rot: 0.38, l: 114, w: 52, creas
 /** The request turns vermilion on its cue (f20), over spring-effects: the request motif. Its spring starts the frame before, so the cue frame already shows it turning. */
 export const REQUEST_INK = cue('request').frame;
 /**
- * In 3.1 the request is on Fix A's tape: its grey copy (desk/beat3.ts) drops out of the chat spout with the request's
- * vermilion as the first station's move ends (its 3 f anticipation from FIX_A.steps[0] - 3; beat3.test.ts holds this to
- * the pour) and keeps it while Fix A holds the focus; the heap's request drains to its paper meanwhile (one request on
- * screen), and both swap back as the focus moves to Fix B (FOCUS_A.fixA).
+ * In 3.1 the request is on Fix A's tape: its grey copy (desk/beat3.ts) drops out of the chat spout as the first station's
+ * move ends (its 3 f anticipation from FIX_A.steps[0] - 3, inside the spout until the next frame) and takes the request's
+ * vermilion from its first frame in sight (the spring from FIX_A.steps[0] - 2; beat3.test.ts holds this to the pour) while
+ * the heap's request drains to its paper over the same frames (one request on screen, never none), keeps it while Fix A
+ * holds the focus, and both swap back as the focus moves to Fix B (FOCUS_A.fixA).
  */
-export const REQUEST_ON_TAPE = { from: FIX_A.steps[0] - 3, to: FIX_B.in + 10 } as const;
+export const REQUEST_ON_TAPE = { from: FIX_A.steps[0] - 2, to: FIX_B.in + 10 } as const;
 export const requestOnTapeAt = (f: number): number => clamp(springAt(f, REQUEST_ON_TAPE.from, SPRING.effects) - springAt(f, REQUEST_ON_TAPE.to, SPRING.effects));
 /** The pieces that land on the request's west half (f100–150), creasing it: its east flap lifts a quarter of the way with each. */
 const COVER_FRAMES = [100, 110, 130, 150] as const;
@@ -595,6 +596,8 @@ export const FOCUS_A = {
   rest: { from: FIX_A.in + 6, to: BOTH_FIXES, ids: ['folders', 'loop', 'you'] as readonly FocusId[] },
   fixA: { from: FIX_B.in + 10, to: BOTH_FIXES, ids: ['fixA'] as readonly FocusId[] },
 } as const;
+/** The heap's request changes from its own ramp (the rest of act one's) to the intake's set once that ramp is fully down (both stepped: nothing jumps). */
+export const REQUEST_STEPPED_FROM = FOCUS_A.rest.from + STEP_FRAMES;
 const ramp = (f: number, r: { from: number; to: number }): number => Math.min(easings.inOutSine(span01(f, r.from, r.from + STEP_FRAMES)), 1 - easings.inOutSine(span01(f, r.to, r.to + STEP_FRAMES)));
 
 export interface FolderState {
@@ -1105,10 +1108,16 @@ export function flagTop(fl: FolderLayout, up: number): P3 {
 }
 
 /** Act one's one pool (POOL_A, defined with the lamp's swings, which read it as the module loads). */
+/**
+ * The heights act one's pool lights (receivers between them): the folders and what stands on them, under the lamp's own
+ * hood; from 3.2's break mark (the pool on Fix B, far from Fix A: nothing between the two heights is in it then) up to
+ * Fix A's whole pile, so the fat folder stays in its light in 3.3 and as the turn presses it (no step on any frame).
+ */
+export const POOL_A_Z = { low: 60, tall: 96, from: FIX_B.breakMark } as const;
 export function actOnePools(a: ActOneState): Pool[] {
   const c = LOOP_A.c;
   const d: P2 = [a.lamp.aim[0] - c[0], a.lamp.aim[1] - c[1]];
   const l = Math.hypot(d[0], d[1]) || 1;
   const back = a.lamp.back;
-  return [{ c: [a.lamp.aim[0] - (d[0] / l) * back, a.lamp.aim[1] - (d[1] / l) * back], z: [0, 60], sigma: a.lamp.sigma, rgb: tint(LIGHT_HEX.yours, POOL_A.k) }];
+  return [{ c: [a.lamp.aim[0] - (d[0] / l) * back, a.lamp.aim[1] - (d[1] / l) * back], z: [0, a.f >= POOL_A_Z.from ? POOL_A_Z.tall : POOL_A_Z.low], sigma: a.lamp.sigma, rgb: tint(LIGHT_HEX.yours, POOL_A.k) }];
 }

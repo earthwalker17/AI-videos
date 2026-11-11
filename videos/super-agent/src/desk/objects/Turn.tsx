@@ -19,14 +19,14 @@ import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { BufferGeometry, Color, CylinderGeometry, DoubleSide, Float32BufferAttribute, Matrix4, Path, RepeatWrapping, RingGeometry, Shape, type Material, type MeshStandardMaterial, type Texture } from 'three';
 import { HEAP, LOOP_A, FOLDERS, PIECE, REQUEST_A, loopNormal, loopPoint, requestZ, tabAt, TAB, type ActOneState, type LoopPose, type PieceKind } from '../actOne.ts';
 import { A_CHUTES, A_FOLDER_TOP, A_ITEMS, A_PILE, A_PITCH, A_SIZE, A_STACK_END, A_TAPE_W, BAY_TRAYS, BREAK, B_SLIP, EVENT_SIZE, FIX_A_FOLDER, FOLLOW_UP, TEAR, TRAYS, TRAY_CARD, TRAY_STUFF, TRAY_Z, aPathAt, followUpAt, tearAt, type AItemKind, type AItemPose, type EventKind, type FixAView, type TrayPost } from '../beat3.ts';
-import { ON_REQUEST, RIDE, WORK_DEPTH, heapPieceAt, type HeapState, type RequestState } from '../beat4.ts';
-import { cylinderZ, disc, extrude, merge, planeOn, slab, tornShape, tube } from '../geom.ts';
+import { ON_REQUEST, RIDE, WORK_DEPTH, heapFloor, heapPieceAt, type HeapState, type RequestState } from '../beat4.ts';
+import { cylinderZ, disc, extrude, merge, plane, planeOn, slab, tornShape, tube } from '../geom.ts';
 import { DESK_HEX } from '../gl/desk.ts';
 import { HEX, enamel, graphite, paper, stepColour, whiteTexture } from '../gl/materials.ts';
 import { PRINT_FONT, cargoMark, texture, tooth } from '../gl/text.ts';
 import { useDeskMats, useDeskSets, useStepMode } from '../kit.tsx';
 import { BAYS, BAY_FLOOR, LEG_R, NEXT_SLIP, REEL, TAPE, TAPE_FLAT_X1, type BayId, type P2, type P3, type Rect } from '../layout.ts';
-import { CLIP_T, TURN, bayShapeAt, coilRim, legsAt, replyLands, shapeWalls, turnDeskState, type BayShape, type BayTurn, type CoilState, type Press, type TurnState } from '../turn.ts';
+import { CLIP_T, OLDER_REPLY_REST, TURN, bayShapeAt, coilRim, legsAt, replyLands, shapeWalls, turnDeskState, type BayShape, type BayTurn, type CoilState, type Press, type TurnState, type olderReplyAt } from '../turn.ts';
 import { BeetleLight, BugBay, DocsBay, SLOT_IDLE, TestsBay } from './Bay.tsx';
 import { Hatch, shellInside } from './Dispatch.tsx';
 import { bubbleMark } from './Intake.tsx';
@@ -35,12 +35,8 @@ import { TAPE_HEX, clipGeometry, fitUv, loopArc, loopNoteFlips, loopNotes, loopN
 /** The slate's own tone (linear): what a pressed folder's stock glows to as its own light goes out (desk/turn.ts foldPressAt). */
 const SLATE = new Color(DESK_HEX.base);
 
-/** Fix A's clip, on the kit's late set while the folder is pressed (the turn ramps it to the slate's tone). */
-function FolderClip({ geometry, pressed }: { geometry: BufferGeometry; pressed: boolean }) {
-  const sets = useDeskSets();
-  const ctx = useDeskMats();
-  return <mesh geometry={geometry} material={(pressed ? sets.late : ctx).graphiteDark} />;
-}
+/** Fix A's clip: the kit's dark graphite (kit.tsx graphiteDark), on its own material so the turn can take it to the slate's tone with the folder. */
+const CLIP_HEX = '#4A4E4C';
 
 /** Grey stock: the road not taken (STORYBOARD's palette). */
 export const GREY = '#77756F';
@@ -482,6 +478,8 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
       stack: paper(whiteTexture(), FIX_HEX.shade, o),
       sheet: paper(whiteTexture(), FIX_HEX.light, o),
       chute: paper(whiteTexture(), FIX_HEX.stock, o),
+      // its clip: the kit's dark graphite (as the enclosing set's), its own so the turn can take it to the slate's tone
+      clip: graphite(CLIP_HEX, { roughness: 0.5, stepped: mode }),
     };
     out.span.side = DoubleSide;
     out.tape.side = DoubleSide;
@@ -496,31 +494,42 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
     });
     return out;
   }, [tex, kindTex, mode]);
-  // the turn's queue (A_ITEMS by index) turns to paper as it leaves the desk
-  useLayoutEffect(() => {
-    A.items.forEach((it, i) => {
-      if (it && it.kind === undefined && mats[`i${i}`]) mats[`i${i}`].color.copy(lerpHex(A_ITEMS[i]?.kind === 'request' ? FIX_HEX.request : FIX_HEX.item, HEX.paper, it.paper));
-    });
-  }, [A.items, mats]);
   // the request's copy carries the request's vermilion while Fix A holds the focus (beat3.ts aRequestInkAt; the turn's: grey)
   const ink = A.requestInk ?? 0;
-  // pressed at the turn (desk/turn.ts foldPressAt): the folder's grey stock and its pile take the slate's tone by amount
+  // pressed at the turn (desk/turn.ts foldPressAt): the folder's grey stock, its clip and its pile go to the slate's tone as
+  // lit where it lies (pressA.tone) by amount, monotonic, so it is in the desk's own tone by the time it goes under
   const slate = pressA.slate ?? 0;
+  const tone = pressA.tone;
+  // the turn's queue (A_ITEMS by index) turns to paper as it leaves the desk
+  const papers = A.items.map((it) => (it && it.kind === undefined ? it.paper : 0)).join(',');
   useLayoutEffect(() => {
-    for (let v = 0; v < 4; v++) mats[`krequest${v}`]?.color.copy(lerpHex(FIX_HEX.request, HEX.vermilion, ink));
-    if (slate <= 0) {
-      for (const x of Object.values(mats)) x.emissive.setRGB(0, 0, 0);
-      return;
-    }
-    const tone = (x: MeshStandardMaterial, hex: string) => {
-      x.color.set(hex).multiplyScalar(1 - slate);
-      x.emissive.copy(SLATE).multiplyScalar(slate);
+    // every colour is written from this frame alone (a page that seeks backwards draws exactly what a forward one does)
+    const target = tone ? new Color(tone[0], tone[1], tone[2]) : SLATE;
+    // (its sheen goes with its own light: by metalness toward 1 on a colour going to black, nothing is reflected at the end,
+    // so it is exactly the slate's tone; the clip starts from the kit graphite's metalness)
+    const set = (x: MeshStandardMaterial, c: Color, toned: boolean, metal = 0) => {
+      x.color.copy(c);
+      if (toned && slate > 0) {
+        x.color.multiplyScalar(1 - slate);
+        x.emissive.copy(target).multiplyScalar(slate);
+        x.metalness = metal + (1 - metal) * slate;
+      } else {
+        x.emissive.setRGB(0, 0, 0);
+        x.metalness = metal;
+      }
     };
-    tone(mats.cover, FIX_HEX.stock);
-    tone(mats.stack, FIX_HEX.shade);
-    tone(mats.sheet, FIX_HEX.light);
-    for (const key of Object.keys(mats)) if (key.startsWith('k')) tone(mats[key], key.startsWith('krequest') ? FIX_HEX.request : FIX_HEX.item);
-  }, [ink, slate, mats]);
+    set(mats.tape, new Color(FIX_HEX.tape), false);
+    set(mats.span, new Color(TAPE_HEX.tape), false);
+    set(mats.chute, new Color(FIX_HEX.stock), false);
+    set(mats.cover, new Color(FIX_HEX.stock), true);
+    set(mats.stack, new Color(FIX_HEX.shade), true);
+    set(mats.sheet, new Color(FIX_HEX.light), true);
+    set(mats.clip, new Color(CLIP_HEX), true, 0.55);
+    // the pile's pieces (in the turn the queue draws with its own i-mats, so the k-mats are the pile's)
+    for (const key of Object.keys(mats)) if (key.startsWith('k')) set(mats[key], key.startsWith('krequest') ? lerpHex(FIX_HEX.request, HEX.vermilion, ink) : new Color(FIX_HEX.item), true);
+    const p = papers.split(',').map(Number);
+    A_ITEMS.forEach((it, i) => mats[`i${i}`] && set(mats[`i${i}`], lerpHex(it.kind === 'request' ? FIX_HEX.request : FIX_HEX.item, HEX.paper, p[i] ?? 0), false));
+  }, [ink, slate, tone, papers, mats]);
   // the tape along its path: beat 3's stretch (A.tape), or the turn's from the folder back; u by material place (the print travels with it)
   const t0 = A.tape?.d0 ?? 0;
   const t1 = A.tape?.d1 ?? A.deskLen;
@@ -575,7 +584,7 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
             <mesh geometry={folder.stack} material={mats.stack} position={[0, 0, 1.4]} scale={[1, 1, (top - 0.5 - 1.4) / (A_FOLDER_TOP - 0.5 - 1.4)]} />
             <group position={[0, 0, grow]}>
               <mesh geometry={folder.sheet} material={mats.sheet} />
-              <FolderClip geometry={folder.clip} pressed={pressA.k > 0} />
+              <mesh geometry={folder.clip} material={mats.clip} />
             </group>
             {pile.map((it, k) => (
               <ItemMesh key={k} it={local(it)} geometry={geo[it.kind ?? 'chat']} material={matOf(it, -1)} />
@@ -836,6 +845,9 @@ function BayTray({ k, b, f, mats, contents, post }: { k: number; b: BayTurn; f: 
   const shift: P2 = [(fr.x0 + fr.x1) / 2 - tc[0], (fr.y0 + fr.y1) / 2 - tc[1]];
   const top = b.lid > 0 ? LID_TOP + (TRAY_Z.floor - LID_TOP) * (1 - b.lid) : TRAY_Z.floor;
   const fall = (WORK_DEPTH[b.id] + 6) * b.fall;
+  // as it falls it slides toward the near (south) wall, in under its rim (the pit runs under the walls, to 6 u past the box),
+  // where the camera loses most of it before the leaves shut
+  const toWall = Math.max(0, tc[1] + shift[1] - (L.box.y0 - 6 + TRAYS[k].d / 2 - 4)) * b.fall;
   const wallMat = b.built >= 0.999 ? m.graphite : mats.wall;
   const off = post?.off ?? [0, 0, 0];
   const sq = post?.squash ?? 0;
@@ -849,7 +861,7 @@ function BayTray({ k, b, f, mats, contents, post }: { k: number; b: BayTurn; f: 
         {floor && <mesh geometry={floor} material={mats.floor} />}
         {b.lid > 0 && b.lid < 1 && <MorphLid inner={inner} lid={b.lid} material={mats.floor} />}
         {b.lid >= 1 && <Hatch box={L.box} open={b.leaves} depth={WORK_DEPTH[b.id]} look="lid" inner={inner} />}
-        <group position={[tc[0] + shift[0], tc[1] + shift[1], top - TRAY_Z.floor - fall]}>{contents}</group>
+        <group position={[tc[0] + shift[0], tc[1] + shift[1] - toWall, top - TRAY_Z.floor - fall]}>{contents}</group>
       </group>
     </group>
   );
@@ -1104,16 +1116,22 @@ export function FixB({ fixB, f, tear, followUp, posts, riffle }: { fixB: TurnSta
 // ------------------------------------------------------------------------------------------------
 // After the turn (act two, desk/beat4.ts): the riders wound into the reel; the old heap and the request rising out of it
 
+/** How high a folded tab's top face stands over the pack's top at its hinge (tabMatrix: its frame 0.9 u up, turned over, its face 0.2 u over that). */
+const TAB_RISE = 1.1;
+
 /** The coil at rest on the reel, as the turn locks it: the rim its clip and tabs ride. */
 const LOCKED: CoilState = { c: [REEL.x, REEL.y], h: REEL.packZ[0], rIn: REEL.hubR, rOut: REEL.packR, t: REEL.packZ[1] - REEL.packZ[0], spin: 0, hub: 1, spokes: 1, stock: 1 };
 
 /**
  * The notes loop's clip and tabs riding the Register's reel as the coil left them at the lock, turned with the reel
- * (`angle`, as the coil's spin), until the request's detent winds them in at the rim (`wind`, 0..1; desk/beat4.ts
- * ridersAt): each tab, hinged on the rim's top edge where it is fastened to the tape, folds down over its hinge into the
- * coil, under the next turn of tape (its free end first, hidden by the pack's top as it goes below it); the clip slides
- * in off the rim's edge as the tape tightens and folds down into the coil the same way about its outer edge. At their
- * own size all the way (never scaled), each over its own 8 f, so they are gone by the time the reel seats.
+ * (`angle`, as the coil's spin), until the request's detent winds them in at the rim (`wind`, 0..1 linear in time from
+ * the detent's start: desk/beat4.ts ridersAt; nothing moves before the reel does): each tab, hinged on the rim's top edge
+ * where it is fastened to the tape, is carried round with the reel and drawn down over its hinge into the coil, under the
+ * next turn of tape: its free end goes under the pack's top first and the part still showing shortens evenly frame by
+ * frame (the fold is set so the edge of the pack's top travels along the tab at a steady pace), then its hinge edge goes
+ * under too, so nothing of it is left above the top when it is gone. The clip slides in off the rim's edge as the tape
+ * tightens and tips down into the coil about its outer edge, its wire handles last, all of it under the top by its end.
+ * At their own size all the way (never scaled): each tab over 6 f (0.3 f after the one before it), the clip over 9 f.
  */
 export function ReelRiders({ angle, sink: wind }: { angle: number; sink: number }) {
   const m = useDeskMats();
@@ -1123,31 +1141,39 @@ export function ReelRiders({ angle, sink: wind }: { angle: number; sink: number 
   const clip = useMemo(() => clipGeometry(LOOP_A), []);
   useLayoutEffect(() => () => Object.values(clip).forEach((x) => x.dispose()), [clip]);
   const L = coilRim({ ...LOCKED, spin: angle });
-  const ease = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, t)));
-  // the tabs: each over 8/11 of the wind (one a little after the other round the rim, in the reel's turn), all folded in
-  // by its last frame
+  const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
+  const ease = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * clamp01(t));
   const tabs = TABS.map((_, k) => {
-    const u = ease((wind - 0.1 - 0.012 * k) / 0.7);
+    // its own 6 f of the wind (10 f), 0.3 f after the tab before it
+    const s = clamp01((wind - 0.03 * k) / 0.6);
     const M0 = tabMatrix(L, 1, 1, k, angle);
+    // the fold that leaves (1 - s) of its length over the pack's top (its top face TAB_RISE over the top at the hinge)
+    const theta = s <= 0 ? 0 : Math.asin(Math.min(1, TAB_RISE / Math.max(TAB_RISE, TAB.l * (1 - s))));
     const e = M0.elements;
-    // inward along the rim's radius at the hinge, and down, so its hinge edge ends under the pack's top too
+    // inward along the rim's radius at the hinge (inside the outer wall as it stands), and down at the end, so its hinge
+    // edge goes under the pack's top too
     const r = Math.hypot(e[12] - REEL.x, e[13] - REEL.y) || 1;
-    const ix = ((REEL.x - e[12]) / r) * 1.6 * u;
-    const iy = ((REEL.y - e[13]) / r) * 1.6 * u;
-    return new Matrix4().makeTranslation(ix, iy, -2 * u * u).multiply(M0).multiply(new Matrix4().makeRotationX((-Math.PI / 2) * u));
+    const ix = ((REEL.x - e[12]) / r) * 1.6 * ease(s / 0.5);
+    const iy = ((REEL.y - e[13]) / r) * 1.6 * ease(s / 0.5);
+    const down = -2.8 * ease((s - 0.6) / 0.4);
+    // (the folded tab's own z points down into the coil (tabMatrix turns it over the rim): a positive turn about its hinge
+    // takes its free end down)
+    return new Matrix4().makeTranslation(ix, iy, down).multiply(M0).multiply(new Matrix4().makeRotationX(theta));
   });
-  // the clip: tipped into the coil as it is drawn in off the rim's edge (its wire handles over the pack's top, its folded
-  // thickness inside the rim), folding down about its outer edge as it goes (under the flange below the pack: hidden all
-  // the way down), so it is foreshortened away as much as it travels
-  const slide = ease(wind / 0.75) * 62;
+  // the clip: tipped into the coil as it is drawn in off the rim's edge (its folded thickness inside the rim), folding down
+  // about its outer edge as it goes, so it is foreshortened away as much as it travels; its wire handles, standing proud
+  // of the body, go under last, as the whole clip settles below the top
+  const c = clamp01(wind / 0.9);
+  const slide = ease(c) * 62;
   // (gathering pace: the clip is long, so a small tip already sinks its inner end under the pack's top)
-  const fold = ease((wind - 0.12) / 0.78) ** 1.6;
+  const fold = ease((c - 0.1) / 0.9) ** 2.2;
+  const settle = 12 * ease((c - 0.2) / 0.6);
   const zb = LOOP_A.z + 0.9;
   const xp = 48 - slide;
   const cm = clipMatrix(L, 1, angle)
     .clone()
     .multiply(CLIP_FROM.clone().invert())
-    .multiply(new Matrix4().makeTranslation(xp, 0, zb - 2.2 * fold * fold))
+    .multiply(new Matrix4().makeTranslation(xp, 0, zb - 2.2 * fold * fold - settle))
     .multiply(new Matrix4().makeRotationY((-Math.PI / 2) * fold))
     .multiply(new Matrix4().makeTranslation(-xp - slide, 0, -zb))
     .multiply(CLIP_FROM);
@@ -1244,7 +1270,7 @@ export function Backlog({ a, heap, request, f, stepRequest = false }: { a: ActOn
   return (
     <group>
       {HEAP.slice(0, a.landed).map((p, i) => {
-        const q = heapPieceAt(p.z, Math.abs(p.z - onReq) < 1e-6, heap);
+        const q = heapPieceAt(p.z, Math.abs(p.z - onReq) < 1e-6, heap, heapFloor(p.c, p.rot, PIECE[p.kind][0], PIECE[p.kind][1], p.z));
         return (
           <group key={i} position={[p.c[0], p.c[1], q.z]} rotation={[0, 0, p.rot]} scale={[1, 1, q.k]}>
             <mesh geometry={geo[p.kind]} material={mats[keyOf(p.kind, p.v, p.tone)].mat} />
@@ -1324,6 +1350,17 @@ function Leader({ k }: { k: number }) {
   return g ? <mesh geometry={g} material={m.printed.tapeBlank} /> : null;
 }
 
+/** The older reply on its way down the chute into your in-tray (turn.ts olderReplyAt): YourDesk's slip1, the same sheet and print. */
+function OlderReply({ r }: { r: NonNullable<ReturnType<typeof olderReplyAt>> }) {
+  const m = useDeskMats();
+  const g = useGeo(() => plane(OLDER_REPLY_REST.size[0], OLDER_REPLY_REST.size[1], 0, 0, 0), []);
+  return (
+    <group position={r.p} rotation={[0, r.slope, r.heading, 'ZYX']}>
+      <mesh geometry={g} material={m.printed.inTray[0]} />
+    </group>
+  );
+}
+
 function FirstSlip({ s }: { s: NonNullable<TurnState['slip']> }) {
   const m = useDeskMats();
   const g = useMemo(() => piece('chat', NEXT_SLIP.l, NEXT_SLIP.w), []);
@@ -1347,6 +1384,7 @@ export function TurnObjects({ t, printFamily }: { t: TurnState; printFamily: str
       {t.f >= TURN.deckIn && <Legs t={t} />}
       {t.tape.leader < 1 && <Leader k={t.tape.leader} />}
       {t.slip && <FirstSlip s={t.slip} />}
+      {t.reply && <OlderReply r={t.reply} />}
     </>
   );
 }

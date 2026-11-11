@@ -6,7 +6,7 @@
  * (desk/beat4.ts).
  */
 import { useMemo } from 'react';
-import { CARD_SPOT, RIDE, cardPose } from '../beat4.ts';
+import { CARD_SPOT, RIDE, cardIn, cardPose } from '../beat4.ts';
 import type { DeskState } from '../state.ts';
 import { TURN_SPAN, heldActOne } from '../turn.ts';
 import { BugBay, DocsBay, FreshBay, RequestCarrier, TestsBay } from './Bay.tsx';
@@ -34,12 +34,12 @@ function Cards({ s }: { s: DeskState }) {
   return (
     <>
       {split && (
-        <Counterfactual pose={cardPose(split, 'split')} w={CARD_SPOT.w} h={CARD_SPOT.h} strike={split.strike}>
+        <Counterfactual pose={cardPose(split, 'split')} w={CARD_SPOT.w} h={CARD_SPOT.h} strike={split.strike} inFrame={cardIn(split)}>
           <SplitPlay play={split.play} />
         </Counterfactual>
       )}
       {ghost && (
-        <Counterfactual pose={cardPose(ghost, 'ghost')} w={CARD_SPOT.w} h={CARD_SPOT.h} strike={ghost.strike}>
+        <Counterfactual pose={cardPose(ghost, 'ghost')} w={CARD_SPOT.w} h={CARD_SPOT.h} strike={ghost.strike} inFrame={cardIn(ghost)}>
           <GhostPlay play={ghost.play} />
         </Counterfactual>
       )}

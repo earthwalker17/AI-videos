@@ -2,17 +2,29 @@ import { describe, expect, it } from 'vitest';
 import { cue } from '../cues.ts';
 import { MOTION_TESTS } from '../lookdev/frames.ts';
 import { actOneFrameFootprints, fixAOf, fixBOf } from './ActOneFrame.tsx';
-import { FLAG, FOLDERS, LOOP_A, PEN, actOneAt, actOnePools, stackTop, youPoseA } from './actOne.ts';
-import { A_ITEMS, A_PILE, A_STACK_END, BAY_TRAYS, FIX_A_FOLDER, IMPRINTS, RETIRE_TRAYS, TRAYS, TRAY_Z } from './beat3.ts';
+import { FLAG, FOLDERS, LOOP_A, PEN, POOL_A_Z, actOneAt, actOnePools, stackTop, youPoseA } from './actOne.ts';
+import { A_CHUTES, A_FOLDER_IN, A_ITEMS, A_PILE, A_STACK_END, BAY_TRAYS, FIX_A_FOLDER, IMPRINTS, RETIRE_TRAYS, TRAYS, TRAY_Z } from './beat3.ts';
 import { FRAMING_B, cameraAt, deskCamera, project } from './camera.ts';
 import { REQUEST_FROM } from './beat4.ts';
 import { MAX_FOOTPRINTS, footprintsAt, type Footprint } from './footprints.ts';
 import { BAYS, DECK, REEL, SPOOL, YOU, type P3 } from './layout.ts';
-import { EMIT, MAX_POOLS, poolsAt } from './pools.ts';
+import { EMIT, MAX_POOLS, linearOf, poolsAt } from './pools.ts';
+import { DESK_HEX } from './gl/desk.ts';
 import { LAMP_STEPS, deskStateAt } from './state.ts';
 import {
   A_TAPE_LEN,
   BAY_ORDER,
+  CHUTE_CLEAR,
+  CHUTE_IN,
+  LEAVES_OPEN,
+  OLDER_REPLY,
+  OLDER_REPLY_REST,
+  STRUT_HOME,
+  aTailAt,
+  olderReplyAt,
+  retireContact,
+  slateToneAt,
+  strutTurnAt,
   COIL_R0,
   PRESS_LATE,
   SPOOL_NORTH,
@@ -39,8 +51,16 @@ import {
   turnPools,
   youPoseTurn,
 } from './turn.ts';
-import { YOU_POSE_B } from './you.ts';
+import { YOU_POSE_B, strutEnds, strutOnLid } from './you.ts';
 
+/** The pools' light (green) at a place and height, as the shaders sum it (gl/light.ts dskPool). */
+const poolLight = (t: ReturnType<typeof turnAt>, c: readonly [number, number], z: number) =>
+  turnPools(t).reduce((s, q) => {
+    if (z < q.z[0] || z > q.z[1]) return s;
+    const dx = (c[0] - q.c[0]) / q.sigma[0];
+    const dy = (c[1] - q.c[1]) / q.sigma[1];
+    return s + q.rgb[1] * Math.exp(-0.5 * (dx * dx + dy * dy));
+  }, 0);
 /** A state without its frame number, for comparing frames. */
 const still = (f: number) => JSON.stringify({ ...turnAt(f), f: 0, act: { ...turnAt(f).act, f: 0 } });
 const span = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
@@ -352,7 +372,7 @@ describe('the turn (MT2)', () => {
       ['the reel glides, descends, locks; its leader laid', TURN.glide, TURN.lock + 6],
       ['the belt runs out, the first slip rides it in, its row prints', TURN.belt, TURN.print + TURN.inkFrames],
       ['every other channel joins the intake', TURN.spool, TURN.spool + TURN.spoolFrames],
-      ['the chute extends, its posts drop', TURN.chute, TURN.posts + TURN.postFrames],
+      ['the chute extends, its posts drop, its first (older) reply slides down it into your in-tray', TURN.chute, Math.max(TURN.posts + TURN.postFrames, OLDER_REPLY.lands)],
       ['the Continuous plate turns over', TURN.plate - 6, TURN.plate + 8],
       ['the request starts out of the heap', REQUEST_FROM, TURN_SPAN[1] + 1],
     ];
@@ -411,5 +431,158 @@ describe('the turn (MT2)', () => {
       expect(turnPools(t).length).toBeLessThanOrEqual(MAX_POOLS);
       expect(turnFootprints(t).length, `f${f}`).toBeLessThanOrEqual(MAX_FOOTPRINTS);
     }
+  });
+
+  it('shades the loop’s band continuously as it lifts and turns on edge: never under its own chords, in your lamp’s pool while its face is up', () => {
+    for (let f = 1400; f < TURN.coil; f++) {
+      const t = turnAt(f);
+      const r = t.loop.ribbon!;
+      const chords = turnFootprints(t).filter((x) => x.kind === 'seg' && Math.abs(x.r - (10 + 2 * (1 - r.edge))) < 1e-9);
+      expect(chords, `f${f}`).toHaveLength(16);
+      // a receiver on the band (its underside up) is never 0.5 u under a chord: the shaders skip it
+      for (const c of chords) if (c.kind === 'seg') expect(Math.max(c.ha, c.hb), `f${f}`).toBeLessThanOrEqual(r.L.z);
+      // while its face turns well up (under 0.6 of the way on edge) the whole band and its clip take the pool's full light
+      const top = r.L.z + LOOP_A.w * Math.sin((r.edge * Math.PI) / 2) + 12 * r.edge + 10;
+      const south: [number, number] = [LOOP_A.c[0], LOOP_A.c[1] - LOOP_A.b];
+      if (r.edge < 0.6) expect(poolLight(t, south, top - 0.01), `f${f}`).toBeCloseTo(poolLight(t, south, 1), 6);
+    }
+    // the pool's top only rises (never a step down on anything in it) until your desk slides
+    for (let f = 1400; f < TURN.slide; f++) expect(turnPools(turnAt(f + 1))[0].z[1]).toBeGreaterThanOrEqual(turnPools(turnAt(f))[0].z[1]);
+  });
+
+  it('keeps Fix A’s folder and its whole pile in your lamp’s pool from 3.2’s break mark to its press (no step as it is pressed through the pool’s top)', () => {
+    const pileTop = A_STACK_END + 0.5 + 0.8 * A_PILE.length + 1;
+    for (let f = POOL_A_Z.from; f < 1400; f++) expect(actOnePools(actOneAt(f))[0].z[1]).toBeGreaterThanOrEqual(pileTop);
+    for (let f = 1400; f < TURN.press + TURN.pressGone; f++) expect(turnPools(turnAt(f))[0].z[1]).toBeGreaterThanOrEqual(pileTop);
+    // when act one's pool takes the taller heights it lies on Fix B, far from Fix A, and no reply is in the air above the low top
+    const P = actOnePools(actOneAt(POOL_A_Z.from))[0];
+    const d = [(FIX_A_FOLDER.c[0] - P.c[0]) / P.sigma[0], (FIX_A_FOLDER.c[1] - P.c[1]) / P.sigma[1]];
+    expect(Math.exp(-0.5 * (d[0] * d[0] + d[1] * d[1]))).toBeLessThan(1e-3);
+    for (const sl of fixBOf(POOL_A_Z.from).b.slips) expect(sl.p[2]).toBeLessThan(POOL_A_Z.low);
+  });
+
+  it('takes a pressed folder’s paper to the slate’s tone as lit where it lies (never darker than the desk round it)', () => {
+    expect(slateToneAt([], [0, 0])).toEqual(linearOf(DESK_HEX.base));
+    for (let f = TURN.press; f < TURN.press + TURN.pressGone; f++) {
+      const t = turnAt(f);
+      expect(t.pressA.tone).toEqual(slateToneAt(turnPools(t), FIX_A_FOLDER.c));
+      FOLDERS.forEach((fl, i) => expect(t.press[i].tone).toEqual(slateToneAt(turnPools(t), fl.c)));
+      // lit by your lamp's pool, brighter than the bare slate
+      expect(t.pressA.tone![1]).toBeGreaterThan(linearOf(DESK_HEX.base)[1]);
+    }
+  });
+
+  it('sends each of Fix A’s chutes home as the tape’s tail passes it (within 2 f)', () => {
+    for (let f = TURN.catch; f <= TURN.windEnd; f++) {
+      const A = fixATurnAt(f, loopTurnAt(f));
+      expect(aTailAt(f), `f${f}`).toBeCloseTo(A.tape?.d1 ?? aTailAt(f), 6);
+      if (A.tape) expect(aTailAt(f)).toBeGreaterThanOrEqual(A_FOLDER_IN);
+    }
+    A_CHUTES.forEach((c, k) => {
+      const f0 = CHUTE_IN[k];
+      expect(aTailAt(f0 - 1), `chute ${k}`).toBeGreaterThanOrEqual(c.d - CHUTE_CLEAR);
+      expect(aTailAt(f0), `chute ${k}`).toBeLessThan(c.d - CHUTE_CLEAR);
+      expect(fixATurnAt(f0, loopTurnAt(f0)).chutes![k]).toBe(1);
+      expect(fixATurnAt(f0 + 2, loopTurnAt(f0 + 2)).chutes![k]).toBeLessThan(1);
+    });
+  });
+
+  it('turns each queued item from grey stock to paper over frames, never in one', () => {
+    for (let f = TURN.catch; f < TURN.windEnd; f++) {
+      const a = turnAt(f).fixA.items;
+      const b = turnAt(f + 1).fixA.items;
+      a.forEach((it, i) => {
+        if (it && b[i]) expect(Math.abs(b[i]!.paper - it.paper), `item ${i} f${f}`).toBeLessThanOrEqual(0.4);
+      });
+    }
+  });
+
+  it('fades the contact shadows of pressed folders and lifting trays before they go (never a cut of more than half)', () => {
+    const key = (x: Footprint) => (x.kind === 'rect' || x.kind === 'circle' ? `${x.kind} ${x.z0 > 0.5 ? 'up' : 'down'} ${Math.round(x.c[0] / 8)},${Math.round(x.c[1] / 8)}` : '');
+    const near = (c: readonly number[]) => [...FOLDERS.map((fl) => fl.c), FIX_A_FOLDER.c].some((q) => Math.hypot(q[0] - c[0], q[1] - c[1]) < 140);
+    for (let f = TURN.press; f < TURN.press + TURN.pressGone + 1; f++) {
+      const next = turnFootprints(turnAt(f + 1));
+      for (const x of turnFootprints(turnAt(f))) {
+        if ((x.kind !== 'rect' && x.kind !== 'circle') || x.contact < 0.45 || !near(x.c)) continue;
+        // a footprint with a strong contact is still there the next frame (near where it was), with no less than half of it
+        const y = next.find((n) => (n.kind === 'rect' || n.kind === 'circle') && Math.hypot(n.c[0] - x.c[0], n.c[1] - x.c[1]) < 8 && Math.abs(n.z1 - x.z1) < 20);
+        expect(y, `f${f} ${x.kind} at ${x.c.map((v) => v.toFixed(0))}`).toBeDefined();
+        if (y && (y.kind === 'rect' || y.kind === 'circle')) expect(x.contact - y.contact, `f${f}`).toBeLessThanOrEqual(0.5);
+      }
+    }
+    void key;
+    for (const k of RETIRE_TRAYS) {
+      const t0 = Math.floor(retireStarts(k));
+      // the contact the shaders draw: none once its underside is over 2 u up
+      const c = (f: number) => (retireAt(k, f).off[2] > 2 ? 0 : retireContact(k, f));
+      for (let f = t0; f < t0 + TURN.retireAntic + 1; f++) expect(c(f) - c(f + 1), `tray ${k} f${f}`).toBeLessThanOrEqual(0.45);
+    }
+  });
+
+  it('opens each bay’s lid over a few frames gathering speed; what lay in its tray falls into the pit toward its near wall before the leaves shut', () => {
+    for (const { k, id } of BAY_TRAYS) {
+      const T = bayTimes(k);
+      const at = (f: number) => turnAt(f).fixB.bays.find((b) => b.id === id)!;
+      expect(at(T.open + LEAVES_OPEN).leaves).toBe(1);
+      expect(LEAVES_OPEN).toBeGreaterThanOrEqual(3);
+      // gathering speed (the Hatch's angle is open²): the first frame's swing is the smallest
+      expect(at(T.open + 1).leaves ** 2).toBeLessThan(0.1);
+      expect(at(T.shut - 1).fall).toBe(1);
+      // the pit darkens by depth only (no hard shadow on the frame the leaves leave the slate's plane)
+      for (let f = T.open; f < T.closed; f++) expect(turnFootprints(turnAt(f)).some((x) => x.kind === 'rect' && x.z1 === 0 && x.z0 === -1)).toBe(false);
+    }
+  });
+
+  it('takes your lid strut home to its recess as your desk slides (never a one-frame swap), and brings the older reply down the chute into your in-tray before the hand-off', () => {
+    expect(strutTurnAt(STRUT_HOME.from)).toEqual({ strut: 'lid' });
+    expect(strutTurnAt(STRUT_HOME.from + STRUT_HOME.frames)).toEqual({ strut: 'tray' });
+    let prev = strutEnds(youPoseTurn(STRUT_HOME.from));
+    expect(prev).toEqual(strutOnLid());
+    for (let f = STRUT_HOME.from + 1; f <= STRUT_HOME.from + STRUT_HOME.frames; f++) {
+      const e = strutEnds(youPoseTurn(f));
+      expect(Math.hypot(e.a[0] - prev.a[0], e.a[1] - prev.a[1], e.a[2] - prev.a[2]), `f${f}`).toBeLessThan(35);
+      expect(Math.hypot(e.b[0] - prev.b[0], e.b[1] - prev.b[1], e.b[2] - prev.b[2]), `f${f}`).toBeLessThan(35);
+      prev = e;
+    }
+    // the in-tray is empty from the flock until the reply lands; it lands at act two's slip's place, still before f1660
+    for (let f = TURN.replies + 30; f < OLDER_REPLY.lands; f++) expect(youPoseTurn(f).inTraySlip, `f${f}`).toBe(false);
+    expect(youPoseTurn(OLDER_REPLY.lands).inTraySlip).toBe(true);
+    expect(OLDER_REPLY.lands).toBeLessThanOrEqual(TURN_SPAN[1] - 2);
+    const last = olderReplyAt(OLDER_REPLY.lands - 1)!;
+    expect(Math.hypot(last.p[0] - OLDER_REPLY_REST.p[0], last.p[1] - OLDER_REPLY_REST.p[1], last.p[2] - OLDER_REPLY_REST.p[2])).toBeLessThan(40);
+    for (let f = OLDER_REPLY.leave; f < OLDER_REPLY.lands - 1; f++) {
+      const a = olderReplyAt(f)!;
+      const b = olderReplyAt(f + 1)!;
+      expect(Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1], b.p[2] - a.p[2]), `f${f}`).toBeLessThan(40);
+    }
+    expect(olderReplyAt(OLDER_REPLY.lands)).toBeNull();
+    // the chute it slides down is out before it comes out from under the deck
+    expect(turnAt(OLDER_REPLY.leave + 5).parts.chute).toBeGreaterThan(0.99);
+  });
+
+  it('never lights or darkens anything in one frame as the pool’s top rises with the loop (your lamp’s hood and arm, the clip, the coil’s top)', () => {
+    // the pools' light (green) at your lamp's head and at the loop's centre (the coil), at every height, frame to frame
+    const head = youPoseTurn(1450).lamp.head;
+    const shift = youPoseTurn(1450).shift;
+    const places: [number, number][] = [[head[0] + shift[0], head[1] + shift[1]], [LOOP_A.c[0], LOOP_A.c[1]]];
+    for (let f = 1400; f < TURN.slide; f++)
+      for (const c of places)
+        for (const z of [90, 100, 110, 116, 120, 125, 130, 140, 145, 155, 165, 175, 185, 195, 205, 230, 260]) {
+          expect(Math.abs(poolLight(turnAt(f + 1), c, z) - poolLight(turnAt(f), c, z)), `f${f} ${c} z${z}`).toBeLessThan(0.15);
+        }
+    // the coil's top (it comes up as the band stands on edge) is never lit by your lamp's pool: never blown to white
+    for (let f = TURN.coil; f < TURN.slide; f++) {
+      const C = turnAt(f).loop.coil!;
+      expect(poolLight(turnAt(f), [C.c[0], C.c[1]], C.h + C.t + 0.25), `f${f}`).toBeLessThan(0.02);
+    }
+  });
+
+  it('casts Fix A’s folder at its real height across the f1399/f1400 seam (its 79 u stack and pile), and presses it under the slate', () => {
+    const body = (fps: Footprint[]) => fps.find((x) => x.kind === 'rect' && Math.hypot(x.c[0] - FIX_A_FOLDER.c[0], x.c[1] - FIX_A_FOLDER.c[1]) < 1 && Math.abs(x.h[0] - FIX_A_FOLDER.w / 2) < 1);
+    const a = body(actOneFrameFootprints(1399));
+    const b = body(turnFootprints(turnAt(1400)));
+    expect(a).toBeDefined();
+    expect(b).toEqual(a);
+    expect(a!.kind === 'rect' && a!.z1).toBeCloseTo(A_STACK_END + 0.4, 6);
   });
 });

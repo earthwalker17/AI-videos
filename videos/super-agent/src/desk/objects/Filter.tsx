@@ -2,29 +2,35 @@
  * Beat 5 (STORYBOARD 5.1-5.3; desk/beat5.ts): the hand-over of the starter key to the intake, the Proactive plate, and
  * the two-stage filter's moving parts that are not the gate's own (its fingers are objects/Intake.tsx Gate):
  * - the starter key (the tray's own key, objects/YourDesk.tsx keyGeometry) from the frame it lifts off your tray, in
- *   its arc and docked flat beside the gate's bar, stepping down with the gate;
- * - the Proactive plate (Proactive · 主动, gl/plate.ts on enamel, as the Continuous plate) lying on the slate south-west
- *   of the gate, slid out of your desk with its chore;
+ *   its arc and docked flat beside the gate's bar, kicking a quarter turn about its bow each time an ask strikes it,
+ *   stepping down with the gate;
+ * - the Proactive plate (Proactive · 主动, gl/plate.ts on enamel, as the Continuous plate) lying on the slate under the
+ *   gate's fingers, slid out of your desk with its chore;
  * - the spike, risen out of its own hatch beside the gate, and the dropped slips impaled on it (the pile);
- * - the filter's slips (MT1's chat slip family, its tail cut in a swallow notch): out of the spout, posted at the gate,
- *   flipped onto the spike or riding the belt into the throat, notched by the punch and fed into the print head;
- * - the punch rising out of the throat's cheek for each kept slip;
+ * - the filter's slips (MT1's chat slip family, its tail cut in a swallow notch; gl/print5.ts prints the asks plain and
+ *   stamps the noise with the rule that drops it): out of the spout, the asks glancing off the key onto the belt and
+ *   into the throat (the kept ones notched by the punch), the noise flipped onto the spike; all fed into the print head;
+ * - the punch (a V-die, the acceptance notch's shape) rising out of the throat's cheek for each kept slip;
  * - the spike's hatch (its leaves, its socket), and its hole in the slate (gl/desk.ts DESK_HOLES' third slot, written after objects/Dispatch.tsx
  *   DeskUniforms on every frame: World.tsx mounts `FilterHoles` after it).
  * From the summary (f5400) on, objects/Trace.tsx draws the hand-over's end state itself (beat5.ts E5.until).
  */
 import { useLayoutEffect, useMemo } from 'react';
-import { Color, MeshBasicMaterial, PlaneGeometry, Shape, type BufferGeometry } from 'three';
+import { Color, MeshBasicMaterial, PlaneGeometry, Shape, type BufferGeometry, type MeshStandardMaterial } from 'three';
 import { KEY_REST, SPIKE_BASE, SPIKE_DEPTH, SPIKE_HATCH, hatchHoleAt, type FilterSlip } from '../beat5.ts';
 import { cylinderZ, disc, dome, extrude, frame, planeOn, slab } from '../geom.ts';
 import { DESK_HOLES, HOLE_SHUT, makeDeskMaterial } from '../gl/desk.ts';
-import { Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
+import { HEX, paper } from '../gl/materials.ts';
+import { Step, WithMats, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
 import { NEXT_SLIP, PROACTIVE_PLATE, PUNCH, SPIKE, rectC, type Rect } from '../layout.ts';
 import type { DeskState } from '../state.ts';
 import { deskHoles, holeOf } from './Dispatch.tsx';
 import { keyGeometry } from './YourDesk.tsx';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
+
+/** The acceptance notch the punch's V-die cuts in a kept slip's north edge: 28 u across (about 24 px at 0.85x, 60 px in the close), 14 deep. */
+const NOTCH = { half: 14, depth: 14 } as const;
 
 /**
  * The filter's chat slip (NEXT_SLIP's size): a thin paper body, its tail cut in a swallow notch, the punch's V in its
@@ -39,9 +45,9 @@ function filterSlipGeometry(notched: boolean): BufferGeometry {
   s.lineTo(hl, -hw);
   s.lineTo(hl, hw);
   if (notched) {
-    s.lineTo(nx + 5, hw);
-    s.lineTo(nx, hw - 7);
-    s.lineTo(nx - 5, hw);
+    s.lineTo(nx + NOTCH.half, hw);
+    s.lineTo(nx, hw - NOTCH.depth);
+    s.lineTo(nx - NOTCH.half, hw);
   }
   s.lineTo(-hl, hw);
   s.lineTo(-hl + 9, 0);
@@ -64,8 +70,17 @@ function useFilterGeometry() {
       base: disc(SPIKE.baseR, 0, SPIKE_BASE, { cx: SPIKE.x, cy: SPIKE.y, bevel: 1.2 }),
       rod: cylinderZ(2.6, SPIKE_BASE, SPIKE.h, SPIKE.x, SPIKE.y, 12, 0.4),
     };
-    const punch = cylinderZ(PUNCH.r, 0, PUNCH.h, 0, 0, 20);
-    const punchTop = dome(PUNCH.r - 0.6, 0, 0, PUNCH.h);
+    // the punch: a V-die the notch's shape (its point south, over where the slip's edge lies in the throat), a dome on its stem
+    const die = new Shape();
+    const dy = NEXT_SLIP.throat[1] + NEXT_SLIP.w / 2 - PUNCH.y;
+    die.moveTo(-NOTCH.half, dy + 5);
+    die.lineTo(NOTCH.half, dy + 5);
+    die.lineTo(NOTCH.half, dy);
+    die.lineTo(0, dy - NOTCH.depth);
+    die.lineTo(-NOTCH.half, dy);
+    die.closePath();
+    const punch = extrude(die, 0, PUNCH.h, 0.6, 1);
+    const punchTop = dome(PUNCH.r - 0.6, 0, dy + 1, PUNCH.h);
     return { key, plate, spike, punch, punchTop, slip: filterSlipGeometry(false), slipNotched: filterSlipGeometry(true) };
   }, []);
   useLayoutEffect(
@@ -78,13 +93,24 @@ function useFilterGeometry() {
   return g;
 }
 
-/** One slip of the filter at its pose (heading about z, then nose up, then rolled about its length), squashed as it lands. */
-function SlipAt({ x, geometry }: { x: FilterSlip; geometry: BufferGeometry }) {
-  const m = useDeskMats();
+/** The filter slips' paper, one per print (gl/print5.ts): the asks' and each dropped slip's own, at full and stepped down (the pile steps with the spike). */
+function useSlipMats(): Record<'full' | 'stepped', { ask: MeshStandardMaterial[]; noise: MeshStandardMaterial[] }> {
+  const { textures } = useDeskSets();
+  const mats = useMemo(() => {
+    const set = (stepped: boolean) => ({ ask: textures.b5.ask.map((t) => paper(t, HEX.paper, { stepped })), noise: textures.b5.noise.map((t) => paper(t, HEX.paper, { stepped })) });
+    return { full: set(false), stepped: set(true) };
+  }, [textures]);
+  useLayoutEffect(() => () => [mats.full, mats.stepped].forEach((x) => [...x.ask, ...x.noise].forEach((m) => m.dispose())), [mats]);
+  return mats;
+}
+
+/** One slip of the filter at its pose (heading about z, then nose up, then rolled about its length), squashed as it lands, in its own print. */
+function SlipAt({ x, geometry, mats }: { x: FilterSlip; geometry: BufferGeometry; mats: { ask: MeshStandardMaterial[]; noise: MeshStandardMaterial[] } }) {
   const q = x.squash;
+  const material = x.print.kind === 'ask' ? mats.ask[x.print.v]! : mats.noise[x.print.v]!;
   return (
     <group position={x.p} rotation={[x.roll, -x.slope, x.heading, 'ZYX']} scale={[1 + 0.015 * q, 1, 1 - 0.03 * q]}>
-      <mesh geometry={geometry} material={m.printed.chatNext} />
+      <mesh geometry={geometry} material={material} />
     </group>
   );
 }
@@ -92,6 +118,7 @@ function SlipAt({ x, geometry }: { x: FilterSlip; geometry: BufferGeometry }) {
 /** Everything of beat 5 but the gate's fingers (desk/beat5.ts beat5At). */
 export function Filter({ s }: { s: DeskState }) {
   const g = useFilterGeometry();
+  const slipMats = useSlipMats();
   const e = s.e5;
   const k = e.key;
   const plate = e.plate;
@@ -141,7 +168,7 @@ export function Filter({ s }: { s: DeskState }) {
                   <mesh geometry={g.spike.rod} material={m.steel} />
                 </group>
                 {pile.map((x) => (
-                  <SlipAt key={x.i} x={x} geometry={g.slip} />
+                  <SlipAt key={x.i} x={x} geometry={g.slip} mats={isStepped(s.step, 'spike') ? slipMats.stepped : slipMats.full} />
                 ))}
               </>
             )}
@@ -149,7 +176,7 @@ export function Filter({ s }: { s: DeskState }) {
         </Step>
       )}
       {flying.map((x) => (
-        <SlipAt key={x.i} x={x} geometry={x.notched ? g.slipNotched : g.slip} />
+        <SlipAt key={x.i} x={x} geometry={x.notched ? g.slipNotched : g.slip} mats={slipMats.full} />
       ))}
       {e.punch !== null && (
         <WithMats>

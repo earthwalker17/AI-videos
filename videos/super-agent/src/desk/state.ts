@@ -117,6 +117,8 @@ export const CORD_FROM = 3440;
  * targets in display values (gl/materials.ts), its darkest graphite still over the slate's floor tone.
  */
 const CARD_DEPTH = 1.5;
+/** The step-down ramp, frames (synthesis: 12–16 f). */
+export const STEP_FRAMES = 14;
 /** Everything of act two's world that a counterfactual card steps down while it is up (the card is the beat's action). */
 const ALL_BUT_CARD: readonly FocusId[] = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'testsBay', 'cord', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'you', 'deck', 'chute'];
 export const FOCUS_BEATS: readonly { id: string; from: number; to: number; step: readonly FocusId[]; depth?: number }[] = [
@@ -127,19 +129,17 @@ export const FOCUS_BEATS: readonly { id: string; from: number; to: number; step:
   { id: 'split', from: BEAT_4.splitCard - 1, to: BEAT_4.splitStrike + 5, step: ALL_BUT_CARD, depth: CARD_DEPTH },
   { id: 'ghost', from: BEAT_4.ghostCard - 1, to: BEAT_4.ghostStrike + 5, step: ALL_BUT_CARD.filter((x) => x !== 'index'), depth: CARD_DEPTH },
   { id: 'c12', from: 2130, to: 2320, step: ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'cord', 'reel', 'lock', 'gauge'] },
-  // beat 5.2-5.3 (C14, then the filter under bar 34's dolly): the Fast Path and the Slow Path are the action (the feeders,
-  // the gate, the spike and its pile, the belt, the loupe over its policy card, the head the kept slips feed into); the
-  // rest of the Register, the bays, your desk and both trait plates step down from 8 f before the spike stands up, and
-  // come back up as the dolly closes on the throat, 6 f before it lands (5.1's hand-over runs at full contrast, so
-  // nothing ramps against C12's ramp out at 2320-2334)
-  { id: 'b5', from: BEAT_5.spikeIn - 8, to: 2700, step: ['deck', 'reel', 'lock', 'fanfold', 'plate', 'proactive', 'docsBay', 'bugBay', 'freshBay', 'chute', 'you', 'index', 'mouth', 'gauge'] },
+  // beat 5 (5.1-5.3), one beat in two stages so nothing pumps: from 4 f before the starter key lifts (after C12's ramp
+  // out at 2320-2334) the Register's body, the chute, the fresh bay, the index arm and the mouth step down, leading the eye
+  // to your desk, the key's flight and the intake it docks on, where the events then arrive by themselves; from 8 f before
+  // the spike stands up (5.2, C14: the Fast Path and the Slow Path are the action) the rest steps down with them on its own
+  // ramp (B5_LATE: what C12 had stepped and released, so it never dips and rises again), and both come back up as the dolly
+  // closes on the throat, 6 f before it lands
+  { id: 'b5', from: BEAT_5.keyDock - 20, to: 2700, step: ['deck', 'freshBay', 'chute', 'index', 'mouth'] },
   // N5 at the window (still C): the report, the window, the head, the mouth and the drawer are the action; beat 6's stress
   // plate, read under N4 before it, steps down with the rest (it stays on the rail)
   { id: 'n5', from: 3040, to: 3216, step: ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'cord', 'reel', 'lock', 'gauge', 'stress'] },
 ];
-/** The step-down ramp, frames (synthesis: 12–16 f). */
-export const STEP_FRAMES = 14;
-
 export interface DeskState {
   f: number;
   /** the index arm's angle (radians) */
@@ -335,7 +335,7 @@ export function deskStateAt(f: number): DeskState {
   // MT1: once the slip is stamped in, the arm turns from you to the fresh bay's detent
   const armNow = f > EVENTS_D.armTurn ? DETENT.you + (DETENT.fresh - DETENT.you) * springAt(f, EVENTS_D.armTurn, SPRING.detent) : arm;
   const testsSink = springAt(f, EVENTS_D.rest, SPRING.heavy);
-  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withOwnRamp(f, stepAt(f)), next, cache: cacheAt(f), testsSink, b4, e5: beat5At(f), e6: beat6At(f, (x, at) => springAt(x, at, SPRING.dock)) };
+  return { f, arm: armNow, slip, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withBeat5Ramp(f, withOwnRamp(f, stepAt(f))), next, cache: cacheAt(f), testsSink, b4, e5: beat5At(f), e6: beat6At(f, (x, at) => springAt(x, at, SPRING.dock)) };
 }
 
 /** The reply's lead-in: hidden under the deck's plate and south rail, on the chute's line produced back north-east, so it slides out of the deck straight into the chute. */
@@ -467,11 +467,30 @@ export const CACHE_SETTLE = 3127;
 const CACHE_STEP: readonly FocusId[] = ['head', 'index', 'mouth', 'jaws', 'bosses'];
 /** When the own set ramps back up: after N5's ramp out, a stagger behind it. */
 export const CACHE_UNSTEP = 3216 + STEP_FRAMES + 2;
+/**
+ * Beat 6.2's stress plate steps down with N5's focus and stays down after it (it must never relight over the record
+ * through N6, nor read as a label on the docs bay under it): once N5's ramp has reached it, it hands over to the late
+ * set (the finished test tower's ramp, at 1 from f2200 on), the same values, so the hand-over is invisible.
+ */
+export const STRESS_LATE = FOCUS_BEATS.find((b) => b.id === 'n5')!.from + STEP_FRAMES;
+/** The print head's dip (u at full) and how far it is down (0..1): it presses down with its hammer for the cache's record and the review's row (about 8 px at the close). */
+export const HEAD_DIP = 7;
+export const headDipAt = (s: Pick<DeskState, 'cache' | 'e6'>): number => Math.max(s.cache?.dip ?? 0, s.e6.hammer);
 /** The own parts' lag behind the bays when C12's step-down ramps out at the rest. */
 const OWN_LAG = 3;
 
 /** The intake, gate, belt, policy card and gauge leave C12's step-down as the slip comes to them, and step down again during the dispatch. */
 export const OWN_STEP: readonly FocusId[] = ['intake', 'gate', 'belt', 'policy', 'gauge'];
+
+/** Beat 5.2-5.3's second stage (FOCUS_BEATS 'b5'): the reel, the lock, the log, both trait plates, the bays and your desk step down on their own ramp from 8 f before the spike stands up, and come back up with the beat. */
+export const B5_LATE: readonly FocusId[] = ['reel', 'lock', 'fanfold', 'plate', 'proactive', 'docsBay', 'bugBay', 'you', 'gauge'];
+export const B5_LATE_FROM = BEAT_5.spikeIn - 8;
+export function withBeat5Ramp(f: number, step: DeskState['step']): DeskState['step'] {
+  const b5 = FOCUS_BEATS.find((b) => b.id === 'b5')!;
+  if (step.own || f < B5_LATE_FROM || f >= b5.to + STEP_FRAMES) return step;
+  const amount = Math.min(easings.inOutSine(clamp((f - B5_LATE_FROM) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - b5.to) / STEP_FRAMES)));
+  return { ...step, own: { amount, ids: B5_LATE } };
+}
 
 /** C12's step-down with the parts on their own ramp (from f2226 to the end of the rest). */
 export function withOwnRamp(f: number, step: DeskState['step']): DeskState['step'] {
@@ -658,7 +677,11 @@ export const EVENTS_C = {
   header: 3102,
   headerFrames: 8,
   slotFrames: 3,
-  /** the head dips as it drops (4 f) and the record stamps in: the header's ink first, each summary line a frame later, each over 3 f (item 4); the stubs dim one step (4 f) */
+  /**
+   * the head presses down with its hammer over the 2 f before (a dip you see, its shadow tightening) and is down on
+   * stampIn, the record's contact: the header's ink shows on it, each summary line a frame later, each over 3 f (item 4);
+   * the stubs dim one step (4 f)
+   */
   stampIn: 3114,
   dim: 3116,
   /** on the downbeat the body folds along its crease (8 f); a 2 f hold; the tab drops into the drawer (6 f, the move curve) and lands on spring-dock */
@@ -757,7 +780,8 @@ export function cacheAt(f: number): CacheState | null {
   const feedEnd = E.header + E.headerFrames + E.slotFrames;
   // the strip tears off and draws back a hair (3 f anticipation), then flies to the head in an arc, eased in and out
   const strip = f >= E.header - ANTICIPATE && f < feedEnd ? { fly: f < E.header ? -0.05 * Math.sin((Math.PI * (f - E.header + ANTICIPATE)) / ANTICIPATE) : sine((f - E.header) / E.headerFrames), feed: clamp((f - E.header - E.headerFrames) / E.slotFrames) } : null;
-  const stamp = clamp((f - E.stampIn) / 1.5) * (1 - clamp((f - E.stampIn - 4) / 2));
+  // the head comes down over the 2 f before the stamp and is down on it (the ink's contact frame), up again over 2 f
+  const stamp = clamp((f - E.stampIn + 2) / 2) * (1 - clamp((f - E.stampIn - 2) / 2));
   const ink = clamp((f - E.stampIn) / 3);
   const shrink = [0, 1, 2, 3, 4].map((i) => sine((f - E.shrink - (4 - i) * E.shrinkStagger) / E.shrinkFrames));
   const dim = sine((f - E.dim) / 4);

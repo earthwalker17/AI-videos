@@ -2,27 +2,28 @@
  * Beat 6.1-6.2, batching (STORYBOARD 6.1-6.2; desk/beat6.ts): the moving parts of the gulp and the stress plate.
  * - The gather tray on the deck plate along the reading window's south edge: two graphite rims and a low hood at each
  *   end (the slips come out from under the east one and are drawn in under the west one, toward the print head).
- * - The batch's slips (the chat slip's form, its tail cut in a swallow notch): posted over the gate, up the belt into the
- *   throat (then under the head and the deck plate), out from under the tray's east hood, each shingling onto the strip;
- *   read (their paper lit: a colour, never emission) as the reading bar sweeps the strip on the batch's downbeat; drawn in
- *   under the west hood together. In the tray a slip is a flat card cropped at the hoods' middles (what is under a hood is
- *   not drawn).
- * - The reading bar: a steel bar across the tray, its shoes on the rims; it comes out from under the west hood onto its
- *   park as the beat starts.
+ * - The batch's events (beat6.ts STRIP_KINDS): a chat ask rides as a chat slip (its tail cut in a swallow notch), a CI
+ *   event as the card feeder's punched card; each is posted over the gate, rides the belt and hops into the throat, is fed
+ *   under the head and comes out from under the tray's west hood as a strip slip (its kind at its nose: gl/print6.ts),
+ *   sliding east and shingling onto the strip; read (their paper lit: a colour, never emission) as the reading bar sweeps
+ *   the strip on the batch's downbeat; drawn in under the west hood together. In the tray a slip is a flat card, nose
+ *   east, cropped at the hoods' middles (what is under a hood is not drawn).
+ * - The reading bar: a steel bar across the tray, its shoes on the rims, parked by the east hood; it comes up out of the
+ *   deck plate with the tray.
  * - The decode slip: out of the slot in the head's south face, one punched cell per decodeCell frames; torn off, it swings
  *   nose down and drops straight into the dispatch slot under it (the decision leaves as dispatches). The slot is the deck
  *   plate's own: its cover slides aside before the first decision.
  * - The stress plate: in from the east, pressed onto the deck's south rail on its two hooks on `plate-detent`, its face
- *   engraved (gl/plate.ts stressTexture); it steps down with the focus from N5 on.
+ *   engraved (gl/plate.ts stressTexture); it steps down with N5's focus and stays down (the late set from STRESS_LATE).
  */
 import { useLayoutEffect, useMemo } from 'react';
 import { Color, PlaneGeometry, Shape, type BufferGeometry, type MeshStandardMaterial } from 'three';
-import { BATCHES, BAR_RIDE, DECODE, DISPATCH_SLOT, E6, STRESS_PLATE, TRAY, TRAY_Y, type DecodeSlip, type StripSlip } from '../beat6.ts';
+import { BATCHES, BAR_RIDE, DECODE, DISPATCH_SLOT, E6, REVIEW, STRESS_PLATE, TRAY, TRAY_Y, slotOpenAt, trayUp, type DecodeSlip, type StripSlip } from '../beat6.ts';
 import { dome, extrude, merge, planeOn, slab } from '../geom.ts';
 import { HEX, paper } from '../gl/materials.ts';
 import { Step, WithMats, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
 import { DECK, NEXT_SLIP, type Rect } from '../layout.ts';
-import type { DeskState } from '../state.ts';
+import { STRESS_LATE, type DeskState } from '../state.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 
@@ -45,6 +46,25 @@ function stripSlipGeometry(): BufferGeometry {
   return g;
 }
 
+/** The card feeder's punched card (Dispatch.tsx ciGeometry's form, 84 x 50): its clipped corner at its north-west, print UVs from its outline (a CI event on the belt, the review card). */
+export function ciCardGeometry(): BufferGeometry {
+  const hl = REVIEW.l / 2;
+  const hw = REVIEW.w / 2;
+  const s = new Shape();
+  s.moveTo(-hl + 9, hw);
+  s.lineTo(hl, hw);
+  s.lineTo(hl, -hw);
+  s.lineTo(-hl, -hw);
+  s.lineTo(-hl, hw - 9);
+  s.closePath();
+  const g = extrude(s, -0.4, 0.4, 0);
+  const pos = g.getAttribute('position');
+  const uv = g.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / REVIEW.l + 0.5, pos.getY(i) / REVIEW.w + 0.5);
+  uv.needsUpdate = true;
+  return g;
+}
+
 /** The reading bar (across the tray, along y) and its two shoes. */
 const BAR = { l: TRAY.y1 - TRAY.y0 + 12, w: 5, h: 4, shoe: BAR_RIDE - 1 } as const;
 /** The tray's hoods: low graphite housings over each end, their lips enamel. */
@@ -53,6 +73,7 @@ const HOOD_Z = 9;
 function useBatchGeometry() {
   const g = useMemo(() => {
     const slip = stripSlipGeometry();
+    const card = ciCardGeometry();
     const bar = merge([
       slab({ x0: -BAR.w / 2, x1: BAR.w / 2, y0: -BAR.l / 2, y1: BAR.l / 2 }, -BAR.h / 2, BAR.h / 2, 1.2, 0.6),
       ...[-1, 1].map((k) => slab({ x0: -BAR.w / 2 - 1, x1: BAR.w / 2 + 1, y0: k * (BAR.l / 2 - 3) - 3, y1: k * (BAR.l / 2 - 3) + 3 }, -BAR.shoe, -BAR.h / 2, 1, 0.4)),
@@ -87,11 +108,11 @@ function useBatchGeometry() {
       // its two hooks: from its north edge over the rail's top, curling down its far side
       hooks: merge(STRESS_PLATE.hooks.map((x) => merge([slab({ x0: x - 7, x1: x + 7, y0: P.y1 - 8, y1: DECK.y0 + DECK.rail - 2 }, DECK.top, DECK.top + 2.4, 1, 0.5), slab({ x0: x - 7, x1: x + 7, y0: DECK.y0 + DECK.rail - 4, y1: DECK.y0 + DECK.rail - 1.5 }, DECK.top - 8, DECK.top + 2.4, 0.8, 0.4)]))),
     };
-    return { slip, bar, rims, hoods, lips, slot, plate };
+    return { slip, card, bar, rims, hoods, lips, slot, plate };
   }, []);
   useLayoutEffect(
     () => () => {
-      for (const x of [g.slip, g.bar, g.rims, g.hoods, g.lips, ...Object.values(g.slot), ...Object.values(g.plate)]) x.dispose();
+      for (const x of [g.slip, g.card, g.bar, g.rims, g.hoods, g.lips, ...Object.values(g.slot), ...Object.values(g.plate)]) x.dispose();
     },
     [g],
   );
@@ -102,50 +123,55 @@ function useBatchGeometry() {
 const FIRST = BATCHES.map((_, k) => BATCHES.slice(0, k).reduce((a, b) => a + b.n, 0));
 const SLIPS = BATCHES.reduce((a, b) => a + b.n, 0);
 
-/** The batches' slips' own materials (each lights as it is read: its paper's colour, never emission) and their flat cards in the tray. */
-function useSlips(): { mats: MeshStandardMaterial[]; cards: PlaneGeometry[] } {
+/** The batches' slips' own materials (each lights as it is read: its paper's colour, never emission) by kind, their flat cards in the tray, and a CI event's card on the belt. */
+function useSlips(): { mats: MeshStandardMaterial[]; cards: PlaneGeometry[]; ciCard: MeshStandardMaterial } {
   const { textures } = useDeskSets();
   const mats = useMemo(
     () =>
-      Array.from({ length: SLIPS }, () => {
-        const m = paper(textures.b6.stripSlip, HEX.paper);
-        m.alphaTest = 0.5;
-        return m;
-      }),
+      BATCHES.flatMap((b) =>
+        b.kinds.map((k) => {
+          const m = paper(k.kind === 'chat' ? textures.b6.tray.chat[k.v % textures.b6.tray.chat.length]! : textures.b6.tray.ci, HEX.paper);
+          m.alphaTest = 0.5;
+          return m;
+        }),
+      ),
     [textures],
   );
+  const ciCard = useMemo(() => paper(textures.ciCard, HEX.paper), [textures]);
   const cards = useMemo(() => Array.from({ length: SLIPS }, () => new PlaneGeometry(1, 1)), []);
   useLayoutEffect(
     () => () => {
-      for (const m of mats) m.dispose();
+      for (const m of [...mats, ciCard]) m.dispose();
       for (const c of cards) c.dispose();
     },
-    [mats, cards],
+    [mats, cards, ciCard],
   );
-  return { mats, cards };
+  return { mats, cards, ciCard };
 }
 
 const IDLE = new Color(HEX.paper);
 const LIT = new Color(HEX.paperLit);
 
-function StripSlips({ strip, geometry }: { strip: StripSlip[]; geometry: BufferGeometry }) {
-  const { mats, cards } = useSlips();
+function StripSlips({ strip, geometry, card }: { strip: StripSlip[]; geometry: BufferGeometry; card: BufferGeometry }) {
+  const { mats, cards, ciCard } = useSlips();
   const key = strip.map((x) => `${x.b}.${x.i}:${x.lit.toFixed(3)}:${x.view ? x.view.map((v) => v.toFixed(2)).join('/') : ''}:${x.pose.p[0].toFixed(2)}`).join(',');
   useLayoutEffect(() => {
+    // every slip's paper from its own read state, every frame (an unread slip idle, a read one lit)
+    for (const m of mats) m.color.copy(IDLE);
     for (const x of strip) {
-      const k = FIRST[x.b] + x.i;
-      mats[k].color.copy(IDLE).lerp(LIT, x.lit);
+      const k = FIRST[x.b]! + x.i;
+      mats[k]!.color.copy(IDLE).lerp(LIT, x.lit);
       if (!x.view) continue;
-      // the card's crop: its nose (west, u 1) to its tail (east, u 0); seen pointing west, its print turned with it (north edge v 0)
+      // the card's crop: nose east (u 1), tail west (u 0), its print upright to the camera (north edge v 1)
       const c = x.pose.p[0];
-      const u0 = (c + NEXT_SLIP.l / 2 - x.view[0]) / NEXT_SLIP.l;
-      const u1 = (c + NEXT_SLIP.l / 2 - x.view[1]) / NEXT_SLIP.l;
-      const uv = cards[k].getAttribute('uv');
+      const u0 = (x.view[0] - (c - NEXT_SLIP.l / 2)) / NEXT_SLIP.l;
+      const u1 = (x.view[1] - (c - NEXT_SLIP.l / 2)) / NEXT_SLIP.l;
+      const uv = cards[k]!.getAttribute('uv');
       // a plane's uv order: (0,1) (1,1) (0,0) (1,0): top-left, top-right, bottom-left, bottom-right
-      uv.setXY(0, u0, 0);
-      uv.setXY(1, u1, 0);
-      uv.setXY(2, u0, 1);
-      uv.setXY(3, u1, 1);
+      uv.setXY(0, u0, 1);
+      uv.setXY(1, u1, 1);
+      uv.setXY(2, u0, 0);
+      uv.setXY(3, u1, 0);
       uv.needsUpdate = true;
     }
   }, [mats, cards, strip, key]);
@@ -153,12 +179,14 @@ function StripSlips({ strip, geometry }: { strip: StripSlip[]; geometry: BufferG
     <>
       {strip.map((x) => {
         if (x.hidden) return null;
-        const k = FIRST[x.b] + x.i;
+        const k = FIRST[x.b]! + x.i;
         if (x.inTray && x.view)
           return <mesh key={`${x.b}.${x.i}`} geometry={cards[k]} material={mats[k]} position={[(x.view[0] + x.view[1]) / 2, TRAY_Y, x.pose.p[2]]} scale={[x.view[1] - x.view[0], NEXT_SLIP.w * (1 - 0.01 * x.squash), 1]} />;
+        // on the intake: a chat ask as its slip, a CI event as its punched card
+        const ci = x.kind.kind === 'ci';
         return (
           <group key={`${x.b}.${x.i}`} position={x.pose.p} rotation={[0, -x.pose.slope, x.pose.heading, 'ZYX']} scale={[1 + 0.015 * x.squash, 1, 1 - 0.03 * x.squash]}>
-            <mesh geometry={geometry} material={mats[k]} />
+            <mesh geometry={ci ? card : geometry} material={ci ? ciCard : mats[k]} />
           </group>
         );
       })}
@@ -206,10 +234,6 @@ export function usePunchedMats(which: 'decode' | 'answer'): MeshStandardMaterial
   return mats;
 }
 
-/** The dispatch slot's cover slides aside (east) over 4 f before the first decision drops in. */
-const SLOT_OPEN = BATCHES[0].end + E6.decodeCells * 2 + 1;
-/** The tray and its hoods come up out of the deck plate with the close (the bar-34 dolly), before the first slip. */
-const TRAY_UP = 2648;
 
 export function Batch({ s }: { s: DeskState }) {
   const g = useBatchGeometry();
@@ -220,18 +244,19 @@ export function Batch({ s }: { s: DeskState }) {
   const e = s.e6;
   const bar = e.bar;
   const act = s.f < E6.until;
-  const open = act ? Math.min(1, Math.max(0, (s.f - SLOT_OPEN) / 4)) : 0;
-  const opened = open * open * (3 - 2 * open);
-  // the tray rises out of the deck plate over 8 f on the dolly's way in (flush, inside the plate, before)
-  const up = act ? Math.min(1, Math.max(0, (s.f - TRAY_UP) / 8)) : 0;
-  const rise = -HOOD_Z * (1 - up * up * (3 - 2 * up));
+  // the dispatch slot's cover: aside for the batches' decisions, back once the last has dropped through (beat6.ts slotOpenAt)
+  const opened = slotOpenAt(s.f);
+  // the tray rises out of the deck plate over 8 f on the dolly's way in (flush, inside the plate, before) and sinks back into it once the queue is clear
+  const up = trayUp(s.f);
+  const rise = -(HOOD_Z + 0.6) * (1 - up);
   const plate = e.plate;
   const pc: [number, number] = [(STRESS_PLATE.box.x0 + STRESS_PLATE.box.x1) / 2, (STRESS_PLATE.box.y0 + STRESS_PLATE.box.y1) / 2];
   return (
     <>
-      <StripSlips strip={e.strip} geometry={g.slip} />
-      {bar && (
-        <group position={[bar.x, TRAY_Y - 1, TRAY.floor + BAR_RIDE]}>
+      <StripSlips strip={e.strip} geometry={g.slip} card={g.card} />
+      {bar && bar.up > 0 && (
+        // it rises with the tray: wholly inside the deck plate before, riding over the strip on its shoes after
+        <group position={[bar.x, TRAY_Y - 1, TRAY.floor - BAR.h / 2 + (BAR_RIDE + BAR.h / 2) * bar.up]}>
           <mesh geometry={g.bar} material={m.steel} />
         </group>
       )}
@@ -249,17 +274,17 @@ export function Batch({ s }: { s: DeskState }) {
                     <mesh geometry={g.lips} material={d.graphiteDark} />
                   </group>
                 )}
-                {/* the dispatch slot under the head's slot: its cover, the deck plate's own, slides aside before the first decision */}
+                {/* the dispatch slot under the head's slot: its cover, the deck plate's own, slides aside before the first decision and back after the last */}
                 {opened > 0 && <mesh geometry={g.slot.mouth} material={d.graphiteDark} />}
                 {opened > 0 && <mesh geometry={g.slot.lips} material={d.graphite} position={[0, 0, -1.2 * (1 - opened)]} />}
-                {opened < 1 && opened > 0 && <mesh geometry={g.slot.cover} material={d.graphiteDeck} position={[(DISPATCH_SLOT.w + 2) * opened, 0, 0]} />}
+                {up > 0 && <mesh geometry={g.slot.cover} material={d.graphiteDeck} position={[(DISPATCH_SLOT.w + 2) * opened, 0, -0.5 * (1 - up)]} />}
               </>
             )}
           </WithMats>
         </Step>
       )}
       {plate && (
-        <Step on={isStepped(s.step, 'stress')}>
+        <Step on={s.f >= STRESS_LATE ? 'late' : isStepped(s.step, 'stress')}>
           <WithMats>
             {(n) => (
               // in flight, pressed down, seated: posed about its own centre, squashed as it seats

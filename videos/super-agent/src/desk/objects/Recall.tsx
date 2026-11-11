@@ -3,54 +3,38 @@
  * (objects/Cache.tsx draws the new row and the request's Thread's row, objects/Register.tsx the reel's rewind and the
  * head's stamp).
  * - The review comment: the card feeder's punched card (84 x 50, its clipped corner), posted over the gate, up the belt
- *   into the throat on `review-card`, fed into the head and gone under it as it is stamped in on `review-in`.
- * - The reading thread: 2 px of graphite thread (about 1 u at the close) laid hop by hop, an arc each, from the new row
- *   to the request's stub, its Thread's row and down to its bay's last report; never a line of light.
+ *   and hopping into the throat on `review-card`, fed under the head before it is stamped in on `review-in`.
+ * - The reading thread: a graphite cord (about 4 px at the close) laid hop by hop, an arc each, from the new row to the
+ *   request's stub, its Thread's row and, along the record's pointer, down to its bay's last report; a steel shuttle at
+ *   its head while it hops; never a line of light.
  * - The "№" tabs: each hop's landing flips one up off the body it lands on (spring-dock), a paper index tab.
  * - The answer: two punched cells out of the head's slot, torn off on `recall-answer` and flown back west under the one
  *   transit light into the card feeder's mouth.
  */
 import { useLayoutEffect, useMemo } from 'react';
-import { CircleGeometry, PlaneGeometry, Shape, type BufferGeometry } from 'three';
-import { DECODE, REVIEW, hopTargets } from '../beat6.ts';
-import { extrude, tube } from '../geom.ts';
+import { CircleGeometry, PlaneGeometry, SphereGeometry } from 'three';
+import { DECODE, tabSeats } from '../beat6.ts';
+import { tube } from '../geom.ts';
 import { HEX, paper } from '../gl/materials.ts';
 import { useDeskMats, useDeskSets } from '../kit.tsx';
 import type { P3 } from '../layout.ts';
 import type { DeskState } from '../state.ts';
-import { PrintedSlip, usePunchedMats } from './Batch.tsx';
-
-/** The card feeder's punched card (Dispatch.tsx ciGeometry's form): its clipped corner at its north-west, print UVs from its outline. */
-function reviewGeometry(): BufferGeometry {
-  const hl = REVIEW.l / 2;
-  const hw = REVIEW.w / 2;
-  const s = new Shape();
-  s.moveTo(-hl + 9, hw);
-  s.lineTo(hl, hw);
-  s.lineTo(hl, -hw);
-  s.lineTo(-hl, -hw);
-  s.lineTo(-hl, hw - 9);
-  s.closePath();
-  const g = extrude(s, -0.4, 0.4, 0);
-  const pos = g.getAttribute('position');
-  const uv = g.getAttribute('uv');
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / REVIEW.l + 0.5, pos.getY(i) / REVIEW.w + 0.5);
-  uv.needsUpdate = true;
-  return g;
-}
+import { PrintedSlip, ciCardGeometry, usePunchedMats } from './Batch.tsx';
 
 /** A "№" tab (24 x 22 u): hinged on its south edge, flat on the body until its hop lands, then up to lean back at TAB_UP. */
 const TAB = { w: 24, d: 22, up: 1.05 } as const;
-/** The thread's radius (u): about 2 px at the close. */
-const THREAD_R = 0.55;
+/** The thread's radius (u): a cord about 4 px across at the close (2.64 px/u), so it reads over the dark deck too; its shuttle's. */
+const THREAD_R = 0.8;
+const SHUTTLE_R = 1.9;
 
 function useRecallGeometry() {
   const g = useMemo(() => {
-    const card = reviewGeometry();
+    const card = ciCardGeometry();
+    const shuttle = new SphereGeometry(SHUTTLE_R, 16, 10);
     const tab = new PlaneGeometry(TAB.w, TAB.d).translate(0, TAB.d / 2, 0);
     const light = new CircleGeometry(3.4, 20);
     const answer = new PlaneGeometry(1, 1).translate(0, -0.5, 0);
-    return { card, tab, light, answer };
+    return { card, tab, light, answer, shuttle };
   }, []);
   useLayoutEffect(
     () => () => {
@@ -90,7 +74,7 @@ export function Recall({ s }: { s: DeskState }) {
   const answerMats = usePunchedMats('answer');
   const e = s.e6;
   const r = e.review;
-  const T = hopTargets();
+  const T = tabSeats();
   return (
     <>
       {r && (
@@ -99,11 +83,12 @@ export function Recall({ s }: { s: DeskState }) {
         </group>
       )}
       {e.thread && <Thread pts={e.thread.pts} />}
+      {e.thread?.shuttle && <mesh geometry={g.shuttle} material={m.steel} position={e.thread.shuttle} />}
       {e.thread &&
         e.thread.tabs.map((k, i) =>
           k > 0 ? (
-            // on the body the hop landed on: a hair to its south, flipping up about its south edge
-            <group key={i} position={[T[i + 1][0], T[i + 1][1] - 4, T[i + 1][2] + 0.3]} rotation={[TAB.up * k, 0, 0]}>
+            // on the body the hop landed on (beat6.ts tabSeats), flipping up about its south edge
+            <group key={i} position={T[i]} rotation={[TAB.up * k, 0, 0]}>
               <mesh geometry={g.tab} material={tabMat} />
             </group>
           ) : null,

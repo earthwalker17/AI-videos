@@ -377,9 +377,33 @@ describe('the title card (1.2)', () => {
     expect(frames.gone).toBeLessThanOrEqual(380);
     expect(cardAt(TITLE_CARD, frames.gone).present).toBe(false);
     for (const c of outline(frames.gone - 1)) expect(c[0]).toBeLessThan(0);
-    // it holds still on the desk while its title is read, and leaves only as the title fades
-    expect(frames.leave).toBeGreaterThanOrEqual(cue('title').end!);
+    // it holds still on the desk while its title is read, and leaves as the title fades: its anticipation, then its slide
+    expect(frames.leave + CARD_POST.anticFrames + CARD_POST.outFrames + 1).toBe(frames.gone);
+    expect(cue('title').end! - frames.leave).toBeLessThanOrEqual(CARD_POST.anticFrames + 3);
     for (let f = frames.land; f < frames.leave; f++) expect(cardAt(TITLE_CARD, f).off).toEqual([0, 0, 0]);
+  });
+  it('leaves at a bounded pace (at most 120 px a frame), lifting off first and moving east before it goes west', () => {
+    const c = (f: number) => {
+      const q = outline(f);
+      return [(q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4];
+    };
+    for (let f = frames.leave; f < frames.gone - 1; f++) {
+      const a = c(f);
+      const b = c(f + 1);
+      expect(Math.hypot(b[0] - a[0], b[1] - a[1]), `f${f}`).toBeLessThanOrEqual(120);
+    }
+    // the anticipation: up off its place and a little east, its contact going as it lifts
+    const antic = frames.leave + CARD_POST.anticFrames;
+    expect(cardAt(TITLE_CARD, antic).off[0]).toBeGreaterThan(0);
+    expect(cardAt(TITLE_CARD, antic).off[2]).toBeGreaterThan(2);
+    expect(cardAt(TITLE_CARD, antic).contact).toBe(0);
+    for (let f = frames.leave; f < antic; f++) {
+      expect(cardAt(TITLE_CARD, f + 1).contact).toBeLessThanOrEqual(cardAt(TITLE_CARD, f).contact);
+      expect(cardAt(TITLE_CARD, f).contact - cardAt(TITLE_CARD, f + 1).contact).toBeLessThanOrEqual(0.45);
+    }
+    // it moves west only once it is up over the calendar pad and the mail box west of it (never through them)
+    for (let f = antic; f < frames.gone; f++) expect(place.z + cardAt(TITLE_CARD, f).off[2], `f${f}`).toBeGreaterThan(GENERIC_FEEDERS.mailH + 2);
+    for (let f = frames.leave; f < antic; f++) expect(cardAt(TITLE_CARD, f).off[0]).toBeGreaterThanOrEqual(0);
   });
   it('comes to rest over its place with no vertical speed, lifts 3 f, then drops onto it, its contact shadow tightening over the last 4 f', () => {
     const z = (f: number) => cardAt(TITLE_CARD, f).off[2];

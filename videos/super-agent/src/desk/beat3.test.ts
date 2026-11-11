@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BEAT, BOTH_FIXES, FIX_A, FIX_B } from '../cues.ts';
 import { actOneFrameFootprints, fixAOf, fixBOf } from './ActOneFrame.tsx';
-import { FIX_LAMP, FOLDERS, LOOP_A, MOUTH, REQUEST_ON_TAPE, actOneAt, actOneStep, actOneStepA, loopPoint, stackTop } from './actOne.ts';
+import { FIX_LAMP, FOLDERS, LOOP_A, MOUTH, REQUEST_ON_TAPE, REQUEST_STEPPED_FROM, actOneAt, actOneStep, actOneStepA, loopPoint, stackTop } from './actOne.ts';
 import {
   A_CHUTES,
   A_FOLDER_IN,
@@ -160,6 +160,44 @@ describe('Fix A (3.1): one folder, one tape, every feeder pouring onto it', () =
       });
     }
     expect(pile).toBe(A_PILE.length);
+    // each swallowed item rises clear of the stack before it crosses over it: whenever its plan overlaps the stack's, its
+    // underside is at or above the stack's top (it never passes through the folder)
+    const F = FIX_A_FOLDER;
+    const R = { x0: F.c[0] - F.w / 2 + 5, x1: F.c[0] + F.w / 2 - 5, y0: F.c[1] - F.d / 2 + 5, y1: F.c[1] + F.d / 2 - 5 };
+    for (const q of A_QUEUE) {
+      if (!q.swallow) continue;
+      const [l, w] = A_SIZE[q.kind];
+      // (on its first frame it still lies on the tape, its nose in the mouth under the cover, as it came)
+      for (const f of span(q.swallow.at + 1, q.swallow.at + A_SWALLOW_FRAMES)) {
+        const A = fixAOf(f);
+        const it = A.pile![q.swallow.m];
+        const dy = A.folderDy ?? 0;
+        const corners = [
+          [1, 1],
+          [1, -1],
+          [-1, -1],
+          [-1, 1],
+        ].map(([a, b]) => [it.p[0] + (it.x[0] * a * l) / 2 + (it.y[0] * b * w) / 2, it.p[1] + dy + (it.x[1] * a * l) / 2 + (it.y[1] * b * w) / 2]);
+        const box = [
+          [R.x0, R.y0],
+          [R.x1, R.y0],
+          [R.x1, R.y1],
+          [R.x0, R.y1],
+        ];
+        const axes = [
+          [1, 0],
+          [0, 1],
+          [it.x[0], it.x[1]],
+          [it.y[0], it.y[1]],
+        ];
+        const overlaps = axes.every(([ax, ay]) => {
+          const pa = corners.map(([x, y]) => x * ax + y * ay);
+          const pb = box.map(([x, y]) => x * ax + y * ay);
+          return Math.max(...pa) > Math.min(...pb) && Math.max(...pb) > Math.min(...pa);
+        });
+        if (overlaps) expect(it.p[2], `item ${q.swallow.m} f${f}`).toBeGreaterThanOrEqual(aStackTopAt(f));
+      }
+    }
     for (const q of A_QUEUE) {
       if (!q.swallow) continue;
       const i = A_QUEUE.indexOf(q);
@@ -321,7 +359,15 @@ describe('Fix B (3.2): eight trays, one per event, none alike', () => {
 describe('the request in 3.1, and Fix A as one session holding everything', () => {
   it('puts one request on screen: its copy on the tape is vermilion while Fix A holds the focus, the heap’s drained meanwhile', () => {
     const q = A_QUEUE[A_REQUEST];
-    expect(q.pour!.lands - q.pour!.arc - 3).toBe(REQUEST_ON_TAPE.from);
+    // the copy is inside the spout on the pour's first frame (beat3.ts pourPose: from the mouth's inside): it takes the
+    // vermilion from the next, its first in sight, while the heap's drains over the same frames
+    expect(q.pour!.lands - q.pour!.arc - 3 + 1).toBe(REQUEST_ON_TAPE.from);
+    expect(fixAOf(REQUEST_ON_TAPE.from).requestInk).toBe(0);
+    expect(fixAOf(REQUEST_ON_TAPE.from + 1).requestInk).toBeGreaterThan(0);
+    // the heap's request changes sets only once both its ramps are fully down (nothing jumps)
+    expect(actOneStep(REQUEST_STEPPED_FROM).own?.amount).toBe(1);
+    expect(actOneStep(REQUEST_STEPPED_FROM).amount).toBe(1);
+    expect(REQUEST_STEPPED_FROM).toBeLessThan(BOTH_FIXES);
     for (let f = REQUEST_ON_TAPE.from; f < 1400; f++) {
       const copy = fixAOf(f).requestInk!;
       const heap = actOneAt(f).request.ink;

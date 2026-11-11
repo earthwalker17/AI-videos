@@ -8,8 +8,8 @@
  * on the screen), and its lettering is projected onto its top face every frame. Arriving, it is posted
  * in from beyond the frame's south-west edge on a low arc that comes to rest over its place with no
  * vertical speed, lifts a little (3 f, its anticipation) and drops onto its place on the thump
- * (title-thump, f160), its contact shadow tightening over those last 4 frames. Leaving, it lifts and
- * slides out west on the exit curve, wholly off the frame on its last frame. The paper never fades:
+ * (title-thump, f160), its contact shadow tightening over those last 4 frames. Leaving, it lifts off (its own
+ * anticipation) and slides out west at a bounded pace, wholly off the frame on its last frame. The paper never fades:
  * it is always either in the frame or not.
  *
  * Pure placement (`cardAt`, `cardCorners`, `cardFootprint`) and the two layers: `CardWorld` in the WebGL
@@ -17,7 +17,7 @@
  * camera is, inside title-safe).
  */
 import type { CamPose } from '@aiv/remotion-kit';
-import { clamp } from '@aiv/core';
+import { clamp, easings } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferGeometry, Path, type Shape, type Texture } from 'three';
 import { Easing } from 'remotion';
@@ -67,13 +67,26 @@ export const CARD_T = 1.6;
 /**
  * The post (world offsets from its place, u): from beyond the frame's south-west edge, a 12 f arc that comes to rest over
  * its place `hover` high with no vertical speed (and no speed across), a 3 f lift (the anticipation), then a 4 f drop onto
- * it: the contact is the land frame. Leaving: a 5 f slide out west on the exit curve, lifting.
+ * it: the contact is the land frame. Leaving: its own anticipation (3 f: it lifts off its place, clear of the calendar
+ * pad and the mail box west of it, nudged east, its contact fading), then an 8 f slide out west over them that gathers
+ * speed over its first 40% and holds it (at most about 110 px a frame at 1.2x): wholly off the frame on its last frame.
  */
-export const CARD_POST = { from: [-300, -330, 80] as P3, hump: 60, hover: 18, lift: 4, liftFrames: 3, dropFrames: 4, out: [-640, -60, 30] as P3 } as const;
+export const CARD_POST = {
+  from: [-300, -330, 80] as P3,
+  hump: 60,
+  hover: 18,
+  lift: 4,
+  liftFrames: 3,
+  dropFrames: 4,
+  antic: [6, 0, 30] as P3,
+  anticFrames: 3,
+  out: [-566, -50, 44] as P3,
+  outFrames: 8,
+  outRamp: 0.4,
+} as const;
 /** The contact shadow's strength at rest (the trays' and the folders'). */
 const CONTACT = 0.8;
 const MOVE = Easing.bezier(0.2, 0, 0, 1);
-const EXIT = Easing.bezier(0.3, 0, 0.8, 0.15);
 const span01 = (f: number, a: number, b: number): number => clamp((f - a) / (b - a));
 
 export interface CardState {
@@ -109,10 +122,20 @@ export function cardAt(spec: CardSpec, f: number): CardState {
     return { present: true, off: [0, 0, z], contact: CONTACT * (1 - z / (P.hover + P.lift)) };
   }
   if (f < leave) return { present: true, off: none, contact: CONTACT };
-  // leaving: it lifts (its shadow softening) as it slides out west on the exit curve, wholly off the frame on its last
-  // frame (it is never in the frame one frame and gone the next)
-  const k = EXIT(span01(f, leave, gone - 1));
-  return { present: true, off: [P.out[0] * k, P.out[1] * k, P.out[2] * k], contact: CONTACT * (1 - k) };
+  // leaving: its anticipation (it lifts off its place, nudged east, its contact going as it lifts), then it slides out
+  // west gathering speed to a held pace, lifting (its shadow softening), wholly off the frame on its last frame (it is
+  // never in the frame one frame and gone the next)
+  const slide = leave + P.anticFrames;
+  if (f < slide) {
+    const e = easings.inOutSine(span01(f, leave, slide));
+    const off: P3 = [P.antic[0] * e, P.antic[1] * e, P.antic[2] * e];
+    // its contact goes over the first two thirds of the lift (by time: never cut whole)
+    return { present: true, off, contact: CONTACT * clamp(1 - (1.5 * (f - leave)) / P.anticFrames) };
+  }
+  const u = span01(f, slide, gone - 1);
+  const a = P.outRamp;
+  const k = u < a ? (u * u) / (2 * a) / (1 - a / 2) : (u - a / 2) / (1 - a / 2);
+  return { present: true, off: [P.antic[0] + (P.out[0] - P.antic[0]) * k, P.antic[1] + (P.out[1] - P.antic[1]) * k, P.antic[2] + (P.out[2] - P.antic[2]) * k], contact: 0 };
 }
 
 /** The top face's corners in the world (north-west, north-east, south-west, south-east), with the card's offset. */

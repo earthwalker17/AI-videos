@@ -83,6 +83,8 @@ export interface TagSpec {
   leaderUntil?: number;
   /** a long tag set on more than one line (its words broken where the copy breaks, never re-worded): EN lines, then zh lines */
   lines?: { en: readonly string[]; zh: readonly string[] };
+  /** its lines' leading, if tighter than TAG_GAP (the gate tag, so its zh line clears the conversation spool's flange under it) */
+  gap?: number;
 }
 /** The zh line's baseline under the EN line's (and one line's under the one before it), and where the leader leaves the text block. */
 export const TAG_GAP = 50;
@@ -138,10 +140,13 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         const tsize = TYPE.label.size;
         const en = t.lines?.en ?? [t.words.en];
         const zh = t.lines?.zh ?? [t.words['zh-Hans']];
-        const enY = en.map((_, i) => t.at[1] + i * TAG_GAP);
-        const zhY = zh.map((_, i) => t.at[1] + (en.length + i) * TAG_GAP);
-        const wEn = Math.max(...en.map((x) => lineWidth(x, { family: fonts.sans, weight: TYPE.label.weight, size: tsize })));
-        const wZh = Math.max(...zh.map((x) => lineWidth(x, { family: fonts.sans, weight: TYPE.label.cjkWeight, size: tsize })));
+        const gap = t.gap ?? TAG_GAP;
+        const enY = en.map((_, i) => t.at[1] + i * gap);
+        const zhY = zh.map((_, i) => t.at[1] + (en.length + i) * gap);
+        const wEns = en.map((x) => lineWidth(x, { family: fonts.sans, weight: TYPE.label.weight, size: tsize }));
+        const wZhs = zh.map((x) => lineWidth(x, { family: fonts.sans, weight: TYPE.label.cjkWeight, size: tsize }));
+        const wEn = Math.max(...wEns);
+        const wZh = Math.max(...wZhs);
         const w = Math.max(wEn, wZh) + 8;
         const x0 = t.anchor === 'start' ? t.at[0] - 4 : t.at[0] - w + 4;
         const top = t.at[1] - 40;
@@ -150,7 +155,12 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         // block) its bottom or top edge straight above or below the foot
         const over = foot[0] > x0 - 8 && foot[0] < x0 + w + 8;
         const lx = over ? foot[0] : foot[0] < x0 ? x0 - 8 : x0 + w + 8;
-        const ly = over ? (foot[1] > t.at[1] ? bottom : top) : en.length + zh.length > 2 ? Math.min(Math.max(foot[1], top + 12), bottom - 12) : t.at[1] + TAG_GAP / 2 - 12;
+        // a foot under the block meets the lowest line that runs over it (a shorter line under a longer one leaves it the longer's)
+        const spans = [...wEns, ...wZhs].map((lw) => (t.anchor === 'start' ? [t.at[0] - 4, t.at[0] + lw + 4] : [t.at[0] - lw - 4, t.at[0] + 4]));
+        const ys = [...enY, ...zhY];
+        const under = ys.filter((_, i) => foot[0] >= spans[i]![0]! && foot[0] <= spans[i]![1]!);
+        const floor = under.length ? Math.max(...under) + 20 : bottom;
+        const ly = over ? (foot[1] > t.at[1] ? floor : top) : en.length + zh.length > 2 ? Math.min(Math.max(foot[1], top + 12), bottom - 12) : t.at[1] + gap / 2 - 12;
         // the leader grows out of its foot with the wipe; under a camera move it retracts into the text (leaderUntil)
         const grow = Math.min(1, r.wipe * 1.6);
         const keep = t.leaderUntil === undefined ? 1 : 1 - Math.min(1, Math.max(0, (f - t.leaderUntil) / 6));

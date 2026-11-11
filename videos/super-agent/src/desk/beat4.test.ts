@@ -35,11 +35,21 @@ import {
   hammerAt,
   hatchRiseAt,
   heapAt,
+  heapFloor,
   heapPieceAt,
   rampTopAt,
   ridersAt,
   RIDERS_WIND,
+  PIN_SHADE_TOP,
+  REQUEST_SHADE_IN,
+  SHADE_IN,
+  DOCK_SHADE_TOP,
+  SHADE_RAMP,
+  shadeAt,
+  WORK_REST,
+  liftOf,
   testsCapOpenAt,
+  workLift,
   ON_REQUEST,
   reelAt,
   requestAt,
@@ -49,11 +59,11 @@ import {
 } from './beat4.ts';
 import { deskCamera, FRAMING_B, project } from './camera.ts';
 import { bayWalls, footprintsAt, heapFootprintsAt, MAX_FOOTPRINTS, type Footprint } from './footprints.ts';
-import { BAYS, BENCH, DECK, DISPATCH_HOUSING, DRAWER, LEG_R, LEG_STRUTS, MOUTH, NEXT_SLIP, PINS, RAMP, REQUEST, TOWER, rectC, towerTop, type BayId, type P3 } from './layout.ts';
+import { BAYS, BAY_FLOOR, BENCH, DECK, DISPATCH_HOUSING, DRAWER, LEG_R, LEG_STRUTS, MOUTH, NEXT_SLIP, PINS, RAMP, REQUEST, SHEET, TOWER, rectC, towerTop, type BayId, type P3 } from './layout.ts';
 import { poolsAt, MAX_POOLS } from './pools.ts';
 import { DETENT, EVENTS_D, FOCUS_BEATS, deskStateAt, nextAt, SLIP_LANDS, stepAt } from './state.ts';
 import { SPIN_TOTAL, TURN_SPAN, turnAt, turnFootprints } from './turn.ts';
-import { HEAP } from './actOne.ts';
+import { HEAP, PIECE } from './actOne.ts';
 
 const range = (a: number, b: number) => Array.from({ length: b - a }, (_, i) => a + i);
 /** The smallest turn between two headings (radians). */
@@ -298,12 +308,56 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
             if (P[0] >= sl.x0 && P[0] <= sl.x1 && P[1] >= sl.y0 && P[1] <= sl.y1) expect(P[2], `${at} over ${b}'s slot`).toBeGreaterThan(33);
           }
           if (P[0] >= PINS.x0 - 6 && P[0] <= PINS.x0 + PINS.dx * (PINS.n - 1) + 6 && Math.abs(P[1] - PINS.y) < 5) expect(P[2], `${at} over the pins`).toBeGreaterThan(BENCH.z[1] + PINS.h + 2);
+          // never under the slate (touching down and lifting off level: no end dipped into the desk)
+          expect(P[2], `${at} under the slate`).toBeGreaterThanOrEqual(1.35);
           if (f >= BEAT_4.dispatchTests && Math.hypot(P[0] - TOWER.x, P[1] - TOWER.y) < TOWER.r + 4) expect(P[2], `${at} over the tower`).toBeGreaterThan(towerTop() + 10);
           for (const s of LEG_STRUTS) expect(segDist(P, s.top, [s.foot[0], s.foot[1], 0]), `${at} through a leg`).toBeGreaterThan(LEG_R + 1);
           if (f >= F.groove) for (const B of boxes) expect(hidden(P, B), `${at} out of sight`).toBe(false);
         }
       }
     }
+  });
+
+  it('brings the request down onto its folder clear of the pins and their flags: its north edge south of the flags before it is as low as their tops (dense samples, every frame)', () => {
+    // each flag lies flat on its pin's top (objects/Bay.tsx PinFlag: 22 u along x, from 2 to 22 u south of the pin, its
+    // enamel and graphite faces 2.4 u thick), the pins' posts up to their tops
+    const top = BENCH.z[1] + PINS.h + 1.3;
+    const F = RIDE_FRAMES.bug;
+    const [hl, hw] = HALF.bug;
+    for (let f = F.groove; f <= F.dock + 11; f++) {
+      const c = carrierAt('bug', f)!;
+      for (let i = 0; i <= 40; i++)
+        for (let j = 0; j <= 20; j++) {
+          const a = -1 + i / 20;
+          const w = -1 + j / 10;
+          const ax = a * hl * Math.cos(c.slope);
+          const P: P3 = [c.p[0] + ax * Math.cos(c.heading) - w * hw * Math.sin(c.heading), c.p[1] + ax * Math.sin(c.heading) + w * hw * Math.cos(c.heading), c.p[2] + a * hl * Math.sin(c.slope)];
+          const overPins = P[0] >= PINS.x0 - 12 && P[0] <= PINS.x0 + PINS.dx * (PINS.n - 1) + 12 && P[1] >= PINS.y - 23 && P[1] <= PINS.y + 5;
+          // (its underside 0.3 u under its centre plane, 1.2 u clear of a flag's top)
+          if (overPins) expect(P[2] - 0.3, `f${f} (${P.map((v) => v.toFixed(0)).join(',')}) through the pins' flags`).toBeGreaterThan(top + 1.2);
+        }
+    }
+  });
+
+  it('darkens each carrier into its dock’s shade over the frames before the shade takes it (all of its top in one frame: it comes down level), never stepping its tone', () => {
+    const tops: Record<BayId, [number, number]> = { bug: [0.6, 0.8], tests: [0.4, 0.4], docs: [0.4, 0.4] };
+    for (const id of IDS) {
+      const F = RIDE_FRAMES[id];
+      const zs = (f: number) => samples(id, carrierAt(id, f)!).map((P) => P[2]);
+      const S = SHADE_IN[id];
+      // the frame before: its whole top over the shade's top; on it: its whole top under it
+      expect(Math.min(...zs(S - 1)) + tops[id][0], id).toBeGreaterThan(DOCK_SHADE_TOP[id] + 0.02);
+      expect(Math.max(...zs(S)) + tops[id][1], id).toBeLessThan(DOCK_SHADE_TOP[id] - 0.02);
+      expect(shadeAt(S - 1, id)).toBe(1);
+      expect(shadeAt(S, id)).toBe(0);
+      expect(shadeAt(S - 1 - SHADE_RAMP, id)).toBe(0);
+      for (let f = F.out; f < F.dock + 12; f++) if (f !== S) expect(Math.abs(shadeAt(f, id) - shadeAt(f - 1, id)), `${id} f${f}`).toBeLessThan(0.55);
+      expect(carrierAt(id, S - 2)!.shade, id).toBeGreaterThan(0.5);
+      // it docks under the shade, as still (b) has it
+      expect(Math.max(...zs(F.dock)) + tops[id][1], id).toBeLessThan(DOCK_SHADE_TOP[id]);
+    }
+    expect(REQUEST_SHADE_IN).toBe(SHADE_IN.bug);
+    expect(DOCK_SHADE_TOP.bug).toBe(PIN_SHADE_TOP);
   });
 
   it('moves the request as one body: out of the heap, up the belt, into the throat and under the head, then out of the housing onto its folder (no snap in place, heading or slope)', () => {
@@ -346,8 +400,13 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
       const F = RIDE_FRAMES[id];
       const at = (f: number) => carrierAt(id, f)!;
       const vx = (f: number) => at(f).p[0] - at(f - 1).p[0];
-      // horizontal speed eases to nothing at the touchdown and out of rest after it: never reversing
-      expect(Math.abs(vx(F.groove)), id).toBeLessThan(3);
+      // horizontal speed eases to nothing at the touchdown (its last frame's step under 3.5 u, 3 px) and out of rest after
+      // it: never reversing
+      expect(Math.abs(vx(F.groove)), id).toBeLessThan(3.5);
+      // one push out of the slit and off the lip: its speed never stops or jumps at the lip (no stop-then-lurch)
+      const speed = (f: number) => Math.hypot(at(f).p[0] - at(f - 1).p[0], at(f).p[1] - at(f - 1).p[1], at(f).p[2] - at(f - 1).p[2]);
+      for (let f = F.ramp - 2; f <= F.ramp + 3; f++) expect(Math.abs(speed(f + 1) - speed(f)), `${id} f${f}`).toBeLessThan(6);
+      for (let f = F.out + 2; f < F.groove; f++) expect(speed(f), `${id} f${f}`).toBeGreaterThan(1);
       expect(Math.hypot(at(F.groove + 1).p[0] - at(F.groove).p[0], at(F.groove + 1).p[1] - at(F.groove).p[1]), id).toBeLessThan(2);
       for (let f = F.ramp + 1; f <= F.groove; f++) expect(vx(f), `${id} f${f}`).toBeGreaterThanOrEqual(0);
       // its velocity turns smoothly on the hop (no kink: the direction turns under 0.5 rad a frame once it moves)
@@ -388,8 +447,11 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
       const g = heapAt(f - 1);
       for (const p of HEAP) {
         const on = onReq.includes(p);
-        const a = heapPieceAt(p.z, on, g);
-        const b = heapPieceAt(p.z, on, h);
+        const fl = heapFloor(p.c, p.rot, PIECE[p.kind][0], PIECE[p.kind][1], p.z);
+        const a = heapPieceAt(p.z, on, g, fl);
+        const b = heapPieceAt(p.z, on, h, fl);
+        // never pressed through what it lies on (the CI feeder's mouth card)
+        if (fl > 0) expect(b.z, `f${f}`).toBeGreaterThan(fl);
         expect(b.z, `f${f}`).toBeGreaterThan(0.1);
         // pressed on spring-heavy: a press (at most 4 u a frame, about 3 px), never a jump
         expect(Math.abs(b.z - a.z), `f${f}`).toBeLessThan(4);
@@ -399,7 +461,12 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
     const b = heapAt(2225);
     expect(b.press).toBeGreaterThan(0.999);
     expect(b.step).toBe(1);
-    for (const p of HEAP) expect(heapPieceAt(p.z, onReq.includes(p), b).z).toBeLessThan(1.6);
+    for (const p of HEAP) {
+      const fl = heapFloor(p.c, p.rot, PIECE[p.kind][0], PIECE[p.kind][1], p.z);
+      expect(heapPieceAt(p.z, onReq.includes(p), b, fl).z).toBeLessThan(fl + 1.6);
+    }
+    // the pieces spilled over the CI feeder's mouth card press onto it
+    expect(HEAP.filter((p) => heapFloor(p.c, p.rot, PIECE[p.kind][0], PIECE[p.kind][1], p.z) > 0).length).toBeGreaterThan(0);
     // its shadows draw in under its pieces before they stop casting (nothing pops at the stop)
     const last = heapFootprintsAt(heapAt(B4.heapPress + HEAP_CAST - 1));
     expect(last.length).toBeGreaterThan(0);
@@ -478,11 +545,19 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
     }
   });
 
-  it('winds the notes loop’s riders in at the rim over the request’s detent (11 f, from rest at the turn’s end), and ramps the request’s beetle light out before the head can cut it off', () => {
+  it('winds the notes loop’s riders in at the rim with the request’s detent (from rest at the turn’s end, nothing moving before the reel does, the detent only once the request is at the head), and ramps the request’s beetle light out before the head can cut it off', () => {
     expect(ridersAt(TURN_SPAN[1] + 1)!.sink).toBe(0);
     expect(RIDERS_WIND.frames).toBeGreaterThanOrEqual(8);
     expect(RIDERS_WIND.from).toBeGreaterThan(TURN_SPAN[1]);
     expect(ridersAt(RIDERS_WIND.from + RIDERS_WIND.frames)).toBeNull();
+    // the reel holds still until the request lies at the head (its nose at the head's edge), and the riders hold with it
+    for (let f = TURN_SPAN[1] + 1; f <= RIDERS_WIND.from; f++) {
+      expect(reelAt(f), `f${f}`).toBe(REEL_LOCK);
+      expect(ridersAt(f)!.sink, `f${f}`).toBe(0);
+    }
+    expect(reelAt(RIDERS_WIND.from + 1)).toBeLessThan(REEL_LOCK);
+    expect(ridersAt(RIDERS_WIND.from + 1)!.sink).toBeGreaterThan(0);
+    expect(REQUEST_RIDE.inThroat).toBeLessThanOrEqual(RIDERS_WIND.from);
     // the light through the beetle is out once the request's east end (the beetle) is under the head, 2 f into its feed
     expect(requestAt(REQUEST_RIDE.feed + 2).pose!.transit).toBe(0);
     for (let f = REQUEST_RIDE.inThroat; f <= REQUEST_RIDE.feed + 2; f++) expect(Math.abs(requestAt(f).pose!.transit - requestAt(f - 1).pose!.transit), `f${f}`).toBeLessThan(0.45);
@@ -521,6 +596,32 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
     const act2 = footprintsAt(deskStateAt(f)).map(key).sort();
     const turn = turnFootprints(turnAt(f)).map(key).sort();
     expect(act2).toEqual(turn);
+  });
+
+  it('casts each rising bay’s work where it is drawn, its overshoot included, so no part leaves its footprint; at rest exactly once settled, the floor’s top clear of its own footprint', () => {
+    for (const id of IDS) {
+      const r = DISPATCH[id].rise;
+      const b = BAYS[id];
+      const at = (fp: Footprint, c: readonly [number, number]) => fp.kind === 'rect' && Math.abs(fp.c[0] - c[0]) < 1e-6 && Math.abs(fp.c[1] - c[1]) < 1e-6;
+      const isDossier = (fp: Footprint) => at(fp, rectC(b.dossier));
+      const isFloor = (fp: Footprint) => at(fp, rectC(b.box)) && fp.kind === 'rect' && Math.abs(fp.h[0] - (b.box.x1 - b.box.x0) / 2) < 1e-6;
+      for (let f = r + 10; f <= r + 70; f++) {
+        const s = deskStateAt(f);
+        const lift = workLift(s.b4.bays[id], id);
+        const fps = footprintsAt(s);
+        const dossier = fps.find(isDossier);
+        const floor = fps.find(isFloor);
+        expect(dossier && floor, `${id} f${f}`).toBeTruthy();
+        // the dossier's footprint rides with it (its top always 1.8 u under the footprint's: the same shade every frame)
+        if (dossier?.kind === 'rect') expect(dossier.z1 - lift, `${id} f${f}`).toBeCloseTo(BAY_FLOOR + 4 + b.sheets * SHEET, 6);
+        // the floor plate's top stands clear over its own footprint (never a coin flip of its own shade)
+        if (floor?.kind === 'rect') expect(BAY_FLOOR + lift - floor.z1, `${id} f${f}`).toBeGreaterThan(0.2);
+        // its spring's last wobble is rest exactly
+        if (f >= r + 20) expect(lift, `${id} f${f}`).toBe(0);
+      }
+    }
+    expect(liftOf(1 - WORK_REST / 200, 100)).toBe(0);
+    expect(liftOf(0.5, 100)).toBe(-50);
   });
 
   it('keeps a closed bay’s look for the turn to draw: no hole, no work, its lid on the slate', () => {

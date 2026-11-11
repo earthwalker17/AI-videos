@@ -57,7 +57,8 @@ export const ACT_ONE_LABELS: readonly RoleLabel[] = [{ text: `${WORDS.you.en} ·
 const [TITLE_EN_1, TITLE_EN_2] = [WORDS.title.en.slice(0, WORDS.title.en.indexOf(' the ')), WORDS.title.en.slice(WORDS.title.en.indexOf(' the ') + 1)];
 export const TITLE_CARD: CardSpec = {
   place: { x0: -878, y1: 82, w: 294, d: 134, z: 3.4 },
-  frames: { enter: 141, land: 160, leave: 374, gone: 380 },
+  // it leaves 11 f before it is gone (3 f anticipation, an 8 f slide): its title fades on its cue (f374) as it goes
+  frames: { enter: 141, land: 160, leave: 368, gone: 380 },
   mark: '№',
   // top right: over the card's own margin, clear of the lettering
   hole: { x: 279, y: 14, r: 5 },

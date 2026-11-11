@@ -24,7 +24,7 @@ import { EMIT, Step, isStepped, useDeskMats } from '../kit.tsx';
 import { LAMP, YOU, rectC, type P3 } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
 import type { DeskState } from '../state.ts';
-import { CHORES, LAMP_FOOT_Z, RECESS_GAP, TRAY_Z, strutOnLid, type ChoreFlight, type LampPose, type YouPose } from '../you.ts';
+import { CHORES, LAMP_FOOT_Z, RECESS_GAP, TRAY_Z, strutEnds, type ChoreFlight, type LampPose, type YouPose } from '../you.ts';
 
 const lerp3 = (a: P3, b: P3, t: number): P3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
@@ -416,8 +416,7 @@ function useStrutGeometry(len: number) {
 
 /** The strut's placement: from a to b, its local +y along the segment. */
 function strutPlacement(pose: YouPose): { p: P3; q: Quaternion; len: number } {
-  const s = CHORES.strut;
-  const [a, b]: [P3, P3] = pose.strut === 'lid' ? [strutOnLid().a, strutOnLid().b] : [[s.c[0], s.c[1] - s.half[1] + 2, TRAY_Z.floor + 4.4], [s.c[0], s.c[1] + s.half[1] - 2, TRAY_Z.floor + 4.4]];
+  const { a, b } = strutEnds(pose);
   const d = new Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
   const len = d.length();
   return { p: a, q: new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d.normalize()), len: Math.round(len * 4) / 4 };

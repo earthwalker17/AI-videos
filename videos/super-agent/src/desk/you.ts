@@ -31,6 +31,8 @@ export interface YouPose {
   bulbOut: number;
   /** where the lid strut is: propping the laptop's lid, or resting in its recess */
   strut: 'lid' | 'tray';
+  /** the turn: the strut on its way from the lid to its recess (0 on the lid … 1 in the tray; absent: at `strut`) */
+  strutMix?: number;
   /** each chore that rests on the desk: 0 not there yet … 1 in its place (it drops in as it lands) */
   held: { key: number; glass: number; strut: number };
   /** the in-tray stands on the desk (it comes with the Router's replies, after the turn) */
@@ -110,6 +112,24 @@ export const CHORES = {
 } as const;
 /** A recess is cut this much wider than its chore. */
 export const RECESS_GAP = 3;
+
+/** The lid strut resting in its recess (desk coordinates): its ends along the recess, north-south. */
+export function strutInTray(): { a: P3; b: P3 } {
+  const s = CHORES.strut;
+  return { a: [s.c[0], s.c[1] - s.half[1] + 2, TRAY_Z.floor + 4.4], b: [s.c[0], s.c[1] + s.half[1] - 2, TRAY_Z.floor + 4.4] };
+}
+/** How high the strut hops on its way from the lid to its recess (u). */
+export const STRUT_HOP = 16;
+/** The strut's ends at a pose: on the lid, in its recess, or on its way between them (`strutMix`, a low hop). */
+export function strutEnds(pose: Pick<YouPose, 'strut' | 'strutMix'>): { a: P3; b: P3 } {
+  if (pose.strutMix === undefined) return pose.strut === 'lid' ? strutOnLid() : strutInTray();
+  const L = strutOnLid();
+  const T = strutInTray();
+  const m = pose.strutMix;
+  const hop = STRUT_HOP * Math.sin(Math.PI * m);
+  const mix = (p: P3, q: P3): P3 => [p[0] + (q[0] - p[0]) * m, p[1] + (q[1] - p[1]) * m, p[2] + (q[2] - p[2]) * m + hop];
+  return { a: mix(L.a, T.a), b: mix(L.b, T.b) };
+}
 
 /** The lid strut propping the laptop's lid (desk coordinates): from a clip on the base's east edge to one near the lid's top. */
 export function strutOnLid(): { a: P3; b: P3 } {

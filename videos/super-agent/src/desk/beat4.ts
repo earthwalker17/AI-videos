@@ -114,6 +114,23 @@ export const lidLeaf = (id: BayId): number => (BAYS[id].box.x1 - BAYS[id].box.x0
  */
 export const WORK_DEPTH: Record<BayId, number> = { tests: towerTop() + TOWER.dome + 8 + lidLeaf('tests'), docs: BAYS.docs.wallH + 8 + lidLeaf('docs'), bug: BENCH.z[1] + PINS.h + 6 + lidLeaf('bug') };
 
+/**
+ * Within this of its rest (u: a twentieth of a pixel) a rising bay's spring is at rest exactly, as still (b) has it.
+ */
+export const WORK_REST = 0.05;
+/**
+ * How far a bay's work stands off its rest as it rises out of its pit `depth` deep (below 0 while it rises, a little above
+ * in its spring-heavy overshoot): what the bay draws (objects/Bay.tsx) and what it casts (footprints.ts) take this one
+ * value, so no part ever moves off its own footprint (a part a hair above or below the top of its own footprint flips its
+ * own shade in a frame: the bays' light pops of fix round 2); the spring's last wobble is rest exactly.
+ */
+export function liftOf(rise: number, depth: number): number {
+  const dz = -depth * (1 - rise);
+  return Math.abs(dz) < WORK_REST ? 0 : dz;
+}
+/** A beat-4 bay's work lift (liftOf its WORK_DEPTH). */
+export const workLift = (d: { rise: number }, id: BayId): number => liftOf(d.rise, WORK_DEPTH[id]);
+
 // ------------------------------------------------------------------------------------------------
 // One dispatch move for every Worker
 
@@ -169,6 +186,8 @@ export interface Carry {
   transit: number;
   /** how much of its contact shadow it casts (1 lying on the slate .. 0 clear of it); footprints.ts falls back to its height */
   contact?: number;
+  /** its own darkening into a shade it is about to go under (beat4.ts requestShadeAt; 0 none) */
+  shade?: number;
 }
 
 /** The shortest turn from a to b (radians). */
@@ -206,16 +225,20 @@ function onBody(c: Carry, q: P2): P3 {
   const ax = q[0] * Math.cos(c.slope);
   return [c.p[0] + ax * ch - q[1] * sh, c.p[1] + ax * sh + q[1] * ch, c.p[2] + q[0] * Math.sin(c.slope)];
 }
-/** How far a carrier has to be lifted to lie over the ramp everywhere (0 when it is clear of it), its paper 0.8 u over the sheet. */
+/**
+ * How far a carrier has to be lifted to lie over the ramp and the slate everywhere (0 when it is clear of both): its paper
+ * 0.8 u over the ramp's sheet, and no part of it under the slate (every point of its centre plane at least as high as it
+ * lies flat on the slate: a tilted carrier touching down or lifting off never dips an end into the desk).
+ */
 function rampLift(c: Carry, hl: number, hw: number): number {
   let lift = 0;
   for (const q of bodySamples(hl, hw)) {
     const p = onBody(c, q);
-    lift = Math.max(lift, rampTopAt(p[0], p[1]) + 0.8 - p[2]);
+    lift = Math.max(lift, Math.max(rampTopAt(p[0], p[1]) + 0.8, SLATE_Z) - p[2]);
   }
   return lift;
 }
-/** A carrier lifted (if it has to be) to lie over the ramp. */
+/** A carrier lifted (if it has to be) to lie over the ramp and the slate. */
 const lifted = (c: Carry, r: { hl: number; hw: number }): Carry => {
   const up = rampLift(c, r.hl, r.hw);
   return up > 0 ? { ...c, p: [c.p[0], c.p[1], c.p[2] + up] } : c;
@@ -311,10 +334,12 @@ function rideFrames(r: RidePlan): { out: number; ramp: number; groove: number; d
 
 /**
  * A carrier on its dispatch ride at f (null before it leaves the housing); `light`: whether it carries the transit light.
- * Pushed level out of the slit (easing to rest as its tail clears it), it drops off the lip down the quarter pipe (nose down,
- * levelling) and lands on the slate wholly past the pipe's toe, its horizontal speed spent at the touchdown (a 3% squash);
- * from rest there it hops: lifting off the slate, over the walls of its bay (high enough for every part of it to clear
- * them, and the bug bay's pins), turning only from the ramp's heading to its dock's, settling onto its dock from above.
+ * One push carries it out of the slit and off the lip (from rest in the housing to rest on the slate, on one in-out curve
+ * over both, so its speed never stops or jumps at the lip): level in the slit, it drops from the frame its tail clears the
+ * lip, gathering speed down the quarter pipe (nose down, levelling), and lands on the slate wholly past the pipe's toe, its
+ * horizontal speed spent at the touchdown (a 3% squash); from rest there it hops: lifting off the slate, over the walls of
+ * its bay (high enough for every part of it to clear them, and the bug bay's pins), turning only from the ramp's heading to
+ * its dock's, settling onto its dock from above.
  */
 function rideAt(f: number, r: RidePlan, light: boolean): Carry | null {
   const F = rideFrames(r);
@@ -322,12 +347,14 @@ function rideAt(f: number, r: RidePlan, light: boolean): Carry | null {
   const from: P3 = [RAMP.x - r.hl - 1, RAMP_Y, 73];
   const outAt: P3 = [RAMP.x + 1 + r.hl + 3, RAMP_Y, 72.5];
   const transit = light ? clamp((f - F.out + 1) / 4) * clamp((F.dock - f) / 6) ** 2 : 0;
-  if (f < F.ramp) return { p: lerp3(from, outAt, sine((f - F.out) / OUT_FRAMES)), heading: 0, slope: 0, squash: 0, transit, contact: 0 };
   if (f < F.groove) {
-    // off the lip: it falls (gathering speed) while its push dies away (its horizontal speed zero at the touchdown)
-    const t = clamp((f - F.ramp) / RAMP_FRAMES);
-    const ex = 1 - (1 - t) ** 2;
-    const c = lifted({ p: [outAt[0] + (r.land[0] - outAt[0]) * ex, outAt[1] + (r.land[1] - outAt[1]) * ex, outAt[2] + (r.land[2] - outAt[2]) * t * t], heading: 0, slope: -0.4 * Math.sin(Math.PI * t), squash: 0, transit }, r);
+    const u = clamp((f - F.out) / (OUT_FRAMES + RAMP_FRAMES));
+    const x = from[0] + (r.land[0] - from[0]) * sine(u);
+    // the moment its tail clears the lip (where the curve reaches outAt), and its fall from there
+    const u0 = Math.acos(1 - (2 * (outAt[0] - from[0])) / (r.land[0] - from[0])) / Math.PI;
+    const t = clamp((u - u0) / (1 - u0));
+    const z = u < u0 ? from[2] + (outAt[2] - from[2]) * (u / u0) : outAt[2] + (r.land[2] - outAt[2]) * t * t;
+    const c = lifted({ p: [x, RAMP_Y, z], heading: 0, slope: -0.4 * Math.sin(Math.PI * t), squash: 0, transit }, r);
     return { ...c, contact: slateContact(c, r.hl) };
   }
   if (f < F.dock) {
@@ -340,7 +367,9 @@ function rideAt(f: number, r: RidePlan, light: boolean): Carry | null {
     const heading = r.dockHeading * k;
     // nose up as the end it leads with climbs (along its own length only), level again on the dock
     const along = dir[0] * Math.cos(heading) + dir[1] * Math.sin(heading);
-    const slope = clamp(r.pitch * dir[2] * along, -0.3, 0.3) * (1 - u);
+    // (level on the slate at the touchdown and from 90% of the hop: it comes down onto its dock level, so the dock's shade
+    // takes all of it in one frame: SHADE_IN)
+    const slope = clamp(r.pitch * dir[2] * along, -0.3, 0.3) * sine(u / 0.15) * (1 - sine((u - 0.6) / 0.3));
     // (its 3% landing squash on the slate at its deepest on the touchdown, gone over 3 f as it lifts off)
     const c = lifted({ p, heading, slope, squash: Math.max(0, 1 - (f - F.groove) / 3), transit }, r);
     // (its contact drawing out over frames as it lifts off the slate; on its dock it casts none, as it never did, so its
@@ -366,7 +395,8 @@ const dossierTop = (id: BayId): P3 => [rectC(BAYS[id].dossier)[0], rectC(BAYS[id
 /**
  * The three dispatch rides. The bug bay takes the request itself (its 136 u folder waits on the bench and takes the
  * request's vermilion as it lands): it hops over the bay's north wall east of the deck's south-east leg (whose foot stands
- * at the door: layout.ts LEG_STRUTS) and over the slot and the pins onto its folder. The test tower takes the CI card that
+ * at the door: layout.ts LEG_STRUTS) and over the slot and the pins, then comes straight down over its folder (its north
+ * edge south of the pins' flags before it is as low as their tops) onto it. The test tower takes the CI card that
  * asked for its run, the docs galley the chat slip that asked for docs: the bays' doors face the deck's south rail, so a
  * groove to them runs out of sight under it; each instead hops out from the ramp's foot round the leg's foot, south of the
  * rail, the mouth, the drawer and the tower, over the bug bay's north wall and the bays' side walls into its own bay (in
@@ -382,7 +412,7 @@ export const RIDES: Record<BayId, RidePlan> = (() => {
   };
   return {
     // (the walls stand 30-40 u, the bug bay's slot 32 and its pins 84; the hop keeps every part of each carrier over them)
-    bug: plan(B4.bug.rise + 1, 38, REQUEST.l / 2, REQUEST.w / 2, [[404, 150, 30], [394, 86, 80], [378, 24, 108]], REQUEST_DOCK, REQUEST_DOCK_HEADING, [0, 0, -34], 0),
+    bug: plan(B4.bug.rise + 1, 38, REQUEST.l / 2, REQUEST.w / 2, [[404, 150, 30], [394, 86, 80], [378, 24, 108], [362, -28, 96]], REQUEST_DOCK, REQUEST_DOCK_HEADING, [0, 0, -34], 0),
     tests: plan(B4.armTests + 2, 50, 42, 25, [[382, 150, 32], [360, 86, 54], [292, 64, 56], [220, 60, 58], [60, 30, 60], [-90, -30, 56], [-200, -58, 44]], dossierTop('tests'), 0, [-20, 0, -16], 0.8),
     docs: plan(B4.armDocs + 2, 38, NEXT_SLIP.l / 2, NEXT_SLIP.w / 2, [[384, 150, 32], [362, 86, 52], [292, 66, 54], [215, 62, 52], [110, 64, 44], [40, 67, 30]], GALLEY_DOCK, 0, [-20, 0, -10], 0.8),
   };
@@ -391,6 +421,47 @@ export const RIDES: Record<BayId, RidePlan> = (() => {
 export const RIDE_FRAMES: Record<BayId, ReturnType<typeof rideFrames>> = { bug: rideFrames(RIDES.bug), tests: rideFrames(RIDES.tests), docs: rideFrames(RIDES.docs) };
 /** The request's ride (the bug dispatch). */
 export const RIDE = { out: RIDE_FRAMES.bug.out, ramp: RIDE_FRAMES.bug.ramp, groove: RIDE_FRAMES.bug.groove, dock: RIDE_FRAMES.bug.dock };
+
+/** The top of the pins' shade over the bench (footprints.ts superFootprints: the bench under its pins, up to their tops). */
+export const PIN_SHADE_TOP = BENCH.z[1] + PINS.h;
+/**
+ * The top of the shade each carrier settles under on its dock (footprints.ts): the request under the pins' (to their
+ * tops), the CI card under its dossier's (BAY_FLOOR + 4 + its sheets), the docs slip under the galley's (its rails' tops,
+ * a quarter unit down: footprints.ts TOP_CLEAR).
+ */
+export const DOCK_SHADE_TOP: Record<BayId, number> = { bug: PIN_SHADE_TOP, tests: BAY_FLOOR + 4 + BAYS.tests.sheets * SHEET, docs: GALLEY_TRAY.z[1] - 0.25 };
+/** Each carrier's top over its centre plane: the request's body to 0.6 and its print at 0.8 (objects/Bay.tsx requestParts); a card's or a slip's 0.4. */
+const CARRIER_TOPS: Record<BayId, readonly [number, number]> = { bug: [0.6, 0.8], tests: [0.4, 0.4], docs: [0.4, 0.4] };
+/**
+ * The frame each carrier, coming down onto its dock, goes under its dock's shade: a shade takes a surface in the frame it
+ * is under the shade's top (gl/light.ts: in height it is all or nothing); the carrier comes down level (its hop's pitch is
+ * out before), so all of its top goes under in the one frame.
+ */
+export const SHADE_IN: Record<BayId, number> = (() => {
+  const of = (id: BayId): number => {
+    // (the last frame it is over the shade's top, coming down: its hop rises over its bay from the slate)
+    const F = RIDE_FRAMES[id];
+    for (let f = F.dock; f > F.groove; f--) if (rideAt(f - 1, RIDES[id], false)!.p[2] + CARRIER_TOPS[id][0] >= DOCK_SHADE_TOP[id]) return f;
+    throw new Error(`beat4: the ${id} carrier never comes down into its dock's shade`);
+  };
+  return { bug: of('bug'), tests: of('tests'), docs: of('docs') };
+})();
+/** The request's (the bug dispatch's). */
+export const REQUEST_SHADE_IN = SHADE_IN.bug;
+/**
+ * A carrier's tone in its dock's shade, as a share of its lit albedo (linear): what the shade (gl/light.ts: 0.75 of the
+ * direct light) does to a top there, measured on the frames either side of the shade taking the request.
+ */
+export const SHADE_TONE = 0.45;
+/** Frames a carrier darkens over before its dock's shade takes it. */
+export const SHADE_RAMP = 4;
+/**
+ * A carrier's own darkening as it comes down into its dock's shade (0 none .. 1 the tone the shade gives it): over the
+ * 4 f before it goes under, so the shade, all at once in height, lands on a carrier already at its tone (objects/Bay.tsx
+ * RequestCarrier, objects/Dispatch.tsx TaskCarrier); 0 once the shade itself takes it.
+ */
+export const shadeAt = (f: number, id: BayId): number => (f >= SHADE_IN[id] ? 0 : Math.max(0, sine((f - (SHADE_IN[id] - 1 - SHADE_RAMP)) / SHADE_RAMP)));
+export const requestShadeAt = (f: number): number => shadeAt(f, 'bug');
 
 /** Each bay's dispatch at film frame f. */
 export function bayDispatchAt(f: number, id: BayId): BayDispatch {
@@ -432,7 +503,7 @@ export function carriersAt(f: number): Carrier[] {
   const out: Carrier[] = [];
   for (const id of ['tests', 'docs'] as const) {
     const pose = rideAt(f, RIDES[id], false);
-    if (pose) out.push({ id, kind: id === 'tests' ? 'ci' : 'chat', pose, docked: f >= RIDE_FRAMES[id].dock + 12 });
+    if (pose) out.push({ id, kind: id === 'tests' ? 'ci' : 'chat', pose: { ...pose, shade: shadeAt(f, id) }, docked: f >= RIDE_FRAMES[id].dock + 12 });
   }
   return out;
 }
@@ -522,12 +593,16 @@ export function stubAt(f: number): number {
   const s = B4.requestIn.stamp;
   return f < s ? -1 : Math.min(2, f - s);
 }
-/** The riders' wind-in: from 3 f before the request's detent to its seating (11 f; objects/Turn.tsx ReelRiders gives each rider 8 f of it). */
-export const RIDERS_WIND = { from: B4.requestIn.detent! - 3, frames: 11 } as const;
+/**
+ * The riders' wind-in: from the request's detent (the reel's first move is the frame after: nothing of them moves before
+ * the reel does) over 10 f (objects/Turn.tsx ReelRiders gives each tab 6 f of it, the clip 9 f), all under the pack's top
+ * by its last frame.
+ */
+export const RIDERS_WIND = { from: B4.requestIn.detent!, frames: 10 } as const;
 /**
  * The notes loop's clip and tabs, riding the reel since the lock, are wound in at the rim as the request's detent turns
- * it: folded down into the coil under the next turn of tape (0 riding .. 1 gone, linear: each rider eases its own part);
- * null once gone.
+ * it: each carried round with the reel and drawn under the pack's top, at its own size (0 riding .. 1 gone, linear in
+ * time); null once gone.
  */
 export function ridersAt(f: number): { sink: number } | null {
   const W = RIDERS_WIND;
@@ -725,11 +800,12 @@ export function requestAt(f: number): RequestState {
   // inside the Register until it is dispatched: then out of the housing's slit, down the ramp, along its groove, onto its folder
   const D = RIDE_FRAMES.bug;
   if (f < D.out || f >= D.dock + 12) return { pose: null, crease: 0 };
-  return { pose: rideAt(f, RIDES.bug, true), crease: 0 };
+  return { pose: { ...rideAt(f, RIDES.bug, true)!, shade: requestShadeAt(f) }, crease: 0 };
 }
 
-/** The folder on the bench takes the request's vermilion as it lands on it (0 its own stock .. 1 vermilion). */
-export const folderTakeAt = (f: number): number => springAt(f, RIDE.dock, SPRING.effects);
+/** The folder on the bench takes the request's vermilion as the request lands on it, soaking in over 8 f from the landing (0 its own stock .. 1 vermilion). */
+export const FOLDER_TAKE = 8;
+export const folderTakeAt = (f: number): number => Math.max(0, sine((f - RIDE.dock) / FOLDER_TAKE));
 
 // ------------------------------------------------------------------------------------------------
 // The old heap
@@ -758,13 +834,36 @@ const PRESS_FOOT = 0.15;
 /** The pieces that lay on the request lay this much higher than its underside (act one's heap build: the request is 1.8 u under them). */
 export const ON_REQUEST = 1.8;
 /**
+ * The CI feeder's card lying in its mouth (objects/Intake.tsx ciCard: 84 x 50 at 8.6 u): the heap spills over it, and a
+ * piece lying on it presses down onto it, never through it.
+ */
+const CI_MOUTH_CARD = { x0: FEEDERS.ci.x1 + 30 - 42, x1: FEEDERS.ci.x1 + 30 + 42, y0: rectC(FEEDERS.ci)[1] - 2 - 25, y1: rectC(FEEDERS.ci)[1] - 2 + 25, z: 8.6 } as const;
+/**
+ * What a heap piece (centre c, turned rot, w x d, its underside at z as act one laid it) lies on that it cannot be pressed
+ * through: the CI feeder's mouth card's top, for a piece lying over it; 0 (the slate) for every other.
+ */
+export function heapFloor(c: P2, rot: number, w: number, d: number, z: number): number {
+  const C = CI_MOUTH_CARD;
+  if (z < C.z) return 0;
+  const [cs, sn] = [Math.cos(rot), Math.sin(rot)];
+  for (const a of [-1, -0.5, 0, 0.5, 1])
+    for (const b of [-1, -0.5, 0, 0.5, 1]) {
+      const x = c[0] + (a * w * cs) / 2 - (b * d * sn) / 2;
+      const y = c[1] + (a * w * sn) / 2 + (b * d * cs) / 2;
+      if (x >= C.x0 && x <= C.x1 && y >= C.y0 && y <= C.y1) return C.z;
+    }
+  return 0;
+}
+
+/**
  * A heap piece's pose as the heap settles and presses (pure; objects/Turn.tsx Backlog draws it, footprints.ts casts it):
  * `z` its underside as act one laid it, `onRequest` whether it lay on the request (it settles onto what is under it as the
- * request slides out: no floating pieces); returns its underside's height and how thick it still is (0..1).
+ * request slides out: no floating pieces), `floor` what it lies on that it cannot go through (heapFloor; 0 the slate);
+ * returns its underside's height and how thick it still is (0..1).
  */
-export function heapPieceAt(z: number, onRequest: boolean, h: HeapState): { z: number; k: number } {
+export function heapPieceAt(z: number, onRequest: boolean, h: HeapState, floor = 0): { z: number; k: number } {
   const z1 = onRequest ? z - ON_REQUEST * h.settle : z;
-  const flat = PRESS_FOOT + Math.max(0, z1 - 0.4) * PRESS_KEEP;
+  const flat = floor > 0 ? floor + 0.1 + Math.max(0, z1 - floor - 0.4) * PRESS_KEEP : PRESS_FOOT + Math.max(0, z1 - 0.4) * PRESS_KEEP;
   return { z: z1 + (flat - z1) * h.press, k: 1 - 0.6 * Math.min(1, h.press) };
 }
 

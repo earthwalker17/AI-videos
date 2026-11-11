@@ -7,16 +7,20 @@
  *   lifts a hair and draws back), rises over 10 f in an arc toward the intake and drops into its dock beside the gate's
  *   bar on `key-dock` (f2356, a contact frame), lying flat where the summary keeps it (still (d)). The gate answers 2 f
  *   later (its fingers lift a hair and settle: it is armed) and your lamp dims a step with it (state.ts LAMP_DIMS). The
- *   Proactive plate goes with its chore: it slides out of your desk's north face like a drawer, across the slate toward
- *   the intake, and docks on `plate-proactive` (f2360). From here events trip the intake by themselves: each slip comes
- *   out of the chat spout on its own.
+ *   Proactive plate goes with its chore: it slides out of your desk's north face like a drawer, across the slate to the
+ *   gate, and docks on `plate-proactive` (f2360) under the gate's fingers. From here events trip the intake by themselves:
+ *   on each of BEAT_5.trips (under N3) an ask leaves the chat spout with no one prompting it and strikes the docked key on
+ *   that frame (it lands across the key's shank); the key kicks a quarter turn about its bow and springs back (the
+ *   score's dry tick), and the ask glances off it onto the belt (the gate is open: no filter yet), rides up into the
+ *   throat and is fed under the print head (no tape row: the tape's history is beat 6's).
  * - 5.2 the two-stage filter: on `spike-in` (f2470) the spike stands up beside the gate out of its hatch, seating with
- *   a detent. Every slip of BEAT_5.slips leaves the spout 14 f before its frame `f` and is posted toward the gate,
- *   reaching it on `f`. Code (the Fast Path) drops most: such a slip lands across the gate's fingers on `f`, the fingers
- *   flip it (4 f, carried up on them), it flies over onto the spike and down its shaft, landing impaled on the pile on
- *   f + impale (12) as the pile grows (+13). A kept slip sails over the fingers onto the belt's foot on `f` (as MT1's
- *   did), rides the belt into the throat, where the loupe swings over the policy card (f+8, 4 f), scans it (12 f) and
- *   the punch notches the slip on f + notchAfter (26); it then feeds into the print head (3 f) and is gone under it.
+ *   a detent. Every slip of BEAT_5.slips reaches the gate on its frame `f`. Noise (each dropped slip carries the ink
+ *   stamp a rule matches: a bot's post, a reaction alone, a duplicate, a CI ping) lands across the gate's fingers on `f`;
+ *   the fingers flip it (4 f, carried up on the leading finger), it flies over onto the spike and down its shaft, landing
+ *   impaled on the pile on f + impale (12) as the pile grows (+13). It never reaches the key: noise starts no run. An
+ *   ask (a plain chat slip) passes the gate as the trips did: it strikes the key KICK_FLY frames before `f` (the key
+ *   kicks again) and lands on the belt on `f`, rides into the throat, where the loupe swings over the policy card (f+8,
+ *   4 f), scans it (12 f) and the punch notches the slip on f + notchAfter (26); it then feeds under the print head (3 f).
  * - 5.3 (f2640-2719, no text): the filter goes on under bar 34's dolly; the last spiked slip lands at f2702.
  *
  * The world from the summary on (SPAN_D, f5400) draws the hand-over's end state itself (objects/Trace.tsx: the key at
@@ -24,8 +28,8 @@
  */
 import { clamp, easings } from '@aiv/core';
 import { BEAT_5, cue } from '../cues.ts';
-import { FINGER_ROOT, FINGER_Y, KEY_DOCK, NEXT_SLIP, PROACTIVE_PLATE, PUNCH, SHEET, SPIKE, YOU, type P3, type Rect } from './layout.ts';
-import { LOUPE_READ, polylineAt } from './state.ts';
+import { FINGER_ROOT, FINGER_Y, GATE, KEY_DOCK, NEXT_SLIP, PROACTIVE_PLATE, PUNCH, SHEET, SPIKE, THROAT, YOU, type P3, type Rect } from './layout.ts';
+import { LOUPE_READ, SPRING, springAt } from './state.ts';
 import { CHORES, TRAY_Z } from './you.ts';
 
 const sine = (t: number): number => easings.inOutSine(clamp(t));
@@ -39,8 +43,8 @@ export const E5 = {
   keyDock: BEAT_5.keyDock,
   /** the receiving part answers 2 f after the dock: the gate's fingers lift a hair; your lamp dims a step */
   answer: BEAT_5.keyDock + 2,
-  /** the Proactive plate slides out of your desk (once the key is in the air) and docks on plate-proactive */
-  plateOut: BEAT_5.plateDock - 14,
+  /** the Proactive plate slides out of your desk (once the key is in the air) and docks on plate-proactive under the gate */
+  plateOut: BEAT_5.plateDock - 15,
   plateDock: BEAT_5.plateDock,
   /** the spike's hatch: its leaves part (4 f), the spike rises (6 f) and seats with a detent on spike-in; the leaves close (4 f) */
   spikeOpen: BEAT_5.spikeIn - 10,
@@ -48,7 +52,7 @@ export const E5 = {
   spikeIn: BEAT_5.spikeIn,
   spikeClose: BEAT_5.spikeIn + 1,
   hatchFrames: 4,
-  /** a slip leaves the spout this many frames before it reaches the gate; it is posted over the last `post` of them (MT1's timing) */
+  /** a slip leaves the spout this many frames before its first contact (the key, or the fingers); it is posted over the last `post` of them (MT1's timing) */
   out: 14,
   outFrames: 4,
   post: 11,
@@ -61,6 +65,53 @@ const RISE = 10;
 const FLY = BEAT_5.keyDock - (cue('trait-proactive').frame + 4);
 
 // ------------------------------------------------------------------------------------------------
+// The filter's slips: the trips (5.1), then BEAT_5.slips (5.2)
+
+/** How a slip goes: a trip (5.1, before the filter), an ask the gate keeps, or noise the gate drops onto the spike. */
+export type SlipRole = 'trip' | 'keep' | 'drop';
+/** Noise's kinds, each a stamp a rule can match (gl/print5.ts): a bot's post, a reaction alone, a duplicate, a CI status ping. */
+export type NoiseKind = 'bot' | 'react' | 'dup' | 'ci';
+const NOISE_ORDER: readonly NoiseKind[] = ['bot', 'react', 'dup', 'ci', 'react', 'bot', 'ci', 'dup', 'bot', 'dup', 'react', 'ci'];
+/** How many print variants the asks cycle through (gl/print5.ts). */
+export const ASK_PRINTS = 3;
+
+export interface Slip5 {
+  i: number;
+  role: SlipRole;
+  /** its cue frame: a trip's strike on the key; a kept slip's landing on the belt; a dropped slip's landing on the fingers */
+  f: number;
+  /** the frame it strikes the docked key (trips and kept slips), else null */
+  strike: number | null;
+  /** the frame it lands on the belt (trips and kept slips), else null */
+  land: number | null;
+  /** a dropped slip's place on the pile (0 first), else -1 */
+  k: number;
+  /** its print: an ask (one of ASK_PRINTS variants) or noise (its kind, and its own variant: no two alike) */
+  print: { kind: 'ask'; v: number } | { kind: 'noise'; noise: NoiseKind; v: number };
+}
+
+/** An ask glances off the key and lands on the belt this many frames after it strikes it. */
+export const KICK_FLY = 6;
+
+/** The slips in film order (the trips, then the filter's), with each dropped slip's place on the pile and its print. */
+export const SLIPS_5: readonly Slip5[] = (() => {
+  const out: Slip5[] = [];
+  let ask = 0;
+  BEAT_5.trips.forEach((t) => out.push({ i: out.length, role: 'trip', f: t, strike: t, land: t + KICK_FLY, k: -1, print: { kind: 'ask', v: ask++ % ASK_PRINTS } }));
+  let k = 0;
+  for (const s of BEAT_5.slips) {
+    if (s.keep) out.push({ i: out.length, role: 'keep', f: s.f, strike: s.f - KICK_FLY, land: s.f, k: -1, print: { kind: 'ask', v: ask++ % ASK_PRINTS } });
+    else {
+      out.push({ i: out.length, role: 'drop', f: s.f, strike: null, land: null, k, print: { kind: 'noise', noise: NOISE_ORDER[k % NOISE_ORDER.length]!, v: k } });
+      k++;
+    }
+  }
+  return out;
+})();
+/** Every frame a slip strikes the docked key on (the trips, then each kept slip's), in order. */
+export const STRIKES: readonly number[] = SLIPS_5.flatMap((s) => (s.strike === null ? [] : [s.strike]));
+
+// ------------------------------------------------------------------------------------------------
 // 5.1 the starter key
 
 /** Where the key rests in your tray (YourDesk.tsx keyRest: its geometry is built there) and where it lies docked: its bow over the summary's (keyAt's bow 2 u south of its centre's line), on the slate. */
@@ -71,6 +122,14 @@ const KEY_BACK: P3 = [0, -3, 2.5];
 /** How high it hovers over its dock before the last drop, and the arc's height over its chord. */
 const KEY_HOVER = 30;
 const KEY_ARC = 54;
+/**
+ * The docked key's kick when a slip strikes it: a quarter turn on the slate about its bow (the ring it hangs by in its
+ * dock), its shank and bit swinging east, away from the gate's bar and from the slip glancing off south; out fast over
+ * `out` frames and back on spring-effects (critically damped: home in about 4 f, never past it).
+ */
+export const KICK = { a: Math.PI / 2, out: 3 } as const;
+/** The key's pivot for its kick: its bow's centre, relative to its rest point (on the slate). */
+export const KEY_PIVOT: P3 = [0, CHORES.key.bowY, 0];
 
 export interface KeyPose {
   /** where its rest point is (the tray's key geometry is drawn about KEY_REST) */
@@ -82,6 +141,17 @@ export interface KeyPose {
   squash: number;
   /** how far above where it lies (its tray floor, then the slate) it is: its contact shadow opens as it lifts */
   lift: number;
+}
+
+/** The docked key's kick (its yaw about its bow, radians) at film frame f: a quarter turn out from each strike and back. */
+export function kickAt(f: number): number {
+  let a = 0;
+  for (const s of STRIKES) {
+    const x = f - s;
+    if (x <= 0 || x > 24) continue;
+    a += x < KICK.out ? KICK.a * easings.outCubic(x / KICK.out) : KICK.a * (1 - springAt(f, s + KICK.out, SPRING.effects));
+  }
+  return a;
 }
 
 /** The starter key's hand-over at film frame f: null before it lifts (your tray draws it) and from the summary on. */
@@ -110,8 +180,11 @@ export function keyAt(f: number): KeyPose | null {
     const z = KEY_SEAT[2] + KEY_HOVER * (1 - w * w);
     return { p: [KEY_SEAT[0], KEY_SEAT[1], z], yaw: 0, tilt: 0, squash: 0, lift: z - KEY_SEAT[2] };
   }
-  // docked (a contact frame): its 3% squash, gone over 4 f
-  return { p: KEY_SEAT, yaw: 0, tilt: 0, squash: 0.03 * Math.max(0, 1 - (f - E.keyDock) / 4), lift: 0 };
+  // docked (a contact frame): its 3% squash, gone over 4 f; turned about its bow by each kick (the rest point swings round it)
+  const yaw = kickAt(f);
+  const [tx, ty] = KEY_PIVOT;
+  const p: P3 = [KEY_SEAT[0] + tx - (tx * Math.cos(yaw) - ty * Math.sin(yaw)), KEY_SEAT[1] + ty - (tx * Math.sin(yaw) + ty * Math.cos(yaw)), KEY_SEAT[2]];
+  return { p, yaw, tilt: 0, squash: 0.03 * Math.max(0, 1 - (f - E.keyDock) / 4), lift: 0 };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -119,7 +192,7 @@ export function keyAt(f: number): KeyPose | null {
 
 /**
  * The Proactive plate waits inside your desk's slab (its north edge 2 u in from the slab's north face, under the slab's top:
- * nothing of it shows) and slides out north, a drawer pushed out, to where it docks (layout.ts PROACTIVE_PLATE).
+ * nothing of it shows) and slides out north, a drawer pushed out, to where it docks under the gate (layout.ts PROACTIVE_PLATE).
  */
 export const PLATE_FROM_DY = YOU.slab.y1 - 2 - PROACTIVE_PLATE.box.y1;
 
@@ -171,11 +244,8 @@ export const FLIP = { a: 1.0, up: 4, hold: 1, down: 3.5, stagger: 0.25 } as cons
 /** The gate's answer to the key: each finger lifts a hair and settles (2 f up, 5 f down). */
 const ANSWER = { a: 0.2, up: 2, down: 5 } as const;
 
-/** The fingers' mean lag behind the first (the slip on them rides their mean angle). */
-const MEAN_LAG = ((FINGER_Y.length - 1) / 2) * FLIP.stagger;
-
 /** One finger's flip, `x` frames after its slip landed: up 4 f, a 1 f hold, back down by +8.5 (the next slip lands at +10 at the soonest). */
-function flipCurve(x: number): number {
+export function flipCurve(x: number): number {
   const F = FLIP;
   if (x <= 0) return 0;
   if (x < F.up) return sine(x / F.up);
@@ -183,19 +253,30 @@ function flipCurve(x: number): number {
   return 1 - sine((x - F.up - F.hold) / F.down);
 }
 
-/** Where a dropped slip lands across the gate's fingers: lying north-south, its centre 23 u west of their roots, tilted with their slope (east edge up). */
-export const RACK: P3 = [FINGER_ROOT.x - 23, (FINGER_Y[0] + FINGER_Y[FINGER_Y.length - 1]) / 2, 25];
-const RACK_ROLL = 0.17;
-const RACK_HEADING = -Math.PI / 2;
-/** A dropped slip over the spike's tip (it comes down the shaft from here) and the arc's height on the way. */
+/**
+ * Where a dropped slip lands across the gate's fingers: lying north-south, its centre 23 u west of their roots, tilted
+ * with their slope (east edge up), resting on their tops (beat5.test.ts: every finger's centreline under the slip is at
+ * least its radius and the paper's half thickness below the slip's mid-plane, at rest and all through the flip).
+ */
+export const RACK: P3 = [FINGER_ROOT.x - 23, (FINGER_Y[0] + FINGER_Y[FINGER_Y.length - 1]) / 2, 28.6];
+export const RACK_ROLL = 0.17;
+export const RACK_HEADING = -Math.PI / 2;
+/** A dropped slip over the spike's tip (it comes down the shaft from here) and the arc's height on the way (high enough to pass over the next slip coming in). */
 const OVER_TIP = SPIKE.h + 16;
-const DROP_ARC = 38;
+const DROP_ARC = 62;
 /** The share of its flight to over the tip; the rest is the fall down the shaft onto the pile. */
 const OVER = 0.62;
 
-/** state.ts SLIP_BELT's first two points (its own top-level array is read only inside functions: state.ts imports this module). */
-const SLIP_BELT_A = NEXT_SLIP.gate;
-const SLIP_BELT_B: P3 = [-394, 210, 112];
+/**
+ * The belt's line as a slip rides it (state.ts SLIP_BELT's first two points: MT1's next slip and beat 6's strips ride it;
+ * its own top-level array is read only inside functions, as state.ts imports this module): its heading and slope.
+ */
+const BELT_A = NEXT_SLIP.gate;
+const BELT_B: P3 = [-394, 210, 112];
+const BELT_L = Math.hypot(BELT_B[0] - BELT_A[0], BELT_B[1] - BELT_A[1], BELT_B[2] - BELT_A[2]);
+export const BELT_HEADING = Math.atan2(BELT_B[1] - BELT_A[1], BELT_B[0] - BELT_A[0]);
+export const BELT_SLOPE = Math.atan2(BELT_B[2] - BELT_A[2], Math.hypot(BELT_B[0] - BELT_A[0], BELT_B[1] - BELT_A[1]));
+const beltAt = (s: number): P3 => lerp3(BELT_A, BELT_B, s / BELT_L);
 
 /** The k-th dropped slip's seat on the pile (its centre: on the base, a sheet a slip) and its turn. */
 export function pileSeat(k: number): { p: P3; heading: number } {
@@ -203,15 +284,10 @@ export function pileSeat(k: number): { p: P3; heading: number } {
   return { p: [SPIKE.x, SPIKE.y, SPIKE_BASE + 0.5 + k * SHEET], heading: ((k * 2.39996 + 0.35) % Math.PI) - Math.PI };
 }
 
-/** The slips in film order, with each dropped slip's place on the pile. */
-export const SLIPS_5 = (() => {
-  let k = 0;
-  return BEAT_5.slips.map((s, i) => ({ i, f: s.f, keep: s.keep, k: s.keep ? -1 : k++ }));
-})();
-
 export interface FilterSlip {
   i: number;
-  keep: boolean;
+  role: SlipRole;
+  print: Slip5['print'];
   p: P3;
   heading: number;
   /** nose up about its local y (radians) */
@@ -227,6 +303,7 @@ export interface FilterSlip {
   /** in the air (no contact shadow) */
   flying: boolean;
 }
+type Pose = Pick<FilterSlip, 'p' | 'heading' | 'slope' | 'roll' | 'squash' | 'flying'>;
 
 /** Rotate a point about the fingers' root axis (N-S, through FINGER_ROOT), tips up by `a`. */
 function aboutRoot(p: P3, a: number): P3 {
@@ -235,8 +312,8 @@ function aboutRoot(p: P3, a: number): P3 {
   return [FINGER_ROOT.x + x * Math.cos(a) + z * Math.sin(a), p[1], FINGER_ROOT.z - x * Math.sin(a) + z * Math.cos(a)];
 }
 
-/** Out of the spout and posted toward the gate (MT1's motion, state.ts nextAt, a little less abrupt off the spout), landing on `to` at `f`. */
-function postAt(now: number, f: number, to: P3, heading: number, roll: number): Omit<FilterSlip, 'i' | 'keep' | 'notched' | 'onPile'> {
+/** Out of the spout and posted toward its first contact (MT1's motion, state.ts nextAt, a little less abrupt off the spout), landing on `to` at `f`. */
+function postAt(now: number, f: number, to: P3, heading: number, roll: number, apex: number = NEXT_SLIP.apex): Pose {
   const E = E5;
   const t0 = f - E.out;
   if (now < f - E.post) {
@@ -247,57 +324,121 @@ function postAt(now: number, f: number, to: P3, heading: number, roll: number): 
   const t = clamp((now - (f - E.post)) / E.post);
   const u = easings.outQuad(t);
   const a = NEXT_SLIP.spout;
-  const p: P3 = [a[0] + (to[0] - a[0]) * u, a[1] + (to[1] - a[1]) * u, a[2] + (to[2] - a[2]) * t + 4 * NEXT_SLIP.apex * t * (1 - t)];
+  const p: P3 = [a[0] + (to[0] - a[0]) * u, a[1] + (to[1] - a[1]) * u, a[2] + (to[2] - a[2]) * t + 4 * apex * t * (1 - t)];
   const landed = now - f;
   return { p, heading: heading * u, slope: -0.3 * (u - 0.5) * (u < 1 ? 1 : 0), roll: roll * u, squash: landed < 0 ? 0 : Math.max(0, 1 - landed / 3), flying: now < f };
 }
 
-/** Where a kept slip lands: on the belt 46 u up from MT1's landing, so the whole slip is past the gate's bar (MT1's lands with its tail over the bar). */
-const KEEP_RUN = 46;
-export const KEEP_LAND: P3 = (() => {
-  const [a, b] = [SLIP_BELT_A, SLIP_BELT_B];
-  const l = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
-  return [a[0] + ((b[0] - a[0]) * KEEP_RUN) / l, a[1] + ((b[1] - a[1]) * KEEP_RUN) / l, a[2] + ((b[2] - a[2]) * KEEP_RUN) / l];
-})();
-/** The rest of the belt from where it lands, into the throat (state.ts SLIP_BELT's points). */
-const KEEP_BELT: readonly P3[] = [KEEP_LAND, SLIP_BELT_B, NEXT_SLIP.throat];
+// --- an ask: strikes the key, glances off onto the belt, rides up, hops into the throat ---
 
-/** A kept slip (the Slow Path) at film frame `now`, or null once it is under the print head. MT1's next slip's motion, on its own frames. */
-function keptAt(now: number, f: number, i: number): FilterSlip | null {
-  const notched = now >= f + BEAT_5.notchAfter;
-  const feed = f + BEAT_5.notchAfter + 2;
-  if (now >= feed + 4) return null;
-  const base = { i, keep: true, notched, onPile: false };
-  if (now < f + 1) {
-    return { ...base, ...postAt(now, f, KEEP_LAND, Math.atan2(KEEP_LAND[1] - NEXT_SLIP.spout[1], KEEP_LAND[0] - NEXT_SLIP.spout[0]), 0) };
+/**
+ * Where an ask strikes the docked key: lying east-west with its tail on the bow's east rim (the key's highest point, 6 u),
+ * the rest of the key showing beside it, its tail east of the gate bar's east face (so its glance south onto the belt
+ * never crosses the bar).
+ */
+export const KEY_HIT: P3 = [GATE.bar.x1 + NEXT_SLIP.l / 2 + 14, KEY_SEAT[1] + 30, 6.45];
+/** An ask's post (its apex over the chord: MT1's), north of the spike's rod and over its pile. */
+const ASK_APEX = NEXT_SLIP.apex;
+const KEY_HIT_HEADING = Math.atan2(KEY_HIT[1] - NEXT_SLIP.spout[1], KEY_HIT[0] - NEXT_SLIP.spout[0]);
+/** How high its glance off the key arcs over the chord to the belt (it clears the gate bar's cap, 42 u, as it passes). */
+const GLANCE_ARC = 34;
+/** Where it lands on the belt: this far up it from MT1's landing, so the whole slip is past the gate's bar, lying in the belt's pose. */
+const KEEP_RUN = 56;
+export const KEEP_LAND: P3 = beltAt(KEEP_RUN);
+/**
+ * Where it leaves the belt (beat 4's crest, objects intakeStations): its nose's leading corner short of the throat's cheeks
+ * (their west end, x -400); then it hops over them into the throat (beat 4's hop), turning to lie along the throat.
+ */
+const CREST_X = THROAT.box.x0 - 16 - (NEXT_SLIP.l / 2) * Math.cos(BELT_SLOPE) * Math.cos(BELT_HEADING) - (NEXT_SLIP.w / 2) * Math.abs(Math.sin(BELT_HEADING));
+const CREST_RUN = ((CREST_X - BELT_A[0]) / (BELT_B[0] - BELT_A[0])) * BELT_L;
+export const CREST: P3 = beltAt(CREST_RUN);
+/** The ride: up the belt to the crest, then the hop into the throat (its apex over the chord), from the landing. */
+export const RIDE5 = { belt: 3, hop: 5, apex: 40 } as const;
+/** A trip waits in the throat this long, then is fed under the head (3 f) and is gone. */
+const TRIP_DWELL = 2;
+const FEED = 3;
+
+/** An ask from its strike on the key to the throat (null past it): posted onto the key, glancing off it onto the belt, the belt, the hop. */
+function askAt(now: number, strike: number, land: number): Pose | null {
+  if (now <= strike) return postAt(now, strike, KEY_HIT, KEY_HIT_HEADING, 0, ASK_APEX);
+  if (now < land) {
+    // off the key in an arc over the gate bar's north end, turning into the belt's pose as it goes (a little roll in the air), landing in it
+    const s = (now - strike) / (land - strike);
+    const e = sine(s);
+    const xy = s;
+    const z = KEY_HIT[2] + (KEEP_LAND[2] - KEY_HIT[2]) * s + 4 * GLANCE_ARC * s * (1 - s);
+    return {
+      p: [KEY_HIT[0] + (KEEP_LAND[0] - KEY_HIT[0]) * xy, KEY_HIT[1] + (KEEP_LAND[1] - KEY_HIT[1]) * xy, z],
+      heading: KEY_HIT_HEADING + (BELT_HEADING - KEY_HIT_HEADING) * e,
+      slope: BELT_SLOPE * e,
+      roll: 0.22 * Math.sin(Math.PI * s),
+      squash: 0,
+      flying: true,
+    };
   }
-  if (now < feed) {
-    // up the belt (linear transport) into the throat, where it waits on the throat's floor
-    const { p, dir } = polylineAt(KEEP_BELT, clamp((now - f - 1) / 6));
-    const h = Math.hypot(dir[0], dir[1]);
-    const atThroat = now >= f + 7;
-    return { ...base, p, heading: atThroat ? 0 : Math.atan2(dir[1], dir[0]), slope: atThroat ? 0 : Math.atan2(dir[2], h), roll: 0, squash: Math.max(0, 1 - (now - f) / 3), flying: false };
+  const R = RIDE5;
+  if (now < land + R.belt) {
+    // landed in the belt's pose (a contact frame: its pose on `land` is its pose riding on), up the belt at its pace
+    return { p: lerp3(KEEP_LAND, CREST, (now - land) / R.belt), heading: BELT_HEADING, slope: BELT_SLOPE, roll: 0, squash: Math.max(0, 1 - (now - land) / 3), flying: false };
   }
-  return { ...base, p: lerp3(NEXT_SLIP.throat, NEXT_SLIP.head, easings.inCubic(clamp((now - feed) / 3))), heading: 0, slope: 0, roll: 0, squash: 0, flying: false };
+  if (now < land + R.belt + R.hop) {
+    // the hop: up off the belt's top first (its nose over the throat's west face before it crosses it), across, then down
+    // between the cheeks; it turns to lie along the throat in the first 70% of it
+    const u = clamp((now - land - R.belt) / R.hop);
+    const xy = sine(u);
+    const e = sine(u / 0.7);
+    const T = NEXT_SLIP.throat;
+    const z = CREST[2] + (T[2] - CREST[2]) * u + 4 * R.apex * u * (1 - u);
+    return { p: [CREST[0] + (T[0] - CREST[0]) * xy, CREST[1] + (T[1] - CREST[1]) * xy, z], heading: BELT_HEADING * (1 - e), slope: BELT_SLOPE * (1 - e), roll: 0, squash: 0, flying: true };
+  }
+  return null;
+}
+/** When an ask lies in the throat (landed from its hop). */
+const inThroat = (land: number): number => land + RIDE5.belt + RIDE5.hop;
+
+/** A trip (5.1): an ask with no filter yet; it waits in the throat a beat's fraction and is fed under the head. Null once there. */
+function tripAt(now: number, s: Slip5): FilterSlip | null {
+  const base = { i: s.i, role: s.role, print: s.print, notched: false, onPile: false };
+  const a = askAt(now, s.strike!, s.land!);
+  if (a) return { ...base, ...a };
+  const th = inThroat(s.land!);
+  const feed = th + TRIP_DWELL;
+  if (now >= feed + FEED + 1) return null;
+  return { ...base, p: lerp3(NEXT_SLIP.throat, NEXT_SLIP.head, easings.inCubic(clamp((now - feed) / FEED))), heading: 0, slope: 0, roll: 0, squash: Math.max(0, 1 - (now - th) / 3), flying: false };
 }
 
-/** A dropped slip (the Fast Path) at film frame `now`: posted onto the fingers, flipped, over onto the spike, impaled on the pile. */
-function droppedAt(now: number, f: number, i: number, k: number): FilterSlip {
-  const base = { i, keep: false, notched: false };
-  const seat = pileSeat(k);
+/** A kept slip (the Slow Path) at film frame `now`, or null once it is under the print head: the loupe reads it in the throat and the punch notches it. */
+function keptAt(now: number, s: Slip5): FilterSlip | null {
+  const f = s.f;
+  const notched = now >= f + BEAT_5.notchAfter;
+  const feed = f + BEAT_5.notchAfter + 2;
+  if (now >= feed + FEED + 1) return null;
+  const base = { i: s.i, role: s.role, print: s.print, notched, onPile: false };
+  const a = askAt(now, s.strike!, s.land!);
+  if (a) return { ...base, ...a };
+  const th = inThroat(s.land!);
+  return { ...base, p: lerp3(NEXT_SLIP.throat, NEXT_SLIP.head, easings.inCubic(clamp((now - feed) / FEED))), heading: 0, slope: 0, roll: 0, squash: Math.max(0, 1 - (now - th) / 3), flying: false };
+}
+
+/** A dropped slip (the Fast Path) at film frame `now`: posted onto the fingers, flipped (riding the leading finger), over onto the spike, impaled on the pile. */
+function droppedAt(now: number, s: Slip5): FilterSlip {
+  const f = s.f;
+  const base = { i: s.i, role: s.role, print: s.print, notched: false };
+  const seat = pileSeat(s.k);
   if (now <= f) return { ...base, onPile: false, ...postAt(now, f, RACK, RACK_HEADING, RACK_ROLL) };
   const impale = f + BEAT_5.impale;
   if (now >= impale) return { ...base, onPile: true, p: seat.p, heading: seat.heading, slope: 0, roll: 0, squash: Math.max(0, 1 - (now - impale) / 4), flying: false };
   const flipEnd = f + BEAT_5.flip;
   if (now < flipEnd) {
-    // carried up on the fingers as they flip (the mean of their staggered angles)
-    const a = FLIP.a * flipCurve(now - f - MEAN_LAG);
+    // carried up on the leading (south) finger as they flip: the others lag under it
+    const a = FLIP.a * flipCurve(now - f);
     return { ...base, onPile: false, p: aboutRoot(RACK, a), heading: RACK_HEADING, slope: 0, roll: RACK_ROLL - a, squash: 0, flying: false };
   }
   // thrown: an arc to over the spike's tip, then down its shaft onto the pile, gathering speed (turning to its seat's heading, levelling)
-  const r = aboutRoot(RACK, FLIP.a * flipCurve(BEAT_5.flip - MEAN_LAG));
+  const top = FLIP.a * flipCurve(BEAT_5.flip);
+  const r = aboutRoot(RACK, top);
   const t = (now - flipEnd) / (impale - flipEnd);
-  const rollFrom = RACK_ROLL - FLIP.a * flipCurve(BEAT_5.flip - MEAN_LAG);
+  const rollFrom = RACK_ROLL - top;
   if (t < OVER) {
     const s = t / OVER;
     const e = easings.outQuad(s);
@@ -313,8 +454,9 @@ export function slipsAt(now: number): FilterSlip[] {
   if (now >= E5.until) return [];
   const out: FilterSlip[] = [];
   for (const s of SLIPS_5) {
-    if (now < s.f - E5.out) continue;
-    const x = s.keep ? keptAt(now, s.f, s.i) : droppedAt(now, s.f, s.i, s.k);
+    const first = s.strike ?? s.f;
+    if (now < first - E5.out) continue;
+    const x = s.role === 'drop' ? droppedAt(now, s) : s.role === 'keep' ? keptAt(now, s) : tripAt(now, s);
     if (x) out.push(x);
   }
   return out;
@@ -326,20 +468,20 @@ export function fingersAt(f: number): number[] {
     let a = 0;
     const x = f - E5.answer - j * FLIP.stagger;
     if (x > 0 && x < ANSWER.up + ANSWER.down) a += ANSWER.a * (x < ANSWER.up ? sine(x / ANSWER.up) : 1 - sine((x - ANSWER.up) / ANSWER.down));
-    for (const s of SLIPS_5) if (!s.keep) a += FLIP.a * flipCurve(f - s.f - j * FLIP.stagger);
+    for (const s of SLIPS_5) if (s.role === 'drop') a += FLIP.a * flipCurve(f - s.f - j * FLIP.stagger);
     return a;
   });
 }
 
 /** How many dropped slips the pile counts at f: each lands impaled on it on its impale frame and the pile has grown by it the frame after (STORYBOARD 5.2: +12, +13). */
-export const pileAt = (f: number): number => SLIPS_5.filter((s) => !s.keep && f >= s.f + BEAT_5.impale + 1).length;
+export const pileAt = (f: number): number => SLIPS_5.filter((s) => s.role === 'drop' && f >= s.f + BEAT_5.impale + 1).length;
 
 /** The loupe's swing for the kept slips (radians added to MT1's: they never overlap): onto the card (4 f), across its rules (12 f), home once the slip is notched. */
 export function loupeAt5(f: number): number {
   const [a0, a1] = LOUPE_READ;
   let a = 0;
   for (const s of SLIPS_5) {
-    if (!s.keep) continue;
+    if (s.role !== 'keep') continue;
     const loupe = s.f + 8;
     const scan = s.f + 12;
     const home = s.f + BEAT_5.notchAfter + 1;
@@ -353,7 +495,7 @@ export function loupeAt5(f: number): number {
 /** The punch's top (z) for the kept slips: out of the throat's cheek a beat before its notch, down on the slip's edge on it, back in (Dispatch.tsx punchZ's motion); null while hidden. */
 export function punchAt5(f: number): number | null {
   for (const s of SLIPS_5) {
-    if (!s.keep) continue;
+    if (s.role !== 'keep') continue;
     const n = s.f + BEAT_5.notchAfter;
     const out = sine((f - (n - 4)) / 3) * (1 - sine((f - (n + 1)) / 3));
     if (out <= 0) continue;

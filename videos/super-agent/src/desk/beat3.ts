@@ -308,8 +308,23 @@ export const A_PILE: readonly { kind: AItemKind; v: number; o: P2; rot: number; 
     return { ...p, o: [12 + (hash(m, 1) * 2 - 1) * spread, 10 + (hash(m, 2) * 2 - 1) * spread] as P2, rot: (hash(m, 3) * 2 - 1) * (0.14 + 0.025 * m) + (m % 2 ? 0.22 : -0.08), z: A_STACK_END + 0.5 + PILE_T * m };
   });
 })();
-/** The swallow: from the mouth, up and over onto the pile, in 8 f (move curve, a small arc). */
+/** The swallow: from the mouth, up and over onto the pile, in 8 f. */
 export const A_SWALLOW_FRAMES = 8;
+/** How far above its place on the pile a swallowed item crosses over the folder (u), settling the last of it as it lands. */
+export const SWALLOW_CLEAR = 3;
+/**
+ * The swallow's motions (0..1 each, from `at`): it backs out of the mouth (2 f, quick off), rises (the move curve, 4 f) to
+ * clear the stack's top, crosses over from the mouth to its place on the pile once it is high enough (from 2 f in, to the
+ * end), and settles the last SWALLOW_CLEAR onto the pile over the final 2 f.
+ */
+export function swallowCurve(f: number, at: number): { back: number; rise: number; cross: number; settle: number } {
+  return {
+    back: 1 - (1 - span01(f, at, at + 2)) ** 3,
+    rise: MOVE(span01(f, at, at + 4)),
+    cross: MOVE(span01(f, at + 2, at + A_SWALLOW_FRAMES)),
+    settle: MOVE(span01(f, at + A_SWALLOW_FRAMES - 2, at + A_SWALLOW_FRAMES)),
+  };
+}
 /** The frames the swallowed items land on the pile (each thickens the stack from then on). */
 const A_LANDS: readonly number[] = A_QUEUE.flatMap((q) => (q.swallow ? [q.swallow.at + A_SWALLOW_FRAMES] : []));
 /** The folder's stack top at f: its sheets, thickened by each item swallowed so far (from its landing, exactly at rest after). */
@@ -426,15 +441,19 @@ export function fixAAt(f: number): FixAView {
     const at = q.swallow!.at;
     if (f < at) return;
     if (f >= at + A_SWALLOW_FRAMES) return void pile.push(rest);
-    // up out of the mouth and over onto the pile (it never leaves the tape before it is lifted: the same pose at `at`)
+    // up out of the mouth and over onto the pile (it never leaves the tape before it is lifted: the same pose at `at`): it
+    // rises first, clear of the stack's top, then crosses over and settles onto the pile (never through the folder)
     const from = onTape(q.d + aBackAt(at));
-    const u = MOVE(span01(f, at, at + A_SWALLOW_FRAMES));
-    const c = lerp3(from.p, rest.p, u);
+    const { back, rise, cross, settle } = swallowCurve(f, at);
+    // it backs out of the mouth first (its nose went in under the cover with the tape), clear of the stack's west face
+    const out = Math.max(0, from.p[0] + A_SIZE[q.kind][0] / 2 - (F_WEST + 5) + 2) * back;
+    const xy = lerp3([from.p[0] - from.x[0] * out, from.p[1] - from.x[1] * out, 0], rest.p, cross);
+    const z = from.p[2] + (rest.p[2] + SWALLOW_CLEAR - from.p[2]) * rise - SWALLOW_CLEAR * settle;
     const a0 = Math.atan2(from.x[1], from.x[0]);
     let a1 = P.rot;
     while (a1 - a0 > Math.PI) a1 -= Math.PI * 2;
     while (a0 - a1 > Math.PI) a1 += Math.PI * 2;
-    pile.push({ ...flat([c[0], c[1], c[2] + 10 * Math.sin(Math.PI * u)], a0 + (a1 - a0) * u), paper: 0, kind: P.kind, v: P.v });
+    pile.push({ ...flat([xy[0], xy[1], z], a0 + (a1 - a0) * cross), paper: 0, kind: P.kind, v: P.v });
   });
   const lead = A_TAPE.lead + back;
   const tail = A_TAPE.tail + back;
