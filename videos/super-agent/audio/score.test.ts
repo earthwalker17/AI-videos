@@ -11,8 +11,9 @@ import { ACT_ONE_CAMERA, FOLDER_X, actOneFrameAt, flagSnaps, swings, warmthAt } 
 import { ACT_ONE_MOVE, CAMERA_EASE, moveFraming } from '../src/desk/camera.ts';
 import { replyLandsB, replyPostedB } from '../src/desk/beat3.ts';
 import { EVENTS_B, EVENTS_C } from '../src/desk/state.ts';
+import { KICK_FLY, STRIKES } from '../src/desk/beat5.ts';
 import { arrange, marks } from './arrangement.ts';
-import { BATCH_CHORDS, TAB_LANDS } from './keepUp.ts';
+import { BATCH_CHORDS, KEY_STRIKE_LEAD, TAB_LANDS } from './keepUp.ts';
 import { REPLY_FLIGHT } from './fixes.ts';
 import { TESTS_DONE } from './levels.ts';
 import { detent, gateClack, inkClick, inkSwell, paperFold, paperTear, paperThump, plateTap, pointerTick, printTap, ratchet, sandTrickle, sketchScratch, woodKnock, woodblockHop } from './foley.ts';
@@ -159,6 +160,10 @@ describe('every sound on its contact frame', () => {
       expect(has('replies', S(f + REPLY_FLIGHT)), `reply f${f + REPLY_FLIGHT}`).toBe(true);
     });
     for (const f of BEAT_5.trips) expect(has('trip', S(f)), `trip f${f}`).toBe(true);
+    // every strike on the docked key sounds, and only those: the trips and each kept ask's strike (the picture's own frames)
+    expect(KEY_STRIKE_LEAD).toBe(KICK_FLY);
+    const sorted = (xs: readonly number[]) => [...xs].sort((a, b) => a - b);
+    expect(sorted(placed.filter((p) => p.part === 'trip').map((p) => p.at))).toEqual(sorted(STRIKES.map(S)));
     for (const { f, keep } of BEAT_5.slips) {
       expect(has('clack', S(f + BEAT_5.impale)), `clack f${f}`).toBe(!keep);
       expect(has('bell', S(f + BEAT_5.notchAfter)), `bell f${f}`).toBe(keep);

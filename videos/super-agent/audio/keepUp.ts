@@ -4,7 +4,8 @@
  *
  *   5.1  `key-dock` the starter key docks on the intake (a woodblock tap, the chore's sound handed
  *        over) and `plate-proactive` the Proactive plate docks (an enamel tap); each event that
- *        then arrives by itself strikes the docked key (BEAT_5.trips: a dry wood tick); a soft sixteenth
+ *        then arrives by itself strikes the docked key (BEAT_5.trips: a dry wood tick; each kept ask
+ *        strikes it too, KEY_STRIKE_LEAD frames before it lands, a softer tick); a soft sixteenth
  *        pulse rises under the pad (the Router listening), full by `spike-in` (a small detent: the
  *        spike stands up), and gives way on the last beat of bar 34
  *   5.2  each slip at the gate (BEAT_5.slips): flipped onto the spike, a muted clack panned at the
@@ -37,6 +38,8 @@ export const BATCH_CHORDS: readonly (readonly number[])[] = [
 /** Where the gate's spike and the Register's throat sit across the frame (FRAMING_B: centre x -200, 1129 u half-width; layout.ts SPIKE x -646). */
 const SPIKE_PAN = -0.4;
 const THROAT_PAN = -0.05;
+/** A kept ask strikes the docked key this long before it lands past the gate (src/desk/beat5.ts KICK_FLY; held by score.test.ts). */
+export const KEY_STRIKE_LEAD = 6;
 /** The tab lands in the drawer this long after the fold starts (src/desk/state.ts EVENTS_C: foldFrames 8 + 2 f hold + tabFrames 6). */
 export const TAB_LANDS = 16;
 
@@ -52,6 +55,10 @@ export function keepUp(d: Desk): void {
   foley(T.cue('plate-proactive'), plateTap(seed, 1), { part: 'plate', db: LV.plate, pan: SPIKE_PAN + 0.05, sends: { hall: 0.2 } });
   // events arrive by themselves: each strikes the docked key, a dry wood tick a little higher each time
   BEAT_5.trips.forEach((f, k) => foley(d.f(f), woodTick(1250 + 60 * k, { seed, k: 700 + k, vel: 0.6 }), { part: 'trip', db: LV.trip, pan: SPIKE_PAN + 0.05, sends: { hall: 0.1 } }));
+  // and every kept ask strikes it on its way to the gate: the same tick, softer, as the run it starts is routine by now
+  BEAT_5.slips.forEach(({ f, keep }, k) => {
+    if (keep) foley(d.f(f - KEY_STRIKE_LEAD), woodTick(1370, { seed, k: 710 + k, vel: 0.45 }), { part: 'trip', db: LV.trip - 3, pan: SPIKE_PAN + 0.05, sends: { hall: 0.1 } });
+  });
   const pulseFrom = T.beat(30);
   const full = T.cue('spike-in');
   const pulseTo = T.beat(35);
