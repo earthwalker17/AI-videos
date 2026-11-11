@@ -158,6 +158,7 @@ describe('every sound on its contact frame', () => {
       expect(has('stubs', S(f)), `stub f${f}`).toBe(true);
       expect(has('replies', S(f + REPLY_FLIGHT)), `reply f${f + REPLY_FLIGHT}`).toBe(true);
     });
+    for (const f of BEAT_5.trips) expect(has('trip', S(f)), `trip f${f}`).toBe(true);
     for (const { f, keep } of BEAT_5.slips) {
       expect(has('clack', S(f + BEAT_5.impale)), `clack f${f}`).toBe(!keep);
       expect(has('bell', S(f + BEAT_5.notchAfter)), `bell f${f}`).toBe(keep);

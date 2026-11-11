@@ -305,11 +305,14 @@ export const MT1 = { reportUp: 2164, stampIn: 2190, replyLands: 2234, dispatchFr
  * two-stage filter: each slip reaches the gate's fingers at `f`. Code flips most of them onto the
  * spike (the finger 4 f, impaled at +12 f, the pile grows at +13 f); a kept one rides on to the loupe
  * on the Register's throat, which scans 12 f over the policy card and notches it `notchAfter` frames
- * after the gate (the model). The spike enters at f2470.
+ * after the gate (the model). The spike enters at f2470. Before it, under N3, events arrive by
+ * themselves: each of `trips` leaves the chat spout, strikes the docked key on that frame (the key
+ * kicks), passes the open gate and rides the belt into the throat (no filter yet).
  */
 export const BEAT_5 = {
   keyDock: 2356,
   plateDock: at(30, 3),
+  trips: [at(30, 4), at(31, 1.5), at(31, 3)],
   spikeIn: 2470,
   flip: 4,
   impale: 12,

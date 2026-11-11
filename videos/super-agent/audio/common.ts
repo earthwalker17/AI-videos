@@ -66,6 +66,7 @@ export const LV = {
   boardLands: -30,
   rescan: -21,
   doubleTap: -23,
+  trip: -21,
   trickle: -21,
   hum: -25,
   plod: -15,

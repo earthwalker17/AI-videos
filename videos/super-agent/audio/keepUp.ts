@@ -3,7 +3,8 @@
  * (STORYBOARD 5.1-6.4, Sound column). The pad, the bass pulse and the ticks are continuity.ts's.
  *
  *   5.1  `key-dock` the starter key docks on the intake (a woodblock tap, the chore's sound handed
- *        over) and `plate-proactive` the Proactive plate docks (an enamel tap); a soft sixteenth
+ *        over) and `plate-proactive` the Proactive plate docks (an enamel tap); each event that
+ *        then arrives by itself strikes the docked key (BEAT_5.trips: a dry wood tick); a soft sixteenth
  *        pulse rises under the pad (the Router listening), full by `spike-in` (a small detent: the
  *        spike stands up), and gives way on the last beat of bar 34
  *   5.2  each slip at the gate (BEAT_5.slips): flipped onto the spike, a muted clack panned at the
@@ -49,6 +50,8 @@ export function keepUp(d: Desk): void {
   // ===== 5.1: the key and the plate dock; the sixteenth pulse rises =====================================
   foley(T.cue('key-dock'), woodblockHop(seed, 950, 880), { part: 'double-tap', db: LV.doubleTap, pan: SPIKE_PAN + 0.05, sends: { hall: 0.1 } });
   foley(T.cue('plate-proactive'), plateTap(seed, 1), { part: 'plate', db: LV.plate, pan: SPIKE_PAN + 0.05, sends: { hall: 0.2 } });
+  // events arrive by themselves: each strikes the docked key, a dry wood tick a little higher each time
+  BEAT_5.trips.forEach((f, k) => foley(d.f(f), woodTick(1250 + 60 * k, { seed, k: 700 + k, vel: 0.6 }), { part: 'trip', db: LV.trip, pan: SPIKE_PAN + 0.05, sends: { hall: 0.1 } }));
   const pulseFrom = T.beat(30);
   const full = T.cue('spike-in');
   const pulseTo = T.beat(35);
