@@ -17,32 +17,43 @@
  *   borrowed iv (G minor over the drone, bar 65), in which the Router's chord detunes into two
  *   from BEAT_10.split (each line becomes two halves, a few cents apart and drifting apart
  *   across the image, until the next chord re-bows the pad); bar 67's suspension holds through
- *   bar 68 and resolves on the stamp (G4 to F♯4), and the rest holds a Dmaj9.
+ *   bar 68 and resolves on the stamp (G4 to F♯4), and the rest holds a Dmaj9. Under the act-one
+ *   card (bar 73) the pad holds only A2 and F3, act one's Dorian minor third over the bass's D,
+ *   so no pad note is a unison, a semitone or a whole tone in the same octave from a theme note:
+ *   its Ds leave a beat before (bar 72 beat 4), so they have all but died (-23 dB) when the theme's
+ *   Ds strike, and its G and B leave on the card's rise in 0.6 s, gone before the theme's C5; out
+ *   of it, bar 74 states the open fifth and the F♯4 comes in a beat later, once the F♮3 has died
+ *   (no cross-relation).
  * - The ticks are the index arm's detents (STORYBOARD 4.4: "detents on 2 and 4"). They start when
  *   the Register has locked and its first row prints (bar 21 beat 2), never sound inside a rest or
  *   a silence, and stand aside where another sound marks the same beat (`skip`). In bars 35-38 the
- *   Router batches: its ticks are held (keepUp.ts) and released as one chord. In bars 76-78 they
- *   are the frame-0 rhythm, one quiet tick a beat (STORYBOARD 12.1), fading through the dissolve.
+ *   Router batches: its ticks are held (keepUp.ts) and released as one chord. In bars 76-77 they
+ *   are the feeders' ticks, the frame-0 rhythm, one quiet tick a beat (STORYBOARD 12.1), softer
+ *   through bar 77, and they stop with the picture's last tick (END.ticks.to); the print head's
+ *   stamp-in on the dissolve's first frame is the last mechanical sound (signoff.ts).
  * - The bass pulse runs to bar 57, skipping the flyover (bar 45 beat 1: a Thread follow-up skips
  *   the Router's decision), the dossier's thud (bar 49 beat 3) and the unpunched notch (bar 55 beat 1),
- *   and comes back for bars 71-75.
+ *   and comes back for bars 71-75. In beat 8 (bars 50-57), where no pad sounds above it, each stroke
+ *   holds to the next (`bassHold`), so the thinned pulse has no near-silence at the end of every half
+ *   bar (a 1 s stroke on a 1.33 s spacing left 10 f some 25-29 dB under the second round them).
  *
  * Bars 1-43 are as approved (2026-11-12): every line that starts in part one keeps the number
  * (its bow's noise) the approved render gave it, so part two's plan never moves a sample of them.
  */
-import { SR, dbToGain, smooth } from '@aiv/pipeline/audio/kit';
-import { BEAT_10 } from '../src/cues.ts';
-import { LV, M, panned, type Desk } from './common.ts';
+import { SR, dbToGain, smooth, type Timeline } from '@aiv/pipeline/audio/kit';
+import { BEAT_10, END, at } from '../src/cues.ts';
+import { LV, M, panned, type Desk, type Marks } from './common.ts';
 import { bowedNote, sineBass, woodTick } from './instruments.ts';
 
-const { B2, D2, D3, E3, Fs3, G3, A3, Bb3, B3, Cs4, D4, E4, Fs4, G4, A4 } = M;
+const { D2, A2, B2, D3, E3, F3, Fs3, G3, A3, Bb3, B3, Cs4, D4, E4, Fs4, G4, A4 } = M;
 
-/** A pad chord from a bar (and beat) on; `fresh` re-bows every line, held notes too. */
+/** A pad chord from a bar (and beat) on; `fresh` re-bows every line, held notes too; the lines it closes release over `release` s (0.8). */
 export interface Chord {
   bar: number;
   beat?: number;
   notes: readonly number[];
   fresh?: boolean;
+  release?: number;
 }
 
 /** The Router's layer over a stretch of the film. */
@@ -52,6 +63,8 @@ export interface RouterPlan {
   /** bars whose beats 1 and 3 carry the bass pulse, and single [bar, beat]s it skips */
   bass: readonly number[];
   bassSkip?: readonly (readonly [number, number])[];
+  /** bars whose bass strokes hold to the next stroke (two beats), where no pad sounds above them */
+  bassHold?: readonly number[];
   /** the ticks: [bar, beat, dB relative to LV.ticks] */
   ticks: readonly (readonly [number, number, number])[];
   /** the pad's lift over LV.pad, dB, reached at the plan's first bar (ramped over the bar before) */
@@ -85,6 +98,9 @@ export const LEVELS_PLAN: RouterPlan = {
   ticks: [...on24([21, 22, 23, 24, 25, 26, 27, 28, 29]), ...on24(range(30, 34)), ...on24(range(39, 43))],
 };
 
+/** The bookend's ticks, one a beat from bar 76's downbeat (END.ticks.from) to the picture's last (END.ticks.to): dB relative to LV.ticks. */
+export const BOOKEND_TICK_DB: readonly number[] = [-4, -4, -4, -4, -5, -6, -8, -10];
+
 /** Bars 44-84 (beats 7-13). */
 export const PART_TWO_PLAN: RouterPlan = {
   chords: [
@@ -107,14 +123,22 @@ export const PART_TWO_PLAN: RouterPlan = {
     { bar: 69, notes: [D3, A3, D4, Fs4] },
     { bar: 69, beat: 3, notes: [D3, A3, Cs4, E4, Fs4] },
     { bar: 71, notes: [D3, G3, B3, D4] },
-    // an open fifth under the act-one card: the theme's F♮4 (act one's Dorian colour) meets no E4 a semitone under it
-    { bar: 73, notes: [D3, A3, D4, A4] },
-    { bar: 74, notes: [D3, A3, D4, Fs4] },
+    // under the act-one card, act one's Dorian minor third over the bass's D (A2, F3): the theme (D3 A3 D4 F4 A4 C5 D5)
+    // meets no pad note in unison (the open fifth's A4 doubled its top line's A4), a semitone off, or a whole tone off in the same octave;
+    // nor a line still releasing: the Ds leave a beat early (gone to -23 dB when the theme's Ds strike), the G and the B in 0.6 s
+    // (the B3 gone before the C5, a minor ninth over it)
+    { bar: 72, beat: 4, notes: [G3, B3] },
+    { bar: 73, notes: [A2, F3], release: 0.6 },
+    // back to D major: the open fifth, and its F♯4 a beat later, once the F♮3 has died (F3 releasing under F♯4 swelling was a cross-relation)
+    { bar: 74, notes: [D3, A3, D4] },
+    { bar: 74, beat: 2, notes: [D3, A3, D4, Fs4] },
     { bar: 75, notes: [D3, G3, B3, D4] },
     // beat 12: the bookend, fading to the dissolve
     { bar: 76, notes: [D3, A3, D4, Fs4] },
   ],
   bass: [...range(44, 57), ...range(71, 75)],
+  // beat 8: no pad above the bass, so each stroke holds to the next
+  bassHold: range(50, 57),
   // f3520: the follow-up skips the Router's decision; f3880: the dossier's thud stands alone; f4320: the unpunched notch, heard as a gap before the long run
   bassSkip: [
     [45, 1],
@@ -125,8 +149,8 @@ export const PART_TWO_PLAN: RouterPlan = {
   padLift: { from: 51, to: 57, db: 1 },
   ticks: [
     ...on24(range(44, 75), -2),
-    // bars 76-78: one quiet tick a beat (the frame-0 rhythm), fading through the dissolve to about f6200
-    ...[-4, -4, -4, -4, -5, -6, -8, -10, -13, -17].map((db, k) => [76 + Math.floor(k / 4), 1 + (k % 4), db] as const),
+    // bars 76-77: one quiet tick a beat with the feeders' (the frame-0 rhythm), softer through bar 77, none after the picture's last
+    ...BOOKEND_TICK_DB.slice(0, (END.ticks.to - END.ticks.from) / (at(76, 2) - at(76)) + 1).map((db, k) => [76 + Math.floor(k / 4), 1 + (k % 4), db] as const),
   ],
   padDb: 2,
 };
@@ -144,10 +168,53 @@ const SEAM_VOICES: readonly { midi: number; k: number }[] = [
   { midi: A3, k: 26 },
 ];
 
+/** A pad line: one pitch bowed from `from` to `to` (samples), swelling in over `attack` s, then released over `release` s. */
+export interface PadLine {
+  midi: number;
+  from: number;
+  to: number;
+  attack: number;
+  release: number;
+}
+
+const PLANS = [LEVELS_PLAN, PART_TWO_PLAN];
+/** The pad's chords on the timeline (none before the turn). */
+const padChords = (T: Timeline, m: Marks) => PLANS.flatMap((p) => p.chords).map((c) => ({ at: Math.max(m.turn, T.beat(c.bar, c.beat ?? 1)), notes: c.notes, fresh: c.fresh ?? false, release: c.release ?? 0.8 }));
+
+/**
+ * The pad's lines in its two segments, the turn to the silence before the intrusion and its end to the dissolve, each segment's
+ * in the order they close (the order routerLayer numbers their bows). A line that runs to its segment's end releases as the pad
+ * does (1.6 s, to the dissolve) or as the cut does (the silence).
+ */
+export function padLines(T: Timeline, m: Marks): PadLine[][] {
+  const chords = padChords(T, m);
+  const segments: { from: number; to: number; attack: number; chords: typeof chords }[] = [
+    { from: m.turn, to: m.intrusion[0], attack: 2.0, chords: chords.filter((c) => c.at < m.intrusion[0]) },
+    { from: m.intrusion[1], to: T.cue('dissolve'), attack: 1.5, chords: chords.filter((c) => c.at >= m.intrusion[1]) },
+  ];
+  return segments.map((seg) => {
+    const lines: PadLine[] = [];
+    const open = new Map<number, { from: number; attack: number }>();
+    let prevEmpty = false;
+    for (const c of seg.chords) {
+      for (const [midi, ln] of [...open])
+        if (c.fresh || !c.notes.includes(midi)) {
+          lines.push({ midi, from: ln.from, to: c.at, attack: ln.attack, release: c.release });
+          open.delete(midi);
+        }
+      // a line opening the segment swells in; one coming back after a chord of no notes (bar 58, under the pulse's last stroke) re-enters in 0.35 s
+      const attack = c.at === seg.from ? seg.attack : prevEmpty ? 0.35 : 0.8;
+      for (const midi of c.notes) if (!open.has(midi)) open.set(midi, { from: c.at, attack });
+      prevEmpty = c.notes.length === 0;
+    }
+    for (const [midi, ln] of open) lines.push({ midi, from: ln.from, to: seg.to, attack: ln.attack, release: 1.6 });
+    return lines;
+  });
+}
+
 export function routerLayer(d: Desk, o: { skip: readonly number[] }): void {
   const { T, seed, m, music, pad } = d;
-  const plans = [LEVELS_PLAN, PART_TWO_PLAN];
-  const chords = plans.flatMap((p) => p.chords).map((c) => ({ at: Math.max(m.turn, T.beat(c.bar, c.beat ?? 1)), notes: c.notes, fresh: c.fresh ?? false }));
+  const chords = padChords(T, m);
   const padEnd = T.cue('dissolve');
   const fadeFrom = T.beat(76);
   const twoFrom = T.beat(PART_TWO_PLAN.chords[0].bar);
@@ -173,29 +240,10 @@ export function routerLayer(d: Desk, o: { skip: readonly number[] }): void {
   const healed = chords.find((c) => c.at > split)?.at ?? padEnd;
   const glide = T.beats(DETUNE.glide);
   const apart = (s: number) => (s < split ? 0 : smooth((s - split) / glide));
-  // two segments: the turn to the silence before the intrusion, and from its end to the dissolve
-  const segments: { from: number; to: number; attack: number; chords: typeof chords }[] = [
-    { from: m.turn, to: m.intrusion[0], attack: 2.0, chords: chords.filter((c) => c.at < m.intrusion[0]) },
-    { from: m.intrusion[1], to: padEnd, attack: 1.5, chords: chords.filter((c) => c.at >= m.intrusion[1]) },
-  ];
+  // both segments' lines, each numbered for its bow's noise (part one's by close order, part two's from 100)
   let k = 0;
   let k2 = 100;
-  for (const seg of segments) {
-    const lines: { midi: number; from: number; to: number; attack: number }[] = [];
-    const open = new Map<number, { from: number; attack: number }>();
-    let prevEmpty = false;
-    for (const c of seg.chords) {
-      for (const [midi, ln] of [...open])
-        if (c.fresh || !c.notes.includes(midi)) {
-          lines.push({ midi, from: ln.from, to: c.at, attack: ln.attack });
-          open.delete(midi);
-        }
-      // a line opening the segment swells in; one coming back after a chord of no notes (bar 58, under the pulse's last stroke) re-enters in 0.35 s
-      const attack = c.at === seg.from ? seg.attack : prevEmpty ? 0.35 : 0.8;
-      for (const midi of c.notes) if (!open.has(midi)) open.set(midi, { from: c.at, attack });
-      prevEmpty = c.notes.length === 0;
-    }
-    for (const [midi, ln] of open) lines.push({ midi, from: ln.from, to: seg.to, attack: ln.attack });
+  for (const lines of padLines(T, m)) {
     for (const ln of lines) {
       const kept = SEAM_VOICES.find((v) => v.midi === ln.midi);
       let kk: number;
@@ -203,8 +251,7 @@ export function routerLayer(d: Desk, o: { skip: readonly number[] }): void {
       else if (ln.to <= m.two) kk = k++;
       else if (kept) kk = kept.k;
       else throw new Error(`continuity: pad line ${ln.midi} crosses the seam without a kept number`);
-      // a line that runs to the segment's end: its release is the pad's (to the dissolve) or the cut's (the silence)
-      const release = ln.to === seg.to ? 1.6 : 0.8;
+      const { release } = ln;
       const len = (ln.to - ln.from) / SR + release;
       const pan = (((ln.midi * 7) % 5) - 2) * 0.15;
       const sends = { hall: 0.35 };
@@ -222,22 +269,24 @@ export function routerLayer(d: Desk, o: { skip: readonly number[] }): void {
     }
   }
 
-  // ===== the bass pulse: a sine-bass D on beats 1 and 3 ==============================================
+  // ===== the bass pulse: a sine-bass D on beats 1 and 3 (held to the next stroke where no pad sounds) =====
   const pulse = sineBass(D2, { len: 1.0, vel: 0.9 });
-  const skipBass = new Set(plans.flatMap((p) => p.bassSkip ?? []).map(([bar, beat]) => T.beat(bar, beat)));
+  const held = sineBass(D2, { len: T.beats(2) / SR, vel: 0.9 });
+  const skipBass = new Set(PLANS.flatMap((p) => p.bassSkip ?? []).map(([bar, beat]) => T.beat(bar, beat)));
+  const hold = new Set(PLANS.flatMap((p) => p.bassHold ?? []));
   const inRest = (s: number, tail = 0) => T.spans('rest').some(([a, b]) => s + tail > a && s < b) || T.silences.some(([a, b]) => s + tail > a && s < b);
-  for (const bar of plans.flatMap((p) => p.bass))
+  for (const bar of PLANS.flatMap((p) => p.bass))
     for (const b of [1, 3]) {
       const at = T.beat(bar, b);
       // the pulse never starts inside a rest or a silence, nor rings into one
-      if (at < m.turn || skipBass.has(at) || inRest(at, T.beats(1.4))) continue;
-      music(at, pulse, { part: 'bass', db: LV.bass, pan: 0 });
+      if (at < m.turn || skipBass.has(at) || inRest(at, T.beats(hold.has(bar) ? 2 : 1.4))) continue;
+      music(at, hold.has(bar) ? held : pulse, { part: 'bass', db: LV.bass, pan: 0 });
     }
 
   // ===== the Router's memory: a soft tick on 2 and 4 ===================================================
   const skip = new Set(o.skip);
   let tk = 0;
-  for (const [bar, b, db] of plans.flatMap((p) => p.ticks)) {
+  for (const [bar, b, db] of PLANS.flatMap((p) => p.ticks)) {
     const at = T.beat(bar, b);
     if (skip.has(at) || inRest(at, T.beats(0.2))) continue;
     music(at, woodTick(1250 + 60 * (tk % 3), { seed, k: tk, vel: 0.7 }), { part: 'ticks', db: LV.ticks + db, pan: 0.05, sends: { hall: 0.15 } });

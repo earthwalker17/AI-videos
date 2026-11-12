@@ -6,8 +6,9 @@
  * summary.ts; score.test.ts holds every copy equal to its source), and the camera is the director's plan of
  * 2026-11-12 (CAMERA_PLAN: bar 50 trucks east to the evidence sheet at 0.7x, bar 58 eases out to still (d)'s
  * framing, bar 65 dollies in to FRAMING_B, bar 69 is summary.ts EASE_OUT_D, bar 76 returns to the hook's framing),
- * eased as camera.ts eases a move. An object the picture has not placed yet takes the storyboard's screen position
- * (SCREEN, from the session's beat maps). Every pan of an unbuilt object is to be re-checked when the picture lands.
+ * eased as camera.ts eases a move. A few things are placed by the picture on the screen itself, or have no single world
+ * point (SCREEN). Every entry was checked against the built picture in session 5 wave 4: each sounding object projected
+ * through camera.ts cameraAt(f, 15) at its contact frame (score.test.ts holds the copies, and the projections it can).
  *
  * A pan is where the object stands across the frame at that film frame, narrowed to 0.9 as act one's folders are:
  * 0.9 x (x - the frame's centre x) x zoom / 960, within ±0.9.
@@ -92,6 +93,8 @@ export const X = {
   /** the bug bay (BAYS.bug.box's centre) and its door (BAYS.bug.door's centre) */
   bugBay: 360,
   bugDoor: 298,
+  /** the capsule's oval side rail (beat7.ts OVAL, its middle): on the bay floor's south edge, under the bay on screen */
+  sideRail: 360,
   /** the sand-glass docked on the job rail (summary.ts DOCKED.glass) */
   glassDocked: 414,
   /** your desk: the in-tray's centre, the laptop's centre, your lamp's head (YOU, LAMP.head) */
@@ -116,24 +119,47 @@ export const X = {
   /** the pencil "?" beside the tethers, the handle outline on the docs bay (summary.ts QUERIES[0], HANDLE.c) */
   query: 1078,
   handle: -6,
+  /** the bookend slip lying out of the chat drum's spout (end.ts SPOUT_SLIP) */
+  spoutSlip: -813,
 } as const;
 
 /**
- * Screen x (px) of what the picture has not placed yet, from the session's beat maps (map-beat8.md option C, map-beats11-13.md
- * section 4's label feet at 0.64x, the storyboard's end card "lower-left").
+ * Beat 8's printed test sheet (beat8.ts SHEET8 and onSheet; score.test.ts holds each equal to its source): the world x of
+ * what sounds on it. The sheet lies east of the bays, so at its framing (0.7x) all of it is right of centre.
+ */
+export const SHEET_X = {
+  /** the tick row's first and last tick (SHEET8.x0 + tickU(0) and tickU(n - 1)) */
+  row: [791, 1807.6] as readonly number[],
+  /** the caveat stamp's middle (CAVEAT) */
+  caveat: 1330,
+  /** each lane's strip, its middle once slid out (ORIGIN_U + stripLength / 2) */
+  strips: [1052.25, 1048.5, 948.75] as readonly number[],
+  /** the hero stamps' middles, ~½, ~10% and 2–4× (STAMPS8: u + em x adv / 2), in evidence.ts STAMPS' order */
+  stamps: [1742.14, 1573.4, 1570.6] as readonly number[],
+  /** the bracket's bar, between the two holes it joins (BRACKET) */
+  bracket: 1027.5,
+  /** the told-to-delegate strip's five notch places (ORIGIN_U + NOTCH.s) */
+  notches: [852, 895, 938, 981, 1024] as readonly number[],
+  /** the long run's band, its middle (BAND) */
+  longRun: 1114,
+  /** each token stack's middle (CLAMP.u1 + its extent / 2) */
+  stacks: [882.74, 925.69, 1039] as readonly number[],
+} as const;
+
+/**
+ * Screen x (px of 1920) of what is placed on the screen, or has no single world point, as built (session 5 wave 4).
  */
 export const SCREEN = {
-  /** beat 7, at FRAMING_B: the oval side rail on the bay floor's south-east edge (map-beat7.md section 6) */
-  sideRail: 1560,
-  /** beat 8, at the sheet's framing: the lanes and their strips, the bracket and notches, the token column; the tick row's ends (world x) */
-  lanes: 900,
-  stacks: 1180,
-  rowFrom: 200,
-  rowTo: 1100,
-  /** beat 11's six idea labels in order (gate and loupe, throat, window, the bay's door, the state cabinet, the Watchdog) and the map key */
-  ideas: [623, 665, 815, 1099, 1490, 1365] as readonly number[],
-  keyMap: 1590,
-  /** the act-one card (it rises west of the system) and the end card (lower left) */
-  actOneCard: 700,
+  /**
+   * beat 11's six idea labels in order (gate and loupe, throat, window, the bay's door, the state cabinet, the Watchdog):
+   * where each leader's foot lands on its part at still (d)'s framing (beat11.ts TAGS_11 foot, projected), as its click
+   * sounds when the foot touches
+   */
+  ideas: [697, 657, 816, 1185, 1546, 1363] as readonly number[],
+  /** the map key's block, its plate's west edge (about x 1202) to the end of its zh column (about 1823): its middle (beat11.ts KEY_SCREEN; measured on the built frame f5730) */
+  keyMap: 1512,
+  /** the act-one card at rest, west of the Register over the feeders (beat11.ts CARD_SCREEN): it comes in from and leaves by the frame's west edge */
+  actOneCard: 300,
+  /** the end card's middle (endCard.ts: its corners at rest about x 101-1358) */
   endCard: 730,
 } as const;

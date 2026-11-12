@@ -10,27 +10,28 @@
  *   7.2  the decision tally prints beside the reel (a print tap); the ghost tally rises silently and is struck (an
  *        ink click and a dry scratch, `strike-tally`); the pulse carries on
  *   7.3  the door ghost is struck (a softer scratch); a second follow-up clips on (a softer pluck); on `job-peel`
- *        the long test peels off as a capsule: the bug bay's marimba A4 is struck and held as a tone that pans off
- *        to the side rail over its 10 f arc and goes further off as it does (5 dB down, darker, more of the hall),
- *        sits there, and comes back over the dock's 8 f; on `job-dock` it docks back as a chord (D4 F♯4 A4 on
+ *        the long test peels off as a capsule: the bug bay's marimba A4 is struck and held as a tone that goes off
+ *        to the side rail over its 10 f arc (the rail lies on the bay floor's south edge, under the bay on screen, so
+ *        the tone does not travel across the image: it recedes, 5 dB down and darker), runs its lap there, and comes
+ *        back over the dock's 8 f; on `job-dock` it docks back as a chord (D4 F♯4 A4 on
  *        marimba, with the Router's pulse). Between, the "started" receipt (a tiny ink click), the sand-glass docking on the job rail (the
  *        chore's own sound handed over: a short trickle, as beat 5's key docked as its woodblock) and the
  *        Productive plate (an enamel tap)
- *   7.4  the index turns west (a detent tick, standing in for the Router's tick on that beat); the chat reply lands
- *        in your in-tray (one felt-piano note, light); the dossier lands in the repo port (its edge's slap and a
- *        paper thump, heavy; the bass stands aside on that beat)
+ *   7.4  the index turns west on its own frame, between beats (a detent tick, the arm's; the Router's tick keeps its
+ *        own beat after it); the chat reply lands in your in-tray (one felt-piano note, light); the dossier lands in
+ *        the repo port (its edge's slap and a paper thump, heavy; the bass stands aside on that beat)
  */
 import { BEAT_7 } from '../src/cues.ts';
 import { OnePole, SR, TAU, clamp, dbToGain } from '@aiv/pipeline/audio/kit';
 import { LV, M, panned, type Desk } from './common.ts';
 import { cordRun, inkClick, paperThump, paperTick, plateTap, printTap, sandTrickle, sketchScratch } from './foley.ts';
 import { bowedNote, brightPluck, feltPiano, marimba, woodTick } from './instruments.ts';
-import { SCREEN, X, panAt, screenPan } from './places.ts';
+import { X, panAt } from './places.ts';
 
 const { A3, D4, Fs4, A4, D5, A5, D6 } = M;
 
-/** The ticks this part marks (continuity.ts leaves those beats to it): the glass docking, the index turning west. */
-export const waitingBeats = (d: Desk): number[] => [d.f(BEAT_7.glass.dock), d.f(BEAT_7.reply.indexWest)];
+/** The ticks this part marks (continuity.ts leaves those beats to it): the glass docking. (The index turns west off the beat, 6 f before the reply leaves: its detent is its own and the Router's tick on bar 48 beat 4 sounds after it.) */
+export const waitingBeats = (d: Desk): number[] => [d.f(BEAT_7.glass.dock)];
 
 /** How far out the capsule is at film frame f: 0 in its bay, 1 on the side rail; out over the peel's arc (after its 3 f anticipation), back over the dock's 8 f. */
 export function capsuleAway(f: number): number {
@@ -41,15 +42,16 @@ export function capsuleAway(f: number): number {
   return 1 - (f - dockFrom) / (dock - dockFrom);
 }
 
-/** The capsule's pan at film frame f: from the bay out to the side rail over the peel's arc, held, and back over the dock. */
+/** The capsule's pan at film frame f: from the bay out to the side rail over the peel's arc, held, and back over the dock (the rail lies under the bay on screen, so it barely moves). */
 export function capsulePan(f: number): number {
   const bay = panAt(X.bugBay, f);
-  return bay + (screenPan(SCREEN.sideRail) - bay) * capsuleAway(f);
+  return bay + (panAt(X.sideRail, f) - bay) * capsuleAway(f);
 }
 
 /**
- * On the side rail the capsule's tone is further off, not just further right (its pan moves only about 0.12): this
- * much quieter and darker (a one-pole low-pass down to `cutoff` Hz), with more of the hall (LV and its sends in waiting()).
+ * On the side rail the capsule's tone is further off, not across the image (the rail lies under its bay): this much
+ * quieter and darker (a one-pole low-pass down to `cutoff` Hz). Its hall send (RAIL_DISTANCE.hall) is fixed, so the
+ * wet part falls with the dry and the level and the darkening carry the distance.
  */
 export const RAIL_DISTANCE = { db: -5, cutoff: 900, hall: 0.5 } as const;
 

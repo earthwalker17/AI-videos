@@ -136,21 +136,23 @@ export const LV = {
   /** the sharp contact a hit needs over the bass pulse and the pad (QA's onset finder: the loudest 5 ms rise within 120 ms; at -13 the low tones' 5 ms ripple came within 1.4x of it) */
   contact: -12,
   // beat 8
-  /** the tick row's rain: one clip, normalised on its loudest (inked) tick */
-  rain: -24,
+  /** the tick row's rain: one clip, normalised on its loudest (inked) tick (panned where the row prints, right of centre, it reads 1 dB lower than at the centre: at -24 it sat 19 dB under the bed) */
+  rain: -22.5,
   /** the thinned pulse: a soft FM mallet on 1 and 3 with the bass, the pad gone */
   pulseMallet: -22,
-  stamp8: -22,
+  /** the sheet's print taps (at -22 they sat 18.5-19 dB under the bed once each bass stroke held to the next) */
+  stamp8: -20.5,
   /** the lanes' strips: the two baselines in lighter print, two levels in full */
   strip: -25,
   stripHero: -23,
-  /** the bracket's open fifth: two short plucks, at -24 far under the sheet's bass and mallet */
-  bracket: -18,
-  notch: -21,
+  /** the bracket's open fifth: two short plucks, at -24 far under the sheet's bass and mallet (at -18, 19.2-19.9 under the held bass) */
+  bracket: -16,
+  /** the told-to-delegate strip's notch clicks (at -21 the first two sat 18.6-19.4 dB under the sheet's bass and mallet, at -19.5 18.2-18.3 under the held bass) */
+  notch: -19,
   stack: -21,
   // beat 9
-  /** the lid's latch and the vellum breaths: the B minor pad is back within 0.35 s of bar 58 (at -34 and -30 the lid sat 24 dB and the lays 20-23 dB under it) */
-  lid: -27,
+  /** the lid's latch and the vellum breaths: the B minor pad is back within 0.35 s of bar 58 (at -34 and -30 the lid sat 24 dB and the lays 20-23 dB under it; at -27 the lid 18.8 under the beat-8 bass held to bar 58) */
+  lid: -26,
   vellum: -27.5,
   strutHum: -27,
   vellumTap: -21,

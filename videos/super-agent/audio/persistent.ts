@@ -2,8 +2,10 @@
  * Bars 58-62 (f4560-4959): beat 9, keeping it running handed over (proposed; STORYBOARD 9.1-9.2, Sound column), on
  * BEAT_9's contact frames. continuity.ts drops the bass and moves the pad to B minor; its ticks on 2 and 4 carry on.
  *
- *   9.1  your laptop's lid shuts for the night (a soft latch); each vellum part laid down flat is a breath of airy
- *        filtered noise, at its place as the camera eases out; the lid strut docks on the vellum loop with the
+ *   9.1  your laptop's lid shuts for the night (a soft latch; the strut lifts off your tray the frame after it, in
+ *        silence: the latch is its cause); each vellum part laid down flat is a breath of airy filtered noise, at its
+ *        place as the camera eases out (the first on bar 58's beat 2, once the sheet has cleared its ground: a breath
+ *        with no onset of its own, so the Router's tick sounds with it); the lid strut docks on the vellum loop with the
  *        chore's own sound handed over (act one's low hum, short and soft, as the key docked as its woodblock and
  *        the sand-glass as its trickle), then the Persistent plate settles, in vellum (a papery tap, not enamel); a
  *        machine's lamp comes on (a small click) and a queued slip drops into it (a wood tick: a message)
@@ -21,10 +23,12 @@ const { D2, A4, B4 } = M;
 
 /** What each vellum lay puts down, in order: the plan of the deck, the state cabinet, the loop's sheet, the tethers. */
 const LAID: readonly number[] = [X.plan, X.cabinet, X.loop, X.tethers];
+/** The first vellum lay's lift over LV.vellum, dB: it lands under the pulse's arrival and the pad's return (at LV.vellum it sat 19.2 dB under the bed). */
+const FIRST_LAY = 1.5;
 /** The machine whose lamp comes on (the workstation, the middle one). */
 const LIT = X.machines[1];
 
-/** The ticks this part marks (continuity.ts leaves those beats to it): the strut's dock, the machine's lamp, the Watchdog laid, the flag. */
+/** The ticks this part marks (continuity.ts leaves those beats to it): the strut's dock, the machine's lamp, the Watchdog laid, the flag (the first vellum lay, on bar 58 beat 2, is a breath with no onset: the tick sounds with it). */
 export const persistentBeats = (d: Desk): number[] => [d.f(BEAT_9.strut.dock), d.f(BEAT_9.machineLamp), d.f(BEAT_9.watchdog), d.f(BEAT_9.flag)];
 
 /** The stuck bay's loop: [frame, midi] for each beat of `stuck` (out on the beat, back an eighth later). */
@@ -41,7 +45,8 @@ export function persistent(d: Desk): void {
 
   // ===== 9.1: the lid, the vellum laid down, the strut handed over, a machine's lamp and slip ==================
   foley(d.f(B.lidClick), lidClick(seed, 0), { part: 'lid', db: LV.lid, pan: panAt(X.laptop, B.lidClick), sends: { hall: 0.12 } });
-  B.lays.forEach((f, i) => foley(d.f(f), vellumLay(seed, { len: 12 / fps, k: i }), { part: 'vellum', db: LV.vellum, pan: panAt(LAID[i], f + 6), sends: { hall: 0.2 } }));
+  // the first lay lands on the pulse's arrival and the pad's return (its second is the loudest of the beat), so it sits FIRST_LAY dB higher
+  B.lays.forEach((f, i) => foley(d.f(f), vellumLay(seed, { len: 12 / fps, k: i }), { part: 'vellum', db: LV.vellum + (i === 0 ? FIRST_LAY : 0), pan: panAt(LAID[i], f + 6), sends: { hall: 0.2 } }));
   music(d.f(B.strut.dock), hum(D2, { len: 2.0, attack: 0.3, release: 0.9, vel: 0.7 }), { part: 'strut-hum', db: LV.strutHum, pan: panAt(X.loop, B.strut.dock) });
   foley(d.f(B.strut.plateDock), vellumTap(seed, 0), { part: 'vellum-tap', db: LV.vellumTap, pan: panAt(X.loop, B.strut.plateDock), sends: { hall: 0.15 } });
   foley(d.f(B.machineLamp), inkClick(seed, 21), { part: 'lamp-on', db: LV.lampOn, pan: panAt(LIT, B.machineLamp) });
@@ -58,5 +63,6 @@ export function persistent(d: Desk): void {
   stuckLoop().forEach(([f, midi], k) => {
     music(d.f(f), marimba(midi, { seed, k: 7600 + k, vel: k % 2 ? 0.45 : 0.55, bright: 0.3, tau: 0.12 }), { part: 'stuck', db: LV.stuck - (k % 2 ? 2 : 0), pan: panAt(X.stuckBay, f), sends: { hall: 0.12 } });
   });
-  foley(d.f(B.flag), sketchScratch(seed, { len: 0.16, k: 8 }), { part: 'pencil', db: LV.pencil, pan: panAt(X.flag, B.flag), sends: { hall: 0.1 } });
+  // the flag's stroke is short (0.16 s) over the loop and the sweep's bell: a dB over the other pencil marks (at LV.pencil it sat 18.8 dB under the bed)
+  foley(d.f(B.flag), sketchScratch(seed, { len: 0.16, k: 8 }), { part: 'pencil', db: LV.pencil + 1, pan: panAt(X.flag, B.flag), sends: { hall: 0.1 } });
 }

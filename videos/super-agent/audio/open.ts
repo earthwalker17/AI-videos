@@ -8,9 +8,11 @@
  *         (F♯4, D4, B3), dulled (the etch kills their gloss), no alarm; the "?" settles on the pad's suspended
  *         chord (a pencil stroke as it is drawn)
  *   10.2  the Register splits in pencil and the Router's chord detunes into two (continuity.ts, from
- *         BEAT_10.split); its tape tears (a paper tear); for one beat Fix A's and Fix B's grey-stock cards rise
- *         either side: a ghost of each, hard left and hard right as in beat 3 (a plodding marimba D3, a bright
- *         pluck), far down; the reel's outer windings fade into pencil with a "?" (a pencil stroke)
+ *         BEAT_10.split); Persistent's vellum words roll up (silent); its tape tears (a paper tear); Fix A's and
+ *         Fix B's grey-stock cards rise either side and hold a beat: a ghost of each, hard left and hard right as in
+ *         beat 3 (a plodding marimba D3, a bright pluck), far down; they slide away in silence (`cards.exit`); once
+ *         the frame is clear the reel's outer windings fade into pencil with a "?" (a pencil stroke on beat 4, with
+ *         no onset of its own: the Router's tick sounds with it); the role labels come back in silence
  *   10.3  your lamp reaches for a running bay (one felt-piano G4, the suspension's fourth, unresolved); a pencil
  *         handle and "?" (a pencil stroke); bar 68's handshake: the report card ejects (an ink click), is stamped
  *         in (a print tap, and reporting back falls D5 to A4 on the mallet), and the reply lands in your in-tray (a
@@ -27,7 +29,7 @@ const { D3, Eb3, B3, D4, Fs4, G4, A4, D5 } = M;
 /** The etch's notes, one per machine (north to south), descending. */
 export const ETCH_NOTES: readonly number[] = [Fs4, D4, B3];
 
-/** The ticks this part marks (continuity.ts leaves those beats to it): the second etch, the "?", the handle, the stamp-in, the reply (the split is the pad's, with no onset of its own: the Router's tick sounds on it). */
+/** The ticks this part marks (continuity.ts leaves those beats to it): the second etch, the "?", the handle, the stamp-in, the reply (the split is the pad's and the windings' stroke a soft scratch, neither with an onset of its own: the Router's tick sounds on them). */
 export const openBeats = (d: Desk): number[] => [BEAT_10.etch[1], BEAT_10.query, BEAT_10.handle, BEAT_10.stampIn, BEAT_10.replyLands].map((f) => d.f(f));
 
 export function open(d: Desk): void {
@@ -41,7 +43,8 @@ export function open(d: Desk): void {
   foley(d.f(B.query), sketchScratch(seed, { len: 0.3, k: 9 }), { part: 'pencil', db: LV.pencil, pan: panAt(X.query, B.query), sends: { hall: 0.1 } });
 
   // ===== 10.2: the split (continuity.ts), the tear, the two fixes for one beat, the windings ====================
-  foley(d.f(B.tear), paperTear(seed, 1), { part: 'tear', db: LV.tear, pan: panAt(X.tape, B.tear), sends: { hall: 0.1 } });
+  // a dB over beat 3's tear (LV.tear): here it tears over the detuned pad (at LV.tear it sat 18.6 dB under the bed)
+  foley(d.f(B.tear), paperTear(seed, 1), { part: 'tear', db: LV.tear + 1, pan: panAt(X.tape, B.tear), sends: { hall: 0.1 } });
   const cards = d.f(B.cards.rise);
   music(cards, marimba(D3, { seed, k: 7710, vel: 0.7, bright: 0.25, tau: 0.45 }), { part: 'fix-echo', db: LV.fixEcho, pan: -0.9, sends: { hall: 0.25 } });
   music(cards, brightPluck(D5, { seed, k: 342, vel: 0.6, t60: 0.6 }), { part: 'fix-echo', db: LV.fixEcho + LV.fixPluck, pan: 0.9, sends: { hall: 0.2, echo: 0.2 } });
@@ -49,7 +52,7 @@ export function open(d: Desk): void {
 
   // ===== 10.3: the reach, the handle, bar 68's handshake ==========================================================
   music(d.f(B.reach), feltPiano(G4, { seed, k: 33, vel: 0.55, hold: 1.5 }), { part: 'reach', db: LV.reach, pan: panAt(X.lampHead, B.reach), sends: { hall: 0.35 } });
-  foley(d.f(B.handle), sketchScratch(seed, { len: 0.22, k: 11 }), { part: 'pencil', db: LV.pencil - 2, pan: panAt(X.handle, B.handle), sends: { hall: 0.1 } });
+  foley(d.f(B.handle), sketchScratch(seed, { len: 0.22, k: 11 }), { part: 'pencil', db: LV.pencil - 1, pan: panAt(X.handle, B.handle), sends: { hall: 0.1 } });
   foley(d.f(B.reportUp), inkClick(seed, 22), { part: 'ink-click', db: LV.click, pan: panAt(X.bugBay, B.reportUp) });
   const stampIn = d.f(B.stampIn);
   foley(stampIn, printTap(seed, 9), { part: 'print', db: LV.print, pan: panAt(X.printHead, B.stampIn), sends: { hall: 0.1 } });
