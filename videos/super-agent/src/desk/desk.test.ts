@@ -624,6 +624,24 @@ describe('part 2’s shared hooks', () => {
   });
 });
 
+describe('the footprint budget over the whole film (A20: every segment’s own casters, as its frame casts them)', () => {
+  it('keeps every film frame within MAX_FOOTPRINTS - 8 in the world that draws it', async () => {
+    const { actOneFrameFootprints } = await import('./ActOneFrame.tsx');
+    const { turnAt, turnFootprints } = await import('./turn.ts');
+    const { endWorldFootprints } = await import('./endCard.ts');
+    const { segmentAt } = await import('./film.ts');
+    let worst = { n: 0, f: -1 };
+    for (let f = 0; f < 6720; f++) {
+      const k = segmentAt(f);
+      const n =
+        k === 'actOne' ? actOneFrameFootprints(f).length : k === 'turn' ? turnFootprints(turnAt(f)).length : k === 'act2' ? footprintsAt(deskStateAt(f)).length : k === 'summary' ? footprintsAt(summaryDeskState(f)).length : endWorldFootprints(f).length;
+      if (n > worst.n) worst = { n, f };
+      expect(n, `f${f} (${k})`).toBeLessThanOrEqual(MAX_FOOTPRINTS - 8);
+    }
+    expect(worst.n).toBeGreaterThan(0);
+  }, 300_000);
+});
+
 describe('focus hand-overs (state.ts FocusEntry.handFrom, stepOf)', () => {
   /** A part's step under a step-down (the late set is at 1 from f2200: testsStep). */
   const level = (st: DeskState['step'], id: FocusId): number => (st.late?.includes(id) ? 1 : st.own?.ids.includes(id) ? st.own.amount : st.amount > 0 && st.ids.includes(id) ? st.amount : 0);

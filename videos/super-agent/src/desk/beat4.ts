@@ -170,7 +170,11 @@ export interface BayDispatch extends HatchRise {
   light: number;
   /** the nameplate's print: -1 blank (closed, never dispatched), 0 and 1 its ink's first stages, 2 printed (it prints on the dispatch's cue) */
   plate: number;
+  /** the rise on the frames before, most recent first (BAND_RAMP - 1 of them): footprints.ts ramps a work part's contact on its nameplate band over the frames since its top rose past it */
+  rises: readonly number[];
 }
+/** Frames a rising work part's contact on its bay's nameplate band ramps in over, once its top has risen past the band (footprints.ts dispatchedBayFootprints). */
+export const BAND_RAMP = 4;
 
 const BAY_PLAN: Record<BayId, { cut: number; cutFrames: number; rise: number }> = { bug: B4.bug, tests: B4.tests, docs: B4.docs };
 
@@ -486,6 +490,7 @@ export function bayDispatchAt(f: number, id: BayId): BayDispatch {
     door: 0,
     light: springAt(f, RIDE_FRAMES[id].dock + 2, SPRING.effects),
     plate: f < rise ? -1 : Math.min(2, f - rise),
+    rises: Array.from({ length: BAND_RAMP - 1 }, (_, k) => springAt(f - 1 - k, rise, SPRING.heavy)),
   };
 }
 

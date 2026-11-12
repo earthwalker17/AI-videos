@@ -15,7 +15,7 @@ import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT
 import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, DOCK_B, HEAD_DIP, hammerOffset, headDipAt, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
 import { CHORES, TRAY_Z, YOU_POSE_B, strutEnds, type YouPose } from './you.ts';
 import { HEAP, PIECE, ciHopperFootprints, youPoseAt } from './actOne.ts';
-import { REQUEST_HEAP, RIDE, WORK_DEPTH as WORK_DEPTH_FP, cardPose, cardShadeShift, cardSize, heapFloor, heapPieceAt, liftOf, ON_REQUEST, type Beat4State, type CardSpot, type CardState, type CardUp, type Carry, type HeapState } from './beat4.ts';
+import { BAND_RAMP, REQUEST_HEAP, RIDE, WORK_DEPTH as WORK_DEPTH_FP, cardPose, cardShadeShift, cardSize, heapFloor, heapPieceAt, liftOf, ON_REQUEST, type Beat4State, type CardSpot, type CardState, type CardUp, type Carry, type HeapState } from './beat4.ts';
 import { cards7, footprints7 } from './beat7.ts';
 import { cards8, footprints8 } from './beat8.ts';
 import { cards9, footprints9 } from './beat9.ts';
@@ -23,7 +23,7 @@ import { cards10, footprints10 } from './beat10.ts';
 import { cards11, footprints11 } from './beat11.ts';
 import { cardsEnd, footprintsEnd } from './end.ts';
 import { SPIKE_BASE, type Beat5State } from './beat5.ts';
-import { BAR_RIDE, DECODE, REVIEW, STRESS_PLATE, TAB_FILE, TRAY, type Beat6State } from './beat6.ts';
+import { BAR_RIDE, DECODE, PLATE_CONTACT, REVIEW, STRESS_PLATE, TAB_FILE, TRAY, type Beat6State } from './beat6.ts';
 import { DRAWER_OPEN_C, PROACTIVE_PLATE, SPIKE } from './layout.ts';
 
 /** At most this many footprints reach the GPU (the uniform array's size, gl/light.ts). */
@@ -77,17 +77,44 @@ function superFootprints(id: BayId): Footprint[] {
  * A beat-4 bay at its dispatch (desk/beat4.ts): its shell, and its work once its hatch is open, at its height as it rises
  * (what is still under the slate casts nothing on it; its contact closes in as it settles).
  */
-export function dispatchedBayFootprints(id: BayId, d: { hole: boolean; hatch: number; rise: number; door: number; contact: number }, depth: number): Footprint[] {
+export function dispatchedBayFootprints(id: BayId, d: { hole: boolean; hatch: number; rise: number; door: number; contact: number; rises?: readonly number[] }, depth: number): Footprint[] {
   const b = BAYS[id];
   const fp = bayShellFootprints(b, d.door);
   // closed: its shell round its lid (the lid lies flush, under the slate's surface, and casts nothing)
   if (d.hatch <= 0 && d.rise <= 0) return fp;
   const work = [...bayWorkOf(b), ...superFootprints(id)].map((x) => (x.kind === 'rect' || x.kind === 'circle' ? { ...x, contact: x.contact * d.contact } : x));
   // at the height its work is drawn at (objects/Bay.tsx workOf), its overshoot included: a part never leaves its footprint
-  fp.push(...shiftFootprints(work, liftOf(d.rise, depth)));
+  const lift = liftOf(d.rise, depth);
+  const past = (d.rises ?? []).map((r) => liftOf(r, depth));
+  const band = bandTop(b);
+  for (const x of shiftFootprints(work, lift)) {
+    // a part whose top rises past its nameplate band (a receiver at its top, objects/Bay.tsx) would put its whole contact
+    // on the band in the one frame its top crosses it (the shader's gate is all or nothing in height: the bug bay's
+    // dossier at f1769, A14). For the BAND_RAMP frames from that one the part is split by height so that only the band's
+    // contact ramps in: the whole part topped a hair under the band (its contact on everything under the band), the whole
+    // part with its contact ramped in (its shade exactly as before; its contact on the band), and the part's feet raised
+    // just out of the band's contact reach (BAND_REACH: its contact on what is over the band, its own top among them).
+    // Then it is the one footprint again.
+    if ((x.kind === 'rect' || x.kind === 'circle') && x.contact > 0 && x.z1 > band) {
+      const rest = x.z1 - lift;
+      const k = d.rises ? 1 + past.filter((l) => rest + l > band).length : BAND_RAMP;
+      if (k < BAND_RAMP) {
+        // (topped under the band, its feet lowered as far, so its contact's reach, which grows with its height, is as before)
+        const cut = x.z1 - (band - 0.01);
+        fp.push({ ...x, z0: Math.max(0, x.z0 - cut), z1: band - 0.01 }, { ...x, contact: (x.contact * k) / BAND_RAMP });
+        if (x.z1 > band + BAND_REACH) fp.push({ ...x, z0: Math.max(x.z0, band + BAND_REACH) });
+        continue;
+      }
+    }
+    fp.push(x);
+  }
   if (d.hole) fp.push(...pitFootprints(b.box));
   return fp;
 }
+/** A bay's nameplate band's top (objects/Bay.tsx: on the south wall's top, a quarter unit over it): a receiver. */
+const bandTop = (b: BayLayout): number => b.wallH + 0.25;
+/** Feet this far over a receiver are out of its contact (gl/light.ts: a footprint's contact reaches a surface at z when z0 <= z + 1.5). */
+const BAND_REACH = 1.51;
 /** An open hatch's pit: the slate round it shades and roofs what is below it (a bay rising out of the dark into the light). */
 export function pitFootprints(B: Rect): Footprint[] {
   return [rectFp({ x0: B.x0 - 80, x1: B.x1 + 80, y0: B.y0 - 80, y1: B.y1 + 80 }, -1, 0, 0, 6), { kind: 'canopy', c: rectC(B), h: [(B.x1 - B.x0) / 2 + 30, (B.y1 - B.y0) / 2 + 30], z: 0, strength: 0.92 }];
@@ -381,7 +408,7 @@ export function beat6Footprints(e: Beat6State): Footprint[] {
   if (e.plate) {
     const B = STRESS_PLATE.box;
     const [dx, dy, dz] = e.plate.d;
-    fp.push(rectFp({ x0: B.x0 + dx, x1: B.x1 + dx, y0: B.y0 + dy, y1: B.y1 + dy }, STRESS_PLATE.z[0] + dz, STRESS_PLATE.z[1] + dz, e.plate.flying ? 0 : 0.6, 4));
+    fp.push(rectFp({ x0: B.x0 + dx, x1: B.x1 + dx, y0: B.y0 + dy, y1: B.y1 + dy }, STRESS_PLATE.z[0] + dz, STRESS_PLATE.z[1] + dz, e.plate.contact ?? (e.plate.flying ? 0 : PLATE_CONTACT.seated), 4));
   }
   if (e.review) fp.push({ kind: 'rect', c: [e.review.p[0], e.review.p[1]], h: [(REVIEW.l / 2) * Math.cos(e.review.slope), REVIEW.w / 2], r: 2, rot: e.review.heading, ...carrierSpan(e.review, REVIEW.l / 2, 0.4), contact: 0 });
   return fp;
@@ -389,6 +416,8 @@ export function beat6Footprints(e: Beat6State): Footprint[] {
 
 /** How many of the pile's top slips cast (the ones under them lie in their shadow). */
 const PILE_CASTS = 4;
+/** How far under a landing pile slip's top its footprint ends at full squash (u; the squash itself lowers the top 0.012 u). */
+export const PILE_SQUASH_CLEAR = 0.25;
 
 /**
  * Beat 5's footprints (desk/beat5.ts): the starter key (in your tray's footprint as it lifts, its contact opening as it
@@ -427,7 +456,10 @@ export function beat5Footprints(e: Beat5State): Footprint[] {
     if (SPIKE.h + sp.dz > 0.5) fp.push(segFp([SPIKE.x, SPIKE.y, Math.max(0, SPIKE_BASE + sp.dz)], [SPIKE.x, SPIKE.y, SPIKE.h + sp.dz], 2.6));
   }
   const pile = e.slips.filter((x) => x.onPile);
-  for (const x of pile.slice(-PILE_CASTS)) fp.push({ kind: 'rect', c: [x.p[0], x.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: x.heading, z0: x.p[2] - 0.4, z1: x.p[2] + 0.4, contact: x === pile[0] ? 0.3 : 0 });
+  // a slip's top face sits at its footprint's top (the shader skips a receiver there); squashed 3% as it lands its top
+  // dips a hair under it, so the top comes down with a margin while it squashes (PILE_SQUASH_CLEAR x the squash: the
+  // landing slip shaded itself for its 4 squash frames and lit up on the 5th, A9), exactly as before once it is still
+  for (const x of pile.slice(-PILE_CASTS)) fp.push({ kind: 'rect', c: [x.p[0], x.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: x.heading, z0: x.p[2] - 0.4, z1: x.p[2] + 0.4 - PILE_SQUASH_CLEAR * x.squash, contact: x === pile[0] ? 0.3 : 0 });
   for (const x of e.slips) {
     if (x.onPile) continue;
     // a slip rolled about its length (flipped up on the fingers) shades a narrower strip, over the height it spans

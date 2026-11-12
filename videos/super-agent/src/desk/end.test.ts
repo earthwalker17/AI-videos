@@ -3,7 +3,7 @@ import { BEAT, END, WORDS } from '../cues.ts';
 import { SAFE } from '../look/tokens.ts';
 import { KEEP_LAND, UNDER_HEAD } from './beat5.ts';
 import { cameraAt, project } from './camera.ts';
-import { BUILT, CI_TICK, E_END, HEAP_GONE, LAMP_END, STEP_UP, TAGS_END, TICKS, bookendSlipAt, cardsEnd, ciFeedAt, endAt, endDesk, footprintsEnd, heapGoneAt, nextSlipAt, poolsEnd, stepEnd, veilAt, youEnd } from './end.ts';
+import { BUILT, CI_TICK, E_END, HEAP_GONE, LAMP_END, QUEUE, STEP_UP, TAGS_END, TICKS, bookendSlipAt, cardsEnd, ciFeedAt, endAt, endDesk, footprintsEnd, heapGoneAt, nextSlipAt, poolsEnd, stepEnd, veilAt, youEnd } from './end.ts';
 import { END_CARD, END_KEY, END_KEY_MOVE, END_KEY_OFF, END_KEY_SCREEN, END_TYPE, LEAVE, endCardAt, endKeyAt, endPools, endWorldFootprints } from './endCard.ts';
 import { END_FROM, SEGMENTS, segmentAt, segmentSpan } from './film.ts';
 import { KEY_BOX, KEY_SAMPLES } from './beat11.ts';
@@ -13,7 +13,7 @@ import { CARD_T, cardCentre, cardCorners } from './objects/TitleCard.tsx';
 import { poolsAt } from './pools.ts';
 import type { DeskState, FocusId } from './state.ts';
 import { summaryDeskState, summaryStep } from './summary.ts';
-import { deskStateAt } from './state.ts';
+import { LAMP_STEPS, deskStateAt, lampAt } from './state.ts';
 import { YOU_POSE_B } from './you.ts';
 import type { P3 } from './layout.ts';
 
@@ -40,7 +40,16 @@ describe('beats 12-13: the bookend (end.ts)', () => {
       expect(heapGoneAt(f), `f${f}`).toBeNull();
     }
     for (let f = 5424; f < E_END.from; f++) expect(summaryDeskState(f).b4.heap.gone, `f${f}`).toBeUndefined();
-    expect(LAMP_END).toEqual([]);
+    // your lamp's pool steps down two steps, one at a time from the queue's step-down, settled by the landing (its pose
+    // never moves: youEnd is the identity), never faster than the film's other lamp changes (0.108 a frame at f2237)
+    expect(LAMP_END).toEqual([
+      { at: E_END.queueStep, steps: -1 },
+      { at: E_END.queueStep + 5, steps: -1 },
+    ]);
+    expect(Math.abs(lampAt(END.move[1]) - lampAt(END.bookend.turn))).toBeLessThan(2e-4);
+    expect(lampAt(E_END.queueStep) - lampAt(END.move[1])).toBeCloseTo(2 * (LAMP_STEPS.up - LAMP_STEPS.dim), 2);
+    expect(lampAt(END.bookend.turn)).toBeGreaterThan(0.3);
+    for (let f = E_END.queueStep; f <= END.move[1]; f++) expect(Math.abs(lampAt(f) - lampAt(f - 1)), `f${f}`).toBeLessThan(0.112);
     expect(TAGS_END).toEqual([]);
     const s = summaryDeskState(6100);
     expect(cardsEnd(s)).toEqual([]);
@@ -73,6 +82,20 @@ describe('beats 12-13: the bookend (end.ts)', () => {
       for (const id of ids) if (!STEP_UP.includes(id)) expect(eff(s, id), `f${f} ${id}`).toBe(eff(before, id));
     }
     expect(E_END.stepUp).toBe(END.move[0]);
+  });
+
+  it('steps the replies queued in the chute down over 14 f, whole on the camera’s landing, with your lamp’s pool (the slip is the read)', () => {
+    const at = (f: number) => summaryDeskState(f);
+    expect(E_END.queueStep + 14).toBe(END.move[1]);
+    // the own set is at 0 on both sides of its hand-over from the bookend's parts to the queue
+    expect(at(E_END.queueStep - 1).step.own!.amount).toBe(0);
+    expect(at(E_END.queueStep).step.own).toEqual({ amount: 0, ids: [QUEUE] });
+    for (let f = E_END.from; f < 6200; f++) {
+      const q = eff(at(f), QUEUE);
+      expect(Math.abs(q - eff(at(f - 1), QUEUE)), `f${f}`).toBeLessThanOrEqual(Math.PI / 28 + 1e-9);
+      if (f <= E_END.queueStep) expect(q, `f${f}`).toBe(0);
+      if (f >= END.move[1]) expect(q, `f${f}`).toBe(1);
+    }
   });
 
   it('turns the spout’s slip vermilion on the held frame, as act one’s f20 request, then posts it over the gate onto the belt on bookend.gate', () => {

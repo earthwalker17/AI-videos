@@ -851,7 +851,7 @@ export const TETHER_W = 16;
  * The Watchdog: a vellum plan of an inspection station outside the system, south of the stuck bay (the fresh bay, W-10),
  * its scope and sightline aimed up at the bay and the pencil flag pinned on it. Placed for FRAMING_D so all of it stays
  * inside the diagram band while a note is up (TREATMENT, Layout: its lowest line about y 864, the notes' first ascender
- * about y 900), west of the state cabinet and east of the request's bay's job rail (with "Worker" set west of its leader:
+ * about y 900), west of the state cabinet and east of the request's bay's job rail ("Worker" is set west of that bay, far from it:
  * film.ts LABELS_D). At FRAMING_B (10.2-10.3, after bar 65's dolly) its static sheet lies in the frame's lower-right corner,
  * partly below the band, about 140 px east of the notes' line ends (N9, N10): never on a word.
  */

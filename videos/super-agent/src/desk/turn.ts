@@ -380,6 +380,14 @@ export const WRAP_FULL = (() => {
   throw new Error('turn: the coil never turns once while Fix A winds on');
 })();
 
+/**
+ * The radius of the turn Fix A's tape is wound onto: while it winds (TURN.wind to WRAP_FULL) the partial wrap stands at
+ * the wrap's own radius (the outer turn's, a tape's thickness proud of the loop's printed turn under it), which lags rOut
+ * (the coil's top ring and the riders stand on it too); once round, rOut. objects/Turn.tsx Coil draws the partial wrap at
+ * it, and attachAt lands the tape's span end on it.
+ */
+export const wrapRadius = (c: { wrap: number; rim: number; rOut: number }): number => (c.wrap > 0 && c.wrap < 2 * Math.PI ? Math.max(c.rim, COIL_R0 + 0.6) : c.rOut);
+
 /** Where Fix A's tape meets the loop or the coil: on the ribbon's centreline facing the mouth, or tangent to the coil's outer turn. */
 function attachAt(lt: LoopTurn): { p: P3; w: P3 } {
   if (lt.ribbon) {
@@ -399,7 +407,9 @@ function attachAt(lt: LoopTurn): { p: P3; w: P3 } {
   const d = norm([A_MOUTH[0] - C.c[0], A_MOUTH[1] - C.c[1], 0]);
   // at the take-over where the ribbon held it (its underside with the loop's, as above), centred on the pack as it coils
   const lift = (A_TAPE_W / 2 - 0.6 - LOOP_A.w / 2) * (1 - C.k);
-  return { p: [C.c[0] + d[0] * C.rOut, C.c[1] + d[1] * C.rOut, C.h + C.t / 2 + lift], w: [0, 0, 1] };
+  // on the turn it is wound onto (wrapRadius: the partial wrap's radius while it winds, rOut once round)
+  const r = wrapRadius(C);
+  return { p: [C.c[0] + d[0] * r, C.c[1] + d[1] * r, C.h + C.t / 2 + lift], w: [0, 0, 1] };
 }
 
 /** An item lying on the tape at path distance d (as beat3.ts places it: its nose toward the folder). */

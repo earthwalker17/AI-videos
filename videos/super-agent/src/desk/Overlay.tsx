@@ -11,10 +11,11 @@ import type { CamPose } from '@aiv/remotion-kit';
 import { AbsoluteFill } from 'remotion';
 import { TEXT_IN, TEXT_OUT, WORDS, cue } from '../cues.ts';
 import { cueReveal, narrationAt } from './onScreen.ts';
-import { GREY_TEXT, Label, NotesBlock, lineWidth, revealState, type RevealState, type TextLook } from '../kit/text.tsx';
+import { AS_TYPED, GREY_TEXT, Label, NotesBlock, lineWidth, revealState, type RevealState, type TextLook } from '../kit/text.tsx';
 import type { FilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
 import { project } from './camera.ts';
+import { DESK_HEX } from './gl/desk.ts';
 import { BAYS, DISPATCH_HOUSING, YOU, rectC, type P3 } from './layout.ts';
 
 /** Text colours of the Register Desk (synthesis §2, Palette): EN and zh. */
@@ -88,6 +89,8 @@ export interface TagSpec {
    * is, and from this film frame its leader retracts into the text over 6 f, so no hairline is dragged by the move.
    */
   leaderUntil?: number;
+  /** with `leaderUntil`: from this film frame the leader draws back out of the text to its foot over 6 f (the cache tag's, once the reading thread's last hop has left its foot and landed) */
+  leaderBack?: number;
   /** a long tag set on more than one line (its words broken where the copy breaks, never re-worded): EN lines, then zh lines */
   lines?: { en: readonly string[]; zh: readonly string[] };
   /** its lines' leading, if tighter than TAG_GAP (the gate tag, so its zh line clears the conversation spool's flange under it) */
@@ -126,6 +129,153 @@ export function tagLeaderReveal(t: Pick<TagSpec, 'cue' | 'from'>, f: number): Re
   return { visible: opacity > 0, wipe, opacity, leader };
 }
 
+/** A soft ground's solid core (px, whole pixels): the feather lies outside it. */
+export interface GroundBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** The feather's profile, from its outer edge (0) to the core (1): smoothstep, so it has no visible edge at either end. */
+const FEATHER_STOPS = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1].map((t) => ({ t, a: t * t * (3 - 2 * t) }));
+
+/**
+ * A soft ground in one flat colour, drawn with no filter: the union of `boxes`, each a solid core feathered `feather` px
+ * outward on FEATHER_STOPS (its four sides linear gradients, its four corners radial ones, all on whole pixels, so the
+ * nine pieces meet without a seam), is the mask a full-frame rect of `color` at `alpha` is drawn through. `edge` (a
+ * left-to-right reveal, px): the ground is whole west of it and fades out over `edgeFeather` px east of it, so it leads
+ * a wipe that reveals to the same x; absent, it is whole.
+ */
+export function SoftGround({ id, boxes, feather, color, alpha, edge, edgeFeather = feather }: { id: string; boxes: readonly GroundBox[]; feather: number; color: string; alpha: number; edge?: number; edgeFeather?: number }) {
+  const F = Math.round(feather);
+  const radial = (cx: number, cy: number, key: string) => (
+    <radialGradient id={`${id}-${key}`} cx={cx} cy={cy} r={1} fx={cx} fy={cy}>
+      {FEATHER_STOPS.map(({ t }) => (
+        <stop key={t} offset={t} stopColor="#fff" stopOpacity={(1 - t) * (1 - t) * (3 - 2 * (1 - t))} />
+      ))}
+    </radialGradient>
+  );
+  const lin = (key: string, x1: number, y1: number, x2: number, y2: number) => (
+    <linearGradient id={`${id}-${key}`} x1={x1} y1={y1} x2={x2} y2={y2}>
+      {FEATHER_STOPS.map(({ t, a }) => (
+        <stop key={t} offset={t} stopColor="#fff" stopOpacity={a} />
+      ))}
+    </linearGradient>
+  );
+  return (
+    <svg width={1920} height={1080} style={{ position: 'absolute', left: 0, top: 0 }}>
+      <defs>
+        {lin('l', 0, 0, 1, 0)}
+        {lin('r', 1, 0, 0, 0)}
+        {lin('t', 0, 0, 0, 1)}
+        {lin('b', 0, 1, 0, 0)}
+        {radial(1, 1, 'tl')}
+        {radial(0, 1, 'tr')}
+        {radial(1, 0, 'bl')}
+        {radial(0, 0, 'br')}
+        <mask id={`${id}-shape`} maskUnits="userSpaceOnUse" x={0} y={0} width={1920} height={1080}>
+          {boxes.map((b, i) => {
+            const [x0, y0, x1, y1] = [Math.round(b.x0), Math.round(b.y0), Math.round(b.x1), Math.round(b.y1)];
+            const w = x1 - x0;
+            const h = y1 - y0;
+            return (
+              <g key={i}>
+                <rect x={x0} y={y0} width={w} height={h} fill="#fff" />
+                <rect x={x0 - F} y={y0} width={F} height={h} fill={`url(#${id}-l)`} />
+                <rect x={x1} y={y0} width={F} height={h} fill={`url(#${id}-r)`} />
+                <rect x={x0} y={y0 - F} width={w} height={F} fill={`url(#${id}-t)`} />
+                <rect x={x0} y={y1} width={w} height={F} fill={`url(#${id}-b)`} />
+                <rect x={x0 - F} y={y0 - F} width={F} height={F} fill={`url(#${id}-tl)`} />
+                <rect x={x1} y={y0 - F} width={F} height={F} fill={`url(#${id}-tr)`} />
+                <rect x={x0 - F} y={y1} width={F} height={F} fill={`url(#${id}-bl)`} />
+                <rect x={x1} y={y1} width={F} height={F} fill={`url(#${id}-br)`} />
+              </g>
+            );
+          })}
+        </mask>
+        {edge !== undefined && (
+          <>
+            <linearGradient id={`${id}-edge`} gradientUnits="userSpaceOnUse" x1={edge + edgeFeather} y1={0} x2={edge} y2={0}>
+              {FEATHER_STOPS.map(({ t, a }) => (
+                <stop key={t} offset={t} stopColor="#fff" stopOpacity={a} />
+              ))}
+            </linearGradient>
+            <mask id={`${id}-wipe`} maskUnits="userSpaceOnUse" x={0} y={0} width={1920} height={1080}>
+              <rect x={0} y={0} width={1920} height={1080} fill={`url(#${id}-edge)`} />
+            </mask>
+          </>
+        )}
+      </defs>
+      <g mask={edge !== undefined ? `url(#${id}-wipe)` : undefined}>
+        <rect x={0} y={0} width={1920} height={1080} fill={color} opacity={alpha} mask={`url(#${id}-shape)`} />
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * Notes that cross the world (opt-in by cue id; every other line is drawn on the bare slate as before): a halo in the
+ * desk's slate tone that hugs the lines' own ink (the glyphs dilated `dilate` px, with round joins, then feathered by a
+ * gaussian of `blur` px), at `alpha`, under the lines; it wipes in just ahead of the line's own wipe and fades with it.
+ * It is the type's ground, shaped like the type: no box, so it never puts a corner or a band on a world part beside
+ * the words. C28: the bookend's framing is the hook's (the end card and key are sized at it), so its line runs over
+ * your lamp's arm and the in-tray's #0405 slip and its "≤ 100" tab; the halo gives every glyph a slate to read on
+ * there (at least 4.5:1, EN and zh), where a camera move or a moved world would break the rhyme.
+ */
+export const NOTES_GROUND: Readonly<Partial<Record<string, { dilate: number; blur: number; alpha: number }>>> = {
+  c28: { dilate: 10, blur: 6, alpha: 0.85 },
+};
+/** How far a notes halo reaches past the ink, px: the dilation and three of the feather's standard deviations. */
+export const notesHaloReach = (g: { dilate: number; blur: number }) => g.dilate + 3 * g.blur;
+
+/** The halo under a notes line opted in by its cue id (NOTES_GROUND), on the line's own reveal; null for every other line. */
+function NotesGround({ id, f, en, zh, look }: { id: string; f: number; en: string; zh: string; look: { en: TextLook; zh: TextLook } }) {
+  const g = NOTES_GROUND[id];
+  if (!g) return null;
+  const s = revealState(f, cue(id), TEXT_IN, TEXT_OUT);
+  if (!s.visible) return null;
+  const W = Math.max(lineWidth(en, look.en), lineWidth(zh, look.zh));
+  const R = notesHaloReach(g);
+  // the notes block reveals both lines to one edge, NOTES.x + W x its wipe (kit/text.tsx NotesBlock); the halo is whole
+  // to an edge that leads it by R x the wipe and fades over R past it, so when the wipe ends (edge at the halo's own
+  // reach) the mask already covers all of it and is dropped with no change
+  const edge = s.wipe >= 1 ? undefined : NOTES.x + (W + R) * s.wipe;
+  const hid = `halo-${id}`;
+  const line = (text: string, baseline: number, l: TextLook) => (
+    <text x={NOTES.x} y={baseline} fontFamily={l.family} fontWeight={l.weight} fontSize={l.size} fill={DESK_HEX.base} stroke={DESK_HEX.base} strokeWidth={2 * g.dilate} strokeLinejoin="round" style={{ ...AS_TYPED, fontVariantNumeric: l.numeric }}>
+      {text}
+    </text>
+  );
+  return (
+    <svg width={1920} height={1080} style={{ position: 'absolute', left: 0, top: 0, opacity: s.opacity }}>
+      <defs>
+        <filter id={`${hid}-blur`} filterUnits="userSpaceOnUse" x={0} y={0} width={1920} height={1080} colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation={g.blur} />
+        </filter>
+        {edge !== undefined && (
+          <>
+            <linearGradient id={`${hid}-edge`} gradientUnits="userSpaceOnUse" x1={edge + R} y1={0} x2={edge} y2={0}>
+              {FEATHER_STOPS.map(({ t, a }) => (
+                <stop key={t} offset={t} stopColor="#fff" stopOpacity={a} />
+              ))}
+            </linearGradient>
+            <mask id={`${hid}-wipe`} maskUnits="userSpaceOnUse" x={0} y={0} width={1920} height={1080}>
+              <rect x={0} y={0} width={1920} height={1080} fill={`url(#${hid}-edge)`} />
+            </mask>
+          </>
+        )}
+      </defs>
+      <g mask={edge !== undefined ? `url(#${hid}-wipe)` : undefined}>
+        <g filter={`url(#${hid}-blur)`} opacity={g.alpha}>
+          {line(en, NOTES.enBaseline, look.en)}
+          {line(zh, NOTES.zhBaseline, look.zh)}
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 /** `labels`: the role labels in view (act one has only yours); `tags`: the tags shown on their cues. */
 export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = [] }: { f: number; pose: CamPose; fonts: FilmFonts; ready: boolean; labels?: readonly RoleLabel[]; tags?: readonly TagSpec[] }) {
   if (!ready) return null;
@@ -133,6 +283,11 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
   const size = TYPE.label.size;
   return (
     <AbsoluteFill>
+      {/* the notes' grounds (opt-in, NOTES_GROUND) under every DOM line */}
+      {narrationAt(f).map((id) => {
+        const w = WORDS[id] as { en: string; 'zh-Hans': string };
+        return <NotesGround key={`ground-${id}`} id={id} f={f} en={w.en} zh={w['zh-Hans']} look={look} />;
+      })}
       <svg width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         {labels.map((l) => {
           const foot = project(pose, l.foot);
@@ -201,9 +356,9 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         const floor = under.length ? Math.max(...under) + 20 : bottom;
         const ly = over ? (foot[1] > t.at[1] ? floor : top) : en.length + zh.length > 2 ? Math.min(Math.max(foot[1], top + 12), bottom - 12) : t.at[1] + gap / 2 - 12;
         // the leader grows out of its foot with the wipe (or, opted in, before it: TagSpec.reveal); under a camera move it
-        // retracts into the text (leaderUntil)
+        // retracts into the text (leaderUntil), and may draw back out to its foot later (leaderBack)
         const grow = lr ? lr.leader : Math.min(1, r.wipe * 1.6);
-        const keep = t.leaderUntil === undefined ? 1 : 1 - Math.min(1, Math.max(0, (f - t.leaderUntil) / 6));
+        const keep = t.leaderUntil === undefined ? 1 : 1 - Math.min(1, Math.max(0, (f - t.leaderUntil) / 6)) + (t.leaderBack === undefined ? 0 : Math.min(1, Math.max(0, (f - t.leaderBack) / 6)));
         const from: readonly [number, number] = keep < 1 ? [lx + (foot[0] - lx) * keep, ly + (foot[1] - ly) * keep] : foot;
         return (
           <svg key={id} width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity }}>
@@ -213,7 +368,8 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
               </clipPath>
             </defs>
             {keep > 0 && <line x1={from[0]} y1={from[1]} x2={foot[0] + (lx - foot[0]) * grow} y2={foot[1] + (ly - foot[1]) * grow} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />}
-            {keep >= 1 && <circle cx={foot[0]} cy={foot[1]} r={lr ? 4 * Math.min(1, 3 * lr.leader) : 4} fill={TEXT_HEX.en} />}
+            {/* the foot's dot rides the retracting leader's end, shrinking with it (never gone in one frame) */}
+            {keep > 0 && <circle cx={from[0]} cy={from[1]} r={(lr ? 4 * Math.min(1, 3 * lr.leader) : 4) * keep} fill={TEXT_HEX.en} />}
             <g clipPath={`url(#wipe-${id})`}>
               {en.map((x, i) => (
                 <Label key={`en${i}`} x={t.at[0]} y={enY[i]} text={x} family={fonts.sans} size={tsize} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={t.anchor} />

@@ -25,6 +25,7 @@ import { HEX, enamel, graphite, matte, vellum } from '../gl/materials.ts';
 import { PRODUCTIVE_FACE, SANS_CSS } from '../gl/print7.ts';
 import { plateTexture } from '../gl/plate.ts';
 import { INK, texture } from '../gl/text.ts';
+import { QUEUE } from '../end.ts';
 import { Step, WithMats, isStepped, useDeskMats, useStepMode, type DeskMats } from '../kit.tsx';
 import { SLIP, TRAIT_PLATE, rectC, type P2, type Rect } from '../layout.ts';
 import { cueReveal } from '../onScreen.ts';
@@ -50,11 +51,14 @@ export function Beat11({ s }: { s: DeskState }) {
       {collar && <Collar s={s} c={collar} />}
       {e.key && <KeyLegend dy={e.key.dy} />}
       {e.card && <ActOneCard card={e.card} />}
-      {s.replies
-        .filter((r) => r.id.startsWith('b11-next'))
-        .map((r) => (
-          <NextReply key={r.id} r={r} />
-        ))}
+      {/* the queued replies step down as the camera lands on the bookend (end.ts QUEUE): on no set before it */}
+      <Step on={isStepped(s.step, QUEUE)}>
+        {s.replies
+          .filter((r) => r.id.startsWith('b11-next'))
+          .map((r) => (
+            <NextReply key={r.id} r={r} />
+          ))}
+      </Step>
     </>
   );
 }
@@ -262,6 +266,16 @@ function Collar({ s, c }: { s: DeskState; c: CollarPose }) {
 /** A sample's size on the plate (u): about 40 x 26 px at 0.64x (the vellum swatch a little larger, for its dashed edge). */
 const SAMPLE = { w: 62, d: 40 } as const;
 const SWATCH = { w: 76, d: 50 } as const;
+/** How far under the board's top the key plate's rim stands (u). */
+const KEY_RIM_UNDER = 0.3;
+/**
+ * The rim's rounded top edge (u, nearly its 1.5 u standing past the board): the strip that shows round the board is the
+ * curve, so it takes the key from the north-west and turns from it on the south and east (a lit bevel, not a uniform
+ * outline: wave 4's critic P2-d), its shaded sides still over the floor tone.
+ */
+const KEY_RIM_BEVEL = 1.4;
+/** The rim's paint: a matte warm grey (no room reflection), so its rounded edge reads the key's direction: lit north and west, its south and east sides turned from it at about luma 60-70, over the floor tone. */
+const KEY_RIM_HEX = '#6E6A61';
 
 /**
  * The samples are the world's own materials, drawn as objects/Proposed.tsx draws them on the desk (its constants): vellum a
@@ -286,20 +300,23 @@ function hash01(i: number, seed: number): number {
   return (h >>> 0) / 4294967296;
 }
 type G = CanvasRenderingContext2D;
-/** Pencil grain: seeded specks of the lead lifted off what is drawn (the paper's tooth showing through). */
-function grain(g: G, w: number, h: number, seed: number): void {
+/** Pencil grain: seeded specks of the lead lifted off what is drawn (the paper's tooth showing through), `density` per u². */
+function grain(g: G, w: number, h: number, seed: number, density = 0.09): void {
   g.save();
   g.setLineDash([]);
   g.globalCompositeOperation = 'destination-out';
-  const n = Math.round(w * h * 0.09);
+  const n = Math.round(w * h * density);
   for (let i = 0; i < n; i++) {
     g.fillStyle = `rgba(0,0,0,${(0.3 + 0.55 * hash01(i, seed + 1)).toFixed(2)})`;
     g.fillRect(hash01(i, seed) * w, hash01(i + 7919, seed) * h, 2.4, 2.4);
   }
   g.restore();
 }
-/** A pencil line through points: two slightly offset passes, round caps (graphite at 80% over the desk). */
-function lead(g: G, pts: readonly P2[], width: number): void {
+/**
+ * A pencil line through points: two slightly offset passes, round caps (graphite at `alpha` over the desk: 80% by
+ * default, as objects/Proposed.tsx's; its second pass at half that).
+ */
+function lead(g: G, pts: readonly P2[], width: number, alpha = 0.8): void {
   g.setLineDash([]);
   g.lineCap = 'round';
   g.lineJoin = 'round';
@@ -307,14 +324,20 @@ function lead(g: G, pts: readonly P2[], width: number): void {
     [0, 0, 1],
     [0.9, -0.6, 0.55],
   ] as const) {
-    g.strokeStyle = k === 1 ? rgba(PENCIL, 0.8) : rgba(PENCIL, 0.4);
+    g.strokeStyle = k === 1 ? rgba(PENCIL, alpha) : rgba(PENCIL, alpha / 2);
     g.lineWidth = width * (k === 1 ? 1 : 0.7);
     g.beginPath();
     pts.forEach(([x, y], i) => (i === 0 ? g.moveTo(x + dx, y + dy) : g.lineTo(x + dx, y + dy)));
     g.stroke();
   }
 }
-/** The pencil "?" (objects/Proposed.tsx's hook and point at size `q`, grained). */
+/**
+ * The pencil "?" (objects/Proposed.tsx's hook and point at size `q`, grained). The world's "?" marks are drawn at 100 u
+ * and more, so at its 0.052 of the size their lead is 5 u and more; the sample is 62 u, so it is drawn with the world's
+ * lead width (the stroke the eye knows as pencil), not its proportion, at 95% and with a lighter grain: at 0.052 it read
+ * as a faint hairline beside the block and the swatch (critic E P2-7, wave 4).
+ */
+const KEY_QUERY = { lead: 0.095, dot: 0.15, alpha: 0.95, grain: 0.05 } as const;
 function pencilQuery(g: G, q: number, seed: number): void {
   const hook: P2[] = [];
   for (let i = 0; i <= 24; i++) {
@@ -322,16 +345,17 @@ function pencilQuery(g: G, q: number, seed: number): void {
     const a = Math.PI * (1.05 + 1.25 * Math.min(1, t / 0.7));
     hook.push(t <= 0.7 ? [q * 0.5 + Math.cos(a) * q * 0.21, q * 0.3 + Math.sin(a) * q * 0.21] : [q * 0.5, q * 0.47 + (t - 0.7) * q * 0.55]);
   }
-  lead(g, hook, q * 0.052);
+  lead(g, hook, q * KEY_QUERY.lead, KEY_QUERY.alpha);
   lead(
     g,
     [
       [q * 0.5, q * 0.83],
       [q * 0.51, q * 0.86],
     ],
-    q * 0.085,
+    q * KEY_QUERY.dot,
+    KEY_QUERY.alpha,
   );
-  grain(g, q, q, seed);
+  grain(g, q, q, seed, KEY_QUERY.grain);
 }
 
 function useKeyParts() {
@@ -346,9 +370,11 @@ function useKeyParts() {
     const at = (p: readonly number[], r: Rect): Rect => ({ x0: p[0]! + r.x0, x1: p[0]! + r.x1, y0: p[1]! + r.y0, y1: p[1]! + r.y1 });
     const Q = SAMPLE.d + 22;
     return {
-      // a low legend board of your desk's own dark graphite, an enamel rim along its edge
+      // a low legend board of your desk's own dark graphite, a painted rim along its edge, standing almost to the board's top
+      // so the board's own south and east sides (graphite turned from the light: under luma 25) never show; the rim's
+      // rounded edge reads there instead (wave 4: the floor tone, luma 40, is the darkest a part may read)
       plate: slab(B, 0, top, 5, 1.6),
-      rim: slab(inset(B, -1.5), 0, 1.2, 6, 0.6),
+      rim: slab(inset(B, -1.5), 0, top - KEY_RIM_UNDER, 6, KEY_RIM_BEVEL),
       // built: an enamel block standing on the plate
       block: slab(at(s0, half), top, top + 7, 3, 1.4),
       // proposed: a vellum swatch laid flat, its dashed edge
@@ -381,7 +407,7 @@ function useKeyParts() {
     return { swatch, query };
   }, [gl]);
   // your desk's own top for the board (objects/YourDesk.tsx's slab graphite), so the samples sit on the desk's value
-  const mats = useMemo(() => ({ swatch: vellum(tex.swatch), query: vellum(tex.query), board: graphite('#2C2F2E', { roughness: 0.62, metalness: 0.35, brush: 0.07 }) }), [tex]);
+  const mats = useMemo(() => ({ swatch: vellum(tex.swatch), query: vellum(tex.query), board: graphite('#2C2F2E', { roughness: 0.62, metalness: 0.35, brush: 0.07 }), rim: matte(KEY_RIM_HEX, 0.55) }), [tex]);
   useLayoutEffect(
     () => () => {
       for (const t of Object.values(tex)) t.dispose();
@@ -398,7 +424,7 @@ export function KeyLegend({ dy }: { dy: number }) {
   const m = useDeskMats();
   return (
     <group position={[0, dy, 0]}>
-      <mesh geometry={geo.rim} material={m.enamelShade} />
+      <mesh geometry={geo.rim} material={mats.rim} />
       <mesh geometry={geo.plate} material={mats.board as MeshStandardMaterial} />
       <mesh geometry={geo.block} material={m.enamel} />
       <mesh geometry={geo.swatch} material={mats.swatch} renderOrder={3} />

@@ -491,7 +491,11 @@ export interface PlatePose {
   squash: number;
   /** above its seat (no contact shadow while it flies) */
   flying: boolean;
+  /** its contact shadow's strength where it differs from the seat's (footprints.ts: 0.6 seated, 0 flying): fading with its lift off the hooks */
+  contact?: number;
 }
+/** The seated plate's contact shadow, faded with its lift off the hooks over this many frames from the exit's first (A10). */
+export const PLATE_CONTACT = { seated: 0.6, fade: E6.plateUnhook + 2 } as const;
 
 /** The stress plate at f: null before it enters, then its flight, its press onto the rail on plate-detent, seated; its lift off the hooks and flight back out on plateExit; null once it is gone. */
 export function plateAt(f: number): PlatePose | null {
@@ -505,9 +509,11 @@ export function plateAt(f: number): PlatePose | null {
     // the exit (on the downbeat, its first frame already off the hooks): up off them to its hover over the seat, then
     // back the way it came, its flight in reverse (tilting and turning as it climbs away east), gathering speed
     const x = f - E6.plateExit + 1;
-    if (x <= E6.plateUnhook) return { d: [0, 0, HOVER * sine(x / E6.plateUnhook)], tilt: 0, turn: 0, squash: 0, flying: true };
+    // its contact shadow fades as it lifts (never cut on the exit's first frame: A10)
+    const contact = x < PLATE_CONTACT.fade ? { contact: PLATE_CONTACT.seated * (1 - sine(x / PLATE_CONTACT.fade)) } : {};
+    if (x <= E6.plateUnhook) return { d: [0, 0, HOVER * sine(x / E6.plateUnhook)], tilt: 0, turn: 0, squash: 0, flying: true, ...contact };
     const u = sine((x - E6.plateUnhook) / (E6.plateOut - E6.plateUnhook));
-    return { d: [from[0] * u, from[1] * u, HOVER + (from[2] - HOVER) * u + 30 * Math.sin(Math.PI * u) * u], tilt: 0.35 * u, turn: 0.22 * u, squash: 0, flying: true };
+    return { d: [from[0] * u, from[1] * u, HOVER + (from[2] - HOVER) * u + 30 * Math.sin(Math.PI * u) * u], tilt: 0.35 * u, turn: 0.22 * u, squash: 0, flying: true, ...contact };
   }
   if (f >= at) return { d: [0, 0, 0], tilt: 0, turn: 0, squash: 0.03 * Math.max(0, 1 - (f - at) / 4), flying: false };
   const pressFrom = at - E6.platePress;

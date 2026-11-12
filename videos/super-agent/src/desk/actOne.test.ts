@@ -3,7 +3,7 @@ import { ROUND2 } from '../lookdev/frames.ts';
 import { FOLDER_PRINT, LOOP_NOTES } from '../print.ts';
 import { TEXT_OUT, WORDS, cue } from '../cues.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
-import { CREDIT_INK, CREDIT_KO, TITLE_CARD, actOneFrameFootprints, creditBox } from './ActOneFrame.tsx';
+import { CREDIT_KO, CREDIT_TOP, TITLE_CARD, actOneFrameFootprints, creditBox } from './ActOneFrame.tsx';
 import {
   ACT_ONE_END,
   ARRIVE,
@@ -449,10 +449,12 @@ describe('the title card (1.2)', () => {
     expect(CARD_T).toBeGreaterThanOrEqual(4);
   });
   it('knocks the credit out of the tape as one box per line, the two boxes overlapping (no tape between the lines), inside title-safe', () => {
-    const en = creditBox(NOTES.x, NOTES.enBaseline, 1200, TYPE.notesEn.size);
+    const en = creditBox(NOTES.x, NOTES.enBaseline, 1200, TYPE.notesEn.size, CREDIT_TOP.up * TYPE.notesEn.size + CREDIT_TOP.pad);
     const zh = creditBox(NOTES.x, NOTES.zhBaseline, 1000, TYPE.notesZh.size);
     expect(en.y + en.h).toBeGreaterThan(zh.y);
-    expect(en.y).toBeLessThan(NOTES.enBaseline - CREDIT_INK.up * TYPE.notesEn.size);
+    // the EN box's top just over its tallest ink (the ascenders at about 0.75 em), at most 4 px over it (critic P2-b)
+    expect(en.y).toBeLessThan(NOTES.enBaseline - 0.78 * TYPE.notesEn.size);
+    expect(en.y).toBeGreaterThanOrEqual(NOTES.enBaseline - 0.8 * TYPE.notesEn.size - 4);
     expect(zh.y + zh.h).toBeLessThanOrEqual(1080 - 54);
     expect(en.x).toBe(NOTES.x - CREDIT_KO);
     expect(en.x).toBeGreaterThan(NOTES.tick.x + NOTES.tick.width);

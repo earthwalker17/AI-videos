@@ -27,8 +27,9 @@ import { slab } from '../geom.ts';
 import { HEX, paper } from '../gl/materials.ts';
 import { isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
 import { CACHE_WINDOW, CARD_C, CELLS_X, DRAWER, DRAWER_OPEN_C, FILED_TABS, MOUTH, PRINT_HEAD, TAB_C, TAPE, WINDOW, rectC, type P3 } from '../layout.ts';
-import { HEAD_DIP, TAB_LEAN_B, TAB_LEAN_C, TAB_REST_B, TAB_REST_C, TAB_TURN_C, headDipAt, type CacheState, type DeskState } from '../state.ts';
+import { EVENTS_C, HEAD_DIP, TAB_LEAN_B, TAB_LEAN_C, TAB_REST_B, TAB_REST_C, TAB_TURN_C, headDipAt, type CacheState, type DeskState } from '../state.ts';
 import { CardHalves } from './Handshake.tsx';
+import { sine } from '../proposed.ts';
 
 const Z_CARD = TAPE.z + 0.35;
 const TAPE_Y = (TAPE.y0 + TAPE.y1) / 2;
@@ -37,6 +38,11 @@ const TAPE_H = TAPE.y1 - TAPE.y0;
 const STUB_HEX = { idle: HEX.paper, dim: '#8E897F' } as const;
 /** #0408's tab filed under the older tabs: its paper in their shade (gl/materials.ts paperShade's value, a step under it). */
 const TAB_BURIED = '#6E6A61';
+/** #0408's ID ink buried as it is filed: lifted to this share of the buried paper's tone (emissive, linear), over the first TAB_INK_SPAN of its lying back. */
+const TAB_INK_BURY = 0.36;
+const TAB_INK_SPAN = 0.6;
+/** The bury's let-down under cover (4 f from here): the request's tab landed on #0408 at tabDrop + tabFrames (f3136) and its spring-dock has settled. */
+export const TAB_INK_OFF = EVENTS_C.tabDrop + EVENTS_C.tabFrames + 8;
 /**
  * The feed slot in the print head's south face: the header strip, turned so its long side runs north,
  * slides in flat through it (the head is deeper than the strip is wide, and wider than it is deep).
@@ -266,7 +272,7 @@ export function FiledTabs({ file = 0 }: { file?: number }) {
 
 
 /** The test report's tab #0408 in the drawer from the close on (objects/Handshake.tsx ReportCard drew it until then, the same body in the same pose). */
-function TestTab({ c }: { c: CacheState }) {
+function TestTab({ c, f }: { c: CacheState; f: number }) {
   const m = useDeskMats();
   const { textures } = useDeskSets();
   const back = useMemo(() => {
@@ -276,6 +282,7 @@ function TestTab({ c }: { c: CacheState }) {
     m.polygonOffset = true;
     m.polygonOffsetFactor = -1;
     m.polygonOffsetUnits = -2;
+    m.emissiveMap = textures.reportTabInk;
     return m;
   }, [textures]);
   // the north half's face under it shows only through the south half's punched holes (the punch row, the transit
@@ -286,12 +293,19 @@ function TestTab({ c }: { c: CacheState }) {
     t.repeat.set(1, 2);
     t.offset.set(0, -1);
     t.needsUpdate = true;
-    return paper(t, HEX.paperLit);
+    const ink = textures.reportTabInk.clone();
+    ink.repeat.set(1, 2);
+    ink.offset.set(0, -1);
+    ink.needsUpdate = true;
+    const m = paper(t, HEX.paperLit);
+    m.emissiveMap = ink;
+    return m;
   }, [textures]);
   useLayoutEffect(
     () => () => {
       back.dispose();
       front.map?.dispose();
+      front.emissiveMap?.dispose();
       front.dispose();
     },
     [back, front],
@@ -301,11 +315,19 @@ function TestTab({ c }: { c: CacheState }) {
   const lit = useMemo(() => new Color(HEX.paperLit), []);
   const dim = useMemo(() => new Color(STUB_HEX.idle), []);
   const buried = useMemo(() => new Color(TAB_BURIED), []);
+  // its ID's ink is buried with it (A1): lying back under the older tabs it would read through them and below them as
+  // glyph fragments ("#U408", and an "8" beside the request's tab as it lands); the ink alone (reportTabInk) is lifted to
+  // the buried paper's tone in their shade as it lies back, ahead of the tabs' cover (its paper untouched: the ink mask is
+  // 0 on it), and let down again under cover once the request's tab lies settled on it (TAB_INK_OFF), so still (c) is as it was
+  const inkTone = useMemo(() => new Color(TAB_BURIED).multiplyScalar(TAB_INK_BURY), []);
+  const k = sine(c.file / TAB_INK_SPAN) * (1 - sine((f - TAB_INK_OFF) / 4));
   useLayoutEffect(() => {
     // (written every frame from the frame's values)
     back.color.copy(lit).lerp(dim, c.dim).lerp(buried, c.file);
     front.color.copy(back.color);
-  }, [back, front, lit, dim, buried, c.dim, c.file]);
+    back.emissive.copy(inkTone).multiplyScalar(k);
+    front.emissive.copy(back.emissive);
+  }, [back, front, lit, dim, buried, inkTone, c.dim, c.file, k]);
   const faces = { body: m.paperLit, front, back, transit: m.transit };
   const pos: P3 = [TAB_REST_B[0] + TAB_FILE.dx * c.file, TAB_REST_B[1] - DRAWER_OPEN_C * c.drawer + TAB_FILE.dy * c.file, TAB_REST_B[2] + TAB_FILE.dz * c.file];
   return (
@@ -370,7 +392,7 @@ export function Cache({ s }: { s: DeskState }) {
       {[0, 1, 2, 3].map((i) => (
         <mesh key={i} geometry={g.bar} material={m.enamelShade} position={[barAt(i, c.shrink[i], c.summary), 0, 0]} />
       ))}
-      {!c.summary && <TestTab c={c} />}
+      {!c.summary && <TestTab c={c} f={s.f} />}
       {/* the slot in the print head's south face: the header strip feeds through it, the decode slip and the answer come out of it */}
       {slotOpen > 0 && <mesh geometry={g.slot} material={m.graphiteDark} position={[SLOT.x, SLOT.y, SLOT.z + dip]} scale={[1, 1, SLOT.h * slotOpen]} />}
       {/* its lips come out of the face as the shutter opens (flush, inside the head, before) */}

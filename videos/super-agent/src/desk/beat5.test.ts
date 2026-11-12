@@ -503,3 +503,27 @@ describe('beat 5: the gate tag', () => {
   });
 });
 
+describe('the spike pile’s landing slip and its own footprint (A9)', () => {
+  it('keeps a landing slip’s top over its own footprint’s while it squashes, exactly as before once still', () => {
+    let squashed = 0;
+    for (let f = 2400; f < 2700; f++) {
+      const s = deskStateAt(f);
+      const pile = (s.e5?.slips ?? []).filter((x) => x.onPile);
+      if (!pile.length) continue;
+      const fps = footprintsAt(s);
+      for (const x of pile.slice(-4)) {
+        const fp = fps.find((q) => q.kind === 'rect' && q.c[0] === x.p[0] && q.c[1] === x.p[1] && Math.abs(q.z0 - (x.p[2] - 0.4)) < 1e-9);
+        expect(fp, `f${f} slip ${x.i}`).toBeTruthy();
+        if (fp?.kind !== 'rect') continue;
+        // its top face: the slip's centre plus its half thickness squashed 3% (objects/Filter.tsx SlipAt)
+        const top = x.p[2] + 0.4 * (1 - 0.03 * x.squash);
+        if (x.squash > 0) {
+          squashed++;
+          expect(top - fp.z1, `f${f} slip ${x.i}`).toBeGreaterThan(0.05);
+        } else expect(fp.z1, `f${f} slip ${x.i}`).toBe(x.p[2] + 0.4);
+      }
+    }
+    expect(squashed).toBeGreaterThan(8);
+  });
+});
+

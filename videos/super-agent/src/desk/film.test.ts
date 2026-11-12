@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { BEAT_10, BEAT_11, BEAT_4, FILM_FRAMES, WORDS, at } from '../cues.ts';
+import { BEAT_10, BEAT_11, BEAT_4, FILM_FRAMES, WORDS, at, cue } from '../cues.ts';
 import { ROUND2 } from '../lookdev/frames.ts';
 import { E5 } from './beat5.ts';
 import { E6 } from './beat6.ts';
 import { EASE_OUT_D, TO_BOOKEND, TO_REGISTER, TO_SHEET, TO_VELLUM } from './camera.ts';
-import { ACT2_TAGS, LABELS_7, LABELS_10, LABELS_AFTER_CARDS, LABELS_D, PART1_TO, PART2_BEATS, SEAM_D, SEGMENTS, SUMMARY_BUILT_TO, SUMMARY_TAGS, TAG_BUILT_LINES, act2LabelsAt, builtAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
+import { ACT2_TAGS, CACHE_LEADER_BACK, CACHE_LEADER_UNTIL, LABELS_7, LABELS_10, LABELS_AFTER_CARDS, LABELS_D, PART1_TO, PART2_BEATS, SEAM_D, SEGMENTS, SUMMARY_BUILT_TO, SUMMARY_TAGS, TAG_BUILT_LINES, act2LabelsAt, builtAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
 import { keepTeaching } from './marks.ts';
 import { ROLE_LABELS, TAG_GAP } from './Overlay.tsx';
 import { TURN_SPAN } from './turn.ts';
@@ -127,5 +127,19 @@ describe('part 2’s frame plumbing (wave 0, session 5)', () => {
   it('places part 2’s tags from the beat modules, each with an id of its own', () => {
     const ids = [...ACT2_TAGS, ...SUMMARY_TAGS].map((t) => t.id ?? t.cue);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('the cache tag and the reading thread (A17)', () => {
+  it('retracts the tag’s leader before the thread’s last hop leaves its foot, long after still (c)', async () => {
+    const { E6 } = await import('./beat6.ts');
+    const tag = ACT2_TAGS.find((t) => t.cue === 'tag-cache')!;
+    expect(tag.leaderUntil).toBe(CACHE_LEADER_UNTIL);
+    expect(CACHE_LEADER_UNTIL + 6).toBeLessThanOrEqual(E6.hops[2]! - E6.hopFrames);
+    expect(CACHE_LEADER_UNTIL).toBeGreaterThan(3150 + 100);
+    // it draws back out once the hop has landed, whole well before the tag's fade
+    expect(tag.leaderBack).toBe(CACHE_LEADER_BACK);
+    expect(CACHE_LEADER_BACK).toBeGreaterThan(E6.hops[2]!);
+    expect(CACHE_LEADER_BACK + 6).toBeLessThan(cue('tag-cache').end! - 6);
   });
 });

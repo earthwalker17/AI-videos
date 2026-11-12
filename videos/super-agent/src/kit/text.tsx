@@ -88,7 +88,7 @@ export const ZH_BREAKS: CSSProperties = { wordBreak: 'keep-all', lineBreak: 'str
 export const GREY_TEXT: CSSProperties = { willChange: 'transform' };
 
 /** SVG and measured text keep their spaces as typed, with no automatic Han-Latin spacing. */
-const AS_TYPED: CSSProperties = { whiteSpace: 'pre', textAutospace: 'no-autospace' };
+export const AS_TYPED: CSSProperties = { whiteSpace: 'pre', textAutospace: 'no-autospace' };
 type MeasureStyles = Parameters<typeof measureText>[0]['additionalStyles'];
 /**
  * measureText's styles. The numeric variant goes in here, not in its own option: measureText

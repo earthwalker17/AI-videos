@@ -15,7 +15,7 @@
  * so their timing can be judged against the score.
  */
 import { clamp } from '@aiv/core';
-import { BEAT_4, BEAT_10, BEAT_11, END, FILM_FRAMES, WORDS, at } from '../cues.ts';
+import { BEAT_4, BEAT_6, BEAT_10, BEAT_11, END, FILM_FRAMES, WORDS, at } from '../cues.ts';
 import { ACT_ONE_END } from './actOne.ts';
 import { BUILT as BUILT_7, TAGS_7 } from './beat7.ts';
 import { BUILT as BUILT_8, TAGS_8 } from './beat8.ts';
@@ -31,6 +31,7 @@ import { ROLE_LABELS, TAG_GAP, type RoleLabel, type TagSpec } from './Overlay.ts
 import { SAFE } from '../look/tokens.ts';
 import { SEAM_D, summaryLabelAt } from './summary.ts';
 import { TURN_SPAN } from './turn.ts';
+import { E6 } from './beat6.ts';
 
 export type SegmentKind = 'actOne' | 'turn' | 'act2' | 'summary' | 'end';
 
@@ -97,15 +98,16 @@ function entering(f: number, from: number): Partial<RoleLabel> | null {
 /**
  * Still (d)'s labels. "Router" names the whole machine from the deck's west rail and sits west of it, in the clear
  * band under the Thread cord (its leader never crosses the cord); "Worker" names the request's bay, where the route
- * ends, its foot on the bay's south wall at its east end, clear of W-07's nameplate, its leader down past the job rail's
- * east end and the label low under the rail, west of the leader (the Watchdog's station stands east of it, summary.ts
- * WATCHDOG; in beats 9-10 act two's worded Productive plate lies west of the rail, so the label sits a row below it, never
- * read as one line with it); "you" as in the film.
+ * ends, from the bay's west wall (its foot on the wall's top, south of the bay's middle): a short leader down and west to
+ * the label (the foot level with the dossier's north end), set in the clear slate west of the bay, under W-09's bay and
+ * over act two's worded Productive plate (beats 9-10), about 40 px under the one and 65 px over the other, so it is never
+ * read as one caption with the plate (wave 4's critic P2-c) nor as W-09's (its leader ends on W-07); far west of the Watchdog's
+ * station (summary.ts WATCHDOG, south-east of the bay), which it can no longer seem to name (wave 4); "you" as in the film.
  * Placed for FRAMING_D: beats 9-10 show them from bar 58's ease-out to bar 65's dolly, the summary from its ease-out on.
  */
 export const LABELS_D: readonly RoleLabel[] = ROLE_LABELS.map((l) =>
   l.text === WORDS.worker.en
-    ? { ...l, foot: [BAYS.bug.box.x1 - 12, BAYS.bug.box.y0 + BAYS.bug.southWall / 2, BAYS.bug.wallH + 0.4], dx: -2, dy: 160, anchor: 'end' }
+    ? { ...l, foot: [BAYS.bug.box.x0 + BAYS.bug.wall / 2, BAYS.bug.dossier.y1 - 12, BAYS.bug.wallH + 0.4], dx: -34, dy: 45, anchor: 'end' }
     : l.text === WORDS.router.en
       ? { ...l, foot: [DECK.x0 + DECK.rail / 2, 300, DECK.top], dx: -36, dy: -54, anchor: 'end' }
       : l,
@@ -232,10 +234,17 @@ export const TAG_BUILT_LINES = { en: ['two levels: built', 'in the public', 'res
  *   ease-out, so nothing of it rides the move.
  * Then part 2's, each beat module's own (beat7.ts TAGS_7 ... beat10.ts TAGS_10).
  */
+/** The cache tag's leader retracts from here (6 f), gone as the reading thread's last hop leaves (beat6.ts E6.hops, E6.hopFrames a hop). */
+export const CACHE_LEADER_UNTIL = BEAT_6.recall.hops[2] - E6.hopFrames - 6;
+/** ... and draws back out to its foot from here (6 f), the hop landed 2 f before: the tag never stands unattached for its last 38 f (wave 4's critic P2-e). */
+export const CACHE_LEADER_BACK = BEAT_6.recall.hops[2] + 2;
 export const ACT2_TAGS: readonly TagSpec[] = [
   { cue: 'tag-built', words: WORDS.tagBuilt, at: [1800, 96], anchor: 'end', foot: [REEL_FRAME[2].x0 + 8, 330, REEL_FRAME_Z[1] + 4], lines: TAG_BUILT_LINES },
   { cue: 'tag-gate', words: WORDS.tagGate, at: [SAFE.x, 84], anchor: 'start', foot: [GATE.bar.x0 + 2, GATE.bar.y1 - 8, GATE.h], gap: TAG_GAP - 8 },
-  { cue: 'tag-cache', words: WORDS.tagCache, at: [1050, 432], anchor: 'start', foot: [-112, 196, 123] },
+  // its foot is on the inline record's printed pointer, which beat 6.4's reading thread follows on its last hop (beat6.ts
+  // HOP3_VIA): the leader retracts into the words over the 6 f before that hop leaves, so the thread never starts on the
+  // tag's dot (A17), and draws back out to it once the hop has landed; still (c) is long before it
+  { cue: 'tag-cache', words: WORDS.tagCache, at: [1050, 432], anchor: 'start', foot: [-112, 196, 123], leaderUntil: CACHE_LEADER_UNTIL, leaderBack: CACHE_LEADER_BACK },
   ...TAGS_7,
   ...TAGS_8,
   ...TAGS_9,

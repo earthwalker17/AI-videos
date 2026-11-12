@@ -4,6 +4,7 @@ import { CELLS, CELLS_BEFORE } from '../print.ts';
 import { REQUEST_A, requestZ } from './actOne.ts';
 import {
   B4,
+  BAND_RAMP,
   CARD_AT,
   CARD_EXIT,
   CARD_RISE,
@@ -643,7 +644,8 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
         const s = deskStateAt(f);
         const lift = workLift(s.b4.bays[id], id);
         const fps = footprintsAt(s);
-        const dossier = fps.find(isDossier);
+        // (the whole one: for the BAND_RAMP frames its top crosses its nameplate band, footprints.ts splits it by height)
+        const dossier = fps.filter(isDossier).sort((a, b) => (b.kind === 'rect' ? b.z1 : 0) - (a.kind === 'rect' ? a.z1 : 0))[0];
         const floor = fps.find(isFloor);
         expect(dossier && floor, `${id} f${f}`).toBeTruthy();
         // the dossier's footprint rides with it (its top always 1.8 u under the footprint's: the same shade every frame)
@@ -656,6 +658,28 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
     }
     expect(liftOf(1 - WORK_REST / 200, 100)).toBe(0);
     expect(liftOf(0.5, 100)).toBe(-50);
+  });
+
+  it('ramps a rising part’s contact on its nameplate band in over BAND_RAMP frames from the frame its top rises past the band, and only there (A14)', () => {
+    const b = BAYS.bug;
+    const band = b.wallH + 0.25;
+    const isDossier = (fp: Footprint) => fp.kind === 'rect' && Math.abs(fp.c[0] - rectC(b.dossier)[0]) < 1e-6 && Math.abs(fp.c[1] - rectC(b.dossier)[1]) < 1e-6;
+    const tops = (f: number) => footprintsAt(deskStateAt(f)).filter(isDossier) as Extract<Footprint, { kind: 'rect' }>[];
+    // the frame the dossier's top first rises past the band
+    let cross = -1;
+    for (let f = DISPATCH.bug.rise; f < DISPATCH.bug.rise + 40 && cross < 0; f++) if (Math.max(...tops(f).map((x) => x.z1)) > band) cross = f;
+    expect(cross).toBeGreaterThan(0);
+    for (let k = 0; k < BAND_RAMP + 2; k++) {
+      const fps = tops(cross + k);
+      if (k < BAND_RAMP - 1) {
+        // split: one topped under the band (whole contact), one whole in height (its contact ramped), one with its feet out of the band's reach (whole contact)
+        expect(fps.length, `k${k}`).toBe(3);
+        const whole = Math.max(...fps.map((x) => x.contact));
+        expect(fps.find((x) => x.z1 < band)!.contact, `k${k}`).toBe(whole);
+        expect(fps.find((x) => x.z1 > band && x.z0 <= band + 1.5)!.contact, `k${k}`).toBeCloseTo((whole * (k + 1)) / BAND_RAMP, 9);
+        expect(fps.find((x) => x.z0 > band + 1.5)!.contact, `k${k}`).toBe(whole);
+      } else expect(fps.length, `k${k}`).toBe(1);
+    }
   });
 
   it('keeps a closed bay’s look for the turn to draw: no hole, no work, its lid on the slate', () => {

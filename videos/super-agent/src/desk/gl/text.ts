@@ -210,6 +210,8 @@ export interface PrintTextures {
   report: Texture;
   /** the report folded in half: the tab's face (its back's south half) */
   reportTab: Texture;
+  /** reportTab's ink alone, white on black (no tooth): where its ID's ink lies, for burying it as the tab is filed (objects/Cache.tsx TestTab) */
+  reportTabInk: Texture;
   galley: Texture;
   reply: Texture;
   inTray: Texture[];
@@ -497,6 +499,7 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
     print(g, family, REPORT[0], 3, 27, REPORT_ID_EM, 700);
     tooth(g, w, h);
   });
+  const reportTabInk = tex([S.report[0], S.report[1] / 2], (g) => print(g, family, REPORT[0], 3, 27, REPORT_ID_EM, 700, '#FFFFFF'), '#000000');
 
   // the galley: a page of type set in a tray, seen from above (galleyType): lines that read the right way round, the reglets
   // between them; ink on paper, printed faint in the film (marks.ts), never a word that competes
@@ -811,7 +814,7 @@ export function makePrintTextures(family: string, sans: string, aniso: number, k
   const b6 = beat6Textures(family, aniso);
   const b5 = beat5Textures(family, aniso);
 
-  return { stress, recordStagger, recordPointer, b5, b6, trait, proactive, tape, tapeInk, tape2Ink, tapeBefore, reelTop, nameplate, dossier, policy, fanfold, fanfoldSide, report, reportTab, galley, reply, inTray, chat, ciCard, request, folder, vellumMail, vellumCalendar, gauge, lockFace, tape2, chatNext, folderFresh, tapeBlank, tapeFirst, reelTopBare, cacheCells, record, recordInk, cardC, cardCBack, filedTabs, fanfoldFine, galleyFine, dossierFine };
+  return { stress, recordStagger, recordPointer, b5, b6, trait, proactive, tape, tapeInk, tape2Ink, tapeBefore, reelTop, nameplate, dossier, policy, fanfold, fanfoldSide, report, reportTab, reportTabInk, galley, reply, inTray, chat, ciCard, request, folder, vellumMail, vellumCalendar, gauge, lockFace, tape2, chatNext, folderFresh, tapeBlank, tapeFirst, reelTopBare, cacheCells, record, recordInk, cardC, cardCBack, filedTabs, fanfoldFine, galleyFine, dossierFine };
 }
 
 /** The newest cell's step along the tape (u): MT1's second stamp-in moves the tape on by it, so the last report's print clears the cell whole before the next is stamped. */

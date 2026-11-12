@@ -56,6 +56,7 @@ import {
   turnFootprints,
   turnHoles,
   turnPools,
+  wrapRadius,
   youPoseTurn,
 } from './turn.ts';
 import { YOU_POSE_B, strutEnds, strutOnLid } from './you.ts';
@@ -708,6 +709,18 @@ describe('the coil keeps the loop until Fix A’s tape has wound over it (the tu
     expect(Math.abs(at[2] - before[2])).toBeLessThan(0.2);
     // (then it settles to the pack's middle with the coil, under a unit a frame)
     for (let f = TURN.coil + 1; f < TURN.glide; f++) expect(Math.abs(b(f)[2] - b(f - 1)[2]), `f${f}`).toBeLessThan(1);
+  });
+  it('lands the tape’s span end on the turn it is wound onto while it winds (never in the air outside the partial wrap)', () => {
+    for (let f = TURN.wind; f <= WRAP_FULL; f++) {
+      const c = loopTurnAt(f).coil!;
+      const b = turnAt(f).fixA.span.b;
+      const r = wrapRadius(c);
+      expect(Math.abs(Math.hypot(b[0] - c.c[0], b[1] - c.c[1]) - r), `f${f}`).toBeLessThan(1);
+      if (f > TURN.wind) {
+        const a = turnAt(f - 1).fixA.span.b;
+        expect(Math.hypot(b[0] - a[0], b[1] - a[1]), `f${f}`).toBeLessThan(3);
+      }
+    }
   });
   it('takes the reel’s paper by amount over STOCK_FRAMES once the loop’s turn is under the new tape, before the glide', () => {
     for (let f = TURN.coil; f <= WRAP_FULL; f++) expect(loopTurnAt(f).coil!.stock, `f${f}`).toBeCloseTo(0, 12);

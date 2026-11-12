@@ -26,7 +26,7 @@ import { HEX, enamel, graphite, paper, stepColour, whiteTexture } from '../gl/ma
 import { PRINT_FONT, cargoMark, texture, tooth } from '../gl/text.ts';
 import { useDeskMats, useDeskSets, useStepMode } from '../kit.tsx';
 import { BAYS, BAY_FLOOR, LEG_R, NEXT_SLIP, REEL, TAPE, TAPE_FLAT_X1, type BayId, type P2, type P3, type Rect } from '../layout.ts';
-import { CLIP_T, COIL_R0, OLDER_REPLY_REST, TURN, bayShapeAt, coilRim, legsAt, replyLands, shapeWalls, turnDeskState, type BayShape, type BayTurn, type CoilState, type Press, type TurnState, type olderReplyAt } from '../turn.ts';
+import { CLIP_T, COIL_R0, OLDER_REPLY_REST, TURN, wrapRadius, bayShapeAt, coilRim, legsAt, replyLands, shapeWalls, turnDeskState, type BayShape, type BayTurn, type CoilState, type Press, type TurnState, type olderReplyAt } from '../turn.ts';
 import { BeetleLight, BugBay, DocsBay, SLOT_IDLE, TestsBay } from './Bay.tsx';
 import { Hatch, shellInside } from './Dispatch.tsx';
 import { bubbleMark } from './Intake.tsx';
@@ -305,7 +305,7 @@ function Coil({ c, edge, fold, mats }: { c: NonNullable<TurnState['loop']['coil'
   const full = c.wrap >= 2 * Math.PI - 1e-6;
   const loopTurn = useGeo(() => (full ? null : ribbonGeometry(loopTurnPose(c.t), 1)), [full, c.t]);
   // (the partial wrap stands at the outer turn's radius, a tape's thickness proud of the loop's printed turn under it)
-  const outer = useGeo(() => (c.wrap <= 1e-6 ? null : full ? wall(c.rOut, c.t) : arcWall(Math.max(c.rim, COIL_R0 + 0.6), c.t, c.wrapLead - c.wrap, c.wrapLead)), [c.rOut, c.rim, c.t, c.wrap, c.wrapLead, full]);
+  const outer = useGeo(() => (c.wrap <= 1e-6 ? null : full ? wall(c.rOut, c.t) : arcWall(wrapRadius(c), c.t, c.wrapLead - c.wrap, c.wrapLead)), [c.rOut, c.rim, c.t, c.wrap, c.wrapLead, full]);
   // (not while it would lie on the loop's printed turn: the take-over's first frame)
   const inner = useGeo(() => (c.rIn > REEL.hubR + 0.5 && c.rIn < COIL_R0 - 0.3 ? wall(c.rIn, c.t) : null), [c.rIn, c.t]);
   // the spokes telescope out from the hub over the pack (as long as the Register's at rest)

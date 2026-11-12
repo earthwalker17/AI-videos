@@ -19,8 +19,10 @@
  *   draws back (3 f), is posted over the gate onto the belt (MT1's post), landing past the gate's bar (beat 5's KEEP_LAND) on
  *   `END.bookend.gate` (the gate passes it), rides the belt up to its crest, hops into the Register's throat and is fed
  *   wholly under the print head on `END.bookend.out`, out of sight in the Register (`bookendSlipAt`); the print head stamps
- *   it in on the last tick (`E_END.stamp`: the hammer's stroke and the head's dip, the Register's receipt). Your lamp
- *   does not move (`LAMP_END` is empty, `youEnd` the identity).
+ *   it in 10 f after it is under (`E_END.stamp`, on the dissolve's first frame, 20 f after the last tick: the hammer's
+ *   stroke and the head's dip, the Register's receipt). Your lamp
+ *   does not move (`youEnd` the identity); its pool steps down two steps, one at a time, as the camera comes in to land
+ *   (`LAMP_END`), with the replies queued under it (`QUEUE`).
  * `endDesk` applies all of it to the summary's state (summary.ts summaryDeskState): the identity before f6000.
  * - 13.1: the world dissolves to the bare desk over `END.dissolve`, never to black (`veilAt`: a veil of the desk itself
  *   over everything, objects/End.tsx), complete on the dissolve's last frame before the card lands.
@@ -56,6 +58,11 @@ export const E_END = {
   from: END.move[0],
   /** the bookend's parts step back up over this ramp (STEP_FRAMES, inOutSine) as the camera sets off for them */
   stepUp: END.move[0],
+  /**
+   * the replies waiting in the chute step down over this ramp (STEP_FRAMES, inOutSine), whole on the camera's landing, as
+   * your lamp's pool steps down (`LAMP_END`): the camera has left your desk, so the slip the bookend is about is the read
+   */
+  queueStep: END.move[1] - STEP_FRAMES,
   /** the slip's ink starts the frame before its cue, so the cue frame already shows it turning (act one's REQUEST_INK) */
   ink: END.bookend.turn - 1,
   /** it lifts a hair and draws back (its anticipation), then it is posted over the gate */
@@ -77,12 +84,16 @@ export const E_END = {
 
 /** The parts the bookend shows, stepped back up as the camera arrives (the intake is already on the own set from beat 11). */
 export const STEP_UP: readonly FocusId[] = ['intake', 'gate', 'belt'];
+/** The replies waiting in the chute (beat11.ts NEXT_REPLIES, objects/Beat11.tsx NextReply): stepped down as the camera lands. */
+export const QUEUE: FocusId = 'end-queue';
 
 /**
  * The summary's step from bar 76 on (summaryDeskState applies it to summary.ts summaryStep; before f6000 it returns the
  * step it is given). Beat 11 holds the step at f6000 with everything but your desk on the main set at a full step and
  * the intake on the own set at 1: the gate and the belt move from the main set to the own set at the same full step (no
- * part changes), and the own set ramps up (1 to 0) over `E_END.stepUp`'s 14 f.
+ * part changes), and the own set ramps up (1 to 0) over `E_END.stepUp`'s 14 f. Once it is at 0 (the bookend's parts
+ * whole, on no set) the own set is free: from `E_END.queueStep` it carries the queued replies (`QUEUE`) down (0 to 1)
+ * over 14 f, whole on the landing (the hand-over is at 0 on both sides, so no part changes on it).
  */
 export function stepEnd(f: number, st: DeskState['step']): DeskState['step'] {
   if (f < E_END.from) return st;
@@ -91,7 +102,10 @@ export function stepEnd(f: number, st: DeskState['step']): DeskState['step'] {
   return {
     amount: st.amount,
     ids: st.ids.filter((x) => !moved.includes(x)),
-    own: { amount: 1 - sine((f - E_END.stepUp) / STEP_FRAMES), ids: [...own, ...moved.filter((x) => !own.includes(x))] },
+    own:
+      f < E_END.queueStep
+        ? { amount: 1 - sine((f - E_END.stepUp) / STEP_FRAMES), ids: [...own, ...moved.filter((x) => !own.includes(x))] }
+        : { amount: sine((f - E_END.queueStep) / STEP_FRAMES), ids: [QUEUE] },
     ...(st.late ? { late: st.late } : {}),
   };
 }
@@ -253,8 +267,21 @@ export function endAt(f: number): EndState | null {
   return { f, slip: s?.pose ?? null, ink: s?.ink ?? 0, next: nextSlipAt(f), ci: ciFeedAt(f), veil: veilAt(f) };
 }
 
-/** Your lamp does not move (STORYBOARD 12.1). */
-export const LAMP_END: readonly LampStep[] = [];
+/**
+ * Your lamp does not move (STORYBOARD 12.1: its pose stays), but its pool steps down as the camera comes in to the
+ * bookend (the cause: the camera has left your desk for the Register's intake; you don't have to watch), with the replies
+ * queued under it (`QUEUE`), so they stop out-shining the slip the frame is about (critic E P2-1). Two steps, from beat
+ * 11's 'up' to below the waiting level: under one, the queued replies stay at the highlight ceiling (the pool's 3.6x is
+ * far over it at the aim; wave 4 measured the chute's p90 240 -> 233 for one step, 212 for two). One step at a time, 5 f
+ * apart, from the queue's own step-down (`E_END.queueStep`): no faster than any other lamp change in the film (a
+ * double step on one spring dropped the brightest patch in frame in 3 f, wave 4's review m1), together with the queue,
+ * and settled by the landing, so the 20 f before the turn stay a real stillness, as at f20.
+ */
+export const LAMP_END_STEP = END.move[1] - STEP_FRAMES;
+export const LAMP_END: readonly LampStep[] = [
+  { at: LAMP_END_STEP, steps: -1 },
+  { at: LAMP_END_STEP + 5, steps: -1 },
+];
 export function cardsEnd(_s: DeskState): CardUp[] {
   return [];
 }

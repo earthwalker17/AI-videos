@@ -29,6 +29,7 @@ import {
   hopTargets,
   needleAt,
   plateAt,
+  PLATE_CONTACT,
   reviewAt,
   rewindAt,
   stripAt,
@@ -125,6 +126,16 @@ describe('beat 6: every cue sheet frame is a contact frame', () => {
     expect(plateAt(E6.plateExit - 1)!.squash).toBe(0);
     expect(plateAt(E6.plateExit)!.d[2]).toBeGreaterThan(0);
     expect(plateAt(E6.plateExit)!.d[2]).toBeLessThanOrEqual(6 + 1e-9);
+    // its contact shadow fades with the lift, never cut on the exit's first frame (A10)
+    const contactAt = (f: number) => {
+      const p = plateAt(f);
+      return p ? (p.contact ?? (p.flying ? 0 : PLATE_CONTACT.seated)) : 0;
+    };
+    expect(contactAt(E6.plateExit - 1)).toBe(PLATE_CONTACT.seated);
+    for (let f = E6.plateExit; f < E6.plateExit + E6.plateOut; f++) {
+      expect(contactAt(f), `f${f}`).toBeLessThan(contactAt(f - 1) + 1e-12);
+      expect(contactAt(f - 1) - contactAt(f), `f${f}`).toBeLessThanOrEqual(0.3);
+    }
     expect(E6.plateOut).toBeGreaterThanOrEqual(12);
     expect(E6.plateOut).toBeLessThanOrEqual(16);
     expect(E6.plateExit + E6.plateOut).toBeLessThanOrEqual(BEAT_6.cacheEject);
@@ -484,3 +495,13 @@ describe('beat 6: the window, the light and the focus', () => {
     expect(deskStateAt(E6.until).cache!.summary).toBe(true);
   });
 });
+
+describe('#0408’s ID buried as it is filed (A1)', () => {
+  it('lets its bury down under cover after the request’s tab has landed on it and settled, done before still (c)', async () => {
+    const { TAB_INK_OFF } = await import('./objects/Cache.tsx');
+    expect(TAB_INK_OFF).toBeGreaterThanOrEqual(EVENTS_C.tabDrop + EVENTS_C.tabFrames + 4);
+    // still (c) is film 3150: the bury is wholly let down by then, so (c) draws #0408 exactly as before
+    expect(TAB_INK_OFF + 4).toBeLessThanOrEqual(3150);
+  });
+});
+
