@@ -105,12 +105,29 @@ export const LABELS_D: readonly RoleLabel[] = ROLE_LABELS.map((l) =>
 );
 
 /**
+ * Beat 7's labels (from their re-entry after bar 43's ease-out, f3442, to bar 50's truck): ROLE_LABELS but "Router", whose
+ * text would lie on the Thread cord's descent once the cord pays out (map-beat7 conflict 6) and which the follow-ups
+ * riding the cord's crest would pass over: it names the deck from its north-west corner, set in the clear ground west of
+ * the deck under the cord (renders: clear of the cord, of the riders hung under it and of the gate's key below); and
+ * "Worker", which names the request's bay (C17: "go straight to its Worker") from its south-east corner, set in the clear
+ * ground east of the job rail (its leader never meets the cord coming down to the bay's north-east corner).
+ */
+export const LABELS_7: readonly RoleLabel[] = ROLE_LABELS.map((l) =>
+  l.text === WORDS.router.en
+    ? { ...l, foot: [DECK.x0 + 6, DECK.y1 - DECK.rail / 2, DECK.top], dx: -36, dy: 38, anchor: 'end' }
+    : l.text === WORDS.worker.en
+      ? { ...l, foot: [BAYS.bug.box.x1 - 4, BAYS.bug.box.y0 + 26, BAYS.bug.wallH + 0.4], dx: 40, dy: 46, anchor: 'start' }
+      : l,
+);
+
+/**
  * Act two's away windows: the labels in view fade out over the first 6 f of `leave` and re-enter as `labels` (placed for
- * the framing `back` lands on) once `back` has landed. Bar 34's dolly onto the throat to bar 43's ease-out (the close);
+ * the framing `back` lands on) once `back` has landed. Bar 34's dolly onto the throat to bar 43's ease-out (the close;
+ * they re-enter as beat 7's, LABELS_7);
  * bar 50's truck to the sheet to bar 58's ease-out (still (d)'s framing: LABELS_D); bar 65's dolly onto the Register.
  */
 export const ACT2_AWAY: readonly { leave: CameraMove; back: CameraMove; labels: readonly RoleLabel[] }[] = [
-  { leave: DOLLY_IN, back: EASE_OUT, labels: ROLE_LABELS },
+  { leave: DOLLY_IN, back: EASE_OUT, labels: LABELS_7 },
   { leave: TO_SHEET, back: TO_VELLUM, labels: LABELS_D },
   { leave: TO_REGISTER, back: TO_REGISTER, labels: ROLE_LABELS },
 ];

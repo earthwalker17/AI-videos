@@ -9,7 +9,8 @@
  *   drops into the spill drawer (6 f), where it stays, standing on its fold, #0408 face up.
  * - The reply: a slip with an enamel stop tab, sliding out from under the deck's south-west corner along
  *   the chute's line and on down the chute in one motion, turning along the exit curve to lie in your
- *   in-tray, landing on spring-dock with a 3% squash. It carries no transit light.
+ *   in-tray, landing on spring-dock with a 3% squash. It carries no transit light. `Reply` draws every reply of
+ *   DeskState.replies: this one (#0408) and part 2's (objects/Replies.tsx).
  */
 import { useLayoutEffect, useMemo } from 'react';
 import { BoxGeometry, CircleGeometry, Path, Shape, ShapeGeometry, type BufferGeometry, type Material } from 'three';
@@ -17,7 +18,8 @@ import { extrude, plane, slab } from '../geom.ts';
 import { HEX, paper } from '../gl/materials.ts';
 import { useDeskMats, useDeskSets } from '../kit.tsx';
 import { CARD, SLIP } from '../layout.ts';
-import { CARD_DOCK_TILT, CARD_STAND, DOCK_B, TAB_B, TAB_LEAN_B, TAB_REST_B, cardRise, cardTilt, replyPose, tabArc, type DeskState } from '../state.ts';
+import { CARD_DOCK_TILT, CARD_STAND, DOCK_B, TAB_B, TAB_LEAN_B, TAB_REST_B, cardRise, cardTilt, replyPose, tabArc, type DeskState, type ReplyState } from '../state.ts';
+import { ChatReply } from './Replies.tsx';
 
 const W = CARD.w;
 const D = CARD.d;
@@ -176,15 +178,26 @@ function useReplyGeometry() {
   }, []);
 }
 
-/** The reply #0408: out from under the deck along the chute's line, down the chute, into your in-tray (its text reading up-chute). */
+/**
+ * Every reply that has left for your in-tray (state.ts DeskState.replies), each by its own form: MT1's #0408 as it always
+ * was; part 2's from objects/Replies.tsx (7.4's chat reply; lane C adds #0405's).
+ */
 export function Reply({ s }: { s: DeskState }) {
+  return (
+    <>
+      {s.replies.map((r) => (r.id === '0408' ? <SlipReply key={r.id} r={r} /> : r.id === '7-chat' ? <ChatReply key={r.id} r={r} /> : null))}
+    </>
+  );
+}
+
+/** The reply #0408: out from under the deck along the chute's line, down the chute, into your in-tray (its text reading up-chute). */
+function SlipReply({ r }: { r: ReplyState }) {
   const m = useDeskMats();
   const g = useReplyGeometry();
-  if (!s.slip) return null;
-  const pose = replyPose(s.slip);
-  const squash = 1 - 0.03 * s.slip.squash;
+  const pose = replyPose(r.ride, r.rest);
+  const squash = 1 - 0.03 * r.ride.squash;
   return (
-    <group position={[pose.p[0], pose.p[1], pose.p[2] - 0.4 * s.slip.squash]} rotation={[0, pose.slope, pose.heading, 'ZYX']} scale={[1, 1, squash]}>
+    <group position={[pose.p[0], pose.p[1], pose.p[2] - 0.4 * r.ride.squash]} rotation={[0, pose.slope, pose.heading, 'ZYX']} scale={[1, 1, squash]}>
       <mesh geometry={g.slip} material={m.paperLit} />
       <mesh geometry={g.face} material={m.printed.reply} />
       <mesh geometry={g.tab} material={m.enamel} />

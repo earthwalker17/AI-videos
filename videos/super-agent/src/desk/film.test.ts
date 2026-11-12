@@ -4,7 +4,7 @@ import { ROUND2 } from '../lookdev/frames.ts';
 import { E5 } from './beat5.ts';
 import { E6 } from './beat6.ts';
 import { EASE_OUT_D, TO_BOOKEND, TO_REGISTER, TO_SHEET, TO_VELLUM } from './camera.ts';
-import { ACT2_TAGS, LABELS_D, PART1_TO, PART2_BEATS, SEAM_D, SEGMENTS, SUMMARY_BUILT_TO, SUMMARY_TAGS, TAG_BUILT_LINES, act2LabelsAt, builtAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
+import { ACT2_TAGS, LABELS_7, LABELS_D, PART1_TO, PART2_BEATS, SEAM_D, SEGMENTS, SUMMARY_BUILT_TO, SUMMARY_TAGS, TAG_BUILT_LINES, act2LabelsAt, builtAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
 import { keepTeaching } from './marks.ts';
 import { ROLE_LABELS, TAG_GAP } from './Overlay.tsx';
 import { TURN_SPAN } from './turn.ts';
@@ -44,7 +44,10 @@ describe('act two’s DOM layer', () => {
     expect(act2LabelsAt(2643).every((l) => l.opacity !== undefined && l.opacity < 1)).toBe(true);
     expect(act2LabelsAt(ROUND2.stillC)).toEqual([]);
     expect(act2LabelsAt(3441)).toEqual([]);
-    expect(act2LabelsAt(3480)).toEqual([...ROLE_LABELS]);
+    // they re-enter as beat 7's (session 5: the Router label leaves the Thread cord's descent, the Worker label names the
+    // request's bay; nothing before f3442 changes, still (b) keeps ROLE_LABELS)
+    expect(act2LabelsAt(3480)).toEqual([...LABELS_7]);
+    expect(LABELS_7.filter((l, i) => l !== ROLE_LABELS[i]).map((l) => l.text)).toEqual([WORDS.router.en, WORDS.worker.en]);
   });
 
   it('places act two’s three tags (part 1’s; part 2’s beat modules add theirs after them)', () => {

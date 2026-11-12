@@ -2,8 +2,8 @@
  * The relationships that are things (synthesis §2, Relationships): never a bare connector.
  * - Cords: the request's Thread, one overhead twisted cord in a single arch from the conversation
  *   spool, north of the reel, over the deck's pulley (its touch is the notice: the Router hears of the
- *   Thread without deciding) and down east of the deck to the bug bay. Stepped down in C12: Threads
- *   are explained at C17.
+ *   Thread without deciding) and down east of the deck to the bug bay. It first pays out at C17 (7.1:
+ *   objects/Thread.tsx draws it through act two from there, the same parts); Cords draws it at rest in the summary.
  * - Chute: the reply chute, the only path down to you, from the deck's south-west corner to your
  *   in-tray.
  * - Cargo: the report card (in flight under the one transit light, through the cut in it; then docked
@@ -15,67 +15,81 @@
 import { useLayoutEffect, useMemo } from 'react';
 import { TorusGeometry, type BufferGeometry } from 'three';
 import { cylinderZ, disc, dome, merge, ringFlat, slab, sweep, tube, twistedPair } from '../geom.ts';
-import { EMIT, Step, WithMats, isStepped, useDeskMats } from '../kit.tsx';
+import { EMIT, Step, WithMats, isStepped, useDeskMats, type DeskMats } from '../kit.tsx';
 import { CHUTE, CHUTE_POSTS, CHUTE_W, CORDS, DECK, MAST, type P3 } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
 import { CORD_FROM, polylineAt, type DeskState } from '../state.ts';
 import { Reply, ReportCard } from './Handshake.tsx';
 
-function useCordGeometry() {
+/**
+ * The Thread cord's parts as still (d) draws them: the twisted pair along CORDS.vermilion, the deck's pulley (an arm off the
+ * east rail, a post, a sheave the cord rests on) and the terminal on the bay's north wall. objects/Thread.tsx draws them
+ * in act two (beat 7 pays the cord out and raises the guide and the terminal), Cords from the summary on.
+ */
+export function cordParts(): { strands: BufferGeometry[]; arm: BufferGeometry; post: BufferGeometry; sheave: BufferGeometry; terminal: BufferGeometry } {
+  const strands = twistedPair(CORDS.vermilion, 2.4, 2.1, 16, 420);
+  const z0 = DECK.top - 4;
+  const arm = tube(
+    [
+      [MAST.arm[0] - 6, MAST.arm[1], z0],
+      [MAST.x, MAST.y, z0],
+    ],
+    4,
+    4,
+    8,
+  );
+  const post = tube(
+    [
+      [MAST.x, MAST.y, z0],
+      [MAST.x, MAST.y, MAST.h - 12],
+    ],
+    4.5,
+    4,
+    10,
+  );
+  const sheave = (() => {
+    const g = new TorusGeometry(10, 3, 10, 32);
+    g.rotateX(Math.PI / 2);
+    g.rotateZ(-0.6);
+    g.translate(MAST.x, MAST.y, MAST.h - 9);
+    return g;
+  })();
+  const t = CORDS.vermilion[CORDS.vermilion.length - 1];
+  const terminal = merge([cylinderZ(5, t[2] - 16, t[2] + 2, t[0], t[1], 14), ringFlat(6, 1.8, t[0], t[1], t[2] + 2)]);
+  return { strands, arm, post, sheave, terminal };
+}
+
+/** The cord's geometry at rest (still (d)'s): the pair merged, the arm and the post merged into the bracket. */
+export function useCordGeometry() {
   return useMemo(() => {
-    const [v0, v1] = twistedPair(CORDS.vermilion, 2.4, 2.1, 16, 420);
-    // the deck's pulley: an arm off the east rail, a post, a sheave the cord rests on
-    const z0 = DECK.top - 4;
-    const bracket = merge([
-      tube(
-        [
-          [MAST.arm[0] - 6, MAST.arm[1], z0],
-          [MAST.x, MAST.y, z0],
-        ],
-        4,
-        4,
-        8,
-      ),
-      tube(
-        [
-          [MAST.x, MAST.y, z0],
-          [MAST.x, MAST.y, MAST.h - 12],
-        ],
-        4.5,
-        4,
-        10,
-      ),
-    ]);
-    const sheave = (() => {
-      const g = new TorusGeometry(10, 3, 10, 32);
-      g.rotateX(Math.PI / 2);
-      g.rotateZ(-0.6);
-      g.translate(MAST.x, MAST.y, MAST.h - 9);
-      return g;
-    })();
-    const t = CORDS.vermilion[CORDS.vermilion.length - 1];
-    const terminal = merge([cylinderZ(5, t[2] - 16, t[2] + 2, t[0], t[1], 14), ringFlat(6, 1.8, t[0], t[1], t[2] + 2)]);
-    return { cord: merge([v0, v1]), bracket, sheave, terminal };
+    const p = cordParts();
+    return { cord: merge(p.strands), bracket: merge([p.arm, p.post]), sheave: p.sheave, terminal: p.terminal };
   }, []);
 }
 
+/** The cord at rest, the summary's (in act two, from 7.1's payout to the seam, objects/Thread.tsx draws it: one body). */
 export function Cords({ s }: { s: DeskState }) {
   const g = useCordGeometry();
-  // no Thread cord before C17's beat (design D1): it first pays out at 7.1
-  if (s.f < CORD_FROM) return null;
+  // no Thread cord before C17's beat (design D1): it first pays out at 7.1 (desk/beat7.ts, while DeskState.e7 is live)
+  if (s.f < CORD_FROM || s.e7) return null;
   return (
     <Step on={isStepped(s.step, 'cord')}>
       <WithMats>
-        {(m) => (
-          <group>
-            <mesh geometry={g.bracket} material={m.graphite} />
-            <mesh geometry={g.sheave} material={m.steel} />
-            <mesh geometry={g.cord} material={m.cordVermilion} />
-            <mesh geometry={g.terminal} material={m.steel} />
-          </group>
-        )}
+        {(m) => <CordsAtRest g={g} m={m} />}
       </WithMats>
     </Step>
+  );
+}
+
+/** The cord's meshes at rest (Cords, and objects/Thread.tsx once the payout has settled). */
+export function CordsAtRest({ g, m }: { g: ReturnType<typeof useCordGeometry>; m: DeskMats }) {
+  return (
+    <group>
+      <mesh geometry={g.bracket} material={m.graphite} />
+      <mesh geometry={g.sheave} material={m.steel} />
+      <mesh geometry={g.cord} material={m.cordVermilion} />
+      <mesh geometry={g.terminal} material={m.steel} />
+    </group>
   );
 }
 

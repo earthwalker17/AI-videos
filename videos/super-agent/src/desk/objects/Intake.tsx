@@ -16,15 +16,20 @@
  * In C12 all of it steps down (state.ts FOCUS_BEATS).
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
-import { Shape, type BufferGeometry, type Texture } from 'three';
+import { Color, Shape, type BufferGeometry, type Texture } from 'three';
 import { cylinderZ, disc, dome, extrude, merge, piece, plane, planeOn, ringFlat, slab, sweep, tube } from '../geom.ts';
-import { matte, paper } from '../gl/materials.ts';
+import { HEX, matte, paper } from '../gl/materials.ts';
 import { texture, tooth } from '../gl/text.ts';
-import { Step, WithMats, isStepped } from '../kit.tsx';
+import { Step, WithMats, isStepped, type DeskMats } from '../kit.tsx';
 import type { Press } from '../turn.ts';
 import { BELT, FEEDERS, FEEDER_H, FINGER_ROOT, FINGER_Y, GATE, SPOOL, rectC, type P2, type P3, type Rect } from '../layout.ts';
 import { CORD_FROM, type DeskState } from '../state.ts';
 import { ACT_ONE_END, GENERIC_FEEDERS } from '../actOne.ts';
+
+/** The spool's rubber cord (the kit's rubber) and the vermilion it takes as the Thread pays out (the kit's cordVermilion). */
+const SPOOL_RUBBER = '#262827';
+const SPOOL_RUBBER_C = new Color(SPOOL_RUBBER);
+const SPOOL_VERMILION_C = new Color(HEX.vermilion);
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
 const lerp3 = (a: P3, b: P3, t: number): P3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
@@ -383,6 +388,8 @@ export function Feeders({ s, turn }: { s: DeskState; turn?: FeedersTurn }) {
       roll: paper(tex.roll, undefined, { stepped }),
       leaf: paper(tex.leaf, '#A29C90', { stepped }),
       slot: matte('#161817', 1, 0, stepped),
+      // the spool's cord while it takes its vermilion as the Thread pays out (desk/beat7.ts spoolAt: rubber to vermilion)
+      cord: matte(SPOOL_RUBBER, 0.75, 0, stepped),
     });
     return { full: make(false), stepped: make(true), own: make('own'), late: make('late') };
   }, [tex]);
@@ -393,7 +400,18 @@ export function Feeders({ s, turn }: { s: DeskState; turn?: FeedersTurn }) {
   // drawings: those feeders are generic until the turn); its cord is graphite until the request's Thread first pays
   // out (state.ts CORD_FROM, design D1), then vermilion
   const spool = turn ? turn.spool !== null : s.f >= ACT_ONE_END;
-  const vermilion = s.f >= CORD_FROM;
+  // 7.1: it takes its vermilion as the cord leaves it (desk/beat7.ts spoolAt); the summary's at rest. (It does not turn: its
+  // top flange's windows are cut about the wrong centre (geom.ts disc takes hole centres relative to cx, cy; these are
+  // absolute), so their walls lie some 920 u off the spool, out of frame, and any turn of the flange swings them into view.)
+  const cordK = s.e7 ? s.e7.spool.colour : s.f >= CORD_FROM ? 1 : 0;
+  const vermilion = cordK >= 1;
+  useLayoutEffect(() => {
+    for (const set of Object.values(sets)) {
+      set.cord.color.copy(SPOOL_RUBBER_C).lerp(SPOOL_VERMILION_C, cordK);
+      set.cord.roughness = 0.75 + (0.55 - 0.75) * cordK;
+    }
+  }, [sets, cordK]);
+  const cordMat = (m: DeskMats) => (vermilion ? m.cordVermilion : cordK <= 0 ? m.rubber : mats.cord);
   // the turn: the generic boxes are pressed flat and into the desk as one body each (desk/turn.ts pressAt), leaving the vellum drawings
   const pressed = (p: Press, r: Rect, body: ReactNode) => {
     if (p.k >= 1) return null;
@@ -443,8 +461,8 @@ export function Feeders({ s, turn }: { s: DeskState; turn?: FeedersTurn }) {
                   <mesh geometry={g.spoolPost} material={m.graphite} />
                   <mesh geometry={g.flanges} material={m.enamel} />
                   <mesh geometry={g.barrel} material={m.graphiteDark} />
-                  <mesh geometry={g.wound} material={vermilion ? m.cordVermilion : m.rubber} />
-                  <mesh geometry={g.tail} material={vermilion ? m.cordVermilion : m.rubber} />
+                  <mesh geometry={g.wound} material={cordMat(m)} />
+                  <mesh geometry={g.tail} material={cordMat(m)} />
                   <mesh geometry={g.spoolCap} material={m.steel} />
                 </group>
               )}
