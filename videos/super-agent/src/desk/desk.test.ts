@@ -10,7 +10,7 @@ import { MAX_POOLS, linearOf, packPools, poolsAt } from './pools.ts';
 import { ROUND2, MOTION_TESTS } from '../lookdev/frames.ts';
 import { BEAT_6, BEAT_7, BEAT_9, MT1, at } from '../cues.ts';
 import { youPoseAt } from './actOne.ts';
-import { CAP_SLOT, CARD_STAND, IN_TRAY_REST, LAMP_DIMS, LAMP_PART1, SPRING, springAt, REPLY_ARC, REPLY_PATH, SLIP_LIP, STEP_FRAMES, armAt, cardArc, cardRise, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, focusAt, focusEntries, lampAt, LAMP_STEPS, replyRideAt, SLIP_LANDS, SLIP_RIDE_FROM, replyPose, type DeskState, type FocusId } from './state.ts';
+import { CAP_SLOT, CARD_STAND, CORD_FROM, IN_TRAY_REST, LAMP_AIM, LAMP_DIMS, LAMP_PART1, SPRING, springAt, REPLY_ARC, REPLY_PATH, SLIP_LIP, STEP_FRAMES, armAt, armOf, cardArc, cardRise, closeAt, deskStateAt, DETENT, EVENTS_B, EVENTS_C, EVENTS_D, focusAt, focusEntries, focusOf, lampAt, LAMP_STEPS, replyRideAt, SLIP_LANDS, SLIP_RIDE_FROM, replyPose, stepAt, stepOf, type ArmStep, type DeskState, type FocusEntry, type FocusId } from './state.ts';
 
 const B = deskStateAt(ROUND2.stillB);
 
@@ -519,13 +519,54 @@ describe('part 2’s shared hooks', () => {
     expect(armAt(EVENTS_D.armTurn, 0.5)).toBe(0.5);
     for (const f of [2281, 2300, 2400, 3000]) expect(armAt(f, 0.5)).toBe(DETENT.you + (DETENT.fresh - DETENT.you) * springAt(f, EVENTS_D.armTurn, SPRING.detent));
   });
-  it('lists every reply for your in-tray: MT1’s #0408 first, riding as `slip` does', () => {
+  it('superposes the arm’s turns: one begun before the turn before it has settled carries that one’s rest on, never dropping it in a frame', () => {
+    // part 1's turn to the fresh bay, then two turns 3 f apart (the second starts while the first is still swinging)
+    const steps: ArmStep[] = [
+      { at: EVENTS_D.armTurn, to: 'fresh' },
+      { at: 3500, to: 'bug' },
+      { at: 3503, to: 'tests' },
+    ];
+    const arm = (f: number): number => armOf(steps, f, 0.5);
+    expect(arm(EVENTS_D.armTurn)).toBe(0.5);
+    // each turn adds its own swing: on the second's first frames the first's is still running, whole
+    for (const f of [3501, 3503, 3504, 3506, 3520]) {
+      const want = DETENT.you + (DETENT.fresh - DETENT.you) * springAt(f, EVENTS_D.armTurn, SPRING.detent) + (DETENT.bug - DETENT.fresh) * springAt(f, 3500, SPRING.detent) + (DETENT.tests - DETENT.bug) * springAt(f, 3503, SPRING.detent);
+      expect(arm(f), `f${f}`).toBeCloseTo(want, 12);
+    }
+    // so no frame moves the arm further than the two springs' steepest frames together (e27d7bc dropped 0.68 rad of the first turn in one frame)
+    let steepest = 0;
+    for (let k = 1; k < 120; k++) steepest = Math.max(steepest, Math.abs(springAt(k, 0, SPRING.detent) - springAt(k - 1, 0, SPRING.detent)));
+    const bound = (Math.abs(DETENT.bug - DETENT.fresh) + Math.abs(DETENT.tests - DETENT.bug)) * steepest + 1e-12;
+    for (let f = 3499; f < 3600; f++) expect(Math.abs(arm(f + 1) - arm(f)), `f${f + 1}`).toBeLessThanOrEqual(bound);
+    expect(arm(3600)).toBeCloseTo(DETENT.tests, 4);
+    // the list's order does not matter (frame order does)
+    expect(armOf([...steps].reverse(), 3505, 0.5)).toBe(arm(3505));
+  });
+  it('lists every reply for your in-tray: MT1’s #0408 first, riding the chute as e27d7bc rode it', () => {
     expect(deskStateAt(EVENTS_B.slipLeave - 1).replies).toEqual([]);
-    for (const f of [EVENTS_B.slipLeave, 2220, SLIP_LANDS, 3000]) {
-      const s = deskStateAt(f);
-      expect(s.replies[0]).toEqual({ id: '0408', ride: s.slip, rest: IN_TRAY_REST });
-      expect(replyRideAt(f, EVENTS_B.slipLeave, SLIP_LANDS)).toEqual(s.slip);
-      expect(replyPose(s.slip!, IN_TRAY_REST)).toEqual(replyPose(s.slip!));
+    expect([EVENTS_B.slipLeave, SLIP_RIDE_FROM, SLIP_LIP, SLIP_LANDS, REPLY_ARC]).toEqual([2206, 2212, 2229, 2234, 5]);
+    expect(SLIP_LANDS - REPLY_ARC).toBe(SLIP_LIP);
+    // e27d7bc's ride, sampled: emerging, down the chute, off the lip, landing, settling ([emerge, s, arc, squash, settle])
+    const RIDE: [number, number[]][] = [
+      [2206, [0, 0, 0, 0, 0]],
+      [2209, [0.10600401699055949, 0, 0, 0, 0]],
+      [2212, [0.4232799289553591, 0, 0, 0, 0]],
+      [2220, [1, 0.29368437798956176, 0, 0, 0]],
+      [2228, [1, 0.9215204864432847, 0, 0, 0]],
+      [2229, [1, 1, 0, 0, 0]],
+      [2231, [1, 1, 0.4, 0, 0]],
+      [2234, [1, 1, 1, 1, 0]],
+      [2236, [1, 1, 1, 0.5, 0.7388557119353634]],
+      [2250, [1, 1, 1, 0, 0.9999371802773025]],
+      [3000, [1, 1, 1, 0, 1]],
+    ];
+    for (const [f, want] of RIDE) {
+      const st = deskStateAt(f);
+      const r = st.slip!;
+      [r.emerge, r.s, r.arc, r.squash, r.settle].forEach((v, k) => expect(v, `f${f} ${k}`).toBeCloseTo(want[k]!, 12));
+      expect(replyRideAt(f, EVENTS_B.slipLeave, SLIP_LANDS)).toEqual(r);
+      expect(st.replies[0]).toEqual({ id: '0408', ride: r, rest: IN_TRAY_REST });
+      expect(replyPose(r, IN_TRAY_REST)).toEqual(replyPose(r));
     }
   });
   it('lets the chores leave your tray on their hand-overs’ lift frames (each flight’s own module draws it from there)', () => {
@@ -533,8 +574,13 @@ describe('part 2’s shared hooks', () => {
     expect(youPoseAt(BEAT_7.glass.lift).held.glass).toBe(0);
     expect(youPoseAt(BEAT_9.strut.lift - 1).held.strut).toBe(1);
     expect(youPoseAt(BEAT_9.strut.lift).held.strut).toBe(0);
-    // your lamp's pool lies where the pose aims the lamp
-    for (const f of [2225, 3600, 5000]) expect(poolsAt(deskStateAt(f))[2]!.c).toEqual([youPoseAt(f).lamp.aim[0], youPoseAt(f).lamp.aim[1]]);
+    // your lamp's pool lies where e27d7bc aimed the lamp all through part 1 (LAMP_AIM), and follows the pose's aim after it
+    expect(LAMP_AIM).toEqual([-520, -60]);
+    for (const f of [1700, 2225, 3000, 3439]) {
+      expect(poolsAt(deskStateAt(f))[2]!.c, `f${f}`).toEqual(LAMP_AIM);
+      expect(youPoseAt(f).lamp.aim.slice(0, 2), `f${f}`).toEqual(LAMP_AIM);
+    }
+    for (const f of [3600, 5000]) expect(poolsAt(deskStateAt(f))[2]!.c).toEqual([youPoseAt(f).lamp.aim[0], youPoseAt(f).lamp.aim[1]]);
   });
   it('reaches every focus entry: each holds the frame somewhere in its life (priority, then list order, decides overlaps)', () => {
     for (const e of focusEntries()) {
@@ -544,29 +590,143 @@ describe('part 2’s shared hooks', () => {
     }
     expect(new Set(focusEntries().map((e) => e.id)).size).toBe(focusEntries().length);
   });
-  it('steps every part continuously in both worlds: no part’s step jumps more than a ramp’s steepest frame (no one-frame swap)', () => {
-    const depth = Math.max(1, ...focusEntries().map((e) => e.depth ?? 1));
-    const limit = (depth * Math.PI) / (2 * STEP_FRAMES) + 1e-9;
+  it('steps every part continuously in both worlds: no part’s step moves more in a frame than its own depth’s ramp at its steepest (no one-frame swap)', () => {
     const eff = (s: DeskState, id: FocusId): number => {
       const st = s.step;
       if (st.late?.includes(id)) return s.testsStep;
       if (st.own?.ids.includes(id)) return st.own.amount;
       return st.amount > 0 && st.ids.includes(id) ? st.amount : 0;
     };
-    for (const states of [WORLDS().act2, WORLDS().summary]) {
+    // a part's depth while it is in a set: the holding entry's in act two (1 without one); the summary's step is its own, 0..1
+    const inSet = (s: DeskState, id: FocusId): boolean => s.step.ids.includes(id) || !!s.step.own?.ids.includes(id) || !!s.step.late?.includes(id);
+    const depthOf = (s: DeskState, id: FocusId, act2: boolean): number => (!inSet(s, id) ? 0 : act2 ? (focusAt(s.f)?.depth ?? 1) : 1);
+    for (const [states, act2] of [
+      [WORLDS().act2, true],
+      [WORLDS().summary, false],
+    ] as const) {
       for (let i = 1; i < states.length; i++) {
         const [a, b] = [states[i - 1]!, states[i]!];
         const ids = new Set<FocusId>([...a.step.ids, ...b.step.ids, ...(a.step.own?.ids ?? []), ...(b.step.own?.ids ?? []), ...(a.step.late ?? []), ...(b.step.late ?? [])]);
-        for (const id of ids) expect(Math.abs(eff(b, id) - eff(a, id)), `f${b.f} ${id}`).toBeLessThanOrEqual(limit);
+        for (const id of ids) {
+          const limit = (Math.max(depthOf(a, id, act2), depthOf(b, id, act2)) * Math.PI) / (2 * STEP_FRAMES) + 1e-9;
+          expect(Math.abs(eff(b, id) - eff(a, id)), `f${b.f} ${id}`).toBeLessThanOrEqual(limit);
+        }
       }
     }
   });
-  it('keeps every frame of part 2 inside the shaders’ footprint and pool arrays, in both worlds', () => {
+  it('keeps every frame of part 2 inside the shaders’ footprint and pool arrays, with 8 footprints of headroom, in both worlds', () => {
     for (let f = 3440; f < 6720; f++) {
       for (const s of [deskStateAt(f), summaryDeskState(f)]) {
-        expect(footprintsAt(s).length, `f${f}`).toBeLessThanOrEqual(MAX_FOOTPRINTS);
+        expect(footprintsAt(s).length, `f${f}`).toBeLessThanOrEqual(MAX_FOOTPRINTS - 8);
         expect(poolsAt(s).length, `f${f}`).toBeLessThanOrEqual(MAX_POOLS);
       }
     }
+  });
+});
+
+describe('focus hand-overs (state.ts FocusEntry.handFrom, stepOf)', () => {
+  /** A part's step under a step-down (the late set is at 1 from f2200: testsStep). */
+  const level = (st: DeskState['step'], id: FocusId): number => (st.late?.includes(id) ? 1 : st.own?.ids.includes(id) ? st.own.amount : st.amount > 0 && st.ids.includes(id) ? st.amount : 0);
+  /** Every part's per-frame change over [f0, f1) at most its depth's steepest ramp frame. */
+  function continuous(entries: readonly FocusEntry[], ids: readonly FocusId[], f0: number, f1: number, depth: number): void {
+    const limit = (depth * Math.PI) / (2 * STEP_FRAMES) + 1e-9;
+    for (let f = f0 + 1; f < f1; f++) for (const id of ids) expect(Math.abs(level(stepOf(entries, f), id) - level(stepOf(entries, f - 1), id)), `f${f} ${id}`).toBeLessThanOrEqual(limit);
+  }
+  // the sample: x steps the reel, the lock and the gauge; y takes over at 3700, keeping the reel and the gauge, dropping
+  // the lock and adding the head (x listed later and at a higher priority: neither matters)
+  const X: FocusEntry = { id: 'x', from: 3500, to: 3800, step: ['reel', 'lock', 'gauge'], priority: 2 };
+  const Y: FocusEntry = { id: 'y', from: 3700, to: 3900, step: ['reel', 'gauge', 'head'], handFrom: 'x' };
+  it('carries no part of the film’s hand-overs on a set that the objects drawing it do not honour', () => {
+    // these objects draw a part with the main stepped set (or its amount, or the full set) whatever its mode, so on the
+    // set named here it would pop where the hand-over moves it there: Intake.tsx:391 maps 'late' to the stepped set;
+    // Cache.tsx:199 (the window's cards), Register.tsx:770-771 (the jewel, the tape rows) and Filter.tsx:173 (the pile's
+    // slips) map 'own' and 'late' to it; YourDesk.tsx:495/503 keeps your desk's own surfaces full on the main and late sets
+    // but steps them on the own set. Fix the object (main agent) before a hand-over carries one of these parts there.
+    const BLIND: [FocusId, readonly ('own' | 'late')[]][] = [
+      ['intake', ['late']],
+      ['deck', ['own', 'late']],
+      ['spike', ['own', 'late']],
+      ['you', ['own']],
+    ];
+    for (const e of focusEntries()) {
+      if (e.handFrom === undefined) continue;
+      for (let f = e.from; f < e.from + STEP_FRAMES; f++) {
+        const st = deskStateAt(f).step;
+        for (const [id, sets] of BLIND) {
+          if (sets.includes('late')) expect(st.late ?? [], `${e.id} f${f} ${id} on the late set`).not.toContain(id);
+          if (sets.includes('own')) expect(st.own?.ids ?? [], `${e.id} f${f} ${id} on the own set`).not.toContain(id);
+        }
+      }
+    }
+  });
+  it('has the late set at a full step wherever a hand-over may use it, and nothing but stepAt on the sets there (part 2)', () => {
+    expect(deskStateAt(CORD_FROM).testsStep).toBe(1);
+    expect(deskStateAt(6719).testsStep).toBe(1);
+    // part 1's holds (state.ts withOwnRamp, withBeat5Ramp, withBeat6Ramp, withLateHold) are over before part 2
+    for (const s of WORLDS().act2) if (s.f >= CORD_FROM) expect(s.step, `f${s.f}`).toEqual(stepAt(s.f));
+  });
+  it('takes over from the entry it names on its own `from`, whatever their order and priority', () => {
+    for (const entries of [
+      [X, Y],
+      [Y, X],
+    ]) {
+      expect(focusOf(entries, 3699)).toBe(X);
+      expect(focusOf(entries, 3700)).toBe(Y);
+      expect(focusOf(entries, 3850)).toBe(Y);
+    }
+    // without handFrom the higher priority wins the overlap whole
+    expect(focusOf([X, { ...Y, handFrom: undefined }], 3700)).toBe(X);
+  });
+  it('keeps the shared parts at a full step, ramps the dropped out and the added in, every part continuous', () => {
+    const entries = [Y, X];
+    const ids: FocusId[] = ['reel', 'lock', 'gauge', 'head'];
+    continuous(entries, ids, 3480, 3930, 1);
+    for (let f = 3690; f < 3730; f++) for (const id of ['reel', 'gauge'] as const) expect(level(stepOf(entries, f), id), `f${f} ${id}`).toBe(1);
+    const u = (f: number) => (1 - Math.cos((Math.PI * (f - 3700)) / STEP_FRAMES)) / 2;
+    for (let f = 3700; f < 3714; f++) {
+      expect(level(stepOf(entries, f), 'lock'), `f${f}`).toBeCloseTo(1 - u(f), 12);
+      expect(level(stepOf(entries, f), 'head'), `f${f}`).toBeCloseTo(u(f), 12);
+    }
+    expect(level(stepOf(entries, 3699), 'lock')).toBe(1);
+    expect(level(stepOf(entries, 3714), 'lock')).toBe(0);
+    expect(level(stepOf(entries, 3714), 'head')).toBe(1);
+    // after the hand-over it steps as any entry does (the named one holds no frame while it is live)
+    for (const f of [3714, 3800, 3900, 3913]) expect(stepOf(entries, f)).toEqual(stepOf([{ ...Y, handFrom: undefined }], f));
+  });
+  it('keeps a hand-over at another depth continuous where the main and own sets can carry it', () => {
+    const S: FocusId[] = ['intake', 'gate', 'reel', 'deck'];
+    // two counterfactual cards, back to back, stepping the same set: it never moves
+    const A: FocusEntry = { id: 'a', from: 3500, to: 3600, step: S, depth: 1.5 };
+    const B: FocusEntry = { id: 'b', from: 3600, to: 3700, step: S, depth: 1.5, handFrom: 'a' };
+    continuous([A, B], S, 3480, 3730, 1.5);
+    for (let f = 3514; f < 3700; f++) for (const id of S) expect(level(stepOf([A, B], f), id), `f${f} ${id}`).toBe(1.5);
+    // a wider set: the shared hold the main set at 1.5, the added ramp in on the own one
+    const C: FocusEntry = { ...B, id: 'c', step: [...S, 'head', 'lock'] };
+    continuous([A, C], [...S, 'head', 'lock'], 3480, 3730, 1.5);
+    // a narrower one: the dropped ramp out on the own set
+    const D: FocusEntry = { ...B, id: 'd', step: ['intake', 'gate'] };
+    continuous([A, D], S, 3480, 3730, 1.5);
+    // all three groups at 1.5: no set can hold the shared parts
+    expect(() => stepOf([A, { ...B, step: ['intake', 'gate', 'head'] }], 3600)).toThrow(/depth 1.5/);
+  });
+  it('throws on a hand-over that cannot be continuous', () => {
+    const at = (entries: FocusEntry[], f = 3700) => () => stepOf(entries, f);
+    expect(at([X, { ...Y, handFrom: 'nobody' }])).toThrow(/no other entry/);
+    expect(at([X, { ...Y, depth: 1.5 }])).toThrow(/depths differ/);
+    expect(at([{ ...X, from: 3690 }, Y])).toThrow(/full step/);
+    expect(at([{ ...X, to: 3690 }, Y])).toThrow(/full step/);
+    expect(at([{ ...X, to: 3950 }, Y])).toThrow(/outlives/);
+    expect(at([{ ...X, to: 3705 }, { ...Y, to: 3710 }])).toThrow(/ramps out/);
+    expect(at([X, { ...Y, late: ['plate'] }])).toThrow(/late set/);
+    expect(at([{ ...X, late: ['plate'] }, Y])).toThrow(/late set/);
+    expect(at([X, { ...Y, own: { from: 3705, to: 3800, step: ['plate'] } }])).toThrow(/own set of 'y' is live/);
+    expect(at([{ ...X, own: { from: 3600, to: 3690, step: ['plate'] } }, Y])).toThrow(/own set of 'x' is live/);
+    expect(at([X, { ...Y, own: { from: 3720, to: 3800, step: ['lock'] } }])).toThrow(/steps a part/);
+    // a third entry holds the frame before
+    expect(at([X, Y, { id: 'z', from: 3600, to: 3686, step: ['plate'], priority: 3 }])).toThrow(/does not hold f3699/);
+    // part 1's holds drive the late and own sets: no hand-over there
+    expect(at([{ ...X, from: 2400, to: 2700 }, { ...Y, from: 2600, to: 2800 }], 2600)).toThrow(/part 2/);
+    // an idle own set of parts of neither set is fine
+    expect(at([X, { ...Y, own: { from: 3713, to: 3800, step: ['plate'] } }])).not.toThrow();
   });
 });

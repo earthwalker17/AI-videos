@@ -128,15 +128,25 @@ export interface ArmStep {
   to: DetentId;
 }
 /**
- * The arm at film frame f from MT1's next stamp-in on (part 1's detents, then each beat module's, in frame order: each
- * turn starts from the detent the one before it went to); `before`: its angle until the first of them.
+ * The arm at film frame f from MT1's next stamp-in on (part 1's detents, then each beat module's): armOf over every step.
+ * `before`: its angle until the first of them.
  */
 export function armAt(f: number, before: number): number {
-  const steps = [...ARM_PART1, ...ARM_7, ...ARM_8, ...ARM_9, ...ARM_10].sort((a, b) => a.at - b.at);
+  return armOf([...ARM_PART1, ...ARM_7, ...ARM_8, ...ARM_9, ...ARM_10], f, before);
+}
+/**
+ * The arm at film frame f under `steps` (pure, for any list): `before` until the first step, then the springs superposed,
+ * DETENT.you + Σ (DETENT[to_i] − DETENT[to_i−1]) · springAt(f, at_i, SPRING.detent) over the steps begun (frame order;
+ * to_−1 is 'you'). Each turn adds its own swing to what the arm is doing, so a turn that starts before the one before it
+ * has settled carries the rest of that one on (it never drops it in one frame).
+ */
+export function armOf(steps: readonly ArmStep[], f: number, before: number): number {
+  const sorted = [...steps].sort((a, b) => a.at - b.at);
+  if (!sorted.length || f <= sorted[0]!.at) return before;
+  let arm: number = DETENT.you;
   let from: number = DETENT.you;
-  let arm = before;
-  for (const d of steps) {
-    if (f > d.at) arm = from + (DETENT[d.to] - from) * springAt(f, d.at, SPRING.detent);
+  for (const d of sorted) {
+    if (f > d.at) arm += (DETENT[d.to] - from) * springAt(f, d.at, SPRING.detent);
     from = DETENT[d.to];
   }
   return arm;
@@ -182,12 +192,24 @@ const CARD_DEPTH = 1.5;
 /** Everything of act two's world that a counterfactual card steps down while it is up (the card is the beat's action). */
 const ALL_BUT_CARD: readonly FocusId[] = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'testsBay', 'cord', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'you', 'deck', 'chute'];
 /**
- * A beat's focus (stepAt): from `from` its `step` set steps down over STEP_FRAMES (to `depth`, 1 for a beat), and comes
- * back up over STEP_FRAMES from `to`. Where entries overlap (each live from `from` to `to` + STEP_FRAMES) the one with the
- * highest `priority` wins (default 0; on a tie the earlier in focusEntries), whole: so two entries that hand over must
- * agree on what they share at the hand-over frame (desk.test holds every part's step continuous). `own`: a second set on
- * its own ramp inside the entry (kit.tsx `Step on="own"`, STEP_OWN), in from `own.from` and out from `own.to`; `late`:
- * parts held on the late set (STEP_LATE, at a full step from f2200: the finished test tower's ramp).
+ * A beat's focus (stepAt, stepOf): from `from` its `step` set steps down over STEP_FRAMES (to `depth`, 1 for a beat), and
+ * comes back up over STEP_FRAMES from `to`. Where entries overlap (each live from `from` to `to` + STEP_FRAMES) the one
+ * with the highest `priority` wins (default 0; on a tie the earlier in focusEntries), whole: an entry that starts while
+ * another is down ramps in from nothing, so the parts they share pump (down, up, down) unless it takes over (`handFrom`).
+ * `own`: a second set on its own ramp inside the entry (kit.tsx `Step on="own"`, STEP_OWN), in from `own.from` and out
+ * from `own.to`; `late`: parts held on the late set (STEP_LATE, at a full step from f2200: the finished test tower's ramp).
+ *
+ * `handFrom`: the id of the entry this one takes over from, with no pump and no pop. From this entry's `from` on it wins
+ * over the entry it names, whatever their order and priority; over [from, from + STEP_FRAMES) the parts in both sets stay
+ * at a full step, the parts only in the named entry's set ramp out (1 − inOutSine), the parts only in this one's ramp in on
+ * its main ramp; after that it steps as any entry does. stepOf throws unless: the hand-over is part 2's (from >= CORD_FROM);
+ * the named entry exists, has the same depth, holds the frame before `from` and is at a full step on `from` (its ramp in
+ * done, its `to` not passed) and does not outlive this one (its `to` <= this one's); neither carries `late`, and an `own`
+ * of either is idle over the hand-over (its amount 0 from from − 1 to from + STEP_FRAMES − 1) and steps none of the parts
+ * of either set. How the parts are carried (handOverStep): with parts in all three groups, the shared on the late set
+ * (exactly 1 there, so only at depth 1: at another depth there is no third set to carry them, and stepOf throws), the
+ * dropped on the own set, the added on the main one; with a group empty, the shared keep the main set at the full step and
+ * the one ramping group takes the own set (with none shared, the added take the main set and the dropped the own).
  */
 export interface FocusEntry {
   id: string;
@@ -198,6 +220,7 @@ export interface FocusEntry {
   priority?: number;
   own?: { from: number; to: number; step: readonly FocusId[] };
   late?: readonly FocusId[];
+  handFrom?: string;
 }
 /** Part 1's focus entries (beats 4-6); part 2's come from the beat modules (focusEntries). */
 export const FOCUS_BEATS: readonly FocusEntry[] = [
@@ -355,23 +378,89 @@ export function focusEntries(): readonly FocusEntry[] {
 }
 /** A ramp in over STEP_FRAMES from `from`, out over STEP_FRAMES from `to` (0..1). */
 const rampAt = (f: number, from: number, to: number): number => Math.min(easings.inOutSine(clamp((f - from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - to) / STEP_FRAMES)));
-/** The focus entry that holds film frame f: of the entries live there, the highest priority (the earliest on a tie). */
+/** The focus entry that holds film frame f: focusOf over every entry of the film. */
 export function focusAt(f: number): FocusEntry | null {
+  return focusOf(focusEntries(), f);
+}
+/**
+ * The entry of `entries` that holds film frame f (pure, for any list): of the entries live there, the highest priority
+ * (the earliest on a tie), leaving out every entry that a live one takes over from (FocusEntry.handFrom).
+ */
+export function focusOf(entries: readonly FocusEntry[], f: number): FocusEntry | null {
+  const live = entries.filter((b) => f >= b.from && f < b.to + STEP_FRAMES);
   let best: FocusEntry | null = null;
-  for (const b of focusEntries()) {
-    if (f < b.from || f >= b.to + STEP_FRAMES) continue;
+  for (const b of live) {
+    if (live.some((x) => x.handFrom === b.id)) continue;
     if (!best || (b.priority ?? 0) > (best.priority ?? 0)) best = b;
   }
   return best;
 }
-/** The focus step-down at film frame f: ramps in over STEP_FRAMES from a beat's start, out after its end. */
+/** The focus step-down at film frame f: stepOf over every entry of the film. */
 export function stepAt(f: number): DeskState['step'] {
-  const b = focusAt(f);
+  return stepOf(focusEntries(), f);
+}
+/**
+ * The focus step-down at film frame f under `entries` (pure, for any list): the holding entry's ramps (in over
+ * STEP_FRAMES from its `from`, out from its `to`), or, over the first STEP_FRAMES of an entry that takes over from another
+ * (FocusEntry.handFrom), the hand-over (handOverStep). Throws on a hand-over that cannot be continuous (handOverFrom).
+ */
+export function stepOf(entries: readonly FocusEntry[], f: number): DeskState['step'] {
+  const b = focusOf(entries, f);
+  // every hand-over live at f is checked, whichever entry holds the frame
+  for (const e of entries) if (e !== b && e.handFrom !== undefined && f >= e.from && f < e.to + STEP_FRAMES) handOverFrom(entries, e);
   if (!b) return { amount: 0, ids: [] };
+  if (b.handFrom !== undefined) {
+    const x = handOverFrom(entries, b);
+    if (f < b.from + STEP_FRAMES) return handOverStep(x, b, f);
+  }
   const step: DeskState['step'] = { amount: (b.depth ?? 1) * rampAt(f, b.from, b.to), ids: b.step };
   if (b.own) step.own = { amount: rampAt(f, b.own.from, b.own.to), ids: b.own.step };
   if (b.late) step.late = b.late;
   return step;
+}
+/** The entry `b` takes over from (FocusEntry.handFrom), once every condition of a continuous hand-over holds (else it throws). */
+function handOverFrom(entries: readonly FocusEntry[], b: FocusEntry): FocusEntry {
+  const no = (why: string): never => {
+    throw new Error(`focus: '${b.id}' cannot take over from '${b.handFrom}': ${why}`);
+  };
+  const x = entries.find((e) => e.id === b.handFrom && e !== b);
+  if (!x) return no('there is no other entry of that id');
+  if (b.from < CORD_FROM) no(`a hand-over is part 2's (from >= ${CORD_FROM}: before it part 1's holds drive the late and own sets)`);
+  if ((x.depth ?? 1) !== (b.depth ?? 1)) no(`their depths differ (${x.depth ?? 1}, ${b.depth ?? 1})`);
+  if (rampAt(b.from, x.from, x.to) !== 1) no(`it is not at a full step on f${b.from} (in from ${x.from}, out from ${x.to})`);
+  if (focusOf(entries, b.from - 1) !== x) no(`it does not hold f${b.from - 1}, the frame before the hand-over`);
+  if (x.to > b.to) no(`it outlives the entry taking over (to ${x.to} > ${b.to})`);
+  if (b.to < b.from + STEP_FRAMES) no(`'${b.id}' ramps out (to ${b.to}) before its hand-over is done (f${b.from + STEP_FRAMES})`);
+  for (const e of [x, b]) {
+    if (e.late) no(`'${e.id}' carries a late set (the hand-over holds the shared parts there)`);
+    if (!e.own) continue;
+    for (let f = b.from - 1; f < b.from + STEP_FRAMES; f++) if (rampAt(f, e.own.from, e.own.to) !== 0) no(`the own set of '${e.id}' is live at f${f} (the hand-over ramps the parts it drops or adds there)`);
+    if (e.own.step.some((id) => x.step.includes(id) || b.step.includes(id))) no(`the own set of '${e.id}' steps a part that the hand-over carries`);
+  }
+  return x;
+}
+/**
+ * The hand-over from `x` to `b` at film frame f in [b.from, b.from + STEP_FRAMES) (FocusEntry.handFrom), every part exactly
+ * continuous with what it was and what it will be: the parts in both sets at the full step (d), the parts only in x's
+ * ramping out (d · (1 − inOutSine)), the parts only in b's ramping in on b's main ramp (d · inOutSine). With parts in all
+ * three groups the shared are held on the late set (STEP_LATE: testsStep, exactly 1 from f2200, so only at depth 1), the
+ * added on the main set, the dropped on the own set; with a group empty the shared keep the main set (no part changes set
+ * where it need not) and the one ramping group takes the own set.
+ */
+function handOverStep(x: FocusEntry, b: FocusEntry, f: number): DeskState['step'] {
+  const d = b.depth ?? 1;
+  const u = easings.inOutSine(clamp((f - b.from) / STEP_FRAMES));
+  const shared = b.step.filter((id) => x.step.includes(id));
+  const added = b.step.filter((id) => !x.step.includes(id));
+  const dropped = x.step.filter((id) => !b.step.includes(id));
+  if (shared.length && added.length && dropped.length) {
+    if (d !== 1) throw new Error(`focus: '${b.id}' cannot take over from '${x.id}': at depth ${d} the late set (at 1) cannot hold the shared parts while others are added and dropped`);
+    return { amount: u, ids: added, own: { amount: 1 - u, ids: dropped }, late: shared };
+  }
+  if (!shared.length) return { amount: d * u, ids: added, own: { amount: d * (1 - u), ids: dropped } };
+  if (added.length) return { amount: d, ids: shared, own: { amount: d * u, ids: added } };
+  if (dropped.length) return { amount: d, ids: shared, own: { amount: d * (1 - u), ids: dropped } };
+  return { amount: d, ids: shared };
 }
 
 /** The state of the desk at film frame `f` (pure). */
