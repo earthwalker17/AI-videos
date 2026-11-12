@@ -33,7 +33,7 @@ import { E6, beat6At, type Beat6State } from './beat6.ts';
 import { ARM_7, FOCUS_7, LAMP_7, beat7At, replies7, type Beat7State } from './beat7.ts';
 import { ARM_8, FOCUS_8, LAMP_8, beat8At, replies8, type Beat8State } from './beat8.ts';
 import { ARM_9, FOCUS_9, LAMP_9, beat9At, replies9, type Beat9State } from './beat9.ts';
-import { ARM_10, FOCUS_10, LAMP_10, beat10At, pins10, replies10, type Beat10State } from './beat10.ts';
+import { ARM_10, FOCUS_10, LAMP_10, beat10At, bugLight10, freshLight10, pins10, replies10, type Beat10State } from './beat10.ts';
 import { LAMP_11, beat11At, type Beat11State } from './beat11.ts';
 import { LAMP_END, endAt, type EndState } from './end.ts';
 import { DOLLY_IN, EASE_OUT } from './camera.ts';
@@ -517,7 +517,9 @@ export function deskStateAt(f: number): DeskState {
   const pins = pins10(f, cycling);
   const galley = ((((f - 2000) % 160) + 160) % 160) / 160;
 
-  const next = nextAt(f);
+  // bar 68 puts the request's bay's and the stuck bay's work lights out (beat10.ts bugLight10, freshLight10: the summary's are out)
+  const next0 = nextAt(f);
+  const next = { ...next0, light: freshLight10(f, next0.light) };
   // MT1: once the slip is stamped in, the arm turns from you to the fresh bay's detent; then each later beat's detents (armAt)
   const armNow = armAt(f, arm);
   const testsSink = springAt(f, EVENTS_D.rest, SPRING.heavy);
@@ -527,7 +529,7 @@ export function deskStateAt(f: number): DeskState {
   const e9 = beat9At(f);
   const e10 = beat10At(f);
   const replies: ReplyState[] = [...(slip ? [{ id: '0408', ride: slip, rest: IN_TRAY_REST }] : []), ...replies7(e7), ...replies8(e8), ...replies9(e9), ...replies10(e10)];
-  return { f, arm: armNow, slip, replies, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: b4.bays.bug.light, pins, galley, step: withLateHold(f, withBeat6Ramp(f, withBeat5Ramp(f, withOwnRamp(f, stepAt(f))))), next, cache: cacheAt(f), testsSink, b4, e5: beat5At(f), e6: beat6At(f, (x, at) => springAt(x, at, SPRING.dock)), e7, e8, e9, e10, e11: beat11At(f), end: endAt(f) };
+  return { f, arm: armNow, slip, replies, lamp, card, dock, stamp, cellLit, reel, transit, testsLight, testsStep, cardOut, tape, ink, testsCap, lamps, bugLight: bugLight10(f, b4.bays.bug.light), pins, galley, step: withLateHold(f, withBeat6Ramp(f, withBeat5Ramp(f, withOwnRamp(f, stepAt(f))))), next, cache: cacheAt(f), testsSink, b4, e5: beat5At(f), e6: beat6At(f, (x, at) => springAt(x, at, SPRING.dock)), e7, e8, e9, e10, e11: beat11At(f), end: endAt(f) };
 }
 
 /**

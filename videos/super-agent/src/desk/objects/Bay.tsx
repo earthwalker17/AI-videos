@@ -740,17 +740,28 @@ function useCardFileGeometry() {
   }, []);
 }
 
-/** The fresh bay's own fixture: the card file (ask, look up). */
-function FreshParts({ m }: { m: DeskMats }) {
+/** The fresh bay's own fixture: the card file (ask, look up). `drum` (beat 9, desk/beat9.ts drumAt): the drum and its crank turned about the axle (radians), as it steps out and back while stuck. */
+function FreshParts({ m, drum = 0 }: { m: DeskMats; drum?: number }) {
   const g = useCardFileGeometry();
+  const turning = (
+    <>
+      <mesh geometry={g.core} material={m.graphiteDark} />
+      <mesh geometry={g.cards} material={m.paper} />
+      <mesh geometry={g.crank} material={m.steel} />
+    </>
+  );
   return (
     <>
       <mesh geometry={g.feet} material={m.graphiteDark} />
       <mesh geometry={g.cheeks} material={m.enamel} />
       <mesh geometry={g.axle} material={m.steel} />
-      <mesh geometry={g.core} material={m.graphiteDark} />
-      <mesh geometry={g.cards} material={m.paper} />
-      <mesh geometry={g.crank} material={m.steel} />
+      {drum === 0 ? (
+        turning
+      ) : (
+        <group position={[0, CARD_FILE.y, CARD_FILE.z]} rotation={[drum, 0, 0]}>
+          <group position={[0, -CARD_FILE.y, -CARD_FILE.z]}>{turning}</group>
+        </group>
+      )}
     </>
   );
 }
@@ -765,7 +776,8 @@ export function FreshBay({ s }: { s: DeskState }) {
   useLayoutEffect(() => {
     // dark until the folder is in, then it ignites (spring-effects): a live process, it blooms (stepped down too: the same level)
     // its level ramps evenly to the eye (geometric between dark and computing), so the first frame of the spring is not most of the light
-    for (const set of [sets.full, sets.stepped]) set.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 * (EMIT.slot / 0.12) ** n.light);
+    // (the own set too: beat 9's hand-over carries the bay there over 4766-4779, and its light must not dip as it does)
+    for (const set of [sets.full, sets.stepped, sets.own]) set.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 * (EMIT.slot / 0.12) ** n.light);
   }, [sets, n.light]);
   // in its pit under the shut hatch until the leaves part (beat4.ts hatchRiseAt): it rises only once they are open
   if (!n.hole && n.rise <= 0) return null;
@@ -774,7 +786,7 @@ export function FreshBay({ s }: { s: DeskState }) {
     <Step on={isStepped(s.step, 'freshBay')}>
       <group position={[0, 0, liftOf(n.rise, HATCH_DEPTH)]}>
         <BayBase b={FRESH} slot="slotFresh" door={n.door}>
-          <WithMats>{(mm) => <FreshParts m={mm} />}</WithMats>
+          <WithMats>{(mm) => <FreshParts m={mm} drum={s.e9?.drum ?? 0} />}</WithMats>
         </BayBase>
       </group>
     </Step>
