@@ -1,7 +1,7 @@
 /**
  * Bars 69-77 (f5440-6159): beats 11 and 12, the sign-off, the old ideas and the bookend (STORYBOARD 11.1-12.1, Sound
  * column), on BEAT_11's and END's contact frames. continuity.ts resolves bar 67's suspension on the stamp, holds the
- * Dmaj9 through `rest-signoff` at its rest level, brings the bass back for bars 71-73, and from bar 76 ticks once a
+ * Dmaj9 through `rest-signoff` at its rest level, brings the bass back for bars 71-75, and from bar 76 ticks once a
  * beat (the frame-0 rhythm) while the pad fades out to the dissolve.
  *
  *   11.1  `stamp`: your desk stamps the reply green: a felt stamp thump, and the motif completes as A4, D5, F♯5 (short:
@@ -10,26 +10,43 @@
  *         under the mix); the four plates retire inside the rest, silently
  *   11.2  the six idea labels land as clicks on their beats, each at its part; the key sets (a soft print tap)
  *   11.3  for the beat the act-one card is up, the theme returns, softer: act one's first three folder motifs in D
- *         Dorian on muted marimba, in their 4:3:5 subdivisions, over the pad's suspension; the neck collar seats on
+ *         Dorian on muted marimba, in their 4:3:5 subdivisions, over the pad's open fifth (each note levelled on its
+ *         loudest 400 ms, so the top line, whose fundamental the soft mallet cancels, is heard); the neck collar seats on
  *         your lamp's neck (a small detent)
  *   11.4  as your lamp turns to the next reply, the motif once at half speed (A4 then D5, a beat apart)
  *   12.1  `bookend`: as at f20 a slip turns vermilion: the motif once, with no felt-piano answer (and no F♮ falling
  *         after it)
  */
 import { BEAT_11, END } from '../src/cues.ts';
-import { LV, M, panned, type Desk } from './common.ts';
+import { LV, M, loudest400, panned, type Desk } from './common.ts';
 import { detent, inkClick, paperThump, printTap, sketchScratch } from './foley.ts';
 import { marimba } from './instruments.ts';
 import { SCREEN, X, panAt, screenPan } from './places.ts';
 
 const { D3, A3, D4, F4, A4, C5, D5, Fs5 } = M;
 
-/** The act-one theme for one card's beat: act one's folders 1-3 (their first notes, their own subdivisions over two beats: 4, 3 and 5 a bar). */
-export const THEME: readonly { notes: readonly number[]; perBar: number; pan: number }[] = [
-  { notes: [D4, F4], perBar: 4, pan: -0.1 },
-  { notes: [D3, A3], perBar: 3, pan: 0.05 },
-  { notes: [A4, C5, D5], perBar: 5, pan: -0.25 },
+/**
+ * The act-one theme for one card's beat: act one's folders 1-3 (their first notes, their own subdivisions over two beats: 4, 3 and 5 a
+ * bar), on muted marimba. The top line takes a harder mallet: at 0.2 the mallet's soft pulse all but cancels a fundamental near
+ * 600 Hz (D5's loudest 400 ms sat 16 dB under D4's).
+ */
+export const THEME: readonly { notes: readonly number[]; perBar: number; pan: number; bright: number }[] = [
+  { notes: [D4, F4], perBar: 4, pan: -0.1, bright: 0.2 },
+  { notes: [D3, A3], perBar: 3, pan: 0.05, bright: 0.2 },
+  { notes: [A4, C5, D5], perBar: 5, pan: -0.25, bright: 0.6 },
 ];
+
+/** The theme's notes as placed: beats after the card's rise, the clip, its gain over LV.theme (each note levelled on its loudest 400 ms to the first's, D4), its pan off the card's. */
+export function themeNotes(seed: number): { beat: number; clip: Float32Array; db: number; pan: number }[] {
+  const note = (midi: number, i: number, j: number) => marimba(midi, { seed, k: 7800 + 10 * i + j, vel: 0.55, bright: THEME[i].bright, tau: 0.5 });
+  const ref = loudest400(note(THEME[0].notes[0], 0, 0));
+  return THEME.flatMap((v, i) =>
+    v.notes.map((midi, j) => {
+      const clip = note(midi, i, j);
+      return { beat: (j * 4) / v.perBar, clip, db: 10 * Math.log10(ref / loudest400(clip)), pan: v.pan };
+    }),
+  );
+}
 
 /** Where the trace is across the desk at film frame f: out from the chat spout to the request's bay, then home to your in-tray (summary.ts TRACE_F). */
 export function traceX(f: number): number {
@@ -58,18 +75,14 @@ export function signoff(d: Desk): void {
   foley(d.f(from), panned(drag, (t) => panAt(traceX(from + t * fps), from + t * fps)), { part: 'drag', db: LV.drag, pan: 0 });
 
   // ===== 11.2: the idea labels on their beats, the key ================================================================
-  B.ideas.forEach((f, i) => foley(d.f(f), inkClick(seed, 30 + i), { part: 'label', db: LV.label, pan: screenPan(SCREEN.ideas[i]), sends: { hall: 0.12 } }));
+  // the first lands as the pad comes back from the rest, so it sits 4 dB lower
+  B.ideas.forEach((f, i) => foley(d.f(f), inkClick(seed, 30 + i), { part: 'label', db: LV.label - (i === 0 ? 4 : 0), pan: screenPan(SCREEN.ideas[i]), sends: { hall: 0.12 } }));
   foley(d.f(B.keyMap), printTap(seed, 10), { part: 'key', db: LV.keySet, pan: screenPan(SCREEN.keyMap), sends: { hall: 0.1 } });
 
   // ===== 11.3: the act-one card, the theme softer; the collar seats ======================================================
   const card = d.f(B.actOneCard.rise);
   const cardPan = screenPan(SCREEN.actOneCard);
-  THEME.forEach((v, i) =>
-    v.notes.forEach((midi, j) => {
-      const at = card + T.beats((j * 4) / v.perBar);
-      music(at, marimba(midi, { seed, k: 7800 + 10 * i + j, vel: 0.55, bright: 0.2, tau: 0.5 }), { part: 'theme', db: LV.theme, pan: cardPan + v.pan, sends: { hall: 0.4 } });
-    }),
-  );
+  for (const n of themeNotes(seed)) music(card + T.beats(n.beat), n.clip, { part: 'theme', db: LV.theme + n.db, pan: cardPan + n.pan, sends: { hall: 0.4 } });
   foley(d.f(B.collar.to), detent(seed, 2), { part: 'collar', db: LV.collar, pan: panAt(X.lampHead, B.collar.to), sends: { hall: 0.1 } });
 
   // ===== 11.4: the motif once at half speed, as your lamp turns to the next reply ==========================================

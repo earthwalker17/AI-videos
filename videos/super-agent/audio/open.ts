@@ -27,8 +27,8 @@ const { D3, Eb3, B3, D4, Fs4, G4, A4, D5 } = M;
 /** The etch's notes, one per machine (north to south), descending. */
 export const ETCH_NOTES: readonly number[] = [Fs4, D4, B3];
 
-/** The ticks this part marks (continuity.ts leaves those beats to it): the second etch, the "?", the split, the handle, the stamp-in, the reply. */
-export const openBeats = (d: Desk): number[] => [BEAT_10.etch[1], BEAT_10.query, BEAT_10.split, BEAT_10.handle, BEAT_10.stampIn, BEAT_10.replyLands].map((f) => d.f(f));
+/** The ticks this part marks (continuity.ts leaves those beats to it): the second etch, the "?", the handle, the stamp-in, the reply (the split is the pad's, with no onset of its own: the Router's tick sounds on it). */
+export const openBeats = (d: Desk): number[] => [BEAT_10.etch[1], BEAT_10.query, BEAT_10.handle, BEAT_10.stampIn, BEAT_10.replyLands].map((f) => d.f(f));
 
 export function open(d: Desk): void {
   const { T, seed, music, foley } = d;
@@ -44,7 +44,7 @@ export function open(d: Desk): void {
   foley(d.f(B.tear), paperTear(seed, 1), { part: 'tear', db: LV.tear, pan: panAt(X.tape, B.tear), sends: { hall: 0.1 } });
   const cards = d.f(B.cards.rise);
   music(cards, marimba(D3, { seed, k: 7710, vel: 0.7, bright: 0.25, tau: 0.45 }), { part: 'fix-echo', db: LV.fixEcho, pan: -0.9, sends: { hall: 0.25 } });
-  music(cards, brightPluck(D5, { seed, k: 342, vel: 0.6, t60: 0.6 }), { part: 'fix-echo', db: LV.fixEcho, pan: 0.9, sends: { hall: 0.2, echo: 0.2 } });
+  music(cards, brightPluck(D5, { seed, k: 342, vel: 0.6, t60: 0.6 }), { part: 'fix-echo', db: LV.fixEcho + LV.fixPluck, pan: 0.9, sends: { hall: 0.2, echo: 0.2 } });
   foley(d.f(B.windings), sketchScratch(seed, { len: 0.4, k: 10 }), { part: 'pencil', db: LV.pencil - 2, pan: panAt(X.reel, B.windings), sends: { hall: 0.1 } });
 
   // ===== 10.3: the reach, the handle, bar 68's handshake ==========================================================

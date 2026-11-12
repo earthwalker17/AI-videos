@@ -4,15 +4,18 @@
  * on 2 and 4.
  *
  *   8.1  the pulse thins to mallet and bass: a soft FM mallet on 1 and 3 with the bass, tracing the harmony the pad
- *        would hold (D, Bm, G, A over the Router's D, so bar 58's B minor arrives as a deceptive turn); the load
+ *        would hold (D, Bm, G, A over the Router's D, so bar 58's B minor arrives as a deceptive turn, on one more
+ *        stroke as the sheet slides away: B3 and D4 together, the bass already out, the pad coming back); the load
  *        line prints as a soft rain of ticks, the 20 inked ones a little louder, each at its place on the row as the
  *        camera trucks to the sheet
  *   8.2  the caveat stamp inks in (a print tap); each lane's strip sounds one held tone for exactly as long as it
  *        slides (stripFrames x its p95): D4, F♯4, A4, the two baselines lighter than two levels, so the halving is
- *        heard as the A4 stopping first; the hero stamp "~½" (a print tap)
+ *        heard as the A4 stopping first (the mallet stands aside for bar 51, so no stroke doubles or blurs them);
+ *        the hero stamp "~½" (a print tap)
  *   8.3  the bracket springs: a soft tick in an open fifth (D5 and A5); "~10%" (a print tap)
  *   8.4  the told-to-delegate lane's notches on eighths: a muted click for each punched one, nothing for the run
- *        that did the work itself, whose long tail then slides out as one held tone (F♯4, the lane's)
+ *        that did the work itself (bar 55's downbeat: the bass and the mallet stand aside, so the gap is heard),
+ *        whose long tail then slides out as one held tone (F♯4, the lane's)
  *   8.5  the token stacks: three soft rising notes (A4, C♯5, E5) on their completions, the last heavier (an E4
  *        under it); "2–4×" lands on it (a print tap), and the mallet stands aside on that beat
  */
@@ -35,6 +38,8 @@ const PULSE: readonly (readonly [number, number])[] = [
   [A3, Cs4],
   [A3, Cs4],
 ];
+/** The pulse's arrival on bar 58's downbeat (BEAT_8.away), B minor's B3 and D4 struck together. */
+const ARRIVAL: readonly number[] = [B3, D4];
 /** Each lane's strip tone (one session, told to delegate, two levels). */
 export const STRIP_NOTES: readonly number[] = [D4, Fs4, A4];
 /** The hero stamps, by text cue. */
@@ -52,13 +57,16 @@ export function evidence(d: Desk): void {
   const lastStack = d.f(B.stacks[B.stacks.length - 1].done);
 
   // ===== 8.1: the thinned pulse and the rain of ticks =======================================================
+  // the mallet stands aside where the sheet speaks alone: bar 51 (the caveat and the strips), the unpunched notch, the last stack
+  const aside = new Set([d.f(B.caveat), d.f(B.caveat) + T.beats(2), ...B.notches.filter((n) => !n.punched).map((n) => d.f(n.f)), lastStack]);
+  const stroke = (at: number, midi: number) => music(at, fmMallet(midi, { vel: 0.6, tau: 0.45 }), { part: 'pulse-mallet', db: LV.pulseMallet, pan: -0.05, sends: { hall: 0.2 } });
   PULSE.forEach((notes, i) =>
     notes.forEach((midi, j) => {
       const at = T.beat(50 + i, 1 + 2 * j);
-      if (at === lastStack) return;
-      music(at, fmMallet(midi, { vel: 0.6, tau: 0.45 }), { part: 'pulse-mallet', db: LV.pulseMallet, pan: -0.05, sends: { hall: 0.2 } });
+      if (!aside.has(at)) stroke(at, midi);
     }),
   );
+  for (const midi of ARRIVAL) stroke(d.f(B.away), midi);
   const inked = new Set<number>(B.ticks.inked);
   const span = B.ticks.to - B.ticks.from;
   const ticks = Array.from({ length: B.ticks.n }, (_, i) => {

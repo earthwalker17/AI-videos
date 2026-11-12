@@ -125,16 +125,16 @@ export const LV = {
   // beat 7
   cordRun: -29,
   cordPluck: -24,
-  notice: -30,
-  tally: -22,
+  tally: -20.5,
   /** the job capsule's held tone (its strike on the peel is LV.capsuleStrike) */
   capsule: -27,
   capsuleStrike: -19,
-  receipt: -21,
+  /** the "started" receipt's tiny ink click (at -21 it sat 23.6 dB under the bed) */
+  receipt: -15,
   dockChord: -20,
   dossier: -26,
-  /** the sharp contact a hit needs over the bass pulse and the pad (QA's onset finder: the loudest 5 ms rise within 120 ms) */
-  contact: -13,
+  /** the sharp contact a hit needs over the bass pulse and the pad (QA's onset finder: the loudest 5 ms rise within 120 ms; at -13 the low tones' 5 ms ripple came within 1.4x of it) */
+  contact: -12,
   // beat 8
   /** the tick row's rain: one clip, normalised on its loudest (inked) tick */
   rain: -24,
@@ -144,32 +144,38 @@ export const LV = {
   /** the lanes' strips: the two baselines in lighter print, two levels in full */
   strip: -25,
   stripHero: -23,
-  bracket: -24,
+  /** the bracket's open fifth: two short plucks, at -24 far under the sheet's bass and mallet */
+  bracket: -18,
   notch: -21,
   stack: -21,
   // beat 9
-  lid: -34,
-  vellum: -30,
+  /** the lid's latch and the vellum breaths: the B minor pad is back within 0.35 s of bar 58 (at -34 and -30 the lid sat 24 dB and the lays 20-23 dB under it) */
+  lid: -27,
+  vellum: -27.5,
   strutHum: -27,
-  vellumTap: -24,
-  lampOn: -22,
+  vellumTap: -21,
+  lampOn: -19,
   slipDrop: -22,
   sweep: -17,
-  stuck: -24,
+  /** the stuck bay's loop: its damped B4 and A4 lose their fundamental to the soft mallet, so they sit high (at -24 they were lost under the pad) */
+  stuck: -18,
   pencil: -26,
   // beat 10
   etch: -15,
   fixEcho: -26,
+  /** Fix B's ghost pluck over LV.fixEcho: a short bright pluck reads about 14 dB under the plod's marimba at the same level */
+  fixPluck: 8,
   reach: -17,
   report: -17,
   pop: -19,
   // beats 11-13
   /** the scratching drag along the trace: it runs into rest-signoff, which must stay 20 dB under the mix */
   drag: -33,
-  label: -20,
-  keySet: -22,
+  /** the idea labels (the first, as the pad comes back from the rest, 4 dB lower) */
+  label: -16,
+  keySet: -20.5,
   theme: -26,
-  collar: -22,
+  collar: -18,
   endMotif: -18,
 } as const;
 

@@ -11,7 +11,8 @@
  *   drone swell. It fades out over bars 76-77 and ends at `dissolve`.
  * - Part two (TREATMENT Sound design, STORYBOARD 7.1-13.3): D major for beat 7; beat 8's evidence
  *   has no pad at all (a chord of no notes closes every line: the pulse thins to mallet and bass,
- *   evidence.ts), and the pad comes back on bar 58's B minor as the bass drops out. After the
+ *   evidence.ts), and the pad comes back on bar 58's B minor as the bass drops out (quickly, under the pulse's
+ *   last stroke, so the downbeat is not a hole). After the
  *   silence a drone swell on D carries B minor's colour, a suspension for the "?", then the
  *   borrowed iv (G minor over the drone, bar 65), in which the Router's chord detunes into two
  *   from BEAT_10.split (each line becomes two halves, a few cents apart and drifting apart
@@ -23,7 +24,8 @@
  *   Router batches: its ticks are held (keepUp.ts) and released as one chord. In bars 76-78 they
  *   are the frame-0 rhythm, one quiet tick a beat (STORYBOARD 12.1), fading through the dissolve.
  * - The bass pulse runs to bar 57, skipping the flyover (bar 45 beat 1: a Thread follow-up skips
- *   the Router's decision) and the dossier's thud (bar 49 beat 3), and comes back for bars 71-75.
+ *   the Router's decision), the dossier's thud (bar 49 beat 3) and the unpunched notch (bar 55 beat 1),
+ *   and comes back for bars 71-75.
  *
  * Bars 1-43 are as approved (2026-11-12): every line that starts in part one keeps the number
  * (its bow's noise) the approved render gave it, so part two's plan never moves a sample of them.
@@ -105,17 +107,19 @@ export const PART_TWO_PLAN: RouterPlan = {
     { bar: 69, notes: [D3, A3, D4, Fs4] },
     { bar: 69, beat: 3, notes: [D3, A3, Cs4, E4, Fs4] },
     { bar: 71, notes: [D3, G3, B3, D4] },
-    { bar: 73, notes: [D3, A3, D4, E4] },
+    // an open fifth under the act-one card: the theme's F♮4 (act one's Dorian colour) meets no E4 a semitone under it
+    { bar: 73, notes: [D3, A3, D4, A4] },
     { bar: 74, notes: [D3, A3, D4, Fs4] },
     { bar: 75, notes: [D3, G3, B3, D4] },
     // beat 12: the bookend, fading to the dissolve
     { bar: 76, notes: [D3, A3, D4, Fs4] },
   ],
   bass: [...range(44, 57), ...range(71, 75)],
-  // f3520: the follow-up skips the Router's decision; f3880: the dossier's thud stands alone
+  // f3520: the follow-up skips the Router's decision; f3880: the dossier's thud stands alone; f4320: the unpunched notch, heard as a gap before the long run
   bassSkip: [
     [45, 1],
     [49, 3],
+    [55, 1],
   ],
   // the pad comes back from beat 8's gap a dB fuller (part two alone near -14.3 LUFS, so bars 1-43 keep their level in the master)
   padLift: { from: 51, to: 57, db: 1 },
@@ -186,8 +190,8 @@ export function routerLayer(d: Desk, o: { skip: readonly number[] }): void {
           lines.push({ midi, from: ln.from, to: c.at, attack: ln.attack });
           open.delete(midi);
         }
-      // a line opening the segment swells in; one coming back after a chord of no notes re-enters over 1.2 s
-      const attack = c.at === seg.from ? seg.attack : prevEmpty ? 1.2 : 0.8;
+      // a line opening the segment swells in; one coming back after a chord of no notes (bar 58, under the pulse's last stroke) re-enters in 0.35 s
+      const attack = c.at === seg.from ? seg.attack : prevEmpty ? 0.35 : 0.8;
       for (const midi of c.notes) if (!open.has(midi)) open.set(midi, { from: c.at, attack });
       prevEmpty = c.notes.length === 0;
     }
@@ -205,9 +209,10 @@ export function routerLayer(d: Desk, o: { skip: readonly number[] }): void {
       const pan = (((ln.midi * 7) % 5) - 2) * 0.15;
       const sends = { hall: 0.35 };
       if (ln.from < healed && ln.to > split) {
-        // the Router's chord detunes into two: two coherent halves of the line until the split, then a few cents apart, drifting apart
+        // the Router's chord detunes into two: two coherent halves of the line until the split, then a few cents apart, drifting apart;
+        // apart, the halves add in power, not in amplitude, so each rises to 1/sqrt 2 of the line as they part (the pad keeps its level)
         for (const h of [-1, 1]) {
-          const clip = bowedNote(ln.midi, { seed, k: kk, len, attack: ln.attack, release, amp: (t) => 0.5 * level(ln.from + t * SR), bend: (t) => h * DETUNE.cents * apart(ln.from + t * SR) });
+          const clip = bowedNote(ln.midi, { seed, k: kk, len, attack: ln.attack, release, amp: (t) => 0.5 * level(ln.from + t * SR) * Math.SQRT2 ** apart(ln.from + t * SR), bend: (t) => h * DETUNE.cents * apart(ln.from + t * SR) });
           pad(ln.from, panned(clip, (t) => pan + h * DETUNE.spread * apart(ln.from + t * SR)), { part: 'pad', db: LV.pad, pan: 0, sends });
         }
         continue;

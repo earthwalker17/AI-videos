@@ -23,12 +23,14 @@ import { BATCH_CHORDS, KEY_STRIKE_LEAD, PLATE_UNHOOK, TAB_LANDS } from './keepUp
 import { REPLY_FLIGHT } from './fixes.ts';
 import { OLDER_REPLY_LANDS, TESTS_DONE } from './levels.ts';
 import { CAMERA_PLAN, FRAMING_B, FRAMING_D, FRAMING_HOOK, FRAMING_SHEET, X, framingAt, panAt } from './places.ts';
-import { capsulePan } from './waiting.ts';
+import { RAIL_DISTANCE, capsuleAway, capsulePan } from './waiting.ts';
 import { STAMPS, stampFrame } from './evidence.ts';
 import { stuckLoop } from './persistent.ts';
 import { END_MOTIFS, LAST_NOTE } from './endCard.ts';
-import { DETUNE } from './continuity.ts';
+import { DETUNE, PART_TWO_PLAN } from './continuity.ts';
+import { THEME, themeNotes } from './signoff.ts';
 import { renderMix } from './index.ts';
+import { loudest400 } from './common.ts';
 import { cordRun, detent, gateClack, inkClick, inkSwell, lidClick, paperFold, paperTear, paperThump, paperTick, plateTap, pointerTick, printTap, ratchet, sandTrickle, sketchScratch, softPop, tickRain, unhook, vellumLay, vellumTap, woodKnock, woodblockHop } from './foley.ts';
 import { bowedNote, brightPluck, chirp, fallTone, feltPiano, fmMallet, hum, loupeBell, marimba, sineBass, smear, softPulse, stripTone, woodTick } from './instruments.ts';
 
@@ -277,7 +279,8 @@ describe('every sound on its contact frame', () => {
     expect(of('motif', guide - T.beats(0.25), guide + 1).map((p) => p.at)).toEqual([guide - T.beats(0.25), guide]);
     expect(has('bass', guide)).toBe(false);
     expect(has('bass', T.beat(45, 3))).toBe(true);
-    expect(has('notice', guide)).toBe(true);
+    // the notice row prints in silence: the D6 alone on the guide
+    expect(partsAt(guide)).toEqual(['motif']);
     expect(has('tally', S(B.tally.print))).toBe(true);
     expect(of('strike', S(B.tally.ghostStrike), S(B.tally.ghostStrike) + 1).length).toBe(2);
     expect(has('strike', S(B.doorGhost.strike))).toBe(true);
@@ -286,6 +289,10 @@ describe('every sound on its contact frame', () => {
     expect(capsulePan(B.peel.lift)).toBeCloseTo(capsulePan(B.peel.dock), 9);
     expect(capsulePan(B.peel.rail)).toBeGreaterThan(capsulePan(B.peel.lift) + 0.08);
     expect(capsulePan((B.peel.rail + B.peel.dockFrom) / 2)).toBeCloseTo(capsulePan(B.peel.rail), 9);
+    // on the rail it is further off, not just further right: out and back as smoothly as it moves (no step of more than a seventh a frame)
+    expect(RAIL_DISTANCE.db).toBeLessThanOrEqual(-4);
+    expect([B.peel.lift, B.peel.rail, B.peel.dockFrom, B.peel.dock].map(capsuleAway)).toEqual([0, 1, 1, 0]);
+    for (let f = B.peel.lift; f < B.peel.dock; f += 0.5) expect(Math.abs(capsuleAway(f + 1) - capsuleAway(f)), `f${f}`).toBeLessThanOrEqual(1 / 7 + 1e-9);
     expect(has('receipt', S(B.peel.receipt))).toBe(true);
     expect(has('trickle', S(B.glass.dock))).toBe(true);
     expect(has('plate', S(B.glass.plateDock))).toBe(true);
@@ -309,11 +316,18 @@ describe('every sound on its contact frame', () => {
     // no pad starts in bars 50-57, and every line before them has released by a second into bar 50
     expect(of('pad', b50, b58)).toEqual([]);
     for (const p of of('pad', 0, b50)) expect(p.at + p.len, `pad at f${p.at / 1600}`).toBeLessThanOrEqual(b50 + T.s(0.8) + 1);
+    // the mallet stands aside for bar 51 (the strips sound alone), the unpunched notch (a gap, with the bass) and the last stack
+    const gap = S(B.notches.find((n) => !n.punched)!.f);
+    expect(gap).toBe(T.beat(55));
+    const aside = [T.beat(51), T.beat(51, 3), gap, S(B.stacks[2].done)];
     for (let bar = 50; bar <= 57; bar++)
       for (const b of [1, 3]) {
-        expect(has('bass', T.beat(bar, b)), `bass ${bar}.${b}`).toBe(true);
-        expect(has('pulse-mallet', T.beat(bar, b)), `mallet ${bar}.${b}`).toBe(T.beat(bar, b) !== S(B.stacks[2].done));
+        expect(has('bass', T.beat(bar, b)), `bass ${bar}.${b}`).toBe(T.beat(bar, b) !== gap);
+        expect(has('pulse-mallet', T.beat(bar, b)), `mallet ${bar}.${b}`).toBe(!aside.includes(T.beat(bar, b)));
       }
+    expect(partsAt(gap)).toEqual([]);
+    // the pulse's last stroke lands bar 58's B minor as the sheet slides away (the bass already out)
+    expect(of('pulse-mallet', S(B.away), S(B.away) + 1).length).toBe(2);
     expect(of('rain').map((p) => p.at)).toEqual([S(B.ticks.from)]);
     expect(of('rain')[0].len / SR).toBeCloseTo((B.ticks.to - B.ticks.from) / 30, 1);
     // the strips: each as long as its slide (stripFrames x p95), so the halving is heard
@@ -372,6 +386,8 @@ describe('every sound on its contact frame', () => {
     for (const p of through) halves.set(`${p.at}:${p.len}`, (halves.get(`${p.at}:${p.len}`) ?? 0) + 1);
     expect([...halves.values()].every((n) => n % 2 === 0)).toBe(true);
     expect(DETUNE.cents).toBeGreaterThan(0);
+    // the split is the pad's, with no onset of its own: the Router's tick sounds on its beat
+    expect(has('ticks', split)).toBe(true);
     expect(has('reach', S(B.reach))).toBe(true);
     expect(has('ink-click', S(B.reportUp))).toBe(true);
     expect(has('print', S(B.stampIn))).toBe(true);
@@ -399,6 +415,14 @@ describe('every sound on its contact frame', () => {
     expect(theme.length).toBe(7);
     expect(theme[0].at).toBe(S(B.actOneCard.rise));
     expect(Math.max(...theme.map((p) => p.at))).toBeLessThan(S(B.actOneCard.rise) + T.beats(2));
+    // the theme sounds over no pad note a semitone from any of its own (bar 73: an open fifth), each note levelled to the first on its loudest 400 ms
+    const pc = (n: number) => n % 12;
+    const under = PART_TWO_PLAN.chords.filter((c) => T.beat(c.bar, c.beat ?? 1) < S(B.actOneCard.rise) + T.beats(2));
+    const sounding = under[under.length - 1].notes.map(pc);
+    for (const t of THEME.flatMap((v) => v.notes).map(pc)) for (const p of sounding) expect((t - p + 12) % 12 === 1 || (p - t + 12) % 12 === 1, `theme ${t} over pad ${p}`).toBe(false);
+    const levels = themeNotes(12345).map((n) => 10 * Math.log10(loudest400(n.clip)) + n.db);
+    for (const l of levels) expect(l).toBeCloseTo(levels[0], 6);
+    expect(Math.max(...themeNotes(12345).map((n) => n.db))).toBeLessThan(9);
     expect(has('collar', S(B.collar.to))).toBe(true);
     expect(of('motif', S(B.lampTurns[0]), S(B.lampTurns[0]) + T.beats(2)).map((p) => p.at)).toEqual([S(B.lampTurns[0]), S(B.lampTurns[0]) + T.beats(1)]);
     // the bookend: the motif once, with no felt-piano answer and nothing else of yours after it
@@ -459,8 +483,11 @@ describe('the mastered film (index.ts renderMix), as the stage renders it', () =
   // the stage's own seed (render.ts scoreContext: FNV-1a of the slug), so this is the mix that ships, read off its report as aiv audio prints it
   const stage: ScoreContext = { ...ctx, seed: hashString('super-agent') };
   let lines: string[] = [];
+  let film: { l: Float32Array; r: Float32Array } = { l: new Float32Array(0), r: new Float32Array(0) };
   beforeAll(() => {
-    lines = renderMix(stage).lines;
+    const out = renderMix(stage);
+    lines = out.lines;
+    film = { l: out.l, r: out.r };
   }, 400_000);
 
   it('balances its halves: bars 44-84 alone near -14.3 LUFS, so bars 1-43 stay where they were approved', () => {
@@ -476,6 +503,28 @@ describe('the mastered film (index.ts renderMix), as the stage renders it', () =
     const rests = lines.filter((l) => l.startsWith('qa: rest') || l.startsWith('qa: silence'));
     expect(rests.length).toBe(6);
     for (const l of rests) expect(l, l).toMatch(/ ok$/);
+  });
+
+  it('leaves no hole from bar 44 on: no beat (a window of one, every 5 f) sits more than 12 dB under the beats either side, outside the rests, the silences and the dissolve', () => {
+    const { l, r } = film;
+    // power in 5 f blocks; a beat is four of them
+    const block = S(5);
+    const from = T.beat(44);
+    const blocks = Array.from({ length: Math.floor((l.length - from) / block) }, (_, k) => {
+      let s = 0;
+      for (let i = from + k * block; i < from + (k + 1) * block; i++) s += (l[i] * l[i] + r[i] * r[i]) / 2;
+      return s / block;
+    });
+    const beat = (k: number) => 10 * Math.log10((blocks[k] + blocks[k + 1] + blocks[k + 2] + blocks[k + 3]) / 4 + 1e-30);
+    const out: [number, number][] = [...T.spans('rest'), ...T.silences, [S(END.dissolve[0]), S(END.dissolve[1])]];
+    const clear = (k: number) => !out.some(([a, b]) => from + k * block < b && from + (k + 4) * block > a);
+    const holes: string[] = [];
+    for (let k = 4; k + 8 <= blocks.length; k++) {
+      if (!clear(k - 4) || !clear(k) || !clear(k + 4)) continue;
+      const under = Math.min(beat(k - 4), beat(k + 4)) - beat(k);
+      if (under > 12) holes.push(`f${(from + k * block) / S(1)}: ${under.toFixed(1)} dB`);
+    }
+    expect(holes).toEqual([]);
   });
 
   it('gives every hit of bars 44-84 a contact QA’s onset finder hears within a frame', () => {

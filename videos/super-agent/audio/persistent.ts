@@ -41,8 +41,7 @@ export function persistent(d: Desk): void {
 
   // ===== 9.1: the lid, the vellum laid down, the strut handed over, a machine's lamp and slip ==================
   foley(d.f(B.lidClick), lidClick(seed, 0), { part: 'lid', db: LV.lid, pan: panAt(X.laptop, B.lidClick), sends: { hall: 0.12 } });
-  // the first lay comes while the B minor pad is still swelling in, so it sits a little lower (12 dB under the bed)
-  B.lays.forEach((f, i) => foley(d.f(f), vellumLay(seed, { len: 12 / fps, k: i }), { part: 'vellum', db: LV.vellum - (i === 0 ? 2.5 : 0), pan: panAt(LAID[i], f + 6), sends: { hall: 0.2 } }));
+  B.lays.forEach((f, i) => foley(d.f(f), vellumLay(seed, { len: 12 / fps, k: i }), { part: 'vellum', db: LV.vellum, pan: panAt(LAID[i], f + 6), sends: { hall: 0.2 } }));
   music(d.f(B.strut.dock), hum(D2, { len: 2.0, attack: 0.3, release: 0.9, vel: 0.7 }), { part: 'strut-hum', db: LV.strutHum, pan: panAt(X.loop, B.strut.dock) });
   foley(d.f(B.strut.plateDock), vellumTap(seed, 0), { part: 'vellum-tap', db: LV.vellumTap, pan: panAt(X.loop, B.strut.plateDock), sends: { hall: 0.15 } });
   foley(d.f(B.machineLamp), inkClick(seed, 21), { part: 'lamp-on', db: LV.lampOn, pan: panAt(LIT, B.machineLamp) });
