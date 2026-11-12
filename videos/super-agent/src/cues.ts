@@ -389,7 +389,8 @@ export const BEAT_7 = {
   doorGhost: { rise: 3692, strike: 3708, gone: 3722 },
   peel: { lift: at(47, 3), rail: 3730, receipt: 3734, dockFrom: 3792, dock: at(48, 3) },
   glass: { lift: at(47, 3), dock: at(47, 4), plateDock: 3744 },
-  reply: { indexWest: at(48, 4), leave: 3824, lands: at(49) },
+  /** the index turns west 6 f before the reply leaves; the ride is the standard 28 f (MT1's), landing on bar 49 */
+  reply: { indexWest: 3806, leave: 3812, lands: at(49) },
   dossier: { leave: 3856, lands: at(49, 3) },
 } as const;
 
@@ -481,7 +482,8 @@ export const BEAT_10 = {
   tear: 5160,
   windows: 5176,
   cards: { rise: at(66), exit: 5232 },
-  windings: at(66, 3),
+  /** after the cards' exit (5232-5239) and the step's ramp back (to 5247), so the pencil completes on a clear frame */
+  windings: at(66, 4),
   reach: at(67),
   handle: at(67, 2),
   pinsDrop: at(68),
@@ -517,18 +519,18 @@ export const BEAT_11 = {
 
 /**
  * Beats 12 and 13 (STORYBOARD 12.1-13.3). On bar 76's downbeat the camera returns to the hook's framing (the move is
- * C28's line); on the held frame, as at f20, a chat slip turns vermilion on `bookend`, the gate passes it and it
- * rides the intake out of frame toward the Register, while the feeders tick once a beat until the dissolve. The
- * world dissolves to the bare desk (never to black) over `dissolve`; the end card posts and lands on `card.land`,
- * the end key sets beside its material samples, and the card leaves on `card.leave`, so the last frames are the
- * bare desk.
+ * C28's line); after a held beat, as the hook's f20 (at(1, 2)) is beat 2 of bar 1, a chat slip turns vermilion on
+ * `bookend.turn` (at(77, 2)), the gate passes it and it rides the intake under the Register's print head, which stamps
+ * it in, while the feeders tick once a beat. The world dissolves to the bare desk (never to black) over `dissolve`;
+ * the end card posts and lands on `card.land`, the end key sets beside its material samples, and the card leaves on
+ * `card.leave` (as late as the card's reading time allows, so 24 f of bare desk end the film; STORYBOARD 13.3 asks 20).
  */
 export const END = {
   move: [at(76), at(77)],
-  bookend: { turn: at(77), gate: 6100, out: 6130 },
+  bookend: { turn: at(77, 2), gate: 6120, out: 6150 },
   ticks: { from: at(76), to: at(77, 4) },
   dissolve: [at(78), at(78, 3)],
-  card: { land: at(78, 3), leave: at(84, 4) },
+  card: { land: at(78, 3), leave: at(84, 3.25) },
   key: at(79),
 } as const;
 
@@ -741,17 +743,17 @@ const events: CueEvent[] = [
   mark('step-down', BEAT_11.stepDown, 'everything but your desk, your lamp and the stamped reply steps down'),
   ...BEAT_11.lampTurns.map((f, i) => mark(`lamp-turn-${i + 1}`, f, 'your lamp turns to the next reply')),
 
-  // 12 · Bookend (bars 76-77): the move back to the hook is C28's line; the slip turns on the held frame, as at f20
+  // 12 · Bookend (bars 76-77): the move back to the hook is C28's line; the slip turns after a held beat, as at f20
   line('c28', at(76, 1.5), at(78)),
   hit('bookend', END.bookend.turn, 'as at f20 a slip turns vermilion: the motif once, with no felt-piano answer'),
 
   // 13 · End card (bars 78-84)
   mark('dissolve', at(78), 'dissolve to the bare desk, never to black'),
   mark('card-leaves', END.card.leave, 'the end card leaves: the bare desk'),
-  shown('card', 'end', at(78, 3), at(84, 4), WORDS.end),
-  shown('text', 'end-key', at(79), at(84, 4), read(WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch)),
-  span('hold', 'hold-end', at(78, 3), at(84, 4), 'the end card is still: freezedetect allows it'),
-  span('rest', 'rest-tail', at(84, 4), FILM_FRAMES, 'the bare desk: the last mallet note decays to nothing by the end'),
+  shown('card', 'end', at(78, 3), END.card.leave, WORDS.end),
+  shown('text', 'end-key', at(79), END.card.leave, read(WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch)),
+  span('hold', 'hold-end', at(78, 3), END.card.leave, 'the end card is still: freezedetect allows it'),
+  span('rest', 'rest-tail', END.card.leave, FILM_FRAMES, 'the bare desk: the last mallet note decays to nothing by the end'),
 ];
 
 /** The validated cue sheet (picture and score). */

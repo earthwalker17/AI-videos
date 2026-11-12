@@ -62,7 +62,7 @@ describe('the score on the cue sheet', () => {
     expect(m.rest).toEqual([S(at(29, 2)), S(at(30))]);
     expect(m.intrusion).toEqual([S(at(63)), S(at(63, 3))]);
     expect(m.signoff).toEqual([S(at(69, 3)), S(at(70, 3.5))]);
-    expect(m.tail).toEqual([S(at(84, 4)), S(cues.filmFrames)]);
+    expect(m.tail).toEqual([S(END.card.leave), S(cues.filmFrames)]);
     expect(m.two).toBe(S(at(44)));
     expect(m.end).toBe(ctx.filmSamples);
   });
@@ -431,7 +431,9 @@ describe('every sound on its contact frame', () => {
     expect(placed.filter((p) => p.at >= turn && p.at < turn + T.beats(4) && !['motif', 'pad', 'ticks'].includes(p.part))).toEqual([]);
     // the frame-0 rhythm: one tick a beat from bar 76, softer and softer through the dissolve, none once the card has landed
     const ticks = of('ticks', T.beat(76));
-    expect(ticks.map((p) => p.at)).toEqual([0, 1, 2, 3, 5, 6, 7, 8, 9].map((b) => T.beat(76) + T.beats(b)));
+    // the turn's beat has the motif, not a tick
+    const turnBeat = (END.bookend.turn - at(76)) / 20;
+    expect(ticks.map((p) => p.at)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter((b) => b !== turnBeat).map((b) => T.beat(76) + T.beats(b)));
     for (let i = 1; i < ticks.length; i++) expect(ticks[i].db).toBeLessThanOrEqual(ticks[i - 1].db);
     expect(ticks[ticks.length - 1].at).toBeLessThan(S(END.card.land));
     // the end card: the solo mallet from its landing, never more than 3.5 beats between notes, the last decaying before the tail
