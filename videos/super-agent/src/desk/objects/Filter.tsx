@@ -16,12 +16,16 @@
  * From the summary (f5400) on, objects/Trace.tsx draws the hand-over's end state itself (beat5.ts E5.until).
  */
 import { useLayoutEffect, useMemo } from 'react';
-import { Color, MeshBasicMaterial, PlaneGeometry, Shape, type BufferGeometry, type MeshStandardMaterial } from 'three';
+import { useThree } from '@react-three/fiber';
+import { Color, MeshBasicMaterial, PlaneGeometry, Shape, type BufferGeometry, type MeshPhysicalMaterial, type MeshStandardMaterial, type Texture } from 'three';
 import { KEY_REST, SPIKE_BASE, SPIKE_DEPTH, SPIKE_HATCH, hatchHoleAt, type FilterSlip } from '../beat5.ts';
 import { cylinderZ, disc, dome, extrude, frame, planeOn, slab } from '../geom.ts';
 import { DESK_HOLES, HOLE_SHUT, makeDeskMaterial } from '../gl/desk.ts';
-import { HEX, paper } from '../gl/materials.ts';
-import { Step, WithMats, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
+import { HEX, enamel, paper } from '../gl/materials.ts';
+import { texture } from '../gl/text.ts';
+import { proactiveMarkAt } from '../beat8.ts';
+import { pictogramMark } from './Beat11.tsx';
+import { Step, WithMats, isStepped, useDeskMats, useDeskSets, useStepMode } from '../kit.tsx';
 import { NEXT_SLIP, PROACTIVE_PLATE, PUNCH, SPIKE, THROAT, rectC, type Rect } from '../layout.ts';
 import type { DeskState } from '../state.ts';
 import { deskHoles, holeOf } from './Dispatch.tsx';
@@ -96,15 +100,19 @@ function useFilterGeometry() {
 }
 
 /** The filter slips' paper, one per print (gl/print5.ts): the asks' and each dropped slip's own, at full and stepped down (the pile steps with the spike). */
-function useSlipMats(): Record<'full' | 'stepped', { ask: MeshStandardMaterial[]; noise: MeshStandardMaterial[] }> {
+type SlipSet = { ask: MeshStandardMaterial[]; noise: MeshStandardMaterial[] };
+/** The slips' prints in every mode the kit steps (full, the beat's set, its own ramp, the late one). */
+function useSlipMats(): Record<'full' | 'stepped' | 'own' | 'late', SlipSet> {
   const { textures } = useDeskSets();
   const mats = useMemo(() => {
-    const set = (stepped: boolean) => ({ ask: textures.b5.ask.map((t) => paper(t, HEX.paper, { stepped })), noise: textures.b5.noise.map((t) => paper(t, HEX.paper, { stepped })) });
-    return { full: set(false), stepped: set(true) };
+    const set = (stepped: boolean | 'own' | 'late') => ({ ask: textures.b5.ask.map((t) => paper(t, HEX.paper, { stepped })), noise: textures.b5.noise.map((t) => paper(t, HEX.paper, { stepped })) });
+    return { full: set(false), stepped: set(true), own: set('own'), late: set('late') };
   }, [textures]);
-  useLayoutEffect(() => () => [mats.full, mats.stepped].forEach((x) => [...x.ask, ...x.noise].forEach((m) => m.dispose())), [mats]);
+  useLayoutEffect(() => () => Object.values(mats).forEach((x) => [...x.ask, ...x.noise].forEach((m) => m.dispose())), [mats]);
   return mats;
 }
+/** The pile's set for the mode the spike rides (never `on ? stepped : full`: a hand-over may carry it on another set). */
+const slipSetOf = (mats: Record<'full' | 'stepped' | 'own' | 'late', SlipSet>, on: boolean | 'own' | 'late'): SlipSet => (on === 'own' ? mats.own : on === 'late' ? mats.late : on ? mats.stepped : mats.full);
 
 /** One slip of the filter at its pose (heading about z, then nose up, then rolled about its length), squashed as it lands, in its own print. */
 function SlipAt({ x, geometry, mats }: { x: FilterSlip; geometry: BufferGeometry; mats: { ask: MeshStandardMaterial[]; noise: MeshStandardMaterial[] } }) {
@@ -115,6 +123,53 @@ function SlipAt({ x, geometry, mats }: { x: FilterSlip; geometry: BufferGeometry
       <mesh geometry={geometry} material={material} />
     </group>
   );
+}
+
+/** The Proactive plate's face (inset 5 u in its box: Filter's geometry, gl/text.ts's print size). */
+const FACE = { w: PROACTIVE_PLATE.box.x1 - PROACTIVE_PLATE.box.x0 - 10, h: PROACTIVE_PLATE.box.y1 - PROACTIVE_PLATE.box.y0 - 10 } as const;
+/** The face `k` of the way from its words (the kit's print) to its pictogram, still (d)'s starter key, centred and enlarged to the face. */
+function markFace(words: Texture, k: number, aniso: number): Texture {
+  return texture(
+    FACE.w,
+    FACE.h,
+    (c) => {
+      c.globalAlpha = 1 - k;
+      c.drawImage(words.image as CanvasImageSource, 0, 0, FACE.w, FACE.h);
+      c.globalAlpha = k;
+      // (the key's engraving spans 23.5-66 x 6.5-19.5 of its 92 x 26 face: its centre on this face's)
+      const sc = 2.4;
+      c.save();
+      c.translate(FACE.w / 2 - 44.75 * sc, FACE.h / 2 - 13 * sc);
+      c.scale(sc, sc);
+      pictogramMark(c, 'proactive');
+      c.restore();
+      c.globalAlpha = 1;
+    },
+    aniso,
+  );
+}
+/**
+ * The Proactive plate's face: its words (the kit's print, `printed`), except under beat 8's framing, which cuts the plate's
+ * west end: there its pictogram cross-fades in and out again (beat8.ts PROACTIVE_MARK), on the enamel of the set it rides.
+ */
+function ProactiveFace({ f, geometry, printed }: { f: number; geometry: BufferGeometry; printed: MeshStandardMaterial }) {
+  const m = useDeskMats();
+  const mode = useStepMode();
+  const { textures } = useDeskSets();
+  const gl = useThree((x) => x.gl);
+  const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
+  const k = Math.round(proactiveMarkAt(f) * 1000) / 1000;
+  const env = (m.enamel as MeshPhysicalMaterial).envMap!;
+  const tex = useMemo(() => (k > 0 ? markFace(textures.proactive, k, aniso) : null), [k, textures, aniso]);
+  const mat = useMemo(() => (tex ? enamel(tex, env, undefined, { stepped: mode }) : null), [tex, env, mode]);
+  useLayoutEffect(
+    () => () => {
+      tex?.dispose();
+      mat?.dispose();
+    },
+    [tex, mat],
+  );
+  return <mesh geometry={geometry} material={mat ?? printed} />;
 }
 
 /** Everything of beat 5 but the gate's fingers (desk/beat5.ts beat5At). */
@@ -154,7 +209,7 @@ export function Filter({ s }: { s: DeskState }) {
               <group position={[0, plate.dy, 0]}>
                 <mesh geometry={g.plate.back} material={m.graphiteDark} />
                 <mesh geometry={g.plate.body} material={m.enamel} />
-                <mesh geometry={g.plate.face} material={m.printed.proactive} />
+                <ProactiveFace f={s.f} geometry={g.plate.face} printed={m.printed.proactive} />
               </group>
             )}
           </WithMats>
@@ -170,7 +225,7 @@ export function Filter({ s }: { s: DeskState }) {
                   <mesh geometry={g.spike.rod} material={m.steel} />
                 </group>
                 {pile.map((x) => (
-                  <SlipAt key={x.i} x={x} geometry={g.slip} mats={isStepped(s.step, 'spike') ? slipMats.stepped : slipMats.full} />
+                  <SlipAt key={x.i} x={x} geometry={g.slip} mats={slipSetOf(slipMats, isStepped(s.step, 'spike'))} />
                 ))}
               </>
             )}

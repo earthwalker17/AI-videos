@@ -195,16 +195,21 @@ export function chatReplyTextures(sans: string, aniso: number): { reply: Texture
     STOP_TAB.w,
     STOP_TAB.h,
     (g) => {
+      // (its ink, measured, ends STOP_TAB.clear short of the tab's east end: tag-100's leader foot and its dot sit there, never on a glyph)
       let em = STOP_TAB.em;
       g.font = `700 ${em}px ${sans}`;
-      while (g.measureText(TAB_WORDS).width > STOP_TAB.w - 6 && em > 26) {
+      const ink = () => {
+        const m = g.measureText(TAB_WORDS);
+        return { l: m.actualBoundingBoxLeft, r: m.actualBoundingBoxRight };
+      };
+      while (ink().l + ink().r > STOP_TAB.w - STOP_TAB.clear - 6 && em > 26) {
         em -= 0.25;
         g.font = `700 ${em}px ${sans}`;
       }
       g.fillStyle = INK;
-      g.textAlign = 'center';
+      g.textAlign = 'left';
       g.textBaseline = 'alphabetic';
-      fillTextChecked(g, TAB_WORDS, STOP_TAB.w / 2, STOP_TAB.h / 2 + em * 0.36);
+      fillTextChecked(g, TAB_WORDS, STOP_TAB.w - STOP_TAB.clear - ink().r, STOP_TAB.h / 2 + em * 0.36);
     },
     aniso,
   );

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { BEAT_8, WORDS, at, cue, textWindow } from '../cues.ts';
 import { cameraAt, project } from './camera.ts';
 import {
+  PROACTIVE_MARK,
+  proactiveMarkAt,
   BAND,
   BRACKET,
   CARRIAGE_PARK,
@@ -52,6 +54,7 @@ import {
   ticksPrinted,
 } from './beat8.ts';
 import { deskStateAt, stepAt } from './state.ts';
+import { PROACTIVE_PLATE, rectC } from './layout.ts';
 import { SAFE } from '../look/tokens.ts';
 
 const L = BEAT_8.lanes;
@@ -384,5 +387,21 @@ describe('beat 8: the sheet’s life', () => {
   });
   it('is a pure function of the frame', () => {
     for (const f of [3930, 4005, 4300, 4345, 4445, 4590]) expect(beat8At(f)).toEqual(beat8At(f));
+  });
+});
+
+describe('beat 8: the Proactive plate at the sheet’s framing', () => {
+  it('shows its words only while their west end is in the frame: its pictogram cross-faded in from bar 50’s truck, back under bar 58’s ease-out', () => {
+    const B = PROACTIVE_PLATE.box;
+    const west: [number, number, number] = [B.x0 + 8, rectC(B)[1], PROACTIVE_PLATE.z[1]];
+    expect(proactiveMarkAt(PROACTIVE_MARK.out)).toBe(0);
+    expect(proactiveMarkAt(PROACTIVE_MARK.out + 1)).toBeGreaterThan(0);
+    expect(proactiveMarkAt(PROACTIVE_MARK.back + PROACTIVE_MARK.frames)).toBe(0);
+    for (let f = 3440; f < 4700; f++) {
+      const x = project(cameraAt(f, 15), west)[0];
+      if (x < 0) expect(proactiveMarkAt(f), `f${f}`).toBe(1);
+      // (and nothing in part 1 or after the ease-out)
+      if (f < PROACTIVE_MARK.out || f >= PROACTIVE_MARK.back + PROACTIVE_MARK.frames) expect(proactiveMarkAt(f), `f${f}`).toBe(0);
+    }
   });
 });

@@ -825,6 +825,8 @@ export interface HeapState {
   step: number;
   /** whether its pieces still cast (footprints.ts heapFootprintsAt): once pressed flat their shadows have drawn in under them, and they stop */
   cast: boolean;
+  /** beat 12 (end.ts heapGoneAt, from f6000; absent before): pressed on into the slate, its tone to the slate's (0..1), then its print's fade (0..1) */
+  gone?: { tone: number; fade: number };
 }
 export function heapAt(f: number): HeapState {
   // its tail clears them on the slide's last frame

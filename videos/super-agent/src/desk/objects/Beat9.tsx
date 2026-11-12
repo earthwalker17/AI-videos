@@ -16,30 +16,48 @@ import type { CamPose } from '@aiv/remotion-kit';
 import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferAttribute, PlaneGeometry, type BufferGeometry } from 'three';
-import { BEAT_9 } from '../../cues.ts';
-import { MACHINE_RISE, QUEUED, STRUT_LEN, proposedAt, type Beam, type Beat9State, type QueuedSlip, type StrutPose } from '../beat9.ts';
+import { BEAT_9, WORDS } from '../../cues.ts';
+import { MACHINE_RISE, PERSIST_WORDS, QUEUED, STRUT_LEN, persistWordsAt, proposedAt, type Beam, type Beat9State, type QueuedSlip, type StrutPose } from '../beat9.ts';
 import { cylinderZ, merge, slab, tube } from '../geom.ts';
 import { DESK_HOLES } from '../gl/desk.ts';
+import { SANS_CSS } from '../gl/print7.ts';
 import { vellum } from '../gl/materials.ts';
 import { texture } from '../gl/text.ts';
-import { useDeskMats } from '../kit.tsx';
+import { Step, isStepped, useDeskMats } from '../kit.tsx';
 import type { Rect } from '../layout.ts';
 import { MACHINES_9, SEAM } from '../proposed.ts';
 import type { DeskState } from '../state.ts';
 import { Hatch, deskHoles, holeOf } from './Dispatch.tsx';
-import { Proposed, WATCH_LENS, beamSheet, slipSheet } from './Proposed.tsx';
+import { Proposed, VELLUM_STEP, WATCH_LENS, beamSheet, persistWordsSheet, slipSheet, stepAmountOf, useVellumOpacity, useVellumStep } from './Proposed.tsx';
 
 /** Each machine's base in plan (its hatch's box). */
 const BASES: readonly Rect[] = MACHINES_9.map((m) => ({ x0: m.c[0] - m.w / 2, x1: m.c[0] + m.w / 2, y0: m.c[1] - m.d / 2, y1: m.c[1] + m.d / 2 }));
+
+/**
+ * Act two's proposed parts ride the step as one ('b9-proposed': the vellum and pencil fade with the set they ride, the
+ * machines step with the kit's; objects/Proposed.tsx): beats 9-10 are about them, so only 10.2's Fix cards step them
+ * (beat10.ts ALL_BUT_CARDS: everything but the cards).
+ */
+export const PROPOSED_STEP_ID = 'b9-proposed';
+/**
+ * The Watchdog (its station's sheet, the pencil flag it pins and its sightline) rides its own id in act two: 9.2 is about it
+ * and the stuck bay, so beat9.ts's N8 hold steps the rest of the vellum and leaves these two at the frame's top contrast.
+ */
+export const WATCHDOG_STEP_ID = 'b9-watchdog';
+/** The Watchdog's vellum opacity at a frame (its own id's step, as Proposed's useVellumOpacity does for the enclosing one). */
+export const watchOpacityOf = (s: DeskState): number => 1 - VELLUM_STEP * stepAmountOf(isStepped(s.step, WATCHDOG_STEP_ID), s.step, s.testsStep);
 
 export function Beat9({ s }: { s: DeskState }) {
   // act two only: the summary draws its own static Proposed (still (d))
   const p = s.f < SEAM ? proposedAt(s.f) : null;
   return (
     <>
-      {p && <Proposed state={p} />}
+      <Step on={isStepped(s.step, PROPOSED_STEP_ID)}>
+        {p && <Proposed state={p} step={s.step} late={s.testsStep} watchOpacity={watchOpacityOf(s)} />}
+        {s.e9 && <Beat9Movers s={s} e={s.e9} />}
+        {s.f < SEAM && persistWordsAt(s.f) > 0 && <PersistWords s={s} k={persistWordsAt(s.f)} />}
+      </Step>
       {s.f >= HOLES_FROM && s.f < SEAM && <MachineHoles s={s} rise={s.e9?.machines ?? null} />}
-      {s.e9 && <Beat9Movers e={s.e9} />}
     </>
   );
 }
@@ -50,13 +68,21 @@ export function Beat9({ s }: { s: DeskState }) {
  */
 const HOLES_FROM = BEAT_9.away;
 
-function Beat9Movers({ e }: { e: Beat9State }) {
+function Beat9Movers({ s, e }: { s: DeskState; e: Beat9State }) {
   return (
     <>
       {e.machines && <MachineHatches rise={e.machines} />}
-      {e.strut && <Strut pose={e.strut} />}
-      {e.queued && <Queued q={e.queued} />}
-      {e.beam && <Sightline beam={e.beam} />}
+      {e.strut && (
+        <Step on={false}>
+          <Strut pose={e.strut} />
+        </Step>
+      )}
+      {e.queued && <Queued q={e.queued} s={s} />}
+      {e.beam && (
+        <Step on={isStepped(s.step, WATCHDOG_STEP_ID)}>
+          <Sightline beam={e.beam} s={s} />
+        </Step>
+      )}
     </>
   );
 }
@@ -208,8 +234,9 @@ function eastPart(l: number, w: number, out: number): BufferGeometry {
 }
 
 /** The queued slip (proposed work, vellum): out of the loop's port, along the server's tether, stood up and dropped into the server's top. Vellum: no shadow. */
-function Queued({ q }: { q: QueuedSlip }) {
+function Queued({ q, s }: { q: QueuedSlip; s: DeskState }) {
   const mat = useSlipMat();
+  useVellumStep([mat], useVellumOpacity(s.step, s.testsStep));
   const out = Math.round(q.out * 1000) / 1000;
   const g = useMemo(() => eastPart(QUEUED.l, QUEUED.w, Math.max(0.001, out)), [out]);
   useLayoutEffect(() => () => g.dispose(), [g]);
@@ -218,6 +245,37 @@ function Queued({ q }: { q: QueuedSlip }) {
       <mesh geometry={g} material={mat} renderOrder={3} />
     </group>
   );
+}
+
+// ------------------------------------------------------------------------------------------------
+// The Persistent plate's words (vellum)
+
+/** The plate's west part, `k` of its width (its UVs cut with it): it unrolls from its west edge and rolls back up to it. */
+function westPart(l: number, w: number, k: number): BufferGeometry {
+  const g = new PlaneGeometry(l * k, w);
+  const uv = g.getAttribute('uv') as BufferAttribute;
+  for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * k);
+  uv.needsUpdate = true;
+  g.translate(-l / 2 + (l * k) / 2, 0, 0);
+  return g;
+}
+/** "Persistent · 持久" in vellum on the loop's sheet's north edge (beat9.ts PERSIST_WORDS): laid as the strut docks, rolled up under bar 65's dolly. Vellum: no shadow. */
+function PersistWords({ s, k }: { s: DeskState; k: number }) {
+  const P = PERSIST_WORDS;
+  const gl = useThree((x) => x.gl);
+  const mat = useMemo(() => vellum(texture(P.w, P.d, (c) => persistWordsSheet(c, P.w, P.d, SANS_CSS, WORDS.traitPersistent), Math.min(8, gl.capabilities.getMaxAnisotropy()), 'transparent')), [gl, P]);
+  useLayoutEffect(
+    () => () => {
+      mat.map?.dispose();
+      mat.dispose();
+    },
+    [mat],
+  );
+  useVellumStep([mat], useVellumOpacity(s.step, s.testsStep));
+  const q = Math.round(k * 1000) / 1000;
+  const g = useMemo(() => westPart(P.w, P.d, Math.max(0.001, q)), [q, P]);
+  useLayoutEffect(() => () => g.dispose(), [g]);
+  return <mesh geometry={g} material={mat} position={P.c} renderOrder={3} />;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -239,8 +297,9 @@ function useBeamMat() {
   return mat;
 }
 /** The sightline out of the lens to `len` of its reach (its plane and UVs cut at its tip), turned `a` about the lens off still (d)'s aim. Vellum: no shadow. */
-function Sightline({ beam }: { beam: Beam }) {
+function Sightline({ beam, s }: { beam: Beam; s: DeskState }) {
   const mat = useBeamMat();
+  useVellumStep([mat], useVellumOpacity(s.step, s.testsStep));
   const len = Math.round(beam.len * 1000) / 1000;
   const g = useMemo(() => {
     const k = Math.max(0.001, len);

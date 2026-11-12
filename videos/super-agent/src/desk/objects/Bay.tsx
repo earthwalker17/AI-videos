@@ -26,6 +26,7 @@ import { LIGHT_HEX } from '../pools.ts';
 import { CAP_SLOT, closeAt, type DeskState } from '../state.ts';
 import { Hatch, TaskCarrier, shellInside } from './Dispatch.tsx';
 import { HEX, paper, whiteTexture } from '../gl/materials.ts';
+import { TO_REGISTER, TO_SHEET } from '../camera.ts';
 import { INK, stagedInk } from '../gl/text.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
@@ -425,6 +426,20 @@ export function quieterColour(c: Color, k: number): Color {
 }
 
 /**
+ * Part 2's act two, from bar 50's truck to bar 65's dolly: a bay's work light steps with the set its bay rides (beat 8's
+ * sheet and 9.1's vellum are the action, never a blooming bay beside them): at a full step its emission is `stepped`, the
+ * docs bay's own unbloomed slot (EMIT.slotDocs: a lit bar, still reading as a bay at work, under the bloom); between, it
+ * ramps geometrically with its set's amount (evenly to the eye), so no hand-over jumps it. A dark slot is the same on every
+ * set (the level only sets the lit end). The window opens where beat 8's step ramps in from 0 (bar 50) and closes once beat
+ * 9's hold has ramped out (RELEASE, before bar 65's dolly): beat 7's cards and 10.2's Fix cards leave the lights whole as
+ * they were signed off. Part 1, beat 7, 10.2-10.3 and the summary keep the light whole on every set.
+ */
+export const WORK_LIGHTS_STEP = { from: TO_SHEET.from, to: TO_REGISTER.from + 1, stepped: EMIT.slotDocs, floor: EMIT.slotDocs } as const;
+const workLightsStep = (f: number): boolean => f >= WORK_LIGHTS_STEP.from && f < WORK_LIGHTS_STEP.to;
+/** A set's work-light emission at its step amount (EMIT.slot unstepped). */
+const workLevel = (k: number): number => Math.max(WORK_LIGHTS_STEP.floor, EMIT.slot * (WORK_LIGHTS_STEP.stepped / EMIT.slot) ** k);
+
+/**
  * The request's bay: its bench with six test pins, the folder that holds its task on the bench. Closed and idle from
  * the turn until the request is dispatched to it (beat4.ts, 4.3); its work rises from its hatch, the request rides
  * its groove in and lands on the folder, which takes its vermilion; its work slot lights. `noRequest`: without the
@@ -434,7 +449,8 @@ export function BugBay({ s, noRequest = false }: { s: DeskState; noRequest?: boo
   const g = useBenchGeometry();
   const r = useMemo(() => requestParts(), []);
   useLayoutEffect(() => () => Object.values(r).forEach((x) => x.dispose()), [r]);
-  const { full } = useDeskSets();
+  const sets = useDeskSets();
+  const { full } = sets;
   const tracer = useTracer();
   const d = s.b4.bays.bug;
   const st = isStepped(s.step, 'bugBay');
@@ -449,17 +465,27 @@ export function BugBay({ s, noRequest = false }: { s: DeskState; noRequest?: boo
     tracer.body.color.copy(quieter(HEX.vermilion, k));
     tracer.print.color.copy(quieter(HEX.vermilion, k));
   }, [tracer, amt, take]);
-  // its work slot: dark while idle, lit (blooming) once its work computes
+  // its work slot: dark while idle, lit (blooming) once its work computes; in part 2's act two its light steps with its set
+  const stepLights = workLightsStep(s.f);
+  const own = s.step.own?.amount ?? 0;
   useLayoutEffect(() => {
     slotColour(full.slotBug.color, EMIT.slot, s.bugLight);
-  }, [full, s.bugLight]);
+    if (!stepLights) return;
+    for (const [set, k] of [
+      [sets.stepped, s.step.amount],
+      [sets.own, own],
+      [sets.late, s.testsStep],
+    ] as const)
+      slotColour(set.slotBug.color, workLevel(k), s.bugLight);
+  }, [sets, full, s.bugLight, stepLights, s.step.amount, own, s.testsStep]);
+  const slotSet = stepLights ? (st === 'own' ? sets.own : st === 'late' ? sets.late : st ? sets.stepped : full) : full;
   const atRest = !noRequest && s.f >= RIDE.dock + 12;
   const w = workOf(d, 'bug');
   return (
     <Step on={isStepped(s.step, 'bugBay')}>
       <WithMats>
         {(m) => (
-          <BayBase b={BAYS.bug} slot="slotBug" slotMat={full.slotBug} close={closeAt(s.f)} door={d.door} work={w.work} workZ={w.workZ} plate={d.plate}>
+          <BayBase b={BAYS.bug} slot="slotBug" slotMat={slotSet.slotBug} close={closeAt(s.f)} door={d.door} work={w.work} workZ={w.workZ} plate={d.plate}>
             <mesh geometry={g.legs} material={m.graphiteDark} />
             <mesh geometry={g.top} material={m.graphite} />
             <mesh geometry={g.edge} material={m.enamelShade} />
@@ -773,12 +799,19 @@ function FreshParts({ m, drum = 0 }: { m: DeskMats; drum?: number }) {
 export function FreshBay({ s }: { s: DeskState }) {
   const n = s.next;
   const sets = useDeskSets();
+  const stepLights = workLightsStep(s.f);
   useLayoutEffect(() => {
     // dark until the folder is in, then it ignites (spring-effects): a live process, it blooms (stepped down too: the same level)
     // its level ramps evenly to the eye (geometric between dark and computing), so the first frame of the spring is not most of the light
     // (the own set too: beat 9's hand-over carries the bay there over 4766-4779, and its light must not dip as it does)
-    for (const set of [sets.full, sets.stepped, sets.own]) set.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 * (EMIT.slot / 0.12) ** n.light);
-  }, [sets, n.light]);
+    // in part 2's act two each set's light steps with its amount (WORK_LIGHTS_STEP): only the lit end scales, so a dark slot is the same on every set
+    for (const [set, k] of [
+      [sets.full, 0],
+      [sets.stepped, s.step.amount],
+      [sets.own, s.step.own?.amount ?? 0],
+    ] as const)
+      set.slotFresh.color.set(LIGHT_HEX.work).multiplyScalar(0.12 * ((stepLights ? workLevel(k) : EMIT.slot) / 0.12) ** n.light);
+  }, [sets, n.light, stepLights, s.step.amount, s.step.own?.amount]);
   // in its pit under the shut hatch until the leaves part (beat4.ts hatchRiseAt): it rises only once they are open
   if (!n.hole && n.rise <= 0) return null;
   // stepped down with the other bays at the summary (desk/summary.ts)

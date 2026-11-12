@@ -32,7 +32,8 @@ import type { DeskState } from '../state.ts';
 import { Counterfactual } from './Counterfactual.tsx';
 import { FixAPlay, FixBPlay } from './FixCards.tsx';
 import { CardHalves } from './Handshake.tsx';
-import { VELLUM_INK } from './Proposed.tsx';
+import { PROPOSED_STEP_ID } from './Beat9.tsx';
+import { VELLUM_INK, useVellumOpacity, useVellumStep } from './Proposed.tsx';
 import { SignedReply } from './Replies.tsx';
 
 export function Beat10({ s }: { s: DeskState }) {
@@ -45,7 +46,12 @@ function Beat10Body({ s, e }: { s: DeskState; e: Beat10State }) {
   return (
     <>
       {e.hijack && <Hijack h={e.hijack} />}
-      {e.window && <ShardWindowSheet w={e.window} />}
+      {e.window && (
+        // (vellum: it rides the step with act two's other proposed parts, objects/Beat9.tsx)
+        <Step on={isStepped(s.step, PROPOSED_STEP_ID)}>
+          <ShardWindowSheet w={e.window} s={s} />
+        </Step>
+      )}
       <FixCards s={s} />
       {e.report && <Report r={e.report} />}
       <CapSlot s={s} />
@@ -159,8 +165,9 @@ function useShardMat() {
   return mat;
 }
 /** The shard's window: fed out of the print head's east face (only what is out of it drawn: its plane and UVs cut there), lying over the real window, slid south beside it. Vellum: no shadow. */
-function ShardWindowSheet({ w }: { w: ShardWindow }) {
+function ShardWindowSheet({ w, s }: { w: ShardWindow; s: DeskState }) {
   const mat = useShardMat();
+  useVellumStep([mat], useVellumOpacity(s.step, s.testsStep));
   const out = Math.round(w.out * 1000) / 1000;
   const g = useMemo(() => {
     const k = Math.max(0.001, out);

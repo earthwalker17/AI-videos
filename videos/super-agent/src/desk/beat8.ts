@@ -42,6 +42,7 @@ import { clamp, easings } from '@aiv/core';
 import { Easing } from 'remotion';
 import { BEAT_8, WORDS, at, cue, textWindow } from '../cues.ts';
 import type { CardUp } from './beat4.ts';
+import { TO_SHEET } from './camera.ts';
 import { rectFp, segFp, type Footprint } from './fpKit.ts';
 import type { P2, P3, Pool, Rect } from './layout.ts';
 import type { TagSpec } from './Overlay.tsx';
@@ -53,6 +54,17 @@ import type { YouPose } from './you.ts';
 export const BUILT = true;
 
 const B = BEAT_8;
+
+/**
+ * The worded Proactive plate at beat 8's framing: FRAMING_SHEET cuts its west end off the frame (its words would read
+ * "active · 主动"), so its face cross-fades (8 f, TREATMENT Type, printed fields: a mark swapped under a camera move, on that
+ * object only) to its pictogram, still (d)'s starter key, as bar 50's truck sets out, and back to its words under bar 58's
+ * ease-out once its west end is in the frame again (beat8.test.ts holds both against the camera). objects/Filter.tsx.
+ */
+export const PROACTIVE_MARK = { out: TO_SHEET.from, back: 4586, frames: 8 } as const;
+/** How far the Proactive plate's face is its pictogram (0 its words .. 1 the key). */
+export const proactiveMarkAt = (f: number): number =>
+  easings.inOutSine(clamp((f - PROACTIVE_MARK.out) / PROACTIVE_MARK.frames)) - easings.inOutSine(clamp((f - PROACTIVE_MARK.back) / PROACTIVE_MARK.frames));
 
 // ------------------------------------------------------------------------------------------------
 // The sheet and its furniture (world units). Sheet-local coordinates: u east from the sheet's west edge, v south from its

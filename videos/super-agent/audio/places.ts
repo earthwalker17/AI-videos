@@ -112,7 +112,7 @@ export const X = {
   loop: 875,
   tethers: 1075,
   /** the Watchdog's station (summary.ts WATCHDOG.c) */
-  watchdog: 790,
+  watchdog: 605,
   /** the pencil "?" beside the tethers, the handle outline on the docs bay (summary.ts QUERIES[0], HANDLE.c) */
   query: 1078,
   handle: -6,
@@ -131,9 +131,9 @@ export const SCREEN = {
   rowFrom: 200,
   rowTo: 1100,
   /** beat 11's six idea labels in order (gate and loupe, throat, window, the bay's door, the state cabinet, the Watchdog) and the map key */
-  ideas: [623, 665, 815, 1099, 1490, 1425] as readonly number[],
+  ideas: [623, 665, 815, 1099, 1490, 1365] as readonly number[],
   keyMap: 1590,
   /** the act-one card (it rises west of the system) and the end card (lower left) */
   actOneCard: 700,
-  endCard: 640,
+  endCard: 730,
 } as const;

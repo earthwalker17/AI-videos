@@ -133,13 +133,18 @@ export interface LitOptions {
   fibre?: number;
   /** how much of the direct light a cast shadow takes away (default 0.75) */
   shadow?: number;
+  /**
+   * The light it is lit by (default the frame's, gl/light.ts LIGHT_UNIFORMS): another set of the same uniform objects
+   * (the end card over the dissolve, gl/veil.ts END_LIGHT) gives the same program other footprints and pools.
+   */
+  light?: typeof LIGHT_UNIFORMS;
 }
 
 function patch<M extends MeshStandardMaterial>(m: M, key: string, o: LitOptions): M {
   return patchMaterial(m, {
     key: `desk-lit:${key}`,
     uniforms: {
-      ...LIGHT_UNIFORMS,
+      ...(o.light ?? LIGHT_UNIFORMS),
       uBrush: { value: o.brush ?? 0 },
       uPeel: { value: o.peel ?? 0 },
       uFibre: { value: o.fibre ?? 0 },
@@ -172,8 +177,8 @@ export function matte(hex: string, roughness = 0.6, metalness = 0, stepped: bool
 }
 
 /** Paper (standard with a map): context. */
-export function paper(map: Texture, hex: string = HEX.paper, o: { roughness?: number; fibre?: number; stepped?: boolean | 'late' | 'own' } = {}): MeshStandardMaterial {
-  return patch(new MeshStandardMaterial({ color: new Color(hex), map, metalness: 0, roughness: o.roughness ?? 0.9 }), 'std-map', { fibre: o.fibre ?? 0.015, stepped: o.stepped, paperStep: true });
+export function paper(map: Texture, hex: string = HEX.paper, o: { roughness?: number; fibre?: number; stepped?: boolean | 'late' | 'own'; light?: typeof LIGHT_UNIFORMS } = {}): MeshStandardMaterial {
+  return patch(new MeshStandardMaterial({ color: new Color(hex), map, metalness: 0, roughness: o.roughness ?? 0.9 }), 'std-map', { fibre: o.fibre ?? 0.015, stepped: o.stepped, paperStep: true, light: o.light });
 }
 
 /** The room environment's strength on enamel (the synthesis's 0.25 clipped a lit top to white: RoomEnvironment is bright). */

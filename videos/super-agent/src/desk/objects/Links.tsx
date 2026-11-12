@@ -232,11 +232,19 @@ export function Cargo({ s }: { s: DeskState }) {
     // (beat 6: the answer flying back to the card feeder, desk/beat6.ts)
     m.transit.color.set(LIGHT_HEX.work).multiplyScalar(EMIT.transit * Math.max(s.transit, s.next.folderTransit, s.cache?.transit ?? 0, s.e6.transit));
   }, [m, s.transit, s.next.folderTransit, s.cache?.transit, s.e6.transit]);
-  // the report card and the reply, each a sheet of its own form (objects/Handshake.tsx)
+  // the report card and the reply, each a sheet of its own form (objects/Handshake.tsx); from part 2 the replies lying in
+  // your in-tray step with your desk (its id 'you', on whichever set it rides), those still riding the chute do not
+  const landed = s.f >= CORD_FROM ? s.replies.filter((r) => r.ride.arc >= 1) : [];
+  const riding = landed.length ? s.replies.filter((r) => r.ride.arc < 1) : s.replies;
   return (
     <group>
       <ReportCard s={s} />
-      <Reply s={s} />
+      <Reply s={landed.length ? { ...s, replies: riding } : s} />
+      {landed.length > 0 && (
+        <Step on={isStepped(s.step, 'you')}>
+          <Reply s={{ ...s, replies: landed }} />
+        </Step>
+      )}
     </group>
   );
 }

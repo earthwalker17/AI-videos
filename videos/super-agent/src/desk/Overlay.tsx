@@ -6,6 +6,7 @@
  * world (camera.ts `project`), so they land on their objects at either pitch. All text in
  * `GREY_TEXT` layers (no LCD fringes), ≤ 136 px, fonts gated by useFont; nothing moves while read.
  */
+import { progress } from '@aiv/core';
 import type { CamPose } from '@aiv/remotion-kit';
 import { AbsoluteFill } from 'remotion';
 import { TEXT_IN, TEXT_OUT, WORDS, cue } from '../cues.ts';
@@ -91,6 +92,12 @@ export interface TagSpec {
   lines?: { en: readonly string[]; zh: readonly string[] };
   /** its lines' leading, if tighter than TAG_GAP (the gate tag, so its zh line clears the conversation spool's flange under it) */
   gap?: number;
+  /**
+   * Opt-in (the idea labels, beat11.ts TAGS_11): the storyboard's reveal from its own `from` (its contact frame), as a role
+   * label enters: its hairline leader draws out of its foot over 6 f (the foot's dot on the contact frame itself), then its
+   * text wipes in over 8 f; it fades with its cue. Absent: the cue's 6 f wipe, the leader growing with it (every other tag).
+   */
+  reveal?: 'leader';
 }
 /** The zh line's baseline under the EN line's (and one line's under the one before it), and where the leader leaves the text block. */
 export const TAG_GAP = 50;
@@ -100,6 +107,23 @@ export function tagReveal(t: Pick<TagSpec, 'cue' | 'from'>, f: number): RevealSt
   if (t.from === undefined) return cueReveal(t.cue, f);
   const c = cue(t.cue);
   return revealState(f, { frame: t.from + TEXT_IN, end: c.end ?? c.frame }, TEXT_IN, TEXT_OUT);
+}
+/** The opt-in reveal's leader and wipe frames (TagSpec.reveal 'leader'): the leader's 6 f from the contact frame, then the text's 8 f. */
+export const TAG_LEADER = { leader: 6, wipe: 8 } as const;
+/**
+ * A 'leader' tag's reveal at film frame f (TagSpec.reveal): `leader` (0..1) the hairline drawn out of its foot, its first
+ * step on `from` (the contact frame: the foot's dot shows there), whole on from + 5; `wipe` the text from from + 6, whole
+ * on from + 13; the opacity its cue's fade out.
+ */
+export function tagLeaderReveal(t: Pick<TagSpec, 'cue' | 'from'>, f: number): RevealState & { leader: number } {
+  const c = cue(t.cue);
+  const from = t.from ?? c.frame - TEXT_IN;
+  const end = c.end ?? c.frame;
+  if (f < from || f >= end + TEXT_OUT) return { visible: false, wipe: 0, opacity: 0, leader: 0 };
+  const leader = Math.min(1, (f - from + 1) / TAG_LEADER.leader);
+  const wipe = progress(f, from + TAG_LEADER.leader - 1, from + TAG_LEADER.leader - 1 + TAG_LEADER.wipe, 'outQuad');
+  const opacity = 1 - progress(f, end, end + TEXT_OUT);
+  return { visible: opacity > 0, wipe, opacity, leader };
 }
 
 /** `labels`: the role labels in view (act one has only yours); `tags`: the tags shown on their cues. */
@@ -147,7 +171,8 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         })}
       </svg>
       {tags.map((t) => {
-        const r = tagReveal(t, f);
+        const lr = t.reveal === 'leader' ? tagLeaderReveal(t, f) : null;
+        const r = lr ?? tagReveal(t, f);
         if (!r.visible) return null;
         const id = t.id ?? t.cue;
         const foot = project(pose, t.foot);
@@ -175,8 +200,9 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         const under = ys.filter((_, i) => foot[0] >= spans[i]![0]! && foot[0] <= spans[i]![1]!);
         const floor = under.length ? Math.max(...under) + 20 : bottom;
         const ly = over ? (foot[1] > t.at[1] ? floor : top) : en.length + zh.length > 2 ? Math.min(Math.max(foot[1], top + 12), bottom - 12) : t.at[1] + gap / 2 - 12;
-        // the leader grows out of its foot with the wipe; under a camera move it retracts into the text (leaderUntil)
-        const grow = Math.min(1, r.wipe * 1.6);
+        // the leader grows out of its foot with the wipe (or, opted in, before it: TagSpec.reveal); under a camera move it
+        // retracts into the text (leaderUntil)
+        const grow = lr ? lr.leader : Math.min(1, r.wipe * 1.6);
         const keep = t.leaderUntil === undefined ? 1 : 1 - Math.min(1, Math.max(0, (f - t.leaderUntil) / 6));
         const from: readonly [number, number] = keep < 1 ? [lx + (foot[0] - lx) * keep, ly + (foot[1] - ly) * keep] : foot;
         return (
@@ -187,7 +213,7 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
               </clipPath>
             </defs>
             {keep > 0 && <line x1={from[0]} y1={from[1]} x2={foot[0] + (lx - foot[0]) * grow} y2={foot[1] + (ly - foot[1]) * grow} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />}
-            {keep >= 1 && <circle cx={foot[0]} cy={foot[1]} r={4} fill={TEXT_HEX.en} />}
+            {keep >= 1 && <circle cx={foot[0]} cy={foot[1]} r={lr ? 4 * Math.min(1, 3 * lr.leader) : 4} fill={TEXT_HEX.en} />}
             <g clipPath={`url(#wipe-${id})`}>
               {en.map((x, i) => (
                 <Label key={`en${i}`} x={t.at[0]} y={enY[i]} text={x} family={fonts.sans} size={tsize} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={t.anchor} />

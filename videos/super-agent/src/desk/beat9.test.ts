@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 // actOne.ts first: it is the module the film's frame code reaches the beat modules through (its tables read state.ts's)
 import { youPoseAt } from './actOne.ts';
 import { BEAT_9 } from '../cues.ts';
-import { cameraAt, project } from './camera.ts';
-import { LAYS, LAY_FRAMES, MACHINE_RISE, MARCH, QUEUED, SHEET_CLEARS, STRUT_DOCK, STRUT_LEN, TAGS_9, beamAt, beat9At, drumAt, layAt, machineLampAt, machineRiseAt, marchAt, proposedAt, strutAt } from './beat9.ts';
+import { TO_REGISTER, cameraAt, project, projectBox } from './camera.ts';
+import { LAYS, LAY_FRAMES, MACHINE_RISE, MARCH, PERSIST_WORDS, QUEUED, SHEET_CLEARS, STRUT_DOCK, STRUT_LEN, TAGS_9, beamAt, beat9At, drumAt, layAt, machineLampAt, machineRiseAt, marchAt, persistWordsAt, proposedAt, strutAt } from './beat9.ts';
 import { EMIT } from './fpKit.ts';
 import { DECK } from './layout.ts';
 import { LOOP_SHEET, MACHINES_9, SEAM } from './proposed.ts';
-import { MACHINES, VELLUM } from './summary.ts';
+import { MACHINES, QUERIES, VELLUM } from './summary.ts';
 import { CHORES, strutInTray } from './you.ts';
 
 describe('beat 9: the vellum laid, the machines, the strut', () => {
@@ -54,7 +54,7 @@ describe('beat 9: the vellum laid, the machines, the strut', () => {
     expect(CHORES.strut.c[0]).toBe(T.a[0]);
   });
 
-  it('flies the strut on an arc 200 u or more over the deck, never faster on screen than beat 5’s key (2410 px/s)', () => {
+  it('flies the strut on an arc 200 u or more over the deck, paced on screen under 1000 px/s with bar 58’s move', () => {
     let top = 0;
     let fastest = 0;
     for (let f = BEAT_9.strut.lift; f < BEAT_9.strut.dock; f++) {
@@ -66,7 +66,7 @@ describe('beat 9: the vellum laid, the machines, the strut', () => {
       fastest = Math.max(fastest, Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) * 30);
     }
     expect(top - DECK.top).toBeGreaterThanOrEqual(200);
-    expect(fastest).toBeLessThan(2410);
+    expect(fastest).toBeLessThan(1000);
   });
 
   it('keeps the server’s lamp under the bloom (EMIT.slotDocs at most) and lights it on its cue', () => {
@@ -144,5 +144,34 @@ describe('beat 9: the vellum laid, the machines, the strut', () => {
 
   it('leaves your desk’s pose to the other beats outside its frames (no reach of its own)', () => {
     expect(youPoseAt(4700).lamp).toEqual(youPoseAt(4559).lamp);
+  });
+});
+
+describe('beat 9: Persistent’s words, in vellum', () => {
+  it('lays "Persistent · 持久" from the strut’s dock (its contact) and rolls it up under bar 65’s dolly, whole in the frame and clear of the sheets and the "?"', () => {
+    const P = PERSIST_WORDS;
+    expect(persistWordsAt(BEAT_9.strut.dock - 1)).toBe(0);
+    expect(persistWordsAt(BEAT_9.strut.dock)).toBeGreaterThan(0);
+    expect(persistWordsAt(BEAT_9.strut.dock + 7)).toBe(1);
+    expect(persistWordsAt(TO_REGISTER.from)).toBe(1);
+    expect(persistWordsAt(TO_REGISTER.from + 8)).toBe(0);
+    const corners = (k: number): [number, number, number][] => [-1, 1].flatMap((b) => [[P.c[0] - P.w / 2, P.c[1] + (b * P.d) / 2, P.c[2]], [P.c[0] - P.w / 2 + P.w * k, P.c[1] + (b * P.d) / 2, P.c[2]]] as [number, number, number][]);
+    const gap = (a: { x0: number; x1: number; y0: number; y1: number }, b: { x0: number; x1: number; y0: number; y1: number }) => Math.max(b.x0 - a.x1, a.x0 - b.x1, b.y0 - a.y1, a.y0 - b.y1);
+    const sheet = (x0: number, x1: number, y0: number, y1: number, z = 0.4): [number, number, number][] => [[x0, y0, z], [x1, y0, z], [x0, y1, z], [x1, y1, z]];
+    const L = VELLUM.loop;
+    const PL = VELLUM.plan;
+    const q = QUERIES[0]!;
+    for (let f = BEAT_9.strut.dock; f < TO_REGISTER.from + 8; f++) {
+      const k = persistWordsAt(f);
+      const pose = cameraAt(f, 15);
+      const b = projectBox(pose, corners(k));
+      // whole in the frame (title-safe's margin) while it shows
+      expect(b.x1, `f${f}`).toBeLessThan(1920 - 96);
+      expect(b.x0, `f${f}`).toBeGreaterThan(96);
+      // never on the plan of the deck; north of the loop's drawing (its sheet's top margin only); clear of the "?" once it is drawn
+      expect(gap(b, projectBox(pose, sheet(PL.c[0] - PL.w / 2, PL.c[0] + PL.w / 2, PL.c[1] - PL.d / 2, PL.c[1] + PL.d / 2))), `f${f} plan`).toBeGreaterThanOrEqual(8);
+      expect(b.y1 - projectBox(pose, sheet(L.x0, L.x1, L.y0, L.y1)).y0, `f${f} loop`).toBeLessThanOrEqual(20);
+      if (f >= BEAT_9.sweeps[1]) expect(gap(b, projectBox(pose, sheet(q.at[0] - q.size / 2, q.at[0] + q.size / 2, q.at[1] - q.size / 2, q.at[1] + q.size / 2, q.at[2]))), `f${f} ?`).toBeGreaterThanOrEqual(8);
+    }
   });
 });

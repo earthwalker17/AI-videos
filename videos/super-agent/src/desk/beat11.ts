@@ -25,7 +25,8 @@
  *   the proposed parts' dashed edge, a grained pencil "?"), settled before the key's words wipe in beside them (objects/
  *   Beat11.tsx Beat11Text: dead still while they are read); the words fade out, then the bare plate slides back out
  *   before bar 76's move.
- * - 11.3: the act-one grey-stock card rises for one beat and slides away (no strike), the world a notch down under it;
+ * - 11.3: the act-one grey-stock card rises in from the west, rests a full beat and slides away west (no strike), the world a
+ *   notch down under it;
  *   the neck-collar gauge unclips from the Register's throat, flies to your lamp's neck, docks with a squash and rides it,
  *   its needle swinging high up its scale (your attention is the limit).
  * - 11.4: everything but your desk, your lamp and the stamped reply steps down (summary.ts summaryStep); the next replies
@@ -128,15 +129,18 @@ export const FLY = { antic: 4, back: 4, up: 3, squash: 0.03 } as const;
 export const TURN = { frames: 8, swap: (75 * Math.PI) / 180, from: 6 - (8 * Math.acos(1 - (2 * 75) / 180)) / Math.PI } as const;
 
 /**
- * The retirement (11.1): each plate lifts so it lands on its frame (BEAT_11.plates.lands, in TRAY_ORDER), never before
- * f5521 (still (d) keeps them in place). Each flies a cubic path through `via` (absolute desk points) clear of the parts
+ * The retirement (11.1): each plate lifts so it lands on its frame (BEAT_11.plates.lands, in TRAY_ORDER; the first lifts
+ * on BEAT_11.plates.from), never before f5521 (still (d) keeps them in place). The three built plates retire; Persistent,
+ * proposed, stays in vellum and the strut's recess is left empty. Each flies a cubic path through `via` (absolute desk points) clear of the parts
  * it passes: east of your in-tray, your lamp and your stamp (on screen too: never over the stamped reply), in over the
  * tray from its east end; Continuous first straight up off its brackets, high over the print head and the reading lamp's
  * hood (objects/Register.tsx), then down the same way.
  */
 export const RETIRE = {
-  lands: BEAT_11.plates.lands.slice(0, 3) as readonly number[],
-  travel: { proactive: 16, productive: 16, continuous: 18 } as Record<PlateId, number>,
+  lands: BEAT_11.plates.lands as readonly number[],
+  // (the first, Proactive, travels a frame longer: its first move, the frame after its lift, lands on BEAT_11.plates.from;
+  // Continuous, the longest way, over the print head and down the desk, takes 24 f: lifting on 5532, never a flick)
+  travel: { proactive: 17, productive: 16, continuous: 24 } as Record<PlateId, number>,
   via: {
     proactive: [
       [-380, 150, 120],
@@ -274,27 +278,30 @@ export const plateLifts = (id: PlateId): number[] => LEGS[id].map((l) => l.lift)
 
 /** A tag's lines: EN over zh, as beat 7's tags are (a name the same in both languages, Fast / Slow Path, drawn once). */
 const twoLines = (w: { en: string; 'zh-Hans': string }): TagSpec['lines'] => ({ en: [w.en], zh: [w.en === w['zh-Hans'] ? '' : w['zh-Hans']] });
+/** The Watchdog's station's east edge at its middle (summary.ts WATCHDOG, restated: the import rule; beat11.test holds it). */
+export const WATCH_EAST: P3 = [605 + 190 / 2, -356, 1];
 /** The Thread's gate's east post, on the request's bay's north wall where the cord comes in (beat7.ts GATE: its post's top). */
 const GATE_POST: P3 = [CORDS.vermilion[CORDS.vermilion.length - 1]![0] - 5, BAYS.bug.box.y1 - BAYS.bug.wall / 2, BAYS.bug.wallH + 20];
 /**
  * The six idea labels (STORYBOARD 11.2), one per beat on BEAT_11.ideas: TagSpecs on the 'ideas' cue, each its own id and
- * its own wipe from its beat, all fading with the cue; EN over zh (Fast / Slow Path, the same in both, drawn once), placed
+ * its own reveal from its beat (Overlay.tsx TagSpec.reveal 'leader': its leader's foot on the beat, the leader drawn over
+ * 6 f, then its text wiped in over 8 f), all fading with the cue (down before the collar flies); EN over zh (Fast / Slow Path, the same in both, drawn once), placed
  * for still (d)'s framing (0.64x), every line inside title-safe and the diagram band, each leader short and onto a named
  * part, no two feet in one place: Fast / Slow Path on the loupe over the Slow Path's card, its label north in the clear
  * band over the Register; cache on the window's north bar (never across its log or the record's print), north beside it;
  * batching on the throat, set south in the clear slate between your desk and the first bay (its leader the gap between
  * them); full-duplex on the Thread's gate standing open on the request's bay's north wall (the bay's open door), set in
  * the clear slate north-east of it between the cord and the vellum; the compute–state split on the vellum state
- * cabinet, set right of it (EN broken between its words, zh under it); the control loop on the Watchdog's scope, above-
- * right of it.
+ * cabinet, set right of it (EN broken between its words, zh under it); the control loop on the Watchdog's station, set
+ * east of it in the clear slate under the cabinet (its leader short and level onto the station's east edge).
  */
 export const TAGS_11: readonly TagSpec[] = [
-  { cue: 'ideas', id: 'idea-fastslow', from: BEAT_11.ideas[0]!, words: WORDS.ideaFastSlow, lines: twoLines(WORDS.ideaFastSlow), at: [705, 166], anchor: 'end', foot: [-319, 341, 157] },
-  { cue: 'ideas', id: 'idea-batching', from: BEAT_11.ideas[1]!, words: WORDS.ideaBatching, lines: twoLines(WORDS.ideaBatching), gap: 48, at: [650, 750], anchor: 'start', foot: [THROAT.box.x0 + 14, THROAT.box.y0 + 2, THROAT.z[1]] },
-  { cue: 'ideas', id: 'idea-cache', from: BEAT_11.ideas[2]!, words: WORDS.ideaCache, lines: twoLines(WORDS.ideaCache), gap: 46, at: [790, 124], anchor: 'start', foot: [-137, WINDOW.frame.y1 - WINDOW.bar / 2, WINDOW.z[1] + 1] },
-  { cue: 'ideas', id: 'idea-duplex', from: BEAT_11.ideas[3]!, words: WORDS.ideaDuplex, lines: twoLines(WORDS.ideaDuplex), gap: 46, at: [1216, 392], anchor: 'start', foot: GATE_POST },
-  { cue: 'ideas', id: 'idea-split', from: BEAT_11.ideas[4]!, words: WORDS.ideaSplit, lines: { en: ['compute–state', 'split'], zh: [WORDS.ideaSplit['zh-Hans']] }, gap: 42, at: [1824, 676], anchor: 'end', foot: [986, -230, 1] },
-  { cue: 'ideas', id: 'idea-control', from: BEAT_11.ideas[5]!, words: WORDS.ideaControl, lines: twoLines(WORDS.ideaControl), gap: 42, at: [1506, 818], anchor: 'start', foot: [790, -470, 1] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-fastslow', from: BEAT_11.ideas[0]!, words: WORDS.ideaFastSlow, lines: twoLines(WORDS.ideaFastSlow), at: [705, 166], anchor: 'end', foot: [-319, 341, 157] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-batching', from: BEAT_11.ideas[1]!, words: WORDS.ideaBatching, lines: twoLines(WORDS.ideaBatching), gap: 48, at: [650, 750], anchor: 'start', foot: [THROAT.box.x0 + 14, THROAT.box.y0 + 2, THROAT.z[1]] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-cache', from: BEAT_11.ideas[2]!, words: WORDS.ideaCache, lines: twoLines(WORDS.ideaCache), gap: 46, at: [790, 124], anchor: 'start', foot: [-137, WINDOW.frame.y1 - WINDOW.bar / 2, WINDOW.z[1] + 1] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-duplex', from: BEAT_11.ideas[3]!, words: WORDS.ideaDuplex, lines: twoLines(WORDS.ideaDuplex), gap: 46, at: [1216, 392], anchor: 'start', foot: GATE_POST },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-split', from: BEAT_11.ideas[4]!, words: WORDS.ideaSplit, lines: { en: ['compute–state', 'split'], zh: [WORDS.ideaSplit['zh-Hans']] }, gap: 42, at: [1824, 676], anchor: 'end', foot: [986, -230, 1] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-control', from: BEAT_11.ideas[5]!, words: WORDS.ideaControl, lines: twoLines(WORDS.ideaControl), gap: 42, at: [1416, 818], anchor: 'start', foot: WATCH_EAST },
 ];
 
 /**
@@ -322,8 +329,8 @@ export const KEY_WORDS = [WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch] as c
 export const KEY_OFF = 500;
 /**
  * Its slide in (spring-settle from `in`, held dead still from `in + settle`, the key-map cue's frame, so its words never
- * move under them), its words' fade out (`fade` frames, ending on `out`), and its slide out (sine over `outFrames` from
- * `out`, beyond the edge on its last drawn frame, gone before f6000).
+ * move under them), its words' fade out (`fade` frames, ending on `out`: the key-map cue's own fade, its window ending on
+ * 5988), and its slide out (sine over `outFrames` from `out`, beyond the edge on its last drawn frame, gone before f6000).
  */
 export const KEY_MOVE = { in: BEAT_11.keyMap - 16, settle: 16, fade: 6, out: 5988, outFrames: 11 } as const;
 /** The plate's offset north of its place at f (u; null: not drawn). */
@@ -343,25 +350,26 @@ export const keyWordsAt = (f: number): number => 1 - clamp((f - (KEY_MOVE.out - 
 /** The card's curves: in on an even sine over 12 f (beat 4's move curve would carry it in from beyond the top edge faster than 2410 px/s), out on TREATMENT's exit curve over 8 f. */
 const RISE = (t: number): number => sine(t);
 const EXIT = Easing.bezier(0.3, 0, 0.8, 0.15);
-/** The act-one card: grey stock (beat4.ts's counterfactual card, larger), up for one beat once C26 has settled; no strike. */
+/** The act-one card: grey stock (beat4.ts's counterfactual card, larger), up once C26 has settled, at rest a full beat; no strike. */
 export const CARD_11 = { rise: BEAT_11.actOneCard.rise, exit: BEAT_11.actOneCard.exit, riseFrames: 12, exitFrames: 8 } as const;
 /** Its size (u: about 354 x 217 px at 0.64x) and where its centre sits on still (d)'s screen: west of the Register, north of your desk, over the feeders and the noise act one was. */
 const CARD_W = 540;
 const CARD_H = 332;
 const CARD_SCREEN: P2 = [300, 318];
 /**
- * Where it plays: 240 u up, in from just beyond the frame's top edge and back off it (its south edge 12 px over the
- * frame's top at `off`), so its whole exit shows in frame.
+ * Where it plays: 240 u up, in from just beyond the frame's west edge and back off it (its east edge 12 px beyond the
+ * frame's west edge at `off`), level with where it rests, so its whole entry and exit show in frame and cross no label
+ * (the idea labels along the top, "Fast / Slow Path" over it, are still fading as it leaves).
  */
 export const CARD_SPOT_11: CardSpot = (() => {
   const at = screenToDesk(POSE_D, CARD_SCREEN, 240);
-  const top = screenToDesk(POSE_D, [CARD_SCREEN[0], -12], 240);
-  return { at: [at[0], at[1], 240], off: [at[0], top[1] + CARD_H / 2, 240], w: CARD_W, h: CARD_H, tilt: 0.3 };
+  const edge = screenToDesk(POSE_D, [-12, CARD_SCREEN[1]], 240);
+  return { at: [at[0], at[1], 240], off: [edge[0] - CARD_W / 2, at[1], 240], w: CARD_W, h: CARD_H, tilt: 0.3 };
 })();
 /**
  * The card at f (beat4.ts's CardState, its strike never drawn: it is no road not taken, it is the theme returning): in
  * from the frame before its rise cue (its first move on the cue), settled 12 f later, held, off from its exit cue (its
- * first move on the cue) over 8 f, wholly beyond the frame's top edge on its last drawn frame.
+ * first move on the cue) over 8 f, wholly beyond the frame's west edge on its last drawn frame.
  */
 export function actOneCardAt(f: number): CardState | null {
   const C = CARD_11;
@@ -370,9 +378,13 @@ export function actOneCardAt(f: number): CardState | null {
   if (f <= start || f >= leave + C.exitFrames + 1) return null;
   return { rise: RISE((f - start) / C.riseFrames), strike: 0, exit: EXIT(clamp((f - leave) / C.exitFrames)), play: f - start - C.riseFrames };
 }
-/** The world a notch down while the card is up (the card is the beat's action, as beat 10.2's are): in as it rises, out as it leaves. */
-export const CARD_NOTCH = { amount: 0.5, frames: 12 } as const;
-export const cardNotchAt = (f: number): number => CARD_NOTCH.amount * (sine((f - (CARD_11.rise - 2)) / CARD_NOTCH.frames) - sine((f - CARD_11.exit) / CARD_NOTCH.frames));
+/**
+ * The world a notch down while the card is up (the card is the beat's action, as beat 10.2's are): in over 12 f as it rises
+ * (from 2 f before its rise cue), out over 10 f as it leaves (from its first move, the frame after its exit cue's eve), back
+ * to 0 before the collar's frame (summary.ts summaryStep hands the main set to the collar's gauge there).
+ */
+export const CARD_NOTCH = { amount: 0.5, frames: 12, outFrames: 10 } as const;
+export const cardNotchAt = (f: number): number => CARD_NOTCH.amount * (sine((f - (CARD_11.rise - 2)) / CARD_NOTCH.frames) - sine((f - (CARD_11.exit - 1)) / CARD_NOTCH.outFrames));
 
 /** The neck-collar gauge: at rest on the deck by the throat (objects/Register.tsx), its centre at its disc's mid-height. */
 export const GAUGE_C: P3 = [THROAT.box.x0 + 8, THROAT.box.y0 - 34, DECK.top + 0.5];

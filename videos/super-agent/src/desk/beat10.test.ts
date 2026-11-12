@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 // actOne.ts first: it is the module the film's frame code reaches the beat modules through (its tables read state.ts's)
 import { youPoseAt } from './actOne.ts';
 import { BEAT_10 } from '../cues.ts';
-import { ARM_10, CAP_LANDS, CARDS_10, FOCUS_10, HIJACK_GONE, PINS_10, POLE_B, REACH, REPLY_0405, SPOT_10, beat10At, capAt, capLanded, etchAt, hijackAt, pins10, pose0405, ride0405, you10 } from './beat10.ts';
+import { ALL_BUT_CARDS, ARM_10, CAP_LANDS, CARDS_10, FOCUS_10, HIJACK_GONE, PINS_10, POLE_B, REACH, REPLY_0405, SPOT_10, beat10At, capAt, capLanded, etchAt, hijackAt, pins10, pose0405, ride0405, you10 } from './beat10.ts';
 import { FOCUS_9 } from './beat9.ts';
+import { REPLY_REST } from './beat7.ts';
 import { CARD_SPOT, cardAt, cardPose } from './beat4.ts';
 import { FRAMING_B, deskCamera, project } from './camera.ts';
 import { cardFootprint } from './footprints.ts';
@@ -11,6 +12,7 @@ import { KEY_DOCK, YOU, rectC, type P3 } from './layout.ts';
 import { YOU_POSE_B, lampElbow } from './you.ts';
 import { SEAM } from './proposed.ts';
 import { DETENT, STEP_FRAMES, deskStateAt } from './state.ts';
+import { PROPOSED_STEP_ID, WATCHDOG_STEP_ID } from './objects/Beat9.tsx';
 import { summaryDeskState } from './summary.ts';
 
 describe('beat 10: still open, and bar 68', () => {
@@ -78,12 +80,24 @@ describe('beat 10: still open, and bar 68', () => {
   });
 
   it('never pumps the step: 14 f or more between beat 9’s hold, the cards and the rest', () => {
-    const watch = FOCUS_9.find((x) => x.id === 'b9-watch')!;
+    const watch = FOCUS_9.at(-1)!;
+    expect(watch.id).toBe('b9-etch');
     const fix = FOCUS_10.find((x) => x.id === 'b10-fix')!;
     const rest = FOCUS_10.find((x) => x.id === 'b10-rest')!;
     expect(fix.from).toBeGreaterThanOrEqual(watch.to + STEP_FRAMES);
     expect(rest.from).toBeGreaterThanOrEqual(fix.to + STEP_FRAMES);
     for (const e of FOCUS_9) expect(e.step).not.toContain('you');
+  });
+
+  it('names the objects’ step ids as objects/Beat9.tsx mounts them: the cards step the proposed parts and the Watchdog; N8 steps the vellum but the Watchdog', () => {
+    expect(ALL_BUT_CARDS).toContain(PROPOSED_STEP_ID);
+    expect(ALL_BUT_CARDS).toContain(WATCHDOG_STEP_ID);
+    const n8 = FOCUS_9.find((x) => x.id === 'b9-n8')!;
+    expect(n8.step).toContain(PROPOSED_STEP_ID);
+    expect(n8.step).not.toContain(WATCHDOG_STEP_ID);
+    expect(n8.step).not.toContain('freshBay');
+    // the vellum is back up before 10.1's hatched slip comes in
+    expect(n8.to + STEP_FRAMES).toBeLessThanOrEqual(BEAT_10.hatch.spout);
   });
 
   it('reaches your lamp for the running bay and brings it home before bar 68, leaving the summary’s pose alone', () => {
@@ -135,8 +149,16 @@ describe('beat 10: still open, and bar 68', () => {
   });
 
   it('lands the reply #0405 on its cue exactly where still (d) lays it, then nothing moves into the seam', () => {
-    expect(REPLY_0405.rest).toEqual([rectC(YOU.inTray)[0], YOU.inTray.y1 - 44, YOU.top + 7.2]);
+    expect(REPLY_0405.rest).toEqual([rectC(YOU.inTray)[0], YOU.inTray.y1 - 44, YOU.top + 7.6]);
     expect(REPLY_0405.size).toEqual([104, 72]);
+    // on top of 7.4's chat reply's "≤ 100" stop tab (objects/Replies.tsx: its face 2.45 over the slip's rest), so your stamp's
+    // check prints on #0405's own paper, a hair over the tab's face
+    expect(REPLY_0405.rest[2]).toBeGreaterThanOrEqual(REPLY_REST[2] + 2.45 + 0.15);
+    // and the tab's glyphs (cap height about 0.7 of its 30 u em about its centre line) lie wholly south of #0405's south edge
+    const [cx, cy] = REPLY_0405.rest;
+    const southAt = (x: number) => cy - (REPLY_0405.size[1] / 2) * Math.cos(REPLY_0405.turn) + (x - cx) * Math.tan(REPLY_0405.turn);
+    const glyphTop = REPLY_REST[1] + 0.35 * 30;
+    for (const x of [-540, -520, -500, -480]) expect(glyphTop, `x ${x}`).toBeLessThan(southAt(x));
     const r = ride0405(BEAT_10.replyLands)!;
     expect(r.arc).toBe(1);
     const p = pose0405(r);

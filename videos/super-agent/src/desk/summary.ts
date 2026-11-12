@@ -14,6 +14,7 @@ import { BEAT_11 } from '../cues.ts';
 import { COLLAR, SETTLE, STEP_11, TAB_FLAT, cardNotchAt, hopperAt, nextReplies, plateLands, readLampAt, retireLiftOf } from './beat11.ts';
 import { hopTargets } from './beat6.ts';
 import { REPLY_0405 } from './beat10.ts';
+import { endDesk } from './end.ts';
 
 /**
  * Where the summary's world takes over from act two's (desk/film.ts SEGMENTS): inside bar 68's stillness, after the reply
@@ -354,7 +355,9 @@ export function summaryDeskState(f: number): DeskState {
   const e11 = s.e11;
   // the 7.4 chat reply lies on in your in-tray (beat 7's own list ends at the seam)
   const lasting = a.replies.filter((r) => r.id === '7-chat' && !s.replies.some((x) => x.id === r.id));
-  return {
+  // from bar 76 the end acts on it (end.ts endDesk: the bookend's step-up, the heap pressed away, the head's stamp; the
+  // very same state before f6000)
+  return endDesk(f, {
     ...s,
     // bar 68's reply came down the chute to you: the arm rests at your detent
     arm: DETENT.you,
@@ -378,7 +381,7 @@ export function summaryDeskState(f: number): DeskState {
     // beat 7's parts at rest as act two left them (the cord, the Thread's gate open on the bay's north wall: the full-duplex
     // door 11.2 names, the job rail and its glass, the notices on the tape); the worded Productive plate until it lifts
     e7: a.e7 ? { ...a.e7, plate: e11?.plates.productive ? null : a.e7.plate } : null,
-  };
+  });
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -845,11 +848,15 @@ export const VELLUM = {
 /** A tether strip's width. */
 export const TETHER_W = 16;
 /**
- * The Watchdog: a vellum plan of an inspection station outside the system, south-east of the bays, its
- * scope and sightline aimed at the stuck bay (the fresh bay, W-10) and the pencil flag pinned on it.
+ * The Watchdog: a vellum plan of an inspection station outside the system, south of the stuck bay (the fresh bay, W-10),
+ * its scope and sightline aimed up at the bay and the pencil flag pinned on it. Placed for FRAMING_D so all of it stays
+ * inside the diagram band while a note is up (TREATMENT, Layout: its lowest line about y 864, the notes' first ascender
+ * about y 900), west of the state cabinet and east of the request's bay's job rail (with "Worker" set west of its leader:
+ * film.ts LABELS_D). At FRAMING_B (10.2-10.3, after bar 65's dolly) its static sheet lies in the frame's lower-right corner,
+ * partly below the band, about 140 px east of the notes' line ends (N9, N10): never on a word.
  */
 export const FLAG: P3 = [FRESH.box.x1 - 24, FRESH.box.y0 + 12, FRESH.wallH + 0.6];
-export const WATCHDOG = { c: [790, -470] as P2, w: 190, d: 150, look: [FLAG[0], FLAG[1]] as P2 } as const;
+export const WATCHDOG = { c: [605, -356] as P2, w: 190, d: 150, look: [FLAG[0], FLAG[1]] as P2 } as const;
 /** Pencil "?" marks (open problems: STORYBOARD 10.1–10.3), at least 64 px on screen (about 100 u of glyph at 0.64×). */
 export const QUERY_SIZE = 136;
 export const QUERIES: readonly { at: P3; size: number }[] = [

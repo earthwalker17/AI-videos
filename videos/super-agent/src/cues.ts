@@ -438,8 +438,10 @@ export const BEAT_8 = {
  * away, your laptop's lid shuts (its click lands at `lidClick`) and the camera eases out to still (d)'s framing
  * (0.64x). The vellum parts are laid down flat east of the system, 12 f each, on `lays` (the first waits for beat 8's
  * departing sheet to clear its ground: its west edge passes x 1050 on 4578; the plan of the deck, the
- * state cabinet, the loop, the daemon tethers); the lid strut lifts off your tray (the hand-over grammar) and docks
- * on the vellum loop, taking its material, then the Persistent plate docks, in vellum. A machine's lamp comes on and
+ * state cabinet, the loop, the daemon tethers); the lid strut lifts off your tray on `strut.lift`, the frame after the lid's
+ * click (the hand-over grammar: 4 f of anticipation and a 49 f flight paced on screen, slow enough to follow under bar 58's
+ * move; a silent mark: no sound shares its frame) and docks on the vellum loop on
+ * `strut.dock`, taking its material, then the Persistent plate docks, in vellum. A machine's lamp comes on and
  * a queued slip drops in. Under N8 the Watchdog is laid outside the system, its sightline sweeps 20 f on `sweeps`,
  * the stuck bay keeps its solid work light while its card drum steps out and back on every beat of `stuck`, and the
  * sightline pins a pencil flag on it.
@@ -448,7 +450,7 @@ export const BEAT_9 = {
   away: at(58),
   lidClick: 4566,
   lays: [4580, 4592, 4604, 4616],
-  strut: { lift: 4596, dock: at(58, 4), plateDock: 4624 },
+  strut: { lift: 4567, dock: at(58, 4), plateDock: 4624 },
   machineLamp: at(59, 2),
   slipDrop: at(59, 3),
   watchdog: at(60, 2),
@@ -464,7 +466,7 @@ export const BEAT_9 = {
  * etch then spreads along the vellum tethers, one machine per beat, killing their gloss, and recedes, leaving a
  * pencil "?" (>= 64 px) for the rest of the film. Under N9 (bar 65's dolly onto the Register: the move is the line)
  * the Register splits in pencil, its tape tears and two reading windows disagree; Fix A's and Fix B's grey-stock
- * cards rise either side for one beat and slide away (no strike); the reel's outer windings fade into pencil with a
+ * cards rise either side, hold a full beat (about 20 f) and slide away from `cards.exit` (no strike); the reel's outer windings fade into pencil with a
  * "?". Under N10 your lamp reaches for a running bay just beyond it, where a pencil handle outline and "?" are drawn.
  * In bar 68 the request's bay finishes (MT1's handshake, compressed): its pins drop, it caps, its report card ejects
  * and flies up, is stamped in, the index turns west and the reply rides the chute into your in-tray; then
@@ -478,7 +480,7 @@ export const BEAT_10 = {
   split: 5140,
   tear: 5160,
   windows: 5176,
-  cards: { rise: at(66), exit: 5220 },
+  cards: { rise: at(66), exit: 5232 },
   windings: at(66, 3),
   reach: at(67),
   handle: at(67, 2),
@@ -493,19 +495,21 @@ export const BEAT_10 = {
 /**
  * Beat 11 (STORYBOARD 11.1-11.4): sign-off, old ideas, meaning. The stamp (src/desk/summary.ts STAMP_F) presses the
  * reply green as your lamp brightens a step; the route's trace runs out, then home (summary.ts TRACE_F, held equal
- * by summary.test.ts). The four trait plates retire into the emptied chore tray, landing on `plates` (inside the
- * sign-off rest: silent). Six idea labels settle one per beat (a 6 f leader, then an 8 f wipe), the map key sets
- * after them, the act-one grey-stock card rises for one beat once C26 has settled and slides away, the neck collar
- * slides from the Register's throat to your lamp's neck, everything but your desk, your lamp and the stamped reply
- * steps down, and your lamp turns to the next reply once a bar.
+ * by summary.test.ts). The three built trait plates retire into the emptied chore tray, lifting from `plates.from` and
+ * landing on `plates.lands` (inside the sign-off rest: silent); Persistent, proposed, stays in vellum and the strut's
+ * recess is left empty. Six idea labels settle one per beat (a 6 f leader from the beat, then an 8 f wipe), all down
+ * before the collar flies; the map key sets after them; the act-one grey-stock card rises once C26 has settled, rests a
+ * full beat and slides away from `actOneCard.exit` (gone before the collar); the neck collar slides from the Register's
+ * throat to your lamp's neck, everything but your desk, your lamp and the stamped reply steps down, and your lamp turns
+ * to the next reply once a bar.
  */
 export const BEAT_11 = {
   stamp: at(69),
   trace: { out: [at(69), 5486], home: [5486, 5518] },
-  plates: { from: 5540, lands: [5548, 5554, 5560, 5566] },
+  plates: { from: 5528, lands: [5548, 5554, 5560] },
   ideas: [at(70, 4), at(71), at(71, 2), at(71, 3), at(71, 4), at(72)],
   keyMap: at(72, 2),
-  actOneCard: { rise: at(73), exit: at(73, 2) },
+  actOneCard: { rise: at(73), exit: 5790 },
   collar: { from: at(73, 3), to: 5820 },
   stepDown: 5870,
   lampTurns: [at(74, 3), at(75, 3)],
@@ -707,7 +711,7 @@ const events: CueEvent[] = [
   line('n9', at(65), at(66, 4)),
   mark('split', BEAT_10.split, 'in pencil the Register splits in two: the Router’s chord detunes into two'),
   mark('tear', BEAT_10.tear, 'its tape tears'),
-  mark('fix-cards', BEAT_10.cards.rise, 'Fix A’s and Fix B’s grey-stock cards rise either side for one beat'),
+  mark('fix-cards', BEAT_10.cards.rise, 'Fix A’s and Fix B’s grey-stock cards rise either side and hold about 20 f'),
   mark('windings', BEAT_10.windings, 'the reel’s outer windings fade into pencil with a “?”'),
   line('n10', at(66, 4.5), at(69)),
   mark('reach', BEAT_10.reach, 'your lamp reaches for a running bay just beyond it'),
@@ -720,14 +724,18 @@ const events: CueEvent[] = [
   // 11 · Sign-off, old ideas, meaning (bars 69-75)
   hit('stamp', at(69), 'your desk stamps the reply green: a felt stamp thump, and the motif completes as A4, D5, F♯5'),
   span('rest', 'rest-signoff', at(69, 3), at(70, 3.5), 'the route traced at 0.64×: the held Dmaj9 and the scratching drag'),
-  mark('plates-retire', BEAT_11.plates.from, 'the four trait plates retire into the emptied chore tray, silently'),
+  mark('plates-retire', BEAT_11.plates.from, 'the three built trait plates retire into the emptied chore tray (Persistent, proposed, stays in vellum), silently'),
   line('n11', at(70, 3.5), at(72, 3)),
   ...BEAT_11.ideas.map((f, i) => mark(`idea-${i + 1}`, f, 'an idea label settles on its part: a click on the beat')),
-  shown('text', 'ideas', at(70, 4), at(74, 2.5), read(WORDS.ideaFastSlow, WORDS.ideaBatching, WORDS.ideaCache, WORDS.ideaDuplex, WORDS.ideaSplit, WORDS.ideaControl)),
-  // the key sets once the six labels have landed, and is gone before bar 76's move
-  shown('text', 'key-map', BEAT_11.keyMap, at(76), read(WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch)),
+  // the six labels are down before the collar flies (BEAT_11.collar.from). The one text span not whole from its frame: each
+  // label reveals as the storyboard's leader (Overlay.tsx TagSpec.reveal 'leader': its 6 f hairline from its own idea mark,
+  // then its 8 f wipe), so the first label's words are whole 13 f after the window opens
+  shown('text', 'ideas', at(70, 4), at(73, 3), read(WORDS.ideaFastSlow, WORDS.ideaBatching, WORDS.ideaCache, WORDS.ideaDuplex, WORDS.ideaSplit, WORDS.ideaControl)),
+  // the key sets once the six labels have landed; its words fade out by 5988 so the bare plate can slide out (5989-5998)
+  // before bar 76's move
+  shown('text', 'key-map', BEAT_11.keyMap, 5988, read(WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch)),
   line('c26', at(72, 3), at(74, 2.5)),
-  mark('act-one-card', BEAT_11.actOneCard.rise, 'a grey-stock card of act one rises for one beat: the theme returns, softer'),
+  mark('act-one-card', BEAT_11.actOneCard.rise, 'a grey-stock card of act one rises, rests a full beat: the theme returns, softer'),
   mark('collar', BEAT_11.collar.from, 'the neck collar slides from the Register’s throat to your lamp’s neck'),
   line('c27', at(74, 2.5), at(76)),
   mark('step-down', BEAT_11.stepDown, 'everything but your desk, your lamp and the stamped reply steps down'),

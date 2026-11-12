@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BEAT_11, cue } from '../cues.ts';
+import { BEAT_11, cue, textWindow } from '../cues.ts';
 import { ROUND2 } from '../lookdev/frames.ts';
 import { SAFE, DIAGRAM_BAND } from '../look/tokens.ts';
 import { youPoseAt } from './actOne.ts';
@@ -21,6 +21,7 @@ import {
   TRAY_DOCK,
   TRAY_ORDER,
   TURN,
+  WATCH_EAST,
   MINI,
   actOneCardAt,
   beat11At,
@@ -45,7 +46,8 @@ import { EASE_OUT_D, TO_BOOKEND, project } from './camera.ts';
 import { SUMMARY_TAGS } from './film.ts';
 import { LAMP, PRINT_HEAD, READ_LAMP, YOU, rectC, type P3 } from './layout.ts';
 import { deskStateAt, replyPose } from './state.ts';
-import { SEAM_D, poseD, summaryDeskState, summaryStep } from './summary.ts';
+import { SEAM_D, WATCHDOG, poseD, summaryDeskState, summaryStep } from './summary.ts';
+import { tagLeaderReveal } from './Overlay.tsx';
 
 const ids: PlateId[] = ['proactive', 'productive', 'continuous'];
 /** A plate's four plan corners at its pose (its turn about z, its plan scale; its roll ignored: a bound). */
@@ -112,7 +114,13 @@ describe('beat 11: the seam, summary side', () => {
 
 describe('beat 11.1: the trait plates retire into the emptied chore tray', () => {
   it('land on the cue sheet’s plates.lands (the two that lie on the board first, Continuous across them last), never lifting before f5521 (still (d) keeps them)', () => {
-    expect(RETIRE.lands).toEqual(BEAT_11.plates.lands.slice(0, 3));
+    // the three built plates (Persistent, proposed, stays in vellum), the first lifting on the retirement's cue
+    expect(RETIRE.lands).toEqual(BEAT_11.plates.lands);
+    expect(BEAT_11.plates.lands.length).toBe(3);
+    // (a leg's first move is the frame after its lift: legAt holds it at rest through its lift frame)
+    expect(Math.min(...ids.map(retireLiftOf)) + 1).toBe(BEAT_11.plates.from);
+    expect(plateAt(BEAT_11.plates.from - 1, 'proactive')).toEqual(plateAt(BEAT_11.plates.from - 2, 'proactive'));
+    expect(plateAt(BEAT_11.plates.from, 'proactive')!.c).not.toEqual(plateAt(BEAT_11.plates.from - 1, 'proactive')!.c);
     expect(TRAY_ORDER).toEqual(ids);
     ids.forEach((id, k) => {
       expect(plateLands(id).at(-1), id).toBe(BEAT_11.plates.lands[k]);
@@ -197,8 +205,21 @@ describe('beat 11.2: the idea labels and the map key', () => {
     TAGS_11.forEach((t, i) => {
       expect(t.cue).toBe('ideas');
       expect(t.from).toBe(BEAT_11.ideas[i]);
+      expect(t.reveal).toBe('leader');
       expect(SUMMARY_TAGS).toContain(t);
     });
+    // the leader's foot on the beat itself, then its 6 f leader and 8 f wipe; all down (faded) before the collar flies
+    const t = TAGS_11[0]!;
+    expect(tagLeaderReveal(t, t.from! - 1).visible).toBe(false);
+    expect(tagLeaderReveal(t, t.from!)).toMatchObject({ visible: true, wipe: 0 });
+    expect(tagLeaderReveal(t, t.from!).leader).toBeGreaterThan(0);
+    expect(tagLeaderReveal(t, t.from! + 5)).toMatchObject({ leader: 1, wipe: 0 });
+    expect(tagLeaderReveal(t, t.from! + 6).wipe).toBeGreaterThan(0);
+    expect(tagLeaderReveal(t, t.from! + 13).wipe).toBe(1);
+    expect(textWindow(cue('ideas'))[1]).toBeLessThanOrEqual(BEAT_11.collar.from);
+    expect(tagLeaderReveal(t, BEAT_11.collar.from).visible).toBe(false);
+    // the control loop's foot on the Watchdog's station (restated for the import rule)
+    expect(WATCH_EAST).toEqual([WATCHDOG.c[0] + WATCHDOG.w / 2, WATCHDOG.c[1], 1]);
   });
   it('sets every line inside title-safe and the diagram band (widths at about 21 px a Latin character, 40 a Han one)', () => {
     const width = (s: string): number => [...s].reduce((w, c) => w + ((c.codePointAt(0) ?? 0) >= 0x2e80 ? 40 : 21), 0);
@@ -240,13 +261,16 @@ describe('beat 11.2: the idea labels and the map key', () => {
     for (let f = c.frame - 6; f <= KEY_MOVE.out; f++) expect(keyAt(f)!.dy, `f${f}`).toBe(0);
     expect(keyWordsAt(KEY_MOVE.out - KEY_MOVE.fade)).toBe(1);
     expect(keyWordsAt(KEY_MOVE.out)).toBe(0);
+    // the key-map cue's window ends with the words' fade (the cue sheet's own 6 f fade out)
+    expect(textWindow(c)[1]).toBe(KEY_MOVE.out);
+    expect(c.end).toBe(KEY_MOVE.out - KEY_MOVE.fade);
     // its right edge inside title-safe (zh: six Han at 36 px)
     expect(KEY_SCREEN.zh + 6 * 36).toBeLessThanOrEqual(1824);
   });
 });
 
 describe('beat 11.3: the act-one card and the collar', () => {
-  it('the card rises on its cue for one beat and slides away from its exit, never struck, beyond the frame’s top edge at both ends', () => {
+  it('the card rises on its cue for one beat and slides away from its exit, never struck, beyond the frame’s west edge at both ends', () => {
     expect(actOneCardAt(BEAT_11.actOneCard.rise - 1)).toBeNull();
     expect(actOneCardAt(BEAT_11.actOneCard.rise)!.rise).toBeGreaterThan(0);
     const exit = BEAT_11.actOneCard.exit;
@@ -259,33 +283,38 @@ describe('beat 11.3: the act-one card and the collar', () => {
     }
     const first = actOneCardAt(BEAT_11.actOneCard.rise)!;
     expect(cardIn(first)).toBeLessThan(0.2);
-    // off: wholly beyond the top edge at 0.64x
-    const southAt = (c: NonNullable<ReturnType<typeof actOneCardAt>>) => onD([cardPose(c, CARD_SPOT_11).c[0], cardPose(c, CARD_SPOT_11).c[1] - (CARD_SPOT_11.h ?? 184) / 2, 240])[1];
-    const offTop = onD([CARD_SPOT_11.off[0], CARD_SPOT_11.off[1] - (CARD_SPOT_11.h ?? 184) / 2, CARD_SPOT_11.off[2]])[1];
-    expect(offTop).toBeLessThan(0);
+    // off: wholly beyond the west edge at 0.64x, level with where it rests (it crosses none of the idea labels along the top)
+    const eastAt = (c: NonNullable<ReturnType<typeof actOneCardAt>>) => onD([cardPose(c, CARD_SPOT_11).c[0] + (CARD_SPOT_11.w ?? 300) / 2, cardPose(c, CARD_SPOT_11).c[1], 240])[0];
+    const offEast = onD([CARD_SPOT_11.off[0] + (CARD_SPOT_11.w ?? 300) / 2, CARD_SPOT_11.off[1], CARD_SPOT_11.off[2]])[0];
+    expect(offEast).toBeLessThan(0);
+    expect(CARD_SPOT_11.off[1]).toBe(CARD_SPOT_11.at[1]);
     expect(cardPose(first, CARD_SPOT_11).c[2]).toBe(240);
     // in 12 f, out over 8 f (TREATMENT: the exit 40% shorter than the entrance), in view on each of its exit's first 7 frames
     expect(actOneCardAt(BEAT_11.actOneCard.rise + 11)!.rise).toBe(1);
     expect(actOneCardAt(BEAT_11.actOneCard.rise + 10)!.rise).toBeLessThan(1);
     expect(actOneCardAt(exit + 7)!.exit).toBe(1);
     expect(actOneCardAt(exit + 8)).toBeNull();
-    for (let f = exit; f < exit + 7; f++) expect(southAt(actOneCardAt(f)!), `f${f}`).toBeGreaterThan(8);
-    // at least 340 px wide on screen at its place, its south edge never faster than 2410 px/s while it comes in
+    for (let f = exit; f < exit + 7; f++) expect(eastAt(actOneCardAt(f)!), `f${f}`).toBeGreaterThan(8);
+    // at least 340 px wide on screen at its place, its east edge never faster than 2410 px/s while it comes in
     const { w } = cardSize(CARD_SPOT_11);
     const at = CARD_SPOT_11.at;
     expect(onD([at[0] + w / 2, at[1], at[2]])[0] - onD([at[0] - w / 2, at[1], at[2]])[0]).toBeGreaterThanOrEqual(340);
     // (its exit eases in on the exit curve, gathering speed as it leaves: the cap holds while it comes in and is up)
     for (let f = BEAT_11.actOneCard.rise; f < exit; f++) {
       const [a, b] = [actOneCardAt(f), actOneCardAt(f + 1)];
-      if (!a || !b || southAt(a) < 0) continue;
-      expect(Math.abs(southAt(b) - southAt(a)) * 30, `f${f}`).toBeLessThanOrEqual(2410);
+      if (!a || !b || eastAt(a) < 0) continue;
+      expect(Math.abs(eastAt(b) - eastAt(a)) * 30, `f${f}`).toBeLessThanOrEqual(2410);
     }
     // the world a notch down under it while it is up, back up as it leaves
     expect(cardNotchAt(BEAT_11.actOneCard.rise - 2)).toBe(0);
-    expect(cardNotchAt(BEAT_11.actOneCard.exit)).toBeCloseTo(0.5, 9);
-    expect(cardNotchAt(BEAT_11.actOneCard.exit + 12)).toBe(0);
-    expect(summaryStep(BEAT_11.actOneCard.exit).ids).toEqual(STEP_11);
-    expect(summaryStep(BEAT_11.actOneCard.exit).amount).toBeCloseTo(0.5, 9);
+    expect(cardNotchAt(BEAT_11.actOneCard.exit - 1)).toBeCloseTo(0.5, 9);
+    expect(cardNotchAt(BEAT_11.actOneCard.exit)).toBeLessThan(0.5);
+    expect(cardNotchAt(BEAT_11.actOneCard.exit + 9)).toBe(0);
+    expect(summaryStep(BEAT_11.actOneCard.exit - 1).ids).toEqual(STEP_11);
+    expect(summaryStep(BEAT_11.actOneCard.exit - 1).amount).toBeCloseTo(0.5, 9);
+    // the card a full beat at rest and gone (its exit's 8 f) before the collar flies, the world back up by then
+    expect(BEAT_11.actOneCard.exit - (BEAT_11.actOneCard.rise + 11)).toBeGreaterThanOrEqual(18);
+    expect(actOneCardAt(BEAT_11.collar.from - 2)).toBeNull();
     expect(summaryStep(BEAT_11.collar.from - 1).amount).toBe(0);
   });
   it('the collar lifts off the throat after its cue, docks on your lamp’s neck on collar.to and rides the lamp as YourDesk draws it', () => {

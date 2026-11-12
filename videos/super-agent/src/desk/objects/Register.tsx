@@ -508,8 +508,9 @@ function rowTexture(cells: readonly TapeCell[], fresh: 'cell' | 'thread', stage:
   );
 }
 
-/** Every state of beat 4's tape at its three ink stages, as paper (made once per world). */
-function useRowTapes(): { full: MeshStandardMaterial; stepped: MeshStandardMaterial }[][] {
+/** Every state of beat 4's tape at its three ink stages, as paper (made once per world), in every mode the kit steps. */
+type RowMats = { full: MeshStandardMaterial; stepped: MeshStandardMaterial; own: MeshStandardMaterial; late: MeshStandardMaterial };
+function useRowTapes(): RowMats[][] {
   const gl = useThree((st) => st.gl);
   const mats = useMemo(() => {
     const aniso = Math.min(8, gl.capabilities.getMaxAnisotropy());
@@ -517,8 +518,8 @@ function useRowTapes(): { full: MeshStandardMaterial; stepped: MeshStandardMater
       const fresh = i > 0 && TAPE_ROWS[i - 1].cells.length === row.cells.length ? 'thread' : 'cell';
       return [0, 1, 2].map((stage) => {
         const t = rowTexture(row.cells, fresh, stage, aniso);
-        // one print, two materials: as it is, and in the stepped set (the deck steps down under a counterfactual)
-        return { full: paper(t, HEX.paper), stepped: paper(t, HEX.paper, { stepped: true }) };
+        // one print, a material per mode: as it is, the beat's set (the deck steps down under a counterfactual), its own ramp, the late one
+        return { full: paper(t, HEX.paper), stepped: paper(t, HEX.paper, { stepped: true }), own: paper(t, HEX.paper, { stepped: 'own' }), late: paper(t, HEX.paper, { stepped: 'late' }) };
       });
     });
   }, [gl]);
@@ -526,8 +527,7 @@ function useRowTapes(): { full: MeshStandardMaterial; stepped: MeshStandardMater
     () => () => {
       for (const m of mats.flat()) {
         m.full.map?.dispose();
-        m.full.dispose();
-        m.stepped.dispose();
+        for (const x of Object.values(m)) x.dispose();
       }
     },
     [mats],
@@ -767,8 +767,8 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
   // beat 4's rows as stamped since the turn (the bare leader before the first)
   // the deck's body, the window, the tape: stepped down together while a counterfactual is up (state.ts FOCUS_BEATS 'deck')
   const deckOn = isStepped(s.step, 'deck');
-  const jewel = useJewel(deckOn === 'own' ? (s.step.own?.amount ?? 0) : deckOn ? s.step.amount : 0);
-  const rowSet = deckOn ? 'stepped' : 'full';
+  const jewel = useJewel(deckOn === 'own' ? (s.step.own?.amount ?? 0) : deckOn === 'late' ? s.testsStep : deckOn ? s.step.amount : 0);
+  const rowSet = deckOn === 'own' ? 'own' : deckOn === 'late' ? 'late' : deckOn ? 'stepped' : 'full';
   const rowMat = (d: DeskMats) => (b4.tape.row < 0 ? d.printed.tapeBlank : rows[b4.tape.row][b4.tape.stage][rowSet]);
   const lastRow = rows[rows.length - 1][2][rowSet];
   // the stamp-ins are contact frames: from its cue on, the newest print shows its first ink (beat4.ts inkSpread)

@@ -4,7 +4,7 @@ import { ROUND2 } from '../lookdev/frames.ts';
 import { E5 } from './beat5.ts';
 import { E6 } from './beat6.ts';
 import { EASE_OUT_D, TO_BOOKEND, TO_REGISTER, TO_SHEET, TO_VELLUM } from './camera.ts';
-import { ACT2_TAGS, LABELS_7, LABELS_D, PART1_TO, PART2_BEATS, SEAM_D, SEGMENTS, SUMMARY_BUILT_TO, SUMMARY_TAGS, TAG_BUILT_LINES, act2LabelsAt, builtAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
+import { ACT2_TAGS, LABELS_7, LABELS_10, LABELS_AFTER_CARDS, LABELS_D, PART1_TO, PART2_BEATS, SEAM_D, SEGMENTS, SUMMARY_BUILT_TO, SUMMARY_TAGS, TAG_BUILT_LINES, act2LabelsAt, builtAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
 import { keepTeaching } from './marks.ts';
 import { ROLE_LABELS, TAG_GAP } from './Overlay.tsx';
 import { TURN_SPAN } from './turn.ts';
@@ -89,6 +89,12 @@ describe('part 2’s frame plumbing (wave 0, session 5)', () => {
     for (const b of PART2_BEATS) for (const f of [b.from, b.to - 1]) if (f < SEAM_D || f >= SUMMARY_BUILT_TO) expect(builtAt(f), `${b.id} f${f}`).toBe(b.built);
   });
 
+  it('opts only the idea labels into the leader-then-wipe reveal (every other tag reveals as before)', () => {
+    expect(ACT2_TAGS.every((t) => t.reveal === undefined)).toBe(true);
+    expect(SUMMARY_TAGS.filter((t) => t.reveal === 'leader').every((t) => t.cue === 'ideas')).toBe(true);
+    expect(SUMMARY_TAGS.filter((t) => t.cue !== 'ideas').every((t) => t.reveal === undefined)).toBe(true);
+  });
+
   it('takes the labels away over bar 50’s truck and brings them back for still (d)’s framing once bar 58 has landed, then over bar 65’s dolly', () => {
     expect(act2LabelsAt(TO_SHEET.from + 3).every((l) => l.opacity === 0.5)).toBe(true);
     expect(act2LabelsAt(TO_SHEET.from + 6)).toEqual([]);
@@ -97,7 +103,16 @@ describe('part 2’s frame plumbing (wave 0, session 5)', () => {
     expect(act2LabelsAt(TO_VELLUM.to + 40)).toEqual([...LABELS_D]);
     expect(act2LabelsAt(TO_REGISTER.from + 3).map((l) => l.foot)).toEqual(LABELS_D.map((l) => l.foot));
     expect(act2LabelsAt(TO_REGISTER.from + 20)).toEqual([]);
-    expect(act2LabelsAt(TO_REGISTER.to + 40)).toEqual([...ROLE_LABELS]);
+    // they wait for 10.2's Fix cards and their step to be gone (the cards slide away over 8 f from their exit; the step
+    // ramps back over 14 f from the frame after it), and for the windings' "?"
+    expect(act2LabelsAt(LABELS_AFTER_CARDS - 1)).toEqual([]);
+    expect(LABELS_AFTER_CARDS).toBeGreaterThanOrEqual(BEAT_10.cards.exit + 1 + 14);
+    expect(LABELS_AFTER_CARDS).toBeGreaterThan(BEAT_10.windings + 9);
+    expect(act2LabelsAt(LABELS_AFTER_CARDS)[0]).toMatchObject({ text: LABELS_10[0]!.text, leader: 0, wipe: 0 });
+    expect(act2LabelsAt(LABELS_AFTER_CARDS + 18)).toEqual([...LABELS_10]);
+    // "Router" names the deck from its north-west corner as beat 7's does (off the Thread cord); the others are part 1's
+    expect(LABELS_10.filter((l, i) => l !== ROLE_LABELS[i]).map((l) => l.text)).toEqual([WORDS.router.en]);
+    expect(LABELS_10.find((l) => l.text === WORDS.router.en)).toEqual(LABELS_7.find((l) => l.text === WORDS.router.en));
   });
 
   it('changes no label at the seam, fades them over the stamp, lands still (d)’s, and takes them away over bar 76’s move', () => {

@@ -16,9 +16,9 @@ import { CircleGeometry, PlaneGeometry, SphereGeometry } from 'three';
 import { DECODE, tabSeats } from '../beat6.ts';
 import { tube } from '../geom.ts';
 import { HEX, paper } from '../gl/materials.ts';
-import { useDeskMats, useDeskSets } from '../kit.tsx';
+import { Step, isStepped, useDeskMats, useDeskSets, useStepMode } from '../kit.tsx';
 import type { P3 } from '../layout.ts';
-import type { DeskState } from '../state.ts';
+import { CORD_FROM, type DeskState } from '../state.ts';
 import { PrintedSlip, ciCardGeometry, usePunchedMats } from './Batch.tsx';
 
 /** A "№" tab (24 x 22 u): hinged on its south edge, flat on the body until its hop lands, then up to lean back at TAB_UP. */
@@ -45,6 +45,30 @@ function useRecallGeometry() {
   return g;
 }
 
+/** The reading thread, its shuttle and its "№" tabs (their paper in the set they ride: kit.tsx useStepMode). */
+function ReadingThread({ thread, g }: { thread: NonNullable<DeskState['e6']['thread']>; g: ReturnType<typeof useRecallGeometry> }) {
+  const m = useDeskMats();
+  const mode = useStepMode();
+  const { textures } = useDeskSets();
+  const tabMat = useMemo(() => paper(textures.b6.numberTab, HEX.paperLit, { stepped: mode }), [textures, mode]);
+  useLayoutEffect(() => () => tabMat.dispose(), [tabMat]);
+  const T = tabSeats();
+  return (
+    <>
+      <Thread pts={thread.pts} />
+      {thread.shuttle && <mesh geometry={g.shuttle} material={m.steel} position={thread.shuttle} />}
+      {thread.tabs.map((k, i) =>
+        k > 0 ? (
+          // on the body the hop landed on (beat6.ts tabSeats), flipping up about its south edge
+          <group key={i} position={T[i]} rotation={[TAB.up * k, 0, 0]}>
+            <mesh geometry={g.tab} material={tabMat} />
+          </group>
+        ) : null,
+      )}
+    </>
+  );
+}
+
 /** The thread's tube along the points it has reached (rebuilt only when they change). */
 function Thread({ pts }: { pts: readonly P3[] }) {
   const m = useDeskMats();
@@ -63,18 +87,10 @@ export function Recall({ s }: { s: DeskState }) {
   const m = useDeskMats();
   const { textures } = useDeskSets();
   const cardMat = useMemo(() => paper(textures.ciCard, HEX.paper), [textures]);
-  const tabMat = useMemo(() => paper(textures.b6.numberTab, HEX.paperLit), [textures]);
-  useLayoutEffect(
-    () => () => {
-      cardMat.dispose();
-      tabMat.dispose();
-    },
-    [cardMat, tabMat],
-  );
+  useLayoutEffect(() => () => cardMat.dispose(), [cardMat]);
   const answerMats = usePunchedMats('answer');
   const e = s.e6;
   const r = e.review;
-  const T = tabSeats();
   return (
     <>
       {r && (
@@ -82,17 +98,13 @@ export function Recall({ s }: { s: DeskState }) {
           <mesh geometry={g.card} material={cardMat} />
         </group>
       )}
-      {e.thread && <Thread pts={e.thread.pts} />}
-      {e.thread?.shuttle && <mesh geometry={g.shuttle} material={m.steel} position={e.thread.shuttle} />}
-      {e.thread &&
-        e.thread.tabs.map((k, i) =>
-          k > 0 ? (
-            // on the body the hop landed on (beat6.ts tabSeats), flipping up about its south edge
-            <group key={i} position={T[i]} rotation={[TAB.up * k, 0, 0]}>
-              <mesh geometry={g.tab} material={tabMat} />
-            </group>
-          ) : null,
-        )}
+      {e.thread && (
+        // from part 2 the reading thread, its shuttle and its "№" tabs step with the Register's deck they lie on (its id
+        // 'deck', on whichever set it rides); part 1 (signed off) drew them whole
+        <Step on={s.f >= CORD_FROM ? isStepped(s.step, 'deck') : false}>
+          <ReadingThread thread={e.thread} g={g} />
+        </Step>
+      )}
       {e.answer && (
         <>
           <PrintedSlip x={e.answer} mats={answerMats} geometry={g.answer} />

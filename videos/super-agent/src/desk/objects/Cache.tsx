@@ -142,10 +142,16 @@ function useCacheGeometry() {
   }, []);
 }
 
-/** A card's material pair: as it is, and in the stepped set (the deck steps down with the window while a beat's focus leaves it out). */
-function cardMats(textures: readonly Texture[], hex: string): { full: MeshStandardMaterial; stepped: MeshStandardMaterial }[] {
-  return textures.map((t) => ({ full: paper(t, hex), stepped: paper(t, hex, { stepped: true }) }));
+/**
+ * A card's materials in every mode the kit steps (the deck steps down with the window while a beat's focus leaves it out):
+ * as it is, the beat's set, its own ramp, the late one; picked by the mode the deck rides (kit.tsx isStepped), never
+ * `on ? stepped : full`, so a hand-over that carries the deck on another set never swaps its amount in a frame.
+ */
+type CardMats = { full: MeshStandardMaterial; stepped: MeshStandardMaterial; own: MeshStandardMaterial; late: MeshStandardMaterial };
+function cardMats(textures: readonly Texture[], hex: string): CardMats[] {
+  return textures.map((t) => ({ full: paper(t, hex), stepped: paper(t, hex, { stepped: true }), own: paper(t, hex, { stepped: 'own' }), late: paper(t, hex, { stepped: 'late' }) }));
 }
+const modeKey = (on: boolean | 'own' | 'late'): keyof CardMats => (on === 'own' ? 'own' : on === 'late' ? 'late' : on ? 'stepped' : 'full');
 
 /**
  * The window's cards: each a quad cropped to its width (its stub at the west end), with its own paper; the record in its
@@ -175,7 +181,7 @@ function WindowCards({ s, c }: { s: DeskState; c: CacheState }) {
   useLayoutEffect(
     () => () => {
       for (const q of [...quads, unit]) q.dispose();
-      for (const m of [...mats.flatMap((x) => [x.full, x.stepped]), ...rows.flatMap((x) => [x.full, x.stepped]), ...inks, ...stagger, ...pointer] as Material[]) m.dispose();
+      for (const m of [...mats.flatMap((x) => Object.values(x)), ...rows.flatMap((x) => Object.values(x)), ...inks, ...stagger, ...pointer] as Material[]) m.dispose();
     },
     [quads, mats, inks, stagger, pointer, rows, unit],
   );
@@ -193,10 +199,10 @@ function WindowCards({ s, c }: { s: DeskState; c: CacheState }) {
       uv.needsUpdate = true;
     });
     // the stubs dim one step with the record's stamp-in; the review's new stub prints fresh (it stays idle)
-    for (const m of mats) for (const x of [m.full, m.stepped]) (x as MeshStandardMaterial).color.copy(idle).lerp(dim, c.dim);
-    for (const x of [rows[1].full, rows[1].stepped]) (x as MeshStandardMaterial).color.copy(idle).lerp(dim, c.dim);
+    for (const m of mats) for (const x of Object.values(m)) x.color.copy(idle).lerp(dim, c.dim);
+    for (const x of Object.values(rows[1]!)) x.color.copy(idle).lerp(dim, c.dim);
   }, [quads, mats, rows, c.shrink, c.dim, c.summary, L, idle, dim]);
-  const set = isStepped(s.step, 'deck') ? 'stepped' : 'full';
+  const set = modeKey(isStepped(s.step, 'deck'));
   const [r0, r1] = CACHE_WINDOW.record;
   const e6 = s.e6;
   // the record's ink: still (d)'s three stages from the summary on; in act two the header first, then each line a frame later, its pointer once its tab has landed

@@ -395,7 +395,7 @@ export function Feeders({ s, turn }: { s: DeskState; turn?: FeedersTurn }) {
   }, [tex]);
   useLayoutEffect(() => () => Object.values(sets).forEach((set) => Object.values(set).forEach((m) => m.dispose())), [sets]);
   const on = isStepped(s.step, 'intake');
-  const mats = on === 'own' ? sets.own : on ? sets.stepped : sets.full;
+  const mats = on === 'own' ? sets.own : on === 'late' ? sets.late : on ? sets.stepped : sets.full;
   // the conversation spool belongs to the Threads: it is not on the desk in act one (nor are the mail and calendar
   // drawings: those feeders are generic until the turn); its cord is graphite until the request's Thread first pays
   // out (state.ts CORD_FROM, design D1), then vermilion
@@ -455,7 +455,8 @@ export function Feeders({ s, turn }: { s: DeskState; turn?: FeedersTurn }) {
               <mesh geometry={g.rollTop} material={mats.roll} />
               <mesh geometry={g.spout} material={m.enamelShade} />
               <mesh geometry={g.spoutMouth} material={m.graphiteDark} />
-              <mesh geometry={g.slip} material={mats.slip} />
+              {/* from bar 76 the end draws the spout's slip (it turns vermilion and goes: objects/End.tsx BookendSlip) */}
+              {!s.end && <mesh geometry={g.slip} material={mats.slip} />}
               {spool && (
                 <group position={[0, turn?.spool ?? 0, 0]}>
                   <mesh geometry={g.spoolPost} material={m.graphite} />
@@ -474,7 +475,14 @@ export function Feeders({ s, turn }: { s: DeskState; turn?: FeedersTurn }) {
               <mesh geometry={g.topCard} material={m.printed.ciCard} />
               <mesh geometry={g.roller} material={m.steel} />
               <mesh geometry={g.ciMouth} material={m.enamelShade} />
-              <mesh geometry={g.ciCard} material={m.printed.ciCard} />
+              {/* the fed card, pushed out a notch on each of the bookend's ticks (end.ts ciFeedAt) */}
+              {s.end ? (
+                <group position={[s.end.ci, 0, 0]}>
+                  <mesh geometry={g.ciCard} material={m.printed.ciCard} />
+                </group>
+              ) : (
+                <mesh geometry={g.ciCard} material={m.printed.ciCard} />
+              )}
               {turn ? (
                 <>
                   {turn.mail.k > 0 && <mesh geometry={g.mail} material={m.vellumMail} />}

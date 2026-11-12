@@ -16,6 +16,7 @@ import { TYPE } from '../look/tokens.ts';
 import { ActOneFrame } from './ActOneFrame.tsx';
 import { cameraAt, type Angle } from './camera.ts';
 import { DeskFrame } from './DeskFrame.tsx';
+import { EndFrame } from './EndFrame.tsx';
 import { ACT2_TAGS, SUMMARY_TAGS, act2LabelsAt, builtAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
 import { PRINT_FONT } from './gl/text.ts';
 import { Step, isStepped } from './kit.tsx';
@@ -90,18 +91,18 @@ export function SummaryFrame({ f, angle = ANGLE, bloom = BLOOM, objects = true }
             <World s={s} />
             {/* 11.4 steps the vellum parts down with everything but your desk (beat11.ts STEP_11) */}
             <Step on={isStepped(s.step, 'b11-proposed')}>
-              <Proposed />
+              <Proposed step={s.step} late={s.testsStep} />
             </Step>
             <Trace a={summaryAt(s.f)} printFamily={PRINT_CSS} step={s.step} />
             <Beat11 s={s} />
-            <End s={s} />
+            <End s={s} printFamily={PRINT_CSS} />
           </>
         ) : null
       }
       overlay={(pose) => (
         <>
           <Beat11Text f={f} pose={pose} />
-          <EndText f={f} pose={pose} />
+          <EndText f={f} />
         </>
       )}
     />
@@ -156,6 +157,7 @@ export function FilmFrame({ f }: { f: number }) {
       {kind === 'turn' && <TurnFrame key="turn" f={f} angle={ANGLE} bloom={BLOOM} />}
       {kind === 'act2' && <Act2Frame key="act2" f={f} />}
       {kind === 'summary' && <SummaryFrame key="summary" f={f} />}
+      {kind === 'end' && <EndFrame key="end" f={f} angle={ANGLE} bloom={BLOOM} />}
       <AnimaticSlate f={f} />
     </AbsoluteFill>
   );

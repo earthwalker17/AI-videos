@@ -28,6 +28,7 @@ import { rectFp, type Footprint } from './fpKit.ts';
 import type { P2, P3, Pool } from './layout.ts';
 import type { TagSpec } from './Overlay.tsx';
 import { SPRING, springAt } from './springs.ts';
+import { FRAMING_D, TO_REGISTER, cameraAt, deskCamera, project, screenToDesk } from './camera.ts';
 import type { ArmStep, DeskState, FocusEntry, LampStep, ReplyState } from './state.ts';
 import { CHORES, TRAY_Z, strutInTray, type YouPose } from './you.ts';
 
@@ -92,11 +93,15 @@ const STRUT_REST: P3 = [(TRAY.a[0] + TRAY.b[0]) / 2, (TRAY.a[1] + TRAY.b[1]) / 2
 /** Docked: lying east-west along the drawn bar, its clevises on the sheet (their half height 5.5 over it). */
 export const STRUT_DOCK: P3 = [STRUT_DRAWN[0], STRUT_DRAWN[1], 6];
 /**
- * The flight: across on a trapezoid of speed over the whole flight (in over `ramp`, braking over `brake`, at rest on the
- * dock frame), up over an arc that peaks a little before half way and comes down onto the sheet (its fall meets the sheet
- * on `dock`, the contact: no hover, no stall before it). `arc` is the bump's top over the straight line.
+ * The flight (the hand-over grammar: 4 f anticipation, the rise, the arc, the dock), the whole span from the lid's click to
+ * the dock: up over an arc whose top lies a little before half way (`arc`, over the straight line, on the flight's time) and
+ * bowing north on the desk (`bow`), so the arc reads on screen from the camera's pitch; across at a speed chosen frame by
+ * frame so that its speed ON SCREEN, bar 58's ease-out included (camera.ts cameraAt), runs a trapezoid: in from rest over
+ * `ramp`, level, braking over `brake` (FLIGHT). The level is as low as the cues allow: the camera's pan no longer adds to
+ * the strut's own top speed. It comes down onto the sheet as it brakes, its fall meeting the sheet on `dock` (the contact).
+ * The bump rises from rest over `rise` of the flight (it gathers height out of the anticipation, never leaving it at speed).
  */
-const S9 = { lift: BEAT_9.strut.lift, anticipate: 4, dock: BEAT_9.strut.dock, arc: 318, skew: 0.35, ramp: 0.15, brake: 0.3 } as const;
+const S9 = { lift: BEAT_9.strut.lift, anticipate: 4, dock: BEAT_9.strut.dock, arc: 318, skew: 0.35, rise: 0.3, bow: 80, ramp: 0.12, brake: 0.18 } as const;
 /** The arc's bump, 0 at both ends and 1 at its top: u(1 - u)(1 - skew u), normalised (its top before half way, its fall steeper than its rise). */
 const BUMP = (() => {
   const b = (u: number) => u * (1 - u) * (1 - S9.skew * u);
@@ -106,6 +111,58 @@ const BUMP = (() => {
 })();
 /** The anticipation: back (west, away from its way) and up a little before it goes. */
 const STRUT_BACK: P3 = [-3, 0, 2.5];
+const STRUT_FROM: P3 = [STRUT_REST[0] + STRUT_BACK[0], STRUT_REST[1] + STRUT_BACK[1], STRUT_REST[2] + STRUT_BACK[2]];
+/** The flight's first frame (the anticipation's end) and its length in frames (to the dock). */
+const FLY_FROM = S9.lift + S9.anticipate;
+const FLY_N = S9.dock - FLY_FROM;
+/** Where the strut is at `k` of its way across (0 the anticipation's end, 1 the dock) and `u` of the flight's time: its height on time, its ground track bowed north. */
+function strutPath(k: number, u: number): P3 {
+  const D = STRUT_DOCK;
+  return [lerp(STRUT_FROM[0], D[0], k), lerp(STRUT_FROM[1], D[1], k) + S9.bow * 4 * k * (1 - k), lerp(STRUT_FROM[2], D[2], u) + S9.arc * BUMP(u) * sine(u / S9.rise)];
+}
+/**
+ * How far across (0..1) the strut is on each frame of its flight (FLY_FROM + i): each frame's step is the one that moves it
+ * on screen (under that frame's camera) by its share of a trapezoid of screen speed; the trapezoid's level is the one
+ * whose steps arrive exactly on the dock frame. A pure function of the cue sheet and the camera, computed once.
+ */
+const FLIGHT: readonly number[] = (() => {
+  const cam = (i: number) => cameraAt(FLY_FROM + i, 15);
+  const at = (i: number, k: number) => project(cam(i), strutPath(k, i / FLY_N));
+  const run = (level: number): number[] => {
+    const ks = [0];
+    let p = at(0, 0);
+    for (let i = 1; i <= FLY_N; i++) {
+      const want = level * (trapezoid(i / FLY_N, S9.ramp, S9.brake) - trapezoid((i - 1) / FLY_N, S9.ramp, S9.brake));
+      let lo = ks[i - 1]!;
+      let hi = 1;
+      const d = (k: number) => {
+        const q = at(i, k);
+        return Math.hypot(q[0] - p[0], q[1] - p[1]);
+      };
+      if (d(hi) <= want) lo = hi;
+      else if (d(lo) < want)
+        for (let n = 0; n < 40; n++) {
+          const m = (lo + hi) / 2;
+          if (d(m) < want) lo = m;
+          else hi = m;
+        }
+      ks.push(lo);
+      p = at(i, lo);
+    }
+    return ks;
+  };
+  // the level (the screen path's length) at which the last step lands on the dock
+  let lo = 0;
+  let hi = 6000;
+  for (let n = 0; n < 40; n++) {
+    const m = (lo + hi) / 2;
+    if (run(m)[FLY_N]! < 1 - 1e-9) lo = m;
+    else hi = m;
+  }
+  const ks = run(hi);
+  ks[FLY_N] = 1;
+  return ks;
+})();
 /** It takes the vellum's material once the plate has docked: it presses flat and pales into the drawing (8 f). */
 export const STRUT_MORPH = { from: BEAT_9.strut.plateDock, frames: 8 } as const;
 /** The drawn strut inks in under it as it goes (from the dock's settle to the morph's end). */
@@ -128,25 +185,23 @@ export interface StrutPose {
 export function strutAt(f: number): StrutPose | null {
   if (f < S9.lift || f >= STRUT_MORPH.from + STRUT_MORPH.frames) return null;
   const A = STRUT_REST;
-  const back: P3 = [A[0] + STRUT_BACK[0], A[1] + STRUT_BACK[1], A[2] + STRUT_BACK[2]];
-  if (f < S9.lift + S9.anticipate) {
+  if (f < FLY_FROM) {
     const t = sine((f - S9.lift) / S9.anticipate);
-    const c = lerp3(A, back, t);
+    const c = lerp3(A, STRUT_FROM, t);
     return { c, yaw: 0, tilt: 0.08 * t, squash: 0, lift: c[2] - A[2], morph: 0 };
   }
   const D = STRUT_DOCK;
   if (f < S9.dock) {
-    // one arc from the anticipation onto its dock (its run across a trapezoid of speed, so no frame outruns beat 5's key),
-    // turning a quarter east as it goes; it comes down onto the sheet as it brakes, meeting it on the dock frame (no hover:
-    // nothing stalls before the contact)
-    const u = (f - S9.lift - S9.anticipate) / (S9.dock - S9.lift - S9.anticipate);
-    const k = trapezoid(u, S9.ramp, S9.brake);
-    const z = lerp(back[2], D[2], u) + S9.arc * BUMP(u);
+    // one arc from the anticipation onto its dock, its way across paced on screen (FLIGHT), turning a quarter east as it
+    // goes; it comes down onto the sheet as it brakes, meeting it on the dock frame (no hover: nothing stalls before the contact)
+    const u = (f - FLY_FROM) / FLY_N;
+    const k = FLIGHT[f - FLY_FROM]!;
+    const c = strutPath(k, u);
     const under = lerp(A[2], D[2], k);
-    return { c: [lerp(back[0], D[0], k), lerp(back[1], D[1], k), z], yaw: (-Math.PI / 2) * sine(u / 0.85), tilt: 0.08 * (1 - u) + 0.3 * Math.sin(Math.PI * u), squash: 0, lift: z - under, morph: 0 };
+    return { c, yaw: (-Math.PI / 2) * sine(k / 0.85), tilt: 0.08 * (1 - u) + 0.3 * Math.sin(Math.PI * u), squash: 0, lift: c[2] - under, morph: 0 };
   }
-  // docked (its contact frame: a 3% squash gone over 4 f); then it takes the vellum's material
-  return { c: D, yaw: -Math.PI / 2, tilt: 0, squash: 0.03 * Math.max(0, 1 - (f - S9.dock) / 4), lift: 0, morph: sine((f - STRUT_MORPH.from) / STRUT_MORPH.frames) };
+  // docked (its contact frame: a 3% squash, settling on the dock spring); then it takes the vellum's material
+  return { c: D, yaw: -Math.PI / 2, tilt: 0, squash: 0.03 * Math.abs(1 - springAt(f, S9.dock, SPRING.dock)), lift: 0, morph: sine((f - STRUT_MORPH.from) / STRUT_MORPH.frames) };
 }
 /** The strut's pictogram on the loop's sheet (0 none .. 1 still (d)'s): inked along its length under the docked strut. */
 export const strutInkAt = (f: number): number => sine((f - STRUT_INK.from) / (STRUT_INK.to - STRUT_INK.from));
@@ -157,6 +212,32 @@ export function plateAt(f: number): number | null {
   // (an even slide out, easing in and out: its first frame out is not most of the way)
   return PLATE_SLIDE.dy * (1 - sine((f - PLATE_SLIDE.from) / (BEAT_9.strut.plateDock - PLATE_SLIDE.from)));
 }
+
+/**
+ * The Persistent plate's words (STORYBOARD 9.1: "Persistent · 持久" docks, in vellum; SCRIPT.md's trait table: one EN · zh
+ * plate each, as the three enamel ones): a vellum plate laid on the loop's sheet's north edge, between it and the plan of the
+ * deck and west of 10.1's "?" (QUERIES[0]), unrolled from its west edge over 8 f from the strut's dock ('trait-persistent':
+ * the lay's first frame is the contact). Bar 65's dolly would cut it at the frame's east edge, so it rolls back up under
+ * that move (TREATMENT Type: a printed field leaves at the start of a camera move); from there the pictogram on the loop's
+ * sheet (still (d)'s) is Persistent's plate, as the others turn to theirs at the sign-off. Its centre is placed on still
+ * (d)'s screen (FRAMING_D: about 225 x 40 px at x 1425, y 376: about 15 px clear of each sheet).
+ */
+export const PERSIST_WORDS = {
+  c: ((): P3 => {
+    const p = screenToDesk(deskCamera(FRAMING_D, 15), [1425, 376], 0.55);
+    return [Math.round(p[0]), Math.round(p[1]), 0.55];
+  })(),
+  w: 330,
+  d: 58,
+  lay: { from: BEAT_9.strut.dock, frames: 8 },
+  roll: { from: TO_REGISTER.from, frames: 8 },
+} as const;
+/** How much of the Persistent words plate is laid (0 none .. 1 whole; its west part shows). */
+export const persistWordsAt = (f: number): number => {
+  const P = PERSIST_WORDS;
+  if (f < P.lay.from || f >= P.roll.from + P.roll.frames) return 0;
+  return sine((f - P.lay.from + 1) / P.lay.frames) * (1 - sine((f - P.roll.from) / P.roll.frames));
+};
 
 // ------------------------------------------------------------------------------------------------
 // 9.1 the loop runs: the tethers' dashes march, a machine's work light, the queued slip
@@ -224,8 +305,13 @@ export function queuedAt(f: number): QueuedSlip | null {
 
 /** The Watchdog's sheet unrolls from its west edge on `watchdog`. */
 export const WATCH_LAY = BEAT_9.watchdog;
-/** Its beam: out of the lens (4 f), a sweep across the stuck bay (20 f), held, the sweep back onto the flag (20 f, a little past and back), drawn back into the lens once its marks are drawn. */
-export const BEAM = { out: BEAT_9.sweeps[0] - 6, outFrames: 6, sweeps: BEAT_9.sweeps, frames: BEAT_9.sweepFrames, amp: 0.2, back: [BEAT_9.flag + 8, BEAT_9.flag + 14] as const } as const;
+/**
+ * Its beam: out of the lens (4 f), a sweep across the stuck bay (20 f), held, the sweep back onto the flag (20 f, a little
+ * past and back), drawn back into the lens once its marks are drawn. `amp` (radians either side of the flag): the station
+ * stands just south of the bay (summary.ts WATCHDOG), so its short beam swings wide, inside the arc of ticks its turntable
+ * draws (±0.54), its tip passing over the bay's south wall and its east end.
+ */
+export const BEAM = { out: BEAT_9.sweeps[0] - 6, outFrames: 6, sweeps: BEAT_9.sweeps, frames: BEAT_9.sweepFrames, amp: 0.48, back: [BEAT_9.flag + 8, BEAT_9.flag + 14] as const } as const;
 /**
  * Out past the target and back onto it, from rest and to rest (0 at 0, 1 at 1, both ends still): an ease in and out with a
  * swell that carries it about 3.5% past the target near the end and settles it back (never a start at full speed).
@@ -258,7 +344,7 @@ export function beamAt(f: number): Beam | null {
 /** Still (d)'s sightline on the Watchdog's sheet (its two dashed edges from the lens out, then the ring round the flag), drawn as the beam settles on the flag. */
 export const MARKS = { from: BEAT_9.flag + 1, to: BEAT_9.flag + 9 } as const;
 export const marksAt = (f: number): number => clamp((f - MARKS.from) / (MARKS.to - MARKS.from));
-/** The pencil flag: its pin lies along the nameplate band, pushed home on `flag` (drawn over the 4 f before), its pennant drawn after it. */
+/** The pencil flag: its staff drawn down into the nameplate band, pinned on `flag` (drawn over the 4 f before), its pennant drawn out after it. */
 export const FLAG_DRAW = { from: BEAT_9.flag - 4, pin: BEAT_9.flag, to: BEAT_9.flag + 6 } as const;
 export const flagAt = (f: number): number => clamp((f - FLAG_DRAW.from) / (FLAG_DRAW.to - FLAG_DRAW.from));
 
@@ -345,14 +431,23 @@ export function proposedAt(f: number): ProposedState | null {
 /**
  * Focus. Bar 58 takes over from beat 8's 'b8-away' (the same set: nothing comes up or goes down on the hand-over, your desk
  * never steps): everything of the system stays down while the vellum is laid and the strut flies. Under N8 the stuck bay
- * comes up (its drum and its light are the action), from 30 f before the first sweep; 'b9-watch' holds the rest down
- * through the hijack (beat10.ts), releasing it as bar 65's dolly sets out onto the Register.
+ * comes up (its drum and its light are the action), from 30 f before the first sweep ('b9-watch'); once it is up, the rest
+ * of the vellum and the tests bay step down too ('b9-n8', the hand-over adding them: nothing else moves), so the Watchdog
+ * (objects/Beat9.tsx WATCHDOG_STEP_ID: its station, its sightline, its flag) and the stuck bay hold the frame's top
+ * contrast through both sweeps and the flag; a beat after the flag's beam is back in its lens they come back up ('b9-etch'
+ * dropping them) for 10.1's hijack along the vellum tethers, which holds the rest down, releasing it as bar 65's dolly
+ * sets out onto the Register.
  */
 export const B9_STEP = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'freshBay', 'cord', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'deck', 'chute', 'proactive', 'spike', 'stress', 'jaws', 'bosses', 'b7-rail', 'b7-plate'] as const;
 export const WATCH_FROM = BEAT_9.sweeps[0] - 34;
+/** N8's hold on the Watchdog and the stuck bay: from 'b9-watch''s full step to a beat after the beam is back (BEAM.back). */
+export const N8_HOLD = { from: WATCH_FROM + 14, to: BEAT_9.flag + 30 } as const;
+const WATCH_STEP = B9_STEP.filter((x) => x !== 'freshBay');
 export const FOCUS_9: readonly FocusEntry[] = [
   { id: 'b9', from: BEAT_9.away, to: WATCH_FROM, step: B9_STEP, handFrom: 'b8-away' },
-  { id: 'b9-watch', from: WATCH_FROM, to: RELEASE, step: B9_STEP.filter((x) => x !== 'freshBay'), handFrom: 'b9' },
+  { id: 'b9-watch', from: WATCH_FROM, to: N8_HOLD.from, step: WATCH_STEP, handFrom: 'b9' },
+  { id: 'b9-n8', from: N8_HOLD.from, to: N8_HOLD.to, step: [...WATCH_STEP, 'testsBay', 'b9-proposed'], handFrom: 'b9-watch' },
+  { id: 'b9-etch', from: N8_HOLD.to, to: RELEASE, step: WATCH_STEP, handFrom: 'b9-n8' },
 ];
 export const LAMP_9: readonly LampStep[] = [];
 export const ARM_9: readonly ArmStep[] = [];

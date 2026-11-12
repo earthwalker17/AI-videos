@@ -12,19 +12,21 @@ import { useLayoutEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import { BoxGeometry, MeshPhysicalMaterial, PlaneGeometry, type BufferAttribute, type BufferGeometry } from 'three';
 import { STOP_TAB } from '../beat7.ts';
+import { REPLY_0405 } from '../beat10.ts';
 import { plane, slab } from '../geom.ts';
 import { HEX, enamel, matte, paper } from '../gl/materials.ts';
 import { SANS_CSS, chatReplyTextures } from '../gl/print7.ts';
 import { ID_EM, INK, print, texture } from '../gl/text.ts';
-import { useDeskMats } from '../kit.tsx';
-import { SLIP, YOU, rectC, type P3 } from '../layout.ts';
+import { useDeskMats, useStepMode } from '../kit.tsx';
+import { SLIP, type P3 } from '../layout.ts';
 import { replyPose, type ReplyState } from '../state.ts';
 
 /**
- * The request's reply #0405 as still (d) lays it in your in-tray, on top of the others: its ID (the teaching chain's, as a
- * mark at 0.5×), its size (its ID along the top, the green stamp below it, never over the ID), its centre, height and turn.
+ * The request's reply #0405 as still (d) lays it in your in-tray (desk/beat10.ts REPLY_0405, where its ride lands): on top of
+ * the others, 7.4's chat reply's stop tab under it too; its ID (the teaching chain's, as a mark at 0.5×), its size (its ID
+ * along the top, the green stamp below it, never over the ID), its centre, height and turn.
  */
-export const SIGNED_REPLY = { id: '#0405', l: 104, w: 72, at: [rectC(YOU.inTray)[0], YOU.inTray.y1 - 44, YOU.top + 7.2] as P3, turn: 0.06 } as const;
+export const SIGNED_REPLY = { id: '#0405', l: REPLY_0405.size[0], w: REPLY_0405.size[1], at: REPLY_0405.rest, turn: REPLY_0405.turn } as const;
 /** The lamp-lit slip's albedo: under your lamp's warm white it lands on lit paper (#E4DFD3), never amber. */
 const SIGNED_HEX = '#9FA1A0';
 
@@ -100,11 +102,14 @@ function useChatReplyGeometry() {
 /** 7.4's chat reply with its "≤ 100" stop tab, at its ride's pose. */
 export function ChatReply({ r }: { r: ReplyState }) {
   const m = useDeskMats();
+  // its own print and tab step with the set it rides (lying in your in-tray, your desk's: objects/Links.tsx Cargo)
+  const mode = useStepMode();
   const g = useChatReplyGeometry();
   const gl = useThree((st) => st.gl);
   const tex = useMemo(() => chatReplyTextures(SANS_CSS, Math.min(8, gl.capabilities.getMaxAnisotropy())), [gl]);
-  const mats = useMemo(() => ({ face: paper(tex.reply, HEX.paperLit), tab: enamel(tex.tab, (m.enamel as MeshPhysicalMaterial).envMap!, HEX.enamel) }), [tex, m]);
-  useLayoutEffect(() => () => [...Object.values(mats), ...Object.values(tex)].forEach((x) => x.dispose()), [mats, tex]);
+  useLayoutEffect(() => () => Object.values(tex).forEach((x) => x.dispose()), [tex]);
+  const mats = useMemo(() => ({ face: paper(tex.reply, HEX.paperLit, { stepped: mode }), tab: enamel(tex.tab, (m.enamel as MeshPhysicalMaterial).envMap!, HEX.enamel, { stepped: mode }) }), [tex, m, mode]);
+  useLayoutEffect(() => () => Object.values(mats).forEach((x) => x.dispose()), [mats]);
   const pose = replyPose(r.ride, r.rest);
   const squash = 1 - 0.03 * r.ride.squash;
   return (

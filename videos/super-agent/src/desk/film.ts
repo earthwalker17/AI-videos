@@ -15,7 +15,7 @@
  * so their timing can be judged against the score.
  */
 import { clamp } from '@aiv/core';
-import { BEAT_4, BEAT_11, FILM_FRAMES, WORDS, at } from '../cues.ts';
+import { BEAT_4, BEAT_10, BEAT_11, END, FILM_FRAMES, WORDS, at } from '../cues.ts';
 import { ACT_ONE_END } from './actOne.ts';
 import { BUILT as BUILT_7, TAGS_7 } from './beat7.ts';
 import { BUILT as BUILT_8, TAGS_8 } from './beat8.ts';
@@ -32,17 +32,21 @@ import { SAFE } from '../look/tokens.ts';
 import { SEAM_D, summaryLabelAt } from './summary.ts';
 import { TURN_SPAN } from './turn.ts';
 
-export type SegmentKind = 'actOne' | 'turn' | 'act2' | 'summary';
+export type SegmentKind = 'actOne' | 'turn' | 'act2' | 'summary' | 'end';
 
 /** Where the summary's world takes over from act two's: inside bar 68's stillness (summary.ts). */
 export { SEAM_D };
 
+/** Where the end's own world takes over from the summary's: the end card's landing (cues.ts END.card.land), the world dissolved to the bare desk on the frame before. */
+export const END_FROM = END.card.land;
 /** The segments in film order: [from, to) film frames. */
 export const SEGMENTS: readonly { kind: SegmentKind; from: number; to: number }[] = [
   { kind: 'actOne', from: 0, to: ACT_ONE_END },
   { kind: 'turn', from: TURN_SPAN[0], to: TURN_SPAN[1] + 1 },
   { kind: 'act2', from: TURN_SPAN[1] + 1, to: SEAM_D },
-  { kind: 'summary', from: SEAM_D, to: FILM_FRAMES },
+  { kind: 'summary', from: SEAM_D, to: END_FROM },
+  // the end's own world from the end card's landing, the dissolve to the bare desk complete (desk/EndFrame.tsx)
+  { kind: 'end', from: END_FROM, to: FILM_FRAMES },
 ];
 
 /** Part 1 (beats 1-6) ends here: everything before it is built. */
@@ -93,12 +97,15 @@ function entering(f: number, from: number): Partial<RoleLabel> | null {
 /**
  * Still (d)'s labels. "Router" names the whole machine from the deck's west rail and sits west of it, in the clear
  * band under the Thread cord (its leader never crosses the cord); "Worker" names the request's bay, where the route
- * ends, its foot on the bay's south wall at its east end, clear of W-07's nameplate, and the label under the bay; "you" as in the film.
+ * ends, its foot on the bay's south wall at its east end, clear of W-07's nameplate, its leader down past the job rail's
+ * east end and the label low under the rail, west of the leader (the Watchdog's station stands east of it, summary.ts
+ * WATCHDOG; in beats 9-10 act two's worded Productive plate lies west of the rail, so the label sits a row below it, never
+ * read as one line with it); "you" as in the film.
  * Placed for FRAMING_D: beats 9-10 show them from bar 58's ease-out to bar 65's dolly, the summary from its ease-out on.
  */
 export const LABELS_D: readonly RoleLabel[] = ROLE_LABELS.map((l) =>
   l.text === WORDS.worker.en
-    ? { ...l, foot: [BAYS.bug.box.x1 - 12, BAYS.bug.box.y0 + BAYS.bug.southWall / 2, BAYS.bug.wallH + 0.4], dx: 12, dy: 104, anchor: 'start' }
+    ? { ...l, foot: [BAYS.bug.box.x1 - 12, BAYS.bug.box.y0 + BAYS.bug.southWall / 2, BAYS.bug.wallH + 0.4], dx: -2, dy: 160, anchor: 'end' }
     : l.text === WORDS.router.en
       ? { ...l, foot: [DECK.x0 + DECK.rail / 2, 300, DECK.top], dx: -36, dy: -54, anchor: 'end' }
       : l,
@@ -121,22 +128,35 @@ export const LABELS_7: readonly RoleLabel[] = ROLE_LABELS.map((l) =>
 );
 
 /**
- * Act two's away windows: the labels in view fade out over the first 6 f of `leave` and re-enter as `labels` (placed for
- * the framing `back` lands on) once `back` has landed. Bar 34's dolly onto the throat to bar 43's ease-out (the close;
- * they re-enter as beat 7's, LABELS_7);
- * bar 50's truck to the sheet to bar 58's ease-out (still (d)'s framing: LABELS_D); bar 65's dolly onto the Register.
+ * 10.2-10.3's labels (after bar 65's dolly, back at FRAMING_B): ROLE_LABELS but "Router", which there would lie on the Thread
+ * cord's descent (the cord pays out in beat 7 and stays): it names the deck from its north-west corner as beat 7's does
+ * (LABELS_7), clear of the cord.
  */
-export const ACT2_AWAY: readonly { leave: CameraMove; back: CameraMove; labels: readonly RoleLabel[] }[] = [
+export const LABELS_10: readonly RoleLabel[] = ROLE_LABELS.map((l) => (l.text === WORDS.router.en ? LABELS_7.find((x) => x.text === WORDS.router.en)! : l));
+/**
+ * After bar 65's dolly the role labels wait for 10.2's Fix cards (up from at(66), sliding away from BEAT_10.cards.exit over
+ * 8 f) and their step ('b10-fix', ramping back over the 14 f after the exit) to be gone, and for the windings' "?" (drawn
+ * over the 9 f after BEAT_10.windings): they never re-enter under the cards or a stepped scene.
+ */
+export const LABELS_AFTER_CARDS = BEAT_10.windings + 10;
+/**
+ * Act two's away windows: the labels in view fade out over the first 6 f of `leave` and re-enter as `labels` (placed for
+ * the framing `back` lands on) once `back` has landed (2 f after it, or from `enter`). Bar 34's dolly onto the throat to
+ * bar 43's ease-out (the close; they re-enter as beat 7's, LABELS_7); bar 50's truck to the sheet to bar 58's ease-out
+ * (still (d)'s framing: LABELS_D); bar 65's dolly onto the Register (LABELS_10, once 10.2's cards are gone:
+ * LABELS_AFTER_CARDS).
+ */
+export const ACT2_AWAY: readonly { leave: CameraMove; back: CameraMove; labels: readonly RoleLabel[]; enter?: number }[] = [
   { leave: DOLLY_IN, back: EASE_OUT, labels: LABELS_7 },
   { leave: TO_SHEET, back: TO_VELLUM, labels: LABELS_D },
-  { leave: TO_REGISTER, back: TO_REGISTER, labels: ROLE_LABELS },
+  { leave: TO_REGISTER, back: TO_REGISTER, labels: LABELS_10, enter: LABELS_AFTER_CARDS },
 ];
 
 /** The labels of an away window at film frame f (it has begun): fading out of `before`, away, or re-entering. */
 function awayAt(f: number, w: (typeof ACT2_AWAY)[number], before: readonly RoleLabel[], keep: (l: RoleLabel) => boolean = () => true): RoleLabel[] {
   if (f < w.leave.from + 6) return before.filter(keep).map((l) => ({ ...l, opacity: 1 - (f - w.leave.from) / 6 }));
   return w.labels.flatMap((l, i) => {
-    const a = entering(f, w.back.to + 2 + 2 * i);
+    const a = entering(f, (w.enter ?? w.back.to + 2) + 2 * i);
     return a ? [{ ...l, ...a }] : [];
   });
 }

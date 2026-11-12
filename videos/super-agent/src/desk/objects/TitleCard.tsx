@@ -58,6 +58,10 @@ export interface CardSpec {
   mark: string;
   /** the punch hole (u from the card's north-west corner) and its radius */
   hole: { x: number; y: number; r: number };
+  /** its post and its leave, where they differ from the title card's (CARD_POST: the end card, desk/endCard.ts) */
+  post?: Partial<CardPost>;
+  /** the mark's em (u; default 13, the title card's): the end card's larger board prints it larger */
+  markEm?: number;
 }
 
 /** The card's paper (a bone stock a step under lit paper, so it never outshines the lamp's pool), its cut edge (the board's core, a step darker) and its ink. */
@@ -92,6 +96,8 @@ export const CARD_POST = {
   outFrames: 8,
   outRamp: 0.4,
 } as const;
+/** A card's post and leave (CARD_POST's fields). */
+export type CardPost = { -readonly [K in keyof typeof CARD_POST]: (typeof CARD_POST)[K] extends readonly number[] ? P3 : number };
 /** The contact shadow's strength at rest (the trays' and the folders'). */
 const CONTACT = 0.8;
 const MOVE = Easing.bezier(0.2, 0, 0, 1);
@@ -111,7 +117,7 @@ export function cardAt(spec: CardSpec, f: number): CardState {
   const { enter, land, leave, gone } = spec.frames;
   const none: P3 = [0, 0, 0];
   if (f < enter || f >= gone) return { present: false, off: none, contact: 0 };
-  const P = CARD_POST;
+  const P = spec.post ? { ...CARD_POST, ...spec.post } : CARD_POST;
   const drop = land - P.dropFrames;
   const lift = drop - P.liftFrames;
   if (f < lift) {
@@ -184,7 +190,7 @@ export function cardContactFootprint(spec: CardSpec, s: CardState): Footprint | 
 }
 
 /** The card's solid (centred on its place, at its resting height): a rounded board with its punch hole, chamfered, its print mapped over the top face. */
-function cardGeometry(spec: CardSpec): BufferGeometry {
+export function cardGeometry(spec: CardSpec): BufferGeometry {
   const { w, d, z } = spec.place;
   const shape = roundRect(w, d, 5) as Shape;
   const hole = new Path();
@@ -194,7 +200,7 @@ function cardGeometry(spec: CardSpec): BufferGeometry {
 }
 
 /** The card's print: its paper's tooth and the "№" mark (the lettering is DOM text on its cue). */
-function useCardTexture(spec: CardSpec, printFamily: string): Texture {
+export function useCardTexture(spec: CardSpec, printFamily: string): Texture {
   const { w, d } = spec.place;
   const t = useMemo(
     () =>
@@ -205,14 +211,14 @@ function useCardTexture(spec: CardSpec, printFamily: string): Texture {
           tooth(g, w, d);
           // the code at the card's top right, beside the punch hole (alone: a blank field rule before it read as a form's
           // "___ №", the critic's X3 P1-3)
-          const em = 13;
+          const em = spec.markEm ?? 13;
           const mx = spec.hole.x - spec.hole.r - 6 - spec.mark.length * em * 0.6;
           print(g, printFamily, spec.mark, mx, spec.hole.y + em * 0.35, em, 500, INK);
         },
         4,
         '#FFFFFF',
       ),
-    [w, d, printFamily, spec.mark, spec.hole.x, spec.hole.y, spec.hole.r],
+    [w, d, printFamily, spec.mark, spec.markEm, spec.hole.x, spec.hole.y, spec.hole.r],
   );
   useLayoutEffect(() => () => t.dispose(), [t]);
   return t;

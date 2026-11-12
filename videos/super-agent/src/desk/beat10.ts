@@ -9,8 +9,8 @@
  *   `query` (still (d)'s QUERIES[0]) and stays.
  * - 10.2 (N9, bar 65's dolly onto the Register): in pencil the Register splits (the crack across the reel, a "?" on its
  *   west half), its tape tears, and a second reading window (vellum, the shard's) is fed out of the print head over the
- *   real one and slides south beside it, its record cell a № behind the real one's: the two disagree; Fix A's and Fix B's grey-stock cards rise either side
- *   for one beat and slide away (no strike); the shard's window slides back into the head; the reel's outer windings go
+ *   real one and slides south beside it, its record cell a № behind the real one's: the two disagree; Fix A's and Fix B's grey-stock cards rise either side,
+ *   hold about 20 f and slide away from `cards.exit` (no strike); the shard's window slides back into the head; the reel's outer windings go
  *   to pencil with a "?".
  * - 10.3 (N10): your lamp reaches for the docs bay (a running bay just beyond it) and falls short; a pencil handle
  *   outline and "?" are drawn where its handle would be; the lamp comes home. Bar 68: the request's bay finishes (MT1's
@@ -193,7 +193,7 @@ export function shardWindowAt(f: number): ShardWindow | null {
 }
 
 /**
- * Fix A's and Fix B's cards (C7's choice, back): either side of the Register for one beat, sliding away from `cards.exit`
+ * Fix A's and Fix B's cards (C7's choice, back): either side of the Register, held about 20 f, sliding away from `cards.exit`
  * (no strike: beat4.ts cardAt's exit starts the strike's 6 f after `strike`, so its first move lands on the cue).
  */
 export const CARDS_10 = { rise: BEAT_10.cards.rise, strike: BEAT_10.cards.exit - 6 } as const;
@@ -323,8 +323,12 @@ export const bugLight10 = (f: number, light: number): number => light * (1 - spr
 export const FRESH_OUT = BEAT_10.stampIn + 2;
 export const freshLight10 = (f: number, light: number): number => light * (1 - springAt(f, FRESH_OUT, SPRING.effects));
 
-/** The reply #0405 rests exactly where still (d) lays it (objects/Replies.tsx SIGNED_REPLY): its centre, height, turn, size. */
-export const REPLY_0405 = { rest: [rectC(YOU.inTray)[0], YOU.inTray.y1 - 44, YOU.top + 7.2] as P3, turn: 0.06, size: [104, 72] as const } as const;
+/**
+ * The reply #0405 rests exactly where still (d) lays it (objects/Replies.tsx SIGNED_REPLY): its centre, height, turn, size.
+ * It lies on top of the in-tray's slips, over 7.4's chat reply's "≤ 100" stop tab too (beat7.ts REPLY_REST z 33: the tab's
+ * face at 35.45), so your stamp's green check prints on #0405's own paper (summary.ts STAMP.paperZ follows its height).
+ */
+export const REPLY_0405 = { rest: [rectC(YOU.inTray)[0], YOU.inTray.y1 - 44, YOU.top + 7.6] as P3, turn: 0.06, size: [104, 72] as const } as const;
 /** Its ride (state.ts replyRideAt), landing dead on `replyLands`: no squash and no settle, so nothing moves from there into the seam. */
 export function ride0405(f: number): SlipRide | null {
   const r = replyRideAt(f, BEAT_10.replyLeave, BEAT_10.replyLands);
@@ -359,13 +363,14 @@ export function beat10At(f: number): Beat10State | null {
 }
 
 /**
- * Focus. Beat 9's hold on the system releases as bar 65's dolly sets out (beat9.ts 'b9-watch'). While Fix A's and Fix B's
+ * Focus. Beat 9's hold on the system releases as bar 65's dolly sets out (beat9.ts 'b9-etch'). While Fix A's and Fix B's
  * cards are up, everything else steps down (a counterfactual's depth, ramping from nothing: nothing else is held then).
  * From 2 f before the reply leaves, the bays and the Thread cord step down as the summary has them (summary.ts
  * summaryDeskState: still (d)'s step), done before the reply lands, so the stillness is still; its own set is the
  * summary's (the trace's), idle until after the seam.
  */
-export const ALL_BUT_CARDS = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'testsBay', 'freshBay', 'cord', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'you', 'deck', 'chute', 'proactive', 'spike', 'stress', 'jaws', 'bosses', 'b7-rail', 'b7-plate'] as const;
+/** Everything but Fix A's and Fix B's cards (10.2), the proposed parts too (their vellum and the pencil on the reel, and the Watchdog's: objects/Beat9.tsx PROPOSED_STEP_ID, WATCHDOG_STEP_ID). */
+export const ALL_BUT_CARDS = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'testsBay', 'freshBay', 'cord', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'you', 'deck', 'chute', 'proactive', 'spike', 'stress', 'jaws', 'bosses', 'b7-rail', 'b7-plate', 'b9-proposed', 'b9-watchdog'] as const;
 export const REST_STEP = ['docsBay', 'bugBay', 'freshBay', 'cord'] as const;
 export const TRACE_OWN = ['reel', 'lock', 'policy', 'gauge', 'plate', 'fanfold', 'intake'] as const;
 export const REST_FROM = BEAT_10.replyLeave - 8;

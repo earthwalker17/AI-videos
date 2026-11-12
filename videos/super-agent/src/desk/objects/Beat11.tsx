@@ -64,51 +64,48 @@ export function Beat11({ s }: { s: DeskState }) {
 
 /** The pictogram faces (still (d)'s: each engraves its chore's outline, no word at this distance): the key, the sand-glass, the tape on its reel. */
 function pictogram(kind: PlateId, aniso: number): Texture {
-  return texture(
-    92,
-    26,
-    (c) => {
-      c.strokeStyle = INK;
-      c.lineWidth = 2.4;
-      c.lineCap = 'round';
-      c.lineJoin = 'round';
-      c.beginPath();
-      if (kind === 'proactive') {
-        c.arc(30, 13, 6.5, 0, Math.PI * 2);
-        c.moveTo(36.5, 13);
-        c.lineTo(66, 13);
-        c.lineTo(66, 19);
-        c.moveTo(58, 13);
-        c.lineTo(58, 18);
-      } else if (kind === 'productive') {
-        c.moveTo(34, 6);
-        c.lineTo(58, 6);
-        c.lineTo(46, 13);
-        c.lineTo(58, 20);
-        c.lineTo(34, 20);
-        c.lineTo(46, 13);
-        c.closePath();
-      } else {
-        // the reel and the tape running off it in cells (the Register's log: what the chore became)
-        c.arc(26, 13, 9, 0, Math.PI * 2);
-        for (let k = 0; k < 3; k++) {
-          const a = -Math.PI / 2 + (k * 2 * Math.PI) / 3;
-          c.moveTo(26, 13);
-          c.lineTo(26 + 8 * Math.cos(a), 13 + 8 * Math.sin(a));
-        }
-        c.moveTo(26, 4);
-        c.lineTo(72, 4);
-        c.lineTo(72, 13);
-        c.lineTo(35, 13);
-        for (const x of [47, 59]) {
-          c.moveTo(x, 4);
-          c.lineTo(x, 13);
-        }
-      }
-      c.stroke();
-    },
-    aniso,
-  );
+  return texture(92, 26, (c) => pictogramMark(c, kind), aniso);
+}
+/** A pictogram's engraving on a 92 x 26 u face (ink lines; scale or translate the context to draw it elsewhere: objects/Filter.tsx). */
+export function pictogramMark(c: CanvasRenderingContext2D, kind: PlateId): void {
+  c.strokeStyle = INK;
+  c.lineWidth = 2.4;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  c.beginPath();
+  if (kind === 'proactive') {
+    c.arc(30, 13, 6.5, 0, Math.PI * 2);
+    c.moveTo(36.5, 13);
+    c.lineTo(66, 13);
+    c.lineTo(66, 19);
+    c.moveTo(58, 13);
+    c.lineTo(58, 18);
+  } else if (kind === 'productive') {
+    c.moveTo(34, 6);
+    c.lineTo(58, 6);
+    c.lineTo(46, 13);
+    c.lineTo(58, 20);
+    c.lineTo(34, 20);
+    c.lineTo(46, 13);
+    c.closePath();
+  } else {
+    // the reel and the tape running off it in cells (the Register's log: what the chore became)
+    c.arc(26, 13, 9, 0, Math.PI * 2);
+    for (let k = 0; k < 3; k++) {
+      const a = -Math.PI / 2 + (k * 2 * Math.PI) / 3;
+      c.moveTo(26, 13);
+      c.lineTo(26 + 8 * Math.cos(a), 13 + 8 * Math.sin(a));
+    }
+    c.moveTo(26, 4);
+    c.lineTo(72, 4);
+    c.lineTo(72, 13);
+    c.lineTo(35, 13);
+    for (const x of [47, 59]) {
+      c.moveTo(x, 4);
+      c.lineTo(x, 13);
+    }
+  }
+  c.stroke();
 }
 
 function usePlateParts() {
@@ -395,7 +392,8 @@ function useKeyParts() {
   return { geo, mats };
 }
 
-function KeyLegend({ dy }: { dy: number }) {
+/** The map key's legend plate and its samples at their place, `dy` north of it (also the end key's: objects/End.tsx EndKey). */
+export function KeyLegend({ dy }: { dy: number }) {
   const { geo, mats } = useKeyParts();
   const m = useDeskMats();
   return (
@@ -510,7 +508,7 @@ function ActOneCard({ card }: { card: NonNullable<DeskState['e11']>['card'] & ob
 // The DOM text: the map key's words (11.2), beside their samples, dead still while they are read
 
 /** The key's words: 36 px (a legend, quieter than the labels), EN in one column and zh in the next, each row on its sample. */
-const KEY_TYPE = { size: 36, weight: 500, cjkWeight: 500 } as const;
+export const KEY_TYPE = { size: 36, weight: 500, cjkWeight: 500 } as const;
 
 /**
  * The key's words: they wipe in on the key-map cue (the plate settled under them since the cue's frame: beat11.ts

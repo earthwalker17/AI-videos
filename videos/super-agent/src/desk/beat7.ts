@@ -684,10 +684,18 @@ export function productivePlateAt(f: number): RailState | null {
 // ------------------------------------------------------------------------------------------------
 // 7.4 the chat reply and the dossier
 
-/** The chat reply's rest in your in-tray: south of #0408's, beside it, on the tray's floor (as #0408: state.ts IN_TRAY_REST). */
-export const REPLY_REST: P3 = [rectC(YOU.inTray)[0] - 10, YOU.inTray.y1 - 75, 33];
-/** Its stop tab (enamel, the "≤ 100" in the sans: gl/print7.ts) clipped over the slip's trailing end, standing proud of it, its glyphs at least 18 px. */
-export const STOP_TAB = { w: 84, h: 32, over: 24, em: 30 } as const;
+/**
+ * The chat reply's rest in your in-tray: south of #0408's, beside it, on the tray's floor (as #0408: state.ts IN_TRAY_REST),
+ * far enough south (its slip to the tray's open south lip) that its whole "≤ 100" stop tab shows below the reply #0405,
+ * which lies over it from bar 68 (beat10.ts REPLY_0405): no glyph of the tab is cut by #0405's edge.
+ */
+export const REPLY_REST: P3 = [rectC(YOU.inTray)[0] - 10, YOU.inTray.y1 - 93, 33];
+/**
+ * Its stop tab (enamel, the "≤ 100" in the sans: gl/print7.ts) clipped over the slip's trailing end, standing proud of it, its
+ * glyphs at least 18 px; their ink ends `clear` short of its east end, where tag-100's leader foot (TAB_REST, 5 u in) and its
+ * 4 px dot sit clear of the last "0".
+ */
+export const STOP_TAB = { w: 96, h: 32, over: 24, em: 30, clear: 14 } as const;
 /** The tab's words: WORDS.tag100's limit, as the tag sets it. */
 export const TAB_WORDS = WORDS.tag100.en.match(/≤\s?\d+/)![0];
 

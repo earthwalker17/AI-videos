@@ -1262,6 +1262,8 @@ function heapPieces(): Record<PieceKind, BufferGeometry> & { mailFlap: BufferGeo
 
 /** How far the pressed heap steps down as history (the film's step-down, a little past the focus's: it recedes for good). */
 const HEAP_HISTORY = 1.7;
+/** The step that takes a piece's tone to the slate's own (gl/materials.ts stepColour: all the way to STEP_TARGET): beat 12's press (end.ts HEAP_GONE). */
+const HEAP_SLATE = 1 / 0.45;
 
 /**
  * The old heap after the turn, and the request rising out of it (desk/beat4.ts, STORYBOARD 4.2). The heap is act one's
@@ -1295,12 +1297,33 @@ export function Backlog({ a, heap, request, f, stepRequest = false }: { a: ActOn
     return out;
   }, [tex]);
   useLayoutEffect(() => () => Object.values(mats).forEach((x) => x.mat.dispose()), [mats]);
+  // beat 12 (end.ts HEAP_GONE): the same stock, transparent, for the last frames of its press into the slate (drawn only then)
+  const fadeMats = useMemo(() => {
+    const out: Record<string, MeshStandardMaterial> = {};
+    for (const [key, x] of Object.entries(mats)) {
+      const m = paper(x.mat.map ?? whiteTexture(), x.hex);
+      m.transparent = true;
+      out[key] = m;
+    }
+    return out;
+  }, [mats]);
+  useLayoutEffect(() => () => Object.values(fadeMats).forEach((m) => m.dispose()), [fadeMats]);
   // pressed, the heap steps down as history (by contrast and chroma, never alpha), on its own ramp only: its stock is in the
-  // full set, so a focus step-down (which lifts paper toward a mid paper grey) never brightens the pressed history again
-  const k = HEAP_HISTORY * heap.step;
+  // full set, so a focus step-down (which lifts paper toward a mid paper grey) never brightens the pressed history again;
+  // in beat 12 it goes on down to the slate's tone, then what is left of its print fades (heap.gone, absent before f6000)
+  const gone = heap.gone;
+  const k = gone ? HEAP_HISTORY * heap.step + (HEAP_SLATE - HEAP_HISTORY) * gone.tone : HEAP_HISTORY * heap.step;
+  const fade = gone?.fade ?? 0;
   useLayoutEffect(() => {
-    for (const x of Object.values(mats)) x.mat.color.copy(stepColour(new Color(x.hex), k));
-  }, [mats, k]);
+    for (const [key, x] of Object.entries(mats)) {
+      x.mat.color.copy(stepColour(new Color(x.hex), k));
+      if (fade > 0) {
+        fadeMats[key]!.color.copy(x.mat.color);
+        fadeMats[key]!.opacity = 1 - fade;
+      }
+    }
+  }, [mats, fadeMats, k, fade]);
+  const matOf = (key: string): MeshStandardMaterial => (fade > 0 ? fadeMats[key]! : mats[key]!.mat);
   const lift = Math.round(a.request.lift * request.crease * 400) / 400;
   const req = useMemo(() => requestGeometry(lift), [lift]);
   useLayoutEffect(() => () => Object.values(req).forEach((g) => g.dispose()), [req]);
@@ -1312,15 +1335,16 @@ export function Backlog({ a, heap, request, f, stepRequest = false }: { a: ActOn
   const onReq = z0 + ON_REQUEST;
   return (
     <group>
-      {HEAP.slice(0, a.landed).map((p, i) => {
-        const q = heapPieceAt(p.z, Math.abs(p.z - onReq) < 1e-6, heap, heapFloor(p.c, p.rot, PIECE[p.kind][0], PIECE[p.kind][1], p.z));
-        return (
-          <group key={i} position={[p.c[0], p.c[1], q.z]} rotation={[0, 0, p.rot]} scale={[1, 1, q.k]}>
-            <mesh geometry={geo[p.kind]} material={mats[keyOf(p.kind, p.v, p.tone)].mat} />
-            {p.kind === 'mail' && <mesh geometry={geo.mailFlap} material={mats[`flap${p.tone > 0.45 ? 1 : 0}`].mat} />}
-          </group>
-        );
-      })}
+      {fade < 1 &&
+        HEAP.slice(0, a.landed).map((p, i) => {
+          const q = heapPieceAt(p.z, Math.abs(p.z - onReq) < 1e-6, heap, heapFloor(p.c, p.rot, PIECE[p.kind][0], PIECE[p.kind][1], p.z));
+          return (
+            <group key={i} position={[p.c[0], p.c[1], q.z]} rotation={[0, 0, p.rot]} scale={[1, 1, q.k]}>
+              <mesh geometry={geo[p.kind]} material={matOf(keyOf(p.kind, p.v, p.tone))} />
+              {p.kind === 'mail' && <mesh geometry={geo.mailFlap} material={matOf(`flap${p.tone > 0.45 ? 1 : 0}`)} />}
+            </group>
+          );
+        })}
       {r && f < RIDE.out && (
         <group position={r.p} rotation={[0, -r.slope, r.heading, 'ZYX']} scale={[1 + 0.015 * r.squash, 1, 1 - 0.03 * r.squash]}>
           <group rotation={[0, 0, -REQUEST_A.rot]}>

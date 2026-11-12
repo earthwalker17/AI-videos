@@ -15,6 +15,7 @@
  * (it blooms), and the lid strut props the laptop open; after the turn the pose is `YOU_POSE_B`.
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
+import { at } from '../../cues.ts';
 import { Path, Quaternion, Shape, Vector3, type BufferGeometry, type Texture } from 'three';
 import { graphite, matte, paper } from '../gl/materials.ts';
 import { texture } from '../gl/text.ts';
@@ -450,18 +451,19 @@ function inTrayGradient(): Texture {
 
 /**
  * Your desk's own surfaces: the slab's brushed graphite top, the laptop's dark glass (dim, a key-light sheen, no
- * transcript), the sand, the in-tray's floor. Two sets: full, and on the kit's `own` ramp (beat 3 steps your desk down
- * with the folders while a fix is in focus: actOne.ts FOCUS_A).
+ * transcript), the sand, the in-tray's floor. A set per mode the kit steps: full, on the kit's `own` ramp (beat 3 steps your
+ * desk down with the folders while a fix is in focus: actOne.ts FOCUS_A), the beat's set and the late one (part 2: under
+ * beat 7's and 10.2's cards, YOU_MODES_FROM).
  */
 function useYouMats() {
   const grad = useMemo(() => inTrayGradient(), []);
   const mats = useMemo(() => {
-    const make = (stepped: false | 'own') => {
+    const make = (stepped: boolean | 'own' | 'late') => {
       const floor = paper(grad, '#3A3D3C', { roughness: 0.66, fibre: 0, stepped });
       floor.metalness = 0.3;
       return { slab: graphite('#2C2F2E', { roughness: 0.62, metalness: 0.35, brush: 0.07, stepped }), screen: matte('#4B5250', 0.34, 0, stepped), sand: matte('#8E8676', 0.85, 0, stepped), floor };
     };
-    return { full: make(false), own: make('own') };
+    return { full: make(false), own: make('own'), stepped: make(true), late: make('late') };
   }, [grad]);
   useLayoutEffect(
     () => () => {
@@ -487,20 +489,25 @@ function Chore({ rest, held, flight, quaternion, children }: { rest: P3; held: n
   );
 }
 
-/** Your desk: on the kit's own ramp while beat 3 steps it down (state.ts FocusId 'you'), else the full set. */
+/**
+ * From part 2 (bar 44) your desk's own surfaces step on whichever set your desk rides (the cards of beat 7 and 10.2 put it on
+ * the beat's set); part 1, signed off, stepped them only on the own ramp (its counterfactual cards left them full).
+ */
+export const YOU_MODES_FROM = at(44);
+/** Your desk: on the set its focus id rides (state.ts FocusId 'you'; kit.tsx isStepped), else the full set. */
 export function YourDesk({ s, pose }: { s: DeskState; pose?: YouPose }) {
   const on = isStepped(s.step, 'you');
   return (
     <Step on={on}>
-      <YourDeskBody s={s} given={pose} stepped={on === 'own'} />
+      <YourDeskBody s={s} given={pose} mode={s.f >= YOU_MODES_FROM ? on : on === 'own' ? 'own' : false} />
     </Step>
   );
 }
 
-function YourDeskBody({ s, given, stepped }: { s: DeskState; given?: YouPose; stepped: boolean }) {
+function YourDeskBody({ s, given, mode }: { s: DeskState; given?: YouPose; mode: boolean | 'own' | 'late' }) {
   const m = useDeskMats();
   const sets = useYouMats();
-  const own = stepped ? sets.own : sets.full;
+  const own = mode === 'own' ? sets.own : mode === 'late' ? sets.late : mode ? sets.stepped : sets.full;
   const g = useYouGeometry();
   const pose = useMemo(() => given ?? youPoseAt(s.f), [given, s.f]);
   const lampG = useLampGeometry(pose.lamp);

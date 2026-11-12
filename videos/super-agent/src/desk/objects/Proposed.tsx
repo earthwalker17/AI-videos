@@ -22,18 +22,42 @@
  * its length, never erased. A live drawing at its last value runs exactly the static drawing's commands, so every part
  * ends exactly as still (d) draws it.
  */
+import { fillTextChecked } from '@aiv/remotion-kit';
 import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferAttribute, Color, MeshBasicMaterial, PlaneGeometry, RepeatWrapping, type BufferGeometry, type Texture } from 'three';
 import type { ProposedState } from '../beat9.ts';
 import type { Span } from '../beat10.ts';
 import { cylinderZ, merge, plane, slab } from '../geom.ts';
-import { graphite, vellum } from '../gl/materials.ts';
+import { graphite, stepColour, vellum } from '../gl/materials.ts';
 import { texture } from '../gl/text.ts';
-import { EMIT, useDeskMats } from '../kit.tsx';
+import { EMIT, useDeskMats, useStepMode } from '../kit.tsx';
 import { BAYS, REEL, type P2, type Rect } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
+import type { DeskState } from '../state.ts';
 import { FLAG, HANDLE, MACHINES, QUERIES, TETHER_W, VELLUM, WATCHDOG, clipC } from '../summary.ts';
+
+/**
+ * The step on vellum and pencil (a drawing on the desk has no surface to darken): it fades with its set's step amount, as the
+ * kit's own vellum does (objects/Dispatch.tsx DeskUniforms: 0.6 at a full step), so handing it from one set to another never
+ * jumps. `mode`: the enclosing `<Step>`'s (kit.tsx useStepMode); `step`, `late`: the frame's DeskState.step and testsStep
+ * (the late set's amount).
+ */
+export const VELLUM_STEP = 0.4;
+export function stepAmountOf(mode: boolean | 'late' | 'own', step?: DeskState['step'], late = 1): number {
+  if (!mode || !step) return 0;
+  return mode === 'own' ? (step.own?.amount ?? 0) : mode === 'late' ? late : step.amount;
+}
+/** A vellum or pencil drawing's opacity under the enclosing step (1 unstepped). */
+export function useVellumOpacity(step?: DeskState['step'], late?: number): number {
+  return 1 - VELLUM_STEP * stepAmountOf(useStepMode(), step, late);
+}
+/** Write the opacity on every vellum material drawn this frame (every frame: nothing carried from a frame before). */
+export function useVellumStep(mats: readonly (MeshBasicMaterial | null | undefined)[], opacity: number): void {
+  useLayoutEffect(() => {
+    for (const x of mats) if (x) x.opacity = opacity;
+  });
+}
 
 /** A seeded hash of an index to 0..1 (integer mixing: deterministic, no randomness). */
 function hash01(i: number, seed: number): number {
@@ -685,104 +709,101 @@ function sightlinePart(g: G, lx: number, ly: number, fx: number, fy: number, a: 
   g.setLineDash([]);
 }
 
-/** The pencil flag the Watchdog pins on the stuck bay: a pin lying along its nameplate band, its pennant at the head (dark lead on enamel). `t` (act two): drawn on, the pin first (pushed home at 0.4), the pennant, its head. */
-const FLAG_SIZE = 66;
+/**
+ * The pencil flag the Watchdog pins on the stuck bay (meso-sized: its pennant about 39 x 29 px at 0.64x): its staff stands
+ * north from the east end of the bay's nameplate band, its foot pinned into the band (dark lead on the enamel, a pin's head),
+ * its pennant flying west at the top over the bay's south-east corner, hatched (pencil's grey, so it reads over the dark
+ * bay). Drawn on a square of FLAG_SIZE whose centre lies FLAG_OFF from the flag's foot (summary.ts FLAG, where the
+ * sightline pins it). `t` (act two): drawn on, the staff down from its top into the band (pinned at 0.4), the pennant out
+ * from it (to 0.9), the pin's head.
+ */
+const FLAG_SIZE = 96;
+const FLAG_OFF: P2 = [-28, 38];
+/** The flag's parts on its square (canvas u: x east, y south): the foot on FLAG, the staff's top, the pennant's tip and foot, the band's north edge. */
+const FLAG_FOOT: Pt = [FLAG_SIZE / 2 - FLAG_OFF[0], FLAG_SIZE / 2 + FLAG_OFF[1]];
+const FLAG_TOP: Pt = [FLAG_FOOT[0], FLAG_FOOT[1] - 78];
+const FLAG_TIP: Pt = [FLAG_FOOT[0] - 58, FLAG_TOP[1] + 22];
+const FLAG_LOW: Pt = [FLAG_FOOT[0], FLAG_TOP[1] + 44];
+// (the band: the bay's south wall, FRESH.southWall deep; FLAG lies 12 u into it from its south edge)
+const FLAG_BAND: number = FLAG_FOOT[1] - 22;
 function flagSheet(g: G, s: number, t = 1): void {
-  if (t < 1) {
-    flagPart(g, s, t);
-    return;
-  }
-  lead(
-    g,
-    [
-      [s * 0.12, s * 0.64],
-      [s * 0.88, s * 0.64],
-    ],
-    4.4,
-    'enamel',
-  );
-  // the pennant, hatched in lead so it reads as a flag
-  g.fillStyle = 'rgba(70,68,64,0.55)';
-  g.beginPath();
-  g.moveTo(s * 0.14, s * 0.14);
-  g.lineTo(s * 0.56, s * 0.34);
-  g.lineTo(s * 0.14, s * 0.52);
-  g.closePath();
-  g.fill();
-  lead(
-    g,
-    [
-      [s * 0.14, s * 0.64],
-      [s * 0.14, s * 0.14],
-      [s * 0.56, s * 0.34],
-      [s * 0.14, s * 0.52],
-    ],
-    3.8,
-    'enamel',
-  );
-  lead(
-    g,
-    [
-      [s * 0.88, s * 0.64],
-      [s * 0.89, s * 0.65],
-    ],
-    8,
-    'enamel',
-  );
-  grain(g, s, s, 97);
-}
-function flagPart(g: G, s: number, t: number): void {
   if (t <= 0) return;
-  // the pin, from its point (east) to its head (west), pushed home as the sightline settles
-  leadOn(
-    g,
-    [
-      [s * 0.88, s * 0.64],
-      [s * 0.12, s * 0.64],
-    ],
-    4.4,
-    'enamel',
-    share(t, 0, 0.4),
-  );
-  // the pennant's staff and edges, and its lead fill wiped in behind the pencil's way across it
+  // the staff, from its top down into the band (light lead over the bay, dark on the enamel)
+  const staff = share(t, 0, 0.4);
+  const yTo = FLAG_TOP[1] + (FLAG_FOOT[1] - FLAG_TOP[1]) * staff;
+  if (staff > 0) {
+    leadOn(g, [FLAG_TOP, [FLAG_TOP[0], Math.min(yTo, FLAG_BAND)]], 4.6, 'desk', 1);
+    if (yTo > FLAG_BAND) lead(g, [[FLAG_TOP[0], FLAG_BAND], [FLAG_TOP[0], yTo]], 4.6, 'enamel');
+  }
+  // the pennant: its hatch and edges wiped in from the staff, west
   const p = share(t, 0.4, 0.9);
   if (p > 0) {
     g.save();
     g.beginPath();
-    g.rect(0, 0, s * 0.14 + (s * 0.42 + 4) * p, s);
+    g.rect(FLAG_FOOT[0] - (FLAG_FOOT[0] - FLAG_TIP[0] + 4) * p, 0, s, s);
     g.clip();
-    g.fillStyle = 'rgba(70,68,64,0.55)';
     g.beginPath();
-    g.moveTo(s * 0.14, s * 0.14);
-    g.lineTo(s * 0.56, s * 0.34);
-    g.lineTo(s * 0.14, s * 0.52);
+    g.moveTo(...FLAG_TOP);
+    g.lineTo(...FLAG_TIP);
+    g.lineTo(...FLAG_LOW);
     g.closePath();
+    g.fillStyle = rgba(PENCIL, 0.34);
     g.fill();
+    g.save();
+    g.clip();
+    // its hatch: 45° pencil strokes on a fixed grid (they never swim as it wipes in)
+    g.lineWidth = 2.6;
+    g.strokeStyle = rgba(PENCIL, 0.8);
+    g.setLineDash([]);
+    for (let k = -s; k < s; k += 9) {
+      g.beginPath();
+      g.moveTo(k, 0);
+      g.lineTo(k + s, s);
+      g.stroke();
+    }
     g.restore();
-    leadOn(
-      g,
-      [
-        [s * 0.14, s * 0.64],
-        [s * 0.14, s * 0.14],
-        [s * 0.56, s * 0.34],
-        [s * 0.14, s * 0.52],
-      ],
-      3.8,
-      'enamel',
-      p,
-    );
+    lead(g, [FLAG_TOP, FLAG_TIP, FLAG_LOW], 4.2, 'desk');
+    g.restore();
   }
-  if (t >= 0.95)
-    lead(
-      g,
-      [
-        [s * 0.88, s * 0.64],
-        [s * 0.89, s * 0.65],
-      ],
-      8,
-      'enamel',
-    );
+  // the pin's head, pressed into the band at the foot
+  if (t >= 0.95) {
+    lead(g, [FLAG_FOOT, [FLAG_FOOT[0] + 0.5, FLAG_FOOT[1] + 0.5]], 9, 'enamel');
+  }
   grain(g, s, s, 97);
+}
+
+/**
+ * The Persistent plate's words in vellum (beat9.ts PERSIST_WORDS): the trait plates' line (gl/plate.ts: "Persistent · " in
+ * the sans SemiBold, the Han a step lighter, centred, fitted to the face), in the vellum's ink on its 14% fill, inside its
+ * dashed edge: a proposed plate, drawn as the proposed parts are.
+ */
+export function persistWordsSheet(g: G, w: number, h: number, sans: string, words: { en: string; 'zh-Hans': string }): void {
+  g.fillStyle = FILL;
+  g.fillRect(2, 2, w - 4, h - 4);
+  dashed(g, 3.4);
+  g.setLineDash([16, 11]);
+  g.strokeRect(3, 3, w - 6, h - 6);
+  g.setLineDash([]);
+  const en = `${words.en} · `;
+  const zh = words['zh-Hans'];
+  const fit = (em: number) => {
+    g.font = `600 ${em}px ${sans}`;
+    const a = g.measureText(en).width;
+    g.font = `500 ${em}px ${sans}`;
+    return a + g.measureText(zh).width;
+  };
+  let em = 43;
+  while (em > 36 && fit(em) > w - 26) em -= 0.5;
+  const x0 = (w - fit(em)) / 2;
+  const base = h / 2 + em * 0.36;
+  g.fillStyle = rgba(VELLUM_LINE, 0.9);
+  g.textBaseline = 'alphabetic';
+  g.textAlign = 'left';
+  g.font = `600 ${em}px ${sans}`;
+  fillTextChecked(g, en, x0, base);
+  const enW = g.measureText(en).width;
+  g.font = `500 ${em}px ${sans}`;
+  fillTextChecked(g, zh, x0 + enW, base);
 }
 
 /** A "?"'s hook as a polyline (its points for a glyph of size s at (ox, oy)). */
@@ -1081,10 +1102,15 @@ const layKey = (k: number): string | null => (k >= 1 || k <= 0 ? null : String(q
 /**
  * The proposed and the open parts. `state`: their pose in act two's world from beat 9 on (desk/beat9.ts proposedAt,
  * mounted by objects/Beat9.tsx); absent or null, still (d)'s static pose (the summary's mount), the end state every pose
- * arrives at.
+ * arrives at. `step`, `late`: the frame's step (DeskState.step, testsStep): inside a `<Step>` the vellum and pencil fade
+ * with the set they ride (VELLUM_STEP), the machines step with the kit's set (useDeskMats); unstepped, exactly still (d).
+ * `watchOpacity` (act two: objects/Beat9.tsx WATCHDOG_STEP_ID): the Watchdog's sheet and its pencil flag ride their own id;
+ * absent, they ride the enclosing step with the rest.
  */
-export function Proposed({ state }: { state?: ProposedState | null }) {
+export function Proposed({ state, step, late, watchOpacity }: { state?: ProposedState | null; step?: DeskState['step']; late?: number; watchOpacity?: number }) {
   const m = useDeskMats();
+  const opacity = useVellumOpacity(step, late);
+  const wOpacity = watchOpacity ?? opacity;
   const gl = useThree((x) => x.gl);
   const an = Math.min(8, gl.capabilities.getMaxAnisotropy());
   const tex = useProposedTextures();
@@ -1122,8 +1148,8 @@ export function Proposed({ state }: { state?: ProposedState | null }) {
       cabinet: flat(VELLUM.cabinet.w, VELLUM.cabinet.d, VELLUM.cabinet.c),
       clips: CLIPS.map((c) => flat(CLIP_SIZE[0], CLIP_SIZE[1], c, 0.5)),
       watch: flat(WD.x1 - WD.x0, WD.y1 - WD.y0, [(WD.x0 + WD.x1) / 2, (WD.y0 + WD.y1) / 2]),
-      // the flag lying on the stuck bay's nameplate band
-      flag: plane(FLAG_SIZE, FLAG_SIZE, FLAG[0], FLAG[1], FLAG[2]),
+      // the flag standing on the stuck bay's nameplate band, its pennant over the bay (its square's centre FLAG_OFF from its foot)
+      flag: plane(FLAG_SIZE, FLAG_SIZE, FLAG[0] + FLAG_OFF[0], FLAG[1] + FLAG_OFF[1], FLAG[2]),
       queries: QUERIES.map((q) => plane(q.size, q.size, q.at[0], q.at[1], q.at[2])),
       split: plane(SPLIT, SPLIT, REEL.x, REEL.y, REEL.packZ[1] + 0.6),
       handle: plane(HANDLE.w, HANDLE.d, HANDLE.c[0], HANDLE.c[1], BAYS.docs.wallH + 0.6),
@@ -1132,6 +1158,8 @@ export function Proposed({ state }: { state?: ProposedState | null }) {
     };
   }, []);
   useLayoutEffect(() => () => Object.values(g).forEach((x) => (Array.isArray(x) ? x.forEach((y) => y.dispose()) : x.dispose())), [g]);
+  useVellumStep([mats.loop, mats.tethers, mats.plan, mats.cabinet, mats.split, mats.handle, ...mats.clips, ...mats.query], opacity);
+  useVellumStep([mats.watch, mats.flag], wOpacity);
   if (!state) {
     return (
       <group>
@@ -1154,15 +1182,16 @@ export function Proposed({ state }: { state?: ProposedState | null }) {
       </group>
     );
   }
-  return <LiveProposed s={state} g={g} mats={mats} an={an} />;
+  return <LiveProposed s={state} g={g} mats={mats} an={an} opacity={opacity} watchOpacity={wOpacity} />;
 }
 
 type Geo = { loop: BufferGeometry; tethers: BufferGeometry; plan: BufferGeometry; cabinet: BufferGeometry; clips: BufferGeometry[]; watch: BufferGeometry; flag: BufferGeometry; queries: BufferGeometry[]; split: BufferGeometry; handle: BufferGeometry; machines: BufferGeometry; machineDetail: BufferGeometry };
 type Mats = { loop: MeshBasicMaterial; tethers: MeshBasicMaterial; plan: MeshBasicMaterial; cabinet: MeshBasicMaterial; clips: MeshBasicMaterial[]; watch: MeshBasicMaterial; flag: MeshBasicMaterial; query: MeshBasicMaterial[]; split: MeshBasicMaterial; handle: MeshBasicMaterial };
 
 /** Act two's proposed parts at a state (each ends on the static drawing: the same textures, planes and materials). */
-function LiveProposed({ s, g, mats, an }: { s: ProposedState; g: Geo; mats: Mats; an: number }) {
+function LiveProposed({ s, g, mats, an, opacity, watchOpacity }: { s: ProposedState; g: Geo; mats: Mats; an: number; opacity: number; watchOpacity: number }) {
   const m = useDeskMats();
+  const mode = useStepMode();
   // ---- the live drawings (null keys: at their last value, the static drawing)
   const loopLive: LoopLive = { strut: q3(s.strutInk), plate: s.plate === null ? null : q3(s.plate), etch: s.etch?.loop };
   const loopFinal = loopLive.strut >= 1 && loopLive.plate === 0 && !spanOn(loopLive.etch);
@@ -1217,7 +1246,7 @@ function LiveProposed({ s, g, mats, an }: { s: ProposedState; g: Geo; mats: Mats
   // ---- the machines: risen, their gloss, the etch on their tops, the server's work light
   const each = useMemo(() => machineEach(), []);
   useLayoutEffect(() => () => each.forEach((x) => (x.body.dispose(), x.detail.dispose())), [each]);
-  const dull = useMemo(() => MACHINES.map(() => graphite('#626764')), []);
+  const dull = useMemo(() => MACHINES.map(() => graphite('#626764', { stepped: mode })), [mode]);
   useLayoutEffect(() => () => dull.forEach((x) => x.dispose()), [dull]);
   const gloss = s.gloss;
   useLayoutEffect(() => {
@@ -1256,12 +1285,17 @@ function LiveProposed({ s, g, mats, an }: { s: ProposedState; g: Geo; mats: Mats
   const lampMat = useMemo(() => new MeshBasicMaterial({ color: new Color(LAMP_DARK) }), []);
   useLayoutEffect(() => () => lampMat.dispose(), [lampMat]);
   const lit = s.lamp;
+  // (a stepped light steps with its set's amount, as the bays' slots do: the vellum's opacity carries it)
+  const lampK = (1 - opacity) / VELLUM_STEP;
   useLayoutEffect(() => {
     // dark (the floor tone's) to the server's work light, clamped under the bloom (EMIT.slotDocs), geometric per channel
     const dark = new Color(LAMP_DARK);
     const on = new Color(LIGHT_HEX.work).multiplyScalar(EMIT.slotDocs);
     lampMat.color.setRGB(dark.r * (on.r / dark.r) ** lit, dark.g * (on.g / dark.g) ** lit, dark.b * (on.b / dark.b) ** lit);
-  }, [lampMat, lit]);
+    if (lampK > 0) lampMat.color.copy(stepColour(lampMat.color, lampK));
+  }, [lampMat, lit, lampK]);
+  useVellumStep([loopMat, tetherMat, planMat, ...clipMats, ...queryMats, splitMat, handleMat, hatchTile], opacity);
+  useVellumStep([watchMat, flagMat], watchOpacity);
 
   return (
     <group>
