@@ -18,6 +18,7 @@ import { cameraAt, type Angle } from './camera.ts';
 import { DeskFrame } from './DeskFrame.tsx';
 import { ACT2_TAGS, SUMMARY_TAGS, act2LabelsAt, builtAt, keepFilm, segmentAt, segmentSpan, summaryLabelsAt } from './film.ts';
 import { PRINT_FONT } from './gl/text.ts';
+import { Step, isStepped } from './kit.tsx';
 import { Beat7Text } from './objects/Beat7.tsx';
 import { Beat8Text } from './objects/Beat8.tsx';
 import { Beat9Text } from './objects/Beat9.tsx';
@@ -87,8 +88,11 @@ export function SummaryFrame({ f, angle = ANGLE, bloom = BLOOM, objects = true }
         objects ? (
           <>
             <World s={s} />
-            <Proposed />
-            <Trace a={summaryAt(s.f)} printFamily={PRINT_CSS} />
+            {/* 11.4 steps the vellum parts down with everything but your desk (beat11.ts STEP_11) */}
+            <Step on={isStepped(s.step, 'b11-proposed')}>
+              <Proposed />
+            </Step>
+            <Trace a={summaryAt(s.f)} printFamily={PRINT_CSS} step={s.step} />
             <Beat11 s={s} />
             <End s={s} />
           </>

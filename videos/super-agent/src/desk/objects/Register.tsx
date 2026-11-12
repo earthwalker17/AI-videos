@@ -897,7 +897,8 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
       </Step>
       </Lift>
       <Lift z={T?.parts.throat}>
-      <Step on={isStepped(s.step, 'gauge')}>
+      {/* (from 11.3's lift on the gauge rides your lamp's neck: objects/Beat11.tsx draws it) */}
+      {!s.e11?.collar && <Step on={isStepped(s.step, 'gauge')}>
         <WithMats>
           {(n) => (
             <>
@@ -911,7 +912,7 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
             </>
           )}
         </WithMats>
-      </Step>
+      </Step>}
       </Lift>
       {/* the Slow Path: the loupe over the pinned policy card (stepped down in C12) */}
       <Step on={isStepped(s.step, 'policy')}>
@@ -1002,10 +1003,15 @@ export function Register({ s, turn }: { s: DeskState; turn?: RegisterTurn }) {
         <WithMats>
           {(n) => (
             <>
-              <mesh geometry={g.traitBack} material={n.graphiteDark} />
-              <mesh geometry={g.trait} material={n.enamel} />
-              <mesh geometry={g.traitFace} material={n.printed.trait} />
-              <mesh geometry={g.bolts} material={n.steel} />
+              {/* (from 11.1's lift on the plate, its bolts with it, flies to your chore tray: objects/Beat11.tsx draws it) */}
+              {!s.e11?.plates.continuous && (
+                <>
+                  <mesh geometry={g.traitBack} material={n.graphiteDark} />
+                  <mesh geometry={g.trait} material={n.enamel} />
+                  <mesh geometry={g.traitFace} material={n.printed.trait} />
+                  <mesh geometry={g.bolts} material={n.steel} />
+                </>
+              )}
             </>
           )}
         </WithMats>

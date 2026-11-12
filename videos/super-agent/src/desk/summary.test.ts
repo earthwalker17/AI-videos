@@ -22,6 +22,8 @@ import {
   SPAN_D,
   STAMP,
   STAMP_F,
+  STAMP_SLOT,
+  stampSlotAt,
   TRACE_F,
   TRACE_INK,
   bedAt,
@@ -326,15 +328,37 @@ describe('the summary at the sign-off rest (still D, f5520)', () => {
     expect(poseD(ROUND2.stillD, 15)).toEqual(deskCamera(FRAMING_D, 15));
     expect(poseD(STAMP_F + 30, 15)).not.toEqual(deskCamera(FRAMING_D, 15));
   });
-  it('presses your stamp on its cue: a 3 f lift, a 5 f press on spring-dock with a 4% squash, the green spreading from the contact over 6 f', () => {
-    expect(stampAt(STAMP_F - 40).p).toEqual(STAMP.rest);
-    // the lift: still until it starts, up over 3 f
-    const lifts = Array.from({ length: 14 }, (_, i) => stampAt(STAMP_F - 13 + i).p[2]);
-    const first = lifts.findIndex((z) => z > STAMP.rest[2] + 1e-9);
-    expect(lifts[first + 2]).toBeCloseTo(STAMP.rest[2] + STAMP.lift, 6);
-    expect(lifts[first + 1]).toBeLessThan(STAMP.rest[2] + STAMP.lift);
+  it('presses your stamp on its cue: up out of its hatch after a 12 f stillness, a 5 f press on spring-dock with a 4% squash, the green spreading from the contact over 6 f', () => {
+    // act two's desk has none: it waits wholly inside your desk (its knob's top under the desk's) under the shut hatch
+    // through the seam and the stillness (f5420-5431: nothing of it moves)
+    for (let f = SPAN_D[0]; f <= STAMP_F - 9; f++) {
+      expect(stampAt(f).p, `f${f}`).toEqual([STAMP.rest[0], STAMP.rest[1], STAMP.rest[2] - STAMP.sunk]);
+      expect(stampAt(f).p[2] + 42).toBeLessThan(YOU.top);
+      expect(stampSlotAt(f), `f${f}`).toBe(0);
+    }
+    // the hatch's leaves part over 3 f from f5432, the stamp rising in it from the frame after; they shut once its pad has
+    // cleared the desk's top (before it moves across), and are shut before the contact
+    expect(stampSlotAt(STAMP_F - 9)).toBe(0);
+    expect(stampSlotAt(STAMP_F - 8)).toBeGreaterThan(0);
+    expect(stampSlotAt(STAMP_F - 6)).toBe(1);
+    expect(stampAt(STAMP_F - 8).p[2]).toBe(STAMP.rest[2] - STAMP.sunk);
+    expect(stampAt(STAMP_F - 7).p[2]).toBeGreaterThan(STAMP.rest[2] - STAMP.sunk);
+    for (let f = STAMP_F - 9; f <= STAMP_F; f++) {
+      const st = stampAt(f);
+      // out over the desk's top only through the open hatch (its pad inside the hole while it is under the top)
+      if (st.p[2] < YOU.top && st.p[2] + 42 > YOU.top - 0.25) {
+        // the gap between the parting leaves is wider than what of it crosses the desk's top (its pad 36 u, its knob 22 u)
+        const across = st.p[2] + 8 > YOU.top - 0.25 ? 36 : 22;
+        expect(stampSlotAt(f) * (STAMP_SLOT.w + 8), `f${f}`).toBeGreaterThan(across + 2);
+        expect(st.p[0]).toBe(STAMP.rest[0]);
+      }
+      if (stampSlotAt(f) > 0 && stampSlotAt(f) < 1 && f > STAMP_F - 6) expect(st.p[2], `f${f}`).toBeGreaterThan(YOU.top + 8);
+    }
+    expect(stampSlotAt(STAMP_F - 1)).toBe(0);
+    expect(STAMP_SLOT.w).toBeGreaterThan(36 + 6);
+    expect(STAMP_SLOT.d).toBeGreaterThan(32 + 6);
+    expect(stampAt(STAMP_F - 3).p[2]).toBeCloseTo(STAMP.rest[2] + STAMP.lift, 6);
     // the press: 5 f on spring-dock from the top; first on the paper on the contact frame, over the mark, square to the reply
-    expect(stampAt(STAMP_F - 4).p[2]).toBeCloseTo(STAMP.rest[2] + STAMP.lift, 6);
     expect(stampAt(STAMP_F - 1).p[2]).toBeGreaterThan(STAMP.paperZ + 1);
     const contact = stampAt(STAMP_F);
     expect(contact.p[2]).toBeCloseTo(STAMP.paperZ, 6);
@@ -349,11 +373,11 @@ describe('the summary at the sign-off rest (still D, f5520)', () => {
     expect(inkAt(STAMP_F)).toBeGreaterThan(0);
     expect(inkAt(STAMP_F + 4)).toBeLessThan(1);
     expect(inkAt(STAMP_F + 5)).toBe(1);
-    // and back at its rest, still, by still D; no frame jumps (moves under 34 u a frame, squash and ink in steps)
+    // and back at its rest (on the shut hatch), still, by still D; no frame jumps (moves under 46 u a frame, about 1170 px/s at 0.85x; squash and ink in steps)
     expect(stampAt(ROUND2.stillD).p).toEqual(STAMP.rest);
     for (let f = STAMP_F - 20; f < ROUND2.stillD; f++) {
       const [a, b] = [stampAt(f), stampAt(f + 1)];
-      expect(Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1], b.p[2] - a.p[2])).toBeLessThan(34);
+      expect(Math.hypot(b.p[0] - a.p[0], b.p[1] - a.p[1], b.p[2] - a.p[2])).toBeLessThan(46);
       expect(Math.abs(b.squash - a.squash)).toBeLessThan(0.036);
       expect(inkAt(f + 1) - inkAt(f)).toBeLessThan(0.17);
     }

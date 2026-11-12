@@ -86,8 +86,10 @@ describe('beat 7: its frames and what it hands the summary', () => {
     expect(e.spool).toEqual({ colour: 1 });
     // the cord's footprints: the summary's are the stub's (still (d)), act two's last frame starts with the same
     const stub = [segFp([MAST.arm[0], MAST.arm[1], DECK.top - 4], [MAST.x, MAST.y, DECK.top - 4], 4), segFp([MAST.x, MAST.y, DECK.top - 4], [MAST.x, MAST.y, MAST.h], 5), ...polySegs(CORDS.vermilion, 4)];
-    expect(footprints7(summaryDeskState(SEAM_D))).toEqual(stub);
-    expect(footprints7(summaryDeskState(6000))).toEqual(stub);
+    // (wave 2: the summary keeps beat 7's parts at rest as act two left them, summary.ts summaryDeskState: across the seam its
+    // footprints are act two's last frame's; the worded Productive plate leaves under the ease-out, the cord's stay the stub's)
+    expect(footprints7(summaryDeskState(SEAM_D))).toEqual(footprints7(deskStateAt(SEAM_D - 1)));
+    expect(footprints7(summaryDeskState(6000)).slice(0, stub.length)).toEqual(stub);
     const act = footprints7(deskStateAt(SEAM_D - 1));
     expect(act.slice(0, stub.length)).toEqual(stub);
     expect(cordStatic(cordAt(E7.slack[1]))).toBe(true);

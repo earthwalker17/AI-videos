@@ -9,34 +9,33 @@
  * along the index arm into the reply chute, down onto the slip your stamp signed), held to one value
  * under your lamp instead of washing out. It is the only thing that
  * moves; the stamp on your desk and its green on the reply in your in-tray (green means sign-off only);
- * the chores where they were handed over (the starter key on the intake's gate with the Proactive
- * plate, the sand-glass on the bug bay's job rail with the Productive plate); the fast gate's spike with
- * the noise it dropped; the request's bay capped, its work light out.
+ * the request's bay capped, its work light out. (From wave 2 the chores where they were handed over,
+ * the spike with the noise it dropped and the job rail are act two's own bodies, lasting into the
+ * summary; the pictogram trait plates are objects/Beat11.tsx's.) The route's inks and the cap step
+ * down with 11.4's step-down ('b11-trace': toward the desk, as everything else steps, never only losing its colour); the
+ * stamp and its green on the reply never do. Your stamp waits in a pit in your desk under a hatch of your desk's own top
+ * (summary.ts STAMP_SLOT), which opens for it before the sign-off.
  */
 import { clamp, easings } from '@aiv/core';
 import type { Curve } from '@aiv/remotion-kit';
 import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
-import { BufferAttribute, BufferGeometry, CircleGeometry, DataTexture, LinearFilter, LinearMipmapLinearFilter, SRGBColorSpace, Shape } from 'three';
+import { AlwaysDepth, BufferAttribute, DoubleSide, BufferGeometry, CircleGeometry, Color, DataTexture, LinearFilter, LinearMipmapLinearFilter, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace, ShaderMaterial, type MeshStandardMaterial } from 'three';
 import { LIGHTS } from '../DeskWorld.tsx';
-import { cylinderZ, disc, extrude, latheZ, merge, plane, slab, tube } from '../geom.ts';
-import { HEX, matte, paper } from '../gl/materials.ts';
-import { ID_EM, INK, print, texture } from '../gl/text.ts';
-import { useDeskMats, useDeskSets } from '../kit.tsx';
+import { cylinderZ, disc, merge, plane, slab } from '../geom.ts';
+import { HEX, graphite, matte, paper } from '../gl/materials.ts';
+import { isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
 import { BAYS, KEY, YOU, rectC, type P3 } from '../layout.ts';
 import { poolsAt } from '../pools.ts';
-import { DOCKED, JOB_RAIL, LEGS, STAMP, TRACE_INK, inkHold, inkLight, legAt, rampEdgeZ, summaryDeskState, traceWidthAt, type SummaryState } from '../summary.ts';
+import { SignedReply } from './Replies.tsx';
+import { LEGS, STAMP, STAMP_SLOT, TRACE_INK, inkHold, inkLight, legAt, rampEdgeZ, stampSlotAt, summaryDeskState, traceWidthAt, type SummaryState } from '../summary.ts';
 
-/** The reply the stamp signs off: the request's (the teaching chain's ID, as a mark at 0.5×). */
-const SLIPS_D = { reply: '#0405' } as const;
+/** The desk state's step (kit.tsx isStepped's argument). */
+type SummaryStepArg = Parameters<typeof isStepped>[0];
 /** Quads per leg, by arc length (about 1.6 u each: shorter than the nib's radius, so the ribbon's end hides under it). */
 const SEG = 1040;
 /** The light the ink takes from the key and the fill alone, against which a light pool's lift is held (summary.ts inkHold). */
 const INK_K = inkLight(LIGHTS.key, LIGHTS.fill, KEY);
-/** The lamp-lit slip's albedo: under your lamp's warm white it lands on lit paper (#E4DFD3), never amber. */
-const SLIP_HEX = '#9FA1A0';
-/** The signed reply in your in-tray: its ID along the top, the green stamp below it (never over the ID). */
-const REPLY_D = { l: 104, w: 72 } as const;
 
 /**
  * A flat ink ribbon along a leg (normal up), `n` quads evenly spaced in arc length, its width tapering
@@ -196,64 +195,7 @@ const dotAt = (g: BufferGeometry, t: number): void => {
   uv.needsUpdate = true;
 };
 
-/** A key lying flat (ring bow, shank, toothed bit), long along +y, at a point. */
-function keyAt(p: P3, len = 70): BufferGeometry {
-  const [x, y, z] = p;
-  const bit = new Shape();
-  bit.moveTo(x + 2, y - len / 2);
-  bit.lineTo(x + 15, y - len / 2);
-  bit.lineTo(x + 15, y - len / 2 + 5);
-  bit.lineTo(x + 10, y - len / 2 + 5);
-  bit.lineTo(x + 10, y - len / 2 + 10);
-  bit.lineTo(x + 15, y - len / 2 + 10);
-  bit.lineTo(x + 15, y - len / 2 + 17);
-  bit.lineTo(x + 2, y - len / 2 + 17);
-  bit.closePath();
-  return merge([
-    disc(13, z, z + 4.5, { inner: 6, cx: x, cy: y + len / 2 - 13, bevel: 1.2 }),
-    tube(
-      [
-        [x, y + len / 2 - 26, z + 2.3],
-        [x, y - len / 2, z + 2.3],
-      ],
-      2.3,
-      4,
-      10,
-    ),
-    extrude(bit, z, z + 4, 0.6),
-  ]);
-}
-
-/** A sand-glass lying along y. */
-function glassAt(p: P3): { glass: BufferGeometry; ends: BufferGeometry } {
-  const [x, y, z] = p;
-  const g = latheZ(
-    [
-      [0.01, -26],
-      [10, -24],
-      [11.5, -14],
-      [2.4, -1.5],
-      [2.4, 1.5],
-      [11.5, 14],
-      [10, 24],
-      [0.01, 26],
-    ],
-    24,
-  );
-  g.rotateX(Math.PI / 2);
-  g.translate(x, y, z + 13.5);
-  const ends = merge(
-    [-1, 1].map((k) => {
-      const e = cylinderZ(13.5, -2, 2, 0, 0, 24);
-      e.rotateX(Math.PI / 2);
-      e.translate(x, y + k * 28, z + 13.5);
-      return e;
-    }),
-  );
-  return { glass: g, ends };
-}
-
-export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string }) {
+export function Trace({ a, printFamily, step }: { a: SummaryState; printFamily: string; step: SummaryStepArg }) {
   const m = useDeskMats();
   const sets = useDeskSets();
   const gl = useThree((s) => s.gl);
@@ -261,14 +203,22 @@ export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string
     // each leg its own meniscus map (its hold along the run is its own), one program for both
     const men = { out: meniscus(), home: meniscus() };
     // ink on the beds: a lit, slightly glossy film (paper's program), never an emitter; drawn over the bed it lies in
-    const ink = (hex: string, map: DataTexture) => {
-      const x = paper(map, hex, { roughness: 0.55, fibre: 0 });
+    const offset = <M extends MeshStandardMaterial>(x: M): M => {
       x.polygonOffset = true;
       x.polygonOffsetFactor = -2;
       x.polygonOffsetUnits = -2;
       return x;
     };
-    return { out: ink(TRACE_INK.out, men.out), home: ink(TRACE_INK.home, men.home), men };
+    const ink = (hex: string, map: DataTexture) => offset(paper(map, hex, { roughness: 0.55, fibre: 0 }));
+    // stepped (11.4): the same lit film, stepped down toward the desk as every built part is (55% contrast and 30% chroma:
+    // gl/materials.ts), never toward paper grey (which would only take its colour); one pair per step mode
+    const stepped = (hex: string, map: DataTexture, mode: true | 'late' | 'own') => {
+      const x = matte(hex, 0.55, 0, mode);
+      x.map = map;
+      return offset(x);
+    };
+    const modes = (mode: true | 'late' | 'own') => ({ out: stepped(TRACE_INK.out, men.out, mode), home: stepped(TRACE_INK.home, men.home, mode) });
+    return { out: ink(TRACE_INK.out, men.out), home: ink(TRACE_INK.home, men.home), stepped: { main: modes(true), late: modes('late'), own: modes('own') }, men };
   }, []);
   // the frame's light pools (as DeskWorld lights the summary), and how much of its albedo each leg's ink keeps under them
   const pools = useMemo(() => poolsAt(summaryDeskState(a.f)), [a.f]);
@@ -283,111 +233,82 @@ export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string
   }, [inks, holdKey]);
   const g = useMemo(() => {
     const route = (leg: Curve<P3>) => ribbon(leg, SEG);
-    const I = YOU.inTray;
     // the stamp: a rubber pad (its face a little wider than the mark it prints), a graphite stem, an enamel knob; built
     // about its pad's underside, posed each frame (summary.ts stampAt: at rest beside the in-tray, or pressing the reply)
     const stamp = { pad: slab({ x0: -18, x1: 18, y0: -16, y1: 16 }, 0, 8, 3, 1.2), stem: cylinderZ(5, 8, 34, 0, 0, 16), knob: disc(11, 34, 42, { cx: 0, cy: 0, bevel: 3 }) };
-    // the request's reply (#0405), on top in the tray, and its green: a ring and a tick at its east end
-    const reply = plane(REPLY_D.l, REPLY_D.w, rectC(I)[0], I.y1 - 44, YOU.top + 7.2, 0.06);
-    const mark = plane(34, 34, STAMP.mark[0], STAMP.mark[1], YOU.top + 7.6, 0.06);
-    // the fast gate's spike and the noise it dropped
-    const [kx, ky] = DOCKED.spike;
-    const spike = merge([disc(20, 0, 4, { cx: kx, cy: ky, bevel: 1.2 }), cylinderZ(2.6, 4, 84, kx, ky, 12, 0.4)]);
-    const impaled = merge(
-      Array.from({ length: 7 }, (_, i) => {
-        const p = plane(52, 24, 0, 0, 0);
-        p.rotateZ(i * 0.9 + 0.3);
-        p.translate(kx + Math.cos(i * 2.1) * 4, ky + Math.sin(i * 2.1) * 4, 8 + i * 3.2);
-        return p;
-      }),
-    );
-    const key = keyAt(DOCKED.key);
-    const glass = glassAt(DOCKED.glass);
-    // the bug bay's job rail: a low shelf with a back lip along the bay's south wall, the sand-glass and its plate on it
-    const R = JOB_RAIL;
-    const jobRail = merge([slab(R, 0, R.z, 3, 1.2), slab({ ...R, y0: R.y1 - 6 }, R.z, R.lip, 2, 1)]);
-    const plateAt = (p: P3, dx: number, z = 0) => slab({ x0: p[0] + dx - 48, x1: p[0] + dx + 48, y0: p[1] - 15, y1: p[1] + 15 }, z, z + 5, 3, 1.4);
-    const plateFace = (p: P3, dx: number, z = 0) => plane(92, 26, p[0] + dx, p[1], z + 5.1);
+    // the request's reply (#0405: objects/Replies.tsx SignedReply), on top in the tray, and its green: a ring and a tick at its east end
+    const mark = plane(34, 34, STAMP.mark[0], STAMP.mark[1], STAMP.paperZ + 0.35, 0.06);
+    // the hatch it comes up out of (built about the hole's centre): two leaves of your desk's top (a unit wide, west of x 0,
+    // posed to what of each is still over the hole: the rest has slid under the desk's top), a steel lip along each inner
+    // edge (seen as they part); the pit under them (its walls and its floor, never darker than the slate's floor tone); the
+    // punch that opens the desk's top over the hole while it is open
+    const hw = STAMP_SLOT.w / 2;
+    const leaf = new PlaneGeometry(1, STAMP_SLOT.d);
+    leaf.translate(-0.5, 0, 0);
+    const box = { x0: -hw, x1: hw, y0: -STAMP_SLOT.d / 2, y1: STAMP_SLOT.d / 2 };
+    const hatch = {
+      leaf,
+      lip: slab({ x0: -1.6, x1: 0, y0: box.y0, y1: box.y1 }, 0, 0.5, 0.3, 0.2),
+      // its four walls: upright planes on the hole's edges, from the floor up to the desk's top (no top face to show a seam)
+      walls: (() => {
+        const h = STAMP_SLOT.depth + 2;
+        const side = (w: number, x: number, y: number, rot: number) => {
+          const q = new PlaneGeometry(w, h);
+          q.rotateX(Math.PI / 2);
+          q.rotateZ(rot);
+          q.translate(x, y, -h / 2);
+          return q;
+        };
+        return merge([side(STAMP_SLOT.w, 0, box.y1, 0), side(STAMP_SLOT.w, 0, box.y0, 0), side(STAMP_SLOT.d, box.x0, 0, Math.PI / 2), side(STAMP_SLOT.d, box.x1, 0, Math.PI / 2)]);
+      })(),
+      floor: slab({ x0: box.x0 - 1, x1: box.x1 + 1, y0: box.y0 - 1, y1: box.y1 + 1 }, -STAMP_SLOT.depth - 2, -STAMP_SLOT.depth, 1, 0.5),
+      punch: plane(STAMP_SLOT.w, STAMP_SLOT.d, 0, 0, 0.02),
+    };
     return {
+      hatch,
       out: route(LEGS.out),
       home: route(LEGS.home),
       stamp,
-      reply,
       mark,
-      spike,
-      impaled,
-      key,
-      glass,
-      jobRail,
       // the round tail of each leg and its nib (posed at the drawing head), each sampling its leg's map where it sits
       dots: { out: [new CircleGeometry(0.5, 28), new CircleGeometry(0.5, 28)], home: [new CircleGeometry(0.5, 28), new CircleGeometry(0.5, 28)] },
-      plates: merge([plateAt(DOCKED.key, 62), plateAt(DOCKED.glass, -112, JOB_RAIL.z)]),
-      faces: [plateFace(DOCKED.key, 62), plateFace(DOCKED.glass, -112, JOB_RAIL.z)],
       // the request's bay has capped: an enamel cap over its work slot's slit
       cap: slab({ x0: BAYS.bug.slot.x0 + 3, x1: BAYS.bug.slot.x1 - 3, y0: rectC(BAYS.bug.slot)[1] - 11, y1: rectC(BAYS.bug.slot)[1] + 11 }, 30, 34, 2, 1),
     };
   }, []);
   const tex = useMemo(() => {
     const an = Math.min(8, gl.capabilities.getMaxAnisotropy());
-    // the trait plates engrave their chore's outline (no word at this distance): the starter key, the sand-glass
-    const plate = (kind: 'key' | 'glass') =>
-      texture(
-        92,
-        26,
-        (c) => {
-          c.strokeStyle = INK;
-          c.lineWidth = 2.4;
-          c.lineCap = 'round';
-          c.beginPath();
-          if (kind === 'key') {
-            c.arc(30, 13, 6.5, 0, Math.PI * 2);
-            c.moveTo(36.5, 13);
-            c.lineTo(66, 13);
-            c.lineTo(66, 19);
-            c.moveTo(58, 13);
-            c.lineTo(58, 18);
-          } else {
-            c.moveTo(34, 6);
-            c.lineTo(58, 6);
-            c.lineTo(46, 13);
-            c.lineTo(58, 20);
-            c.lineTo(34, 20);
-            c.lineTo(46, 13);
-            c.closePath();
-          }
-          c.stroke();
-        },
-        an,
-      );
     const mark = markTexture();
     mark.anisotropy = an;
-    return {
-      mark,
-      reply: texture(REPLY_D.l, REPLY_D.w, (c) => print(c, printFamily, SLIPS_D.reply, 7, 32, ID_EM, 700, INK), an),
-      proactive: plate('key'),
-      productive: plate('glass'),
-    };
+    return { mark };
   }, [gl, printFamily]);
   const mats = useMemo(() => {
     const markMat = matte(HEX.green, 0.8);
     markMat.map = tex.mark;
     markMat.transparent = true;
     markMat.depthWrite = false;
-    const face = (t: typeof tex.proactive) => {
-      const f = matte('#FFFFFF', 0.4);
-      f.map = t;
-      f.color.set(HEX.enamel);
-      return f;
-    };
-    const reply = matte('#FFFFFF', 0.9);
-    reply.map = tex.reply;
-    reply.color.set(SLIP_HEX);
-    return { mark: markMat, reply, proactive: face(tex.proactive), productive: face(tex.productive) };
+    // the pit's floor: unlit dark, never darker than the slate's floor tone (objects/Dispatch.tsx PIT_FLOOR)
+    const pitFloor = new MeshBasicMaterial({ color: new Color('#2B2D2C') });
+    // its walls a step lighter than its floor (unlit too: under your desk's top the desk's own footprint would shade a lit wall below the floor tone)
+    const pitWall = new MeshBasicMaterial({ color: new Color('#353837'), side: DoubleSide });
+    // the hatch's leaves: your desk's own top (objects/YourDesk.tsx's slab: its brushing is world-locked, so a shut leaf is the desk)
+    const leaf = graphite('#2C2F2E', { roughness: 0.62, metalness: 0.35, brush: 0.07 });
+    // the punch: it opens your desk's top over the hole while the hatch is open (writes the far depth there and no colour,
+    // drawn after the desk and before the pit, the leaves and the stamp, which then show through the hole as through a cut)
+    const punch = new ShaderMaterial({
+      vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'void main() { gl_FragColor = vec4(0.0); gl_FragDepth = 1.0; }',
+      colorWrite: false,
+      depthWrite: true,
+      depthFunc: AlwaysDepth,
+    });
+    return { mark: markMat, pitFloor, pitWall, leaf, punch };
   }, [tex]);
   useLayoutEffect(
     () => () => {
       inks.out.dispose();
       inks.home.dispose();
+      for (const set of Object.values(inks.stepped)) for (const x of Object.values(set)) x.dispose();
       inks.men.out.dispose();
       inks.men.home.dispose();
       for (const x of Object.values(mats)) x.dispose();
@@ -397,7 +318,7 @@ export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string
   );
   useLayoutEffect(
     () => () => {
-      for (const x of [g.out, g.home, ...g.dots.out, ...g.dots.home]) x.dispose();
+      for (const x of [g.out, g.home, ...Object.values(g.hatch), ...g.dots.out, ...g.dots.home]) x.dispose();
     },
     [g],
   );
@@ -410,11 +331,19 @@ export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string
   useLayoutEffect(() => {
     for (const set of [sets.full, sets.stepped]) set.slotBug.color.set('#2A2D2C');
   }, [sets]);
+  // the stuck bay's work slot, held on the late set after still (d) (summary.ts summaryStep): its unlit level as the stepped set
+  // has it (objects/Bay.tsx FreshBay colours only the full and stepped sets' slots), every frame, after the bays have drawn
+  useLayoutEffect(() => {
+    sets.late.slotFresh.color.copy(sets.stepped.slotFresh.color);
+  });
   // the green's spread on the reply: its radial front refills the mark's texels only while it moves
   useLayoutEffect(() => fillMark(tex.mark, a.ink), [tex, a.ink]);
   // the tail where each leg set out, and its nib at the drawing head: both grow from the pen's first blot as the leg sets
   // out, and the nib is a hair wider while it draws (the ink's bead), sinking to the run's width over 2 f once it stops
-  const legs = (['out', 'home'] as const).map((k) => ({ k, on: a[k], grow: touchDown(LEGS[k], a[k]), bead: 1 + 0.12 * a.bead[k], tail: headOf(LEGS[k], 0), head: headOf(LEGS[k], a[k]), mat: inks[k], dots: g.dots[k] }));
+  // 11.4: the route steps down with the system it ran through (its inks' stepped pair, on the main set's ramp)
+  const traceOn = isStepped(step, 'b11-trace');
+  const ink = traceOn === 'late' ? inks.stepped.late : traceOn === 'own' ? inks.stepped.own : traceOn ? inks.stepped.main : inks;
+  const legs = (['out', 'home'] as const).map((k) => ({ k, on: a[k], grow: touchDown(LEGS[k], a[k]), bead: 1 + 0.12 * a.bead[k], tail: headOf(LEGS[k], 0), head: headOf(LEGS[k], a[k]), mat: ink[k], dots: g.dots[k] }));
   useLayoutEffect(() => {
     for (const l of legs) {
       dotAt(l.dots[0], l.tail.t);
@@ -422,10 +351,16 @@ export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string
     }
   });
   const sp = a.stamp;
+  const open = stampSlotAt(a.f);
+  // each leaf slides out under the desk's top beyond the hole's edge (the west one west, the east one east): what of it is
+  // still over the hole, its top a hair over the desk's (as the desk's own top lies, so a leaf is lit as the desk is)
+  const gap = (STAMP_SLOT.w / 2) * open;
+  const leafW = STAMP_SLOT.w / 2 - gap;
+  const [hx, hy] = [STAMP.rest[0], STAMP.rest[1]];
   return (
     <group>
-      {a.out > 0 && <mesh geometry={g.out} material={inks.out} renderOrder={1} />}
-      {a.home > 0 && <mesh geometry={g.home} material={inks.home} renderOrder={1} />}
+      {a.out > 0 && <mesh geometry={g.out} material={ink.out} renderOrder={1} />}
+      {a.home > 0 && <mesh geometry={g.home} material={ink.home} renderOrder={1} />}
       {legs.map((l) => {
         if (l.on <= 0) return null;
         return (
@@ -435,24 +370,31 @@ export function Trace({ a, printFamily }: { a: SummaryState; printFamily: string
           </group>
         );
       })}
-      <mesh geometry={g.cap} material={sets.stepped.enamelShade} />
-      {/* the stamp, squashed about its pad's underside as its rubber takes the press (its volume kept) */}
+      {/* stepped down whole from the seam on: the late set's (exactly 1 in the summary), so it never follows the main set's beat 11 ramps */}
+      <mesh geometry={g.cap} material={sets.late.enamelShade} />
+      {/* the hatch, while it is open: the punch first (after the desk), then the pit and the leaves, under the desk's top */}
+      {open > 0 && (
+        <group position={[hx, hy, YOU.top]}>
+          <mesh geometry={g.hatch.punch} material={mats.punch} renderOrder={10} />
+          <mesh geometry={g.hatch.walls} material={mats.pitWall} renderOrder={11} />
+          <mesh geometry={g.hatch.floor} material={mats.pitFloor} renderOrder={11} />
+          {leafW > 0.05 &&
+            ([-1, 1] as const).map((side) => (
+              <group key={side} position={[side * gap, 0, 0.01]} scale={[-side, 1, 1]}>
+                <mesh geometry={g.hatch.leaf} material={mats.leaf} scale={[leafW, 1, 1]} renderOrder={12} />
+                <mesh geometry={g.hatch.lip} material={m.steel} scale={[Math.min(1, leafW / 1.6), 1, 1]} renderOrder={12} />
+              </group>
+            ))}
+        </group>
+      )}
+      {/* the stamp, squashed about its pad's underside as its rubber takes the press (its volume kept); drawn after the punch, so it shows in the open pit */}
       <group position={sp.p} rotation={[0, 0, sp.turn]} scale={[1 + sp.squash / 2, 1 + sp.squash / 2, 1 - sp.squash]}>
-        <mesh geometry={g.stamp.pad} material={m.rubber} />
-        <mesh geometry={g.stamp.stem} material={m.graphite} />
-        <mesh geometry={g.stamp.knob} material={m.enamel} />
+        <mesh geometry={g.stamp.pad} material={m.rubber} renderOrder={12} />
+        <mesh geometry={g.stamp.stem} material={m.graphite} renderOrder={12} />
+        <mesh geometry={g.stamp.knob} material={m.enamel} renderOrder={12} />
       </group>
-      <mesh geometry={g.reply} material={mats.reply} />
+      <SignedReply printFamily={printFamily} />
       <mesh geometry={g.mark} material={mats.mark} renderOrder={2} />
-      <mesh geometry={g.spike} material={m.steel} />
-      <mesh geometry={g.impaled} material={m.paperShade} />
-      <mesh geometry={g.key} material={m.steel} />
-      <mesh geometry={g.jobRail} material={m.graphiteDark} />
-      <mesh geometry={g.glass.glass} material={m.paper} />
-      <mesh geometry={g.glass.ends} material={m.graphite} />
-      <mesh geometry={g.plates} material={m.enamelShade} />
-      <mesh geometry={g.faces[0]} material={mats.proactive} />
-      <mesh geometry={g.faces[1]} material={mats.productive} />
     </group>
   );
 }

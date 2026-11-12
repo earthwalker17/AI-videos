@@ -10,6 +10,10 @@ import { cue } from '../cues.ts';
 import { EASE_OUT_D, FRAMING_D, cameraAt, deskCamera, project, screenToDesk, type Angle } from './camera.ts';
 import { BAYS, BELT, BENCH, CHUTE, DECK, DISPATCH_HOUSING, FEEDERS, FOLDER, FRESH, GATE, GROOVES, INDEX, LEG_STRUTS, RAMP, REEL, SPIKE, TAPE, TAPE_FLAT_X1, THROAT, WINDOW, YOU, rectC, type P2, type P3, type Pool } from './layout.ts';
 import { DETENT, SPRING, STEP_FRAMES, deskStateAt, springAt, type DeskState, type FocusId } from './state.ts';
+import { BEAT_11 } from '../cues.ts';
+import { COLLAR, SETTLE, STEP_11, TAB_FLAT, cardNotchAt, hopperAt, nextReplies, plateLands, readLampAt, retireLiftOf } from './beat11.ts';
+import { hopTargets } from './beat6.ts';
+import { REPLY_0405 } from './beat10.ts';
 
 /**
  * Where the summary's world takes over from act two's (desk/film.ts SEGMENTS): inside bar 68's stillness, after the reply
@@ -62,11 +66,14 @@ export const TRACE_STEP: readonly FocusId[] = ['reel', 'lock', 'policy', 'gauge'
 export const FOCUS_LEAD = 5;
 
 // ------------------------------------------------------------------------------------------------
-// Your stamp (STORYBOARD 11.1, TREATMENT Relationships "Stamp"): it rests on your desk west of the in-tray. For the
-// sign-off it lifts (3 f), is carried over the tray's rim to the reply's east end, and presses onto it on spring-dock
-// (5 f): its pad touches the paper on the cue (the contact frame), the spring's overshoot taken up as a 4% squash of
-// its rubber. Its green spreads from the contact over 6 f (a radial ink front, never a fade). Then it lifts off and
-// is carried back to its rest the same way, landing on spring-dock.
+// Your stamp (STORYBOARD 11.1, TREATMENT Relationships "Stamp"): act two's desk has none, so in the summary's world it
+// waits in a pit in your desk under a shut hatch west of the in-tray (its leaves your desk's own top, so the seam and the
+// stillness before the stamp, f5420-5431, show nothing). For the sign-off the hatch's leaves part (3 f, the film's slate
+// hatches' grammar: objects/Trace.tsx), the stamp comes up out of the pit knob first (5 f, `sunk` to `lift` over the
+// desk) and the leaves shut under it; it is carried over the tray's rim to the reply's east end (5 f) and presses onto it
+// on spring-dock (5 f): its pad touches the paper on the cue (the contact frame), the spring's overshoot taken up as a 4%
+// squash of its rubber. Its green spreads from the contact over 6 f (a radial ink front, never a fade). Then it lifts off
+// and is carried back to its rest on the shut hatch (8 f), landing on spring-dock.
 
 export const STAMP = {
   /** the pad's centre at rest, on your desk (z: its underside) */
@@ -74,13 +81,17 @@ export const STAMP = {
   /** where it prints: the reply's east end, under its ID (objects/Trace.tsx lays the reply there, turned `turn`) */
   mark: [rectC(YOU.inTray)[0] + 28, YOU.inTray.y1 - 62] as P2,
   turn: 0.06,
-  /** the pad's underside on the reply (the slip lies at YOU.top + 7.2) */
-  paperZ: YOU.top + 7.25,
+  /** the pad's underside on the reply (beat10.ts REPLY_0405: where #0405 lies on top in your in-tray), a hair over it */
+  paperZ: REPLY_0405.rest[2] + 0.05,
   /** how high the pad rises over the desk: clear of the in-tray's rim (18 u) */
   lift: 30,
   liftFrames: 3,
-  /** the carry across (sine), overlapping the lift's last frame and ending on the contact */
-  carryFrames: 8,
+  /** how far under its rest it waits in the pit (its knob's top 2 u under the desk's), and over how many frames it comes up out of it to the lift's height */
+  sunk: 44,
+  riseFrames: 5,
+  /** the carry across (sine), from the frame its pad has cleared the desk, ending on the contact; and the carry home */
+  carryFrames: 5,
+  homeFrames: 8,
   /** the press runs on spring-dock: it first reaches the paper on its 3rd frame (the contact), its overshoot is the squash */
   pressFrames: 5,
   squash: 0.04,
@@ -93,10 +104,11 @@ export const STAMP = {
 /** The press's spring starts so that it first reaches the paper on the contact frame. */
 const PRESS_F = STAMP_F - 3;
 const CARRY_F = STAMP_F - STAMP.carryFrames;
-const LIFT_F = CARRY_F - 1;
+/** It comes up out of the pit over (RISE_F, RISE_F + riseFrames], reaching the lift's height as the press starts. */
+const RISE_F = PRESS_F - STAMP.riseFrames;
 const BACK_F = STAMP_F + STAMP.back;
 /** The landing at rest: its spring starts so that it first meets the desk as the carry home ends. */
-const LAND_F = BACK_F + STAMP.carryFrames - 3;
+const LAND_F = BACK_F + STAMP.homeFrames - 3;
 /** The spring-dock's largest overshoot over whole frames (its squash is 4% at that overshoot). */
 const DOCK_OVER = Math.max(...Array.from({ length: 16 }, (_, i) => springAt(i + 1, 0, SPRING.dock) - 1));
 
@@ -114,11 +126,12 @@ export function stampAt(f: number): StampPose {
   const top = rest[2] + lift;
   const sine = (a: number, b: number) => easings.inOutSine(clamp((f - a) / (b - a)));
   const over = (start: number) => Math.max(0, springAt(f, start, SPRING.dock) - 1) / DOCK_OVER;
-  // across: out to the mark, then home, each over the carry's frames
-  const k = sine(CARRY_F, STAMP_F) * (1 - sine(BACK_F, BACK_F + STAMP.carryFrames));
+  // across: out to the mark, then home
+  const k = sine(CARRY_F, STAMP_F) * (1 - sine(BACK_F, BACK_F + STAMP.homeFrames));
   let z: number;
   let squash = 0;
-  if (f < PRESS_F) z = rest[2] + lift * sine(LIFT_F, LIFT_F + STAMP.liftFrames);
+  // (up out of the pit in your desk to the lift's height)
+  if (f < PRESS_F) z = rest[2] - STAMP.sunk + (STAMP.sunk + lift) * sine(RISE_F, RISE_F + STAMP.riseFrames);
   else if (f < STAMP_F + STAMP.liftOff) {
     z = top - (top - paperZ) * Math.min(1, springAt(f, PRESS_F, SPRING.dock));
     squash = STAMP.squash * over(PRESS_F);
@@ -134,6 +147,14 @@ export function stampAt(f: number): StampPose {
 }
 /** How far the green has spread from the stamp's contact (0..1: a radial ink front from the mark's centre; 1/6 on the contact frame). */
 export const inkAt = (f: number): number => clamp((f - STAMP_F + 1) / STAMP.spread);
+/**
+ * The hatch in your desk the stamp comes up out of (objects/Trace.tsx: a pit under its rest, two leaves of your desk's own
+ * top parting from the middle and sliding under it): shut through the seam and the stillness (f5420-5431), its leaves
+ * moving from f5432 (open over 3 f, the stamp rising in the open hatch from the frame after), shut again over 3 f once the
+ * stamp's pad has cleared the desk's top; the stamp lands home on it shut. `depth`: the pit's floor under the desk's top.
+ */
+export const STAMP_SLOT = { w: 44, d: 40, depth: STAMP.sunk + 4, open: RISE_F - 1, shut: CARRY_F + 1, frames: 3 } as const;
+export const stampSlotAt = (f: number): number => easings.inOutSine(clamp((f - STAMP_SLOT.open) / STAMP_SLOT.frames)) * (1 - easings.inOutSine(clamp((f - STAMP_SLOT.shut) / STAMP_SLOT.frames))) + 0;
 
 // ------------------------------------------------------------------------------------------------
 // The trace's drawing: each leg's head runs at an even speed on screen, measured through still (d)'s camera (a
@@ -217,10 +238,122 @@ export function summaryAt(f: number): SummaryState {
   return { f, out: leg('out'), home: leg('home'), bead: { out: bead('out'), home: bead('home') }, stamp: stampAt(f), ink: inkAt(f) };
 }
 
-/** The desk's state at the sign-off: every bay capped and stepped down, their work lights out, the index arm at your detent. */
+/** The bays (W-10 too) and the Thread cord: stepped down from the seam. */
+const BAYS_CORD: readonly FocusId[] = ['docsBay', 'bugBay', 'freshBay', 'cord'];
+/**
+ * When the summary's step hands its held parts to the late set (exactly 1 there, as on the sets they leave: no part moves),
+ * so its main set can carry beat 11's own ramps: after still (d), before the first trait plate lifts.
+ */
+export const RESTEP_F = 5521;
+/**
+ * The summary's step (continuous per part, its own ramps; desk.test holds every part's frame-to-frame change):
+ * - from the seam: the bays and the cord stepped (the main set at 1); the trace's set (TRACE_STEP) on the own set, ramping
+ *   in as the route draws (5 f ahead of the ease-out);
+ * - from RESTEP_F: those held on the late set (the intake, which draws 'late' with the main set, keeps the own set at 1),
+ *   and the main set carries beat 11's ramps, one at a time, each part handed from the late set to it at the full step:
+ *   the Continuous plate ('plate') stepping up as it leaves the Register for your tray, the neck-collar gauge ('gauge') as it
+ *   leaves the throat for your lamp, then 11.4's step-down of everything but your desk, your lamp and the stamped reply
+ *   (beat11.ts STEP_11); between them, while the act-one card is up (11.3), the same parts a notch down (beat11.ts
+ *   cardNotchAt: the card is the beat's action).
+ */
+export function summaryStep(f: number): DeskState['step'] {
+  const ownIn = easings.inOutSine(clamp((f - (EASE_OUT_D.from - FOCUS_LEAD)) / STEP_FRAMES));
+  if (f < RESTEP_F) return { amount: 1, ids: BAYS_CORD, own: { amount: ownIn, ids: TRACE_STEP } };
+  const lift = retireLiftOf('continuous');
+  const land = plateLands('continuous')[0]!;
+  // each leaves the late set as its own ramp takes it (and is not stepped once it has landed on your desk)
+  const gone = (x: FocusId): boolean => (x === 'gauge' && f >= COLLAR.from) || (x === 'plate' && f > lift);
+  const late = [...BAYS_CORD, ...TRACE_STEP.filter((x) => x !== 'intake' && !gone(x))];
+  const own = { amount: 1, ids: ['intake'] as FocusId[] };
+  let main: { amount: number; ids: readonly FocusId[] } = { amount: 0, ids: [] };
+  if (f > lift && f < land) main = { amount: 1 - easings.inOutSine((f - lift) / (land - lift)), ids: ['plate'] };
+  else if (cardNotchAt(f) > 0) main = { amount: cardNotchAt(f), ids: STEP_11 };
+  else if (f >= COLLAR.from && f < COLLAR.to) main = { amount: 1 - easings.inOutSine((f - COLLAR.from) / (COLLAR.to - COLLAR.from)), ids: ['gauge'] };
+  else if (f >= BEAT_11.stepDown) main = { amount: easings.inOutSine(clamp((f - BEAT_11.stepDown) / STEP_FRAMES)), ids: STEP_11 };
+  return { ...main, own, late };
+}
+
+/** Act two's last two frames (the seam's other side), computed once. */
+let actTwoLast: [DeskState, DeskState] | null = null;
+const lastOfActTwo = (): [DeskState, DeskState] => (actTwoLast ??= [deskStateAt(SEAM_D - 1), deskStateAt(SEAM_D - 2)]);
+
+/**
+ * Recall's reading thread wound back in (beat11.ts SETTLE.thread): its head runs back along it at an even pace, the shuttle
+ * at the head, each hop's "№" tab folding down flat as the head passes it; the shuttle sinks into the new row once it is home.
+ */
+export function threadWoundAt(f: number, t: NonNullable<DeskState['e6']['thread']> | null): DeskState['e6']['thread'] {
+  const W = SETTLE.thread;
+  if (!t || f <= W.from) return t;
+  const seg = t.pts.slice(1).map((p, i) => Math.hypot(p[0] - t.pts[i]![0], p[1] - t.pts[i]![1], p[2] - t.pts[i]![2]));
+  const at = [0, ...seg.map((_, i) => seg.slice(0, i + 1).reduce((a, b) => a + b, 0))];
+  const L = at[at.length - 1]!;
+  const head = L * (1 - easings.inOutSine(clamp((f - W.from) / W.frames)));
+  // each tab sits where its hop landed (beat6.ts hopTargets 1-3): the head passes back over the thread's point nearest it
+  const ends = hopTargets()
+    .slice(1)
+    .map((q) => {
+      let best = 0;
+      t.pts.forEach((p, i) => {
+        if (Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < Math.hypot(t.pts[best]![0] - q[0], t.pts[best]![1] - q[1], t.pts[best]![2] - q[2])) best = i;
+      });
+      return at[best]!;
+    });
+  const passed = (d: number): number => {
+    // the frame the head passes arc length d (inverse of the ramp, by search)
+    for (let g = W.from; g <= W.from + W.frames; g++) if (L * (1 - easings.inOutSine(clamp((g - W.from) / W.frames))) <= d) return g;
+    return W.from + W.frames;
+  };
+  // each tab folds down flat onto the body it landed on (a read mark: it lies there, beat11.ts TAB_FLAT), never edge-on into it
+  const tabs = t.tabs.map((k, i) => (k <= TAB_FLAT ? k : TAB_FLAT + (k - TAB_FLAT) * (1 - easings.inOutSine(clamp((f - passed(ends[i]! - 1)) / W.fold)))));
+  const home = W.from + W.frames;
+  if (f >= home + W.sink) return { pts: [t.pts[0]!], shuttle: null, tabs };
+  const pts: P3[] = [];
+  for (let i = 0; i < t.pts.length; i++) {
+    if (at[i]! < head) pts.push(t.pts[i]!);
+    else {
+      const a = t.pts[Math.max(0, i - 1)]!;
+      const b = t.pts[i]!;
+      const k = at[i]! - at[Math.max(0, i - 1)]! > 1e-9 ? (head - at[Math.max(0, i - 1)]!) / (at[i]! - at[Math.max(0, i - 1)]!) : 0;
+      pts.push([a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]);
+      break;
+    }
+  }
+  const tip = pts[pts.length - 1]!;
+  // it comes up out of what the head lies on as the winding starts, and sinks into the new row once it is home
+  const sunk = 1 - clamp((f - W.from) / W.sink) + clamp((f - home) / W.sink);
+  return { pts: pts.length >= 2 ? pts : [pts[0]!, pts[0]!], shuttle: [tip[0], tip[1], tip[2] - 4 * sunk], tabs };
+}
+
+/**
+ * The docs galley at f (its own motion, one line every 160 f): act two's 5423 value through the stillness if act two holds
+ * it there, then back onto its own clock by still (d)'s frame, never a jump (a speed change under the ease-out).
+ */
+function galleyAt(f: number, last: number, prev: number, own: number): number {
+  const held = last === prev;
+  if (!held) return own;
+  if (f < STAMP_F) return last;
+  const at = (g: number) => ((((g - 2000) % 160) + 160) % 160) / 160;
+  let off = last - at(STAMP_F);
+  off -= Math.round(off);
+  const v = at(f) + off * (1 - easings.inOutSine(clamp((f - STAMP_F) / (STILL_D_F - 1 - STAMP_F))));
+  return v - Math.floor(v);
+}
+/** Still (d)'s frame (lookdev/frames.ts ROUND2.stillD). */
+const STILL_D_F = 5520;
+
+/**
+ * The desk's state from the seam: act two's last frame where what act two built lasts (the window and its tape as beat 6
+ * left them, #0408's tab filed in the drawer, the hopper folded, the starter key, the spike and its pile, beat 7's parts at
+ * rest; the 7.4 chat reply in your in-tray), settling into still (d)'s under the stamp (beat11.ts SETTLE: the reading lamp
+ * dims, the reading thread is wound in, the worded plates turn over into their pictogram plates); every bay capped and
+ * stepped down, their work lights out, the index arm at your detent; then beat 11 (beat11.ts beat11At).
+ */
 export function summaryDeskState(f: number): DeskState {
   const s = deskStateAt(f);
-  const own = easings.inOutSine(clamp((f - (EASE_OUT_D.from - FOCUS_LEAD)) / STEP_FRAMES));
+  const [a, a2] = lastOfActTwo();
+  const e11 = s.e11;
+  // the 7.4 chat reply lies on in your in-tray (beat 7's own list ends at the seam)
+  const lasting = a.replies.filter((r) => r.id === '7-chat' && !s.replies.some((x) => x.id === r.id));
   return {
     ...s,
     // bar 68's reply came down the chute to you: the arm rests at your detent
@@ -231,10 +364,20 @@ export function summaryDeskState(f: number): DeskState {
     // the request's bay finished in bar 68: every pin passed, dead still
     pins: s.pins.map(() => 1),
     next: { ...s.next, light: 0 },
-    // every bay stepped down (W-10 too), and the Thread cord with them; the rest of what the route skips steps down as it draws
-    step: { amount: 1, ids: ['docsBay', 'bugBay', 'freshBay', 'cord'], own: { amount: own, ids: TRACE_STEP } },
-    // the Register's hooded lamp no longer lights the window: the one lit paper is the slip your stamp signed
-    cache: s.cache ? { ...s.cache, lamp: 0.25 } : null,
+    // the next replies come down the chute in 11.4 and wait queued in it (beat11.ts NEXT_REPLIES)
+    replies: [...s.replies, ...lasting, ...nextReplies(f)],
+    galley: galleyAt(f, a.galley, a2.galley, s.galley),
+    step: summaryStep(f),
+    // the window, its tape and the drawer as act two left them; the Register's hooded lamp dims on the stamp (the one lit
+    // paper is the slip your stamp signed) and its hopper swings back up for the next report
+    cache: a.cache ? { ...a.cache, lamp: readLampAt(f), hopper: hopperAt(f, a.cache.hopper) } : s.cache ? { ...s.cache, lamp: readLampAt(f) } : null,
+    // the starter key, the spike and its pile where beat 5 left them; the worded Proactive plate until it lifts (beat 11 flies it)
+    e5: { ...s.e5, key: a.e5.key, spike: a.e5.spike, slips: a.e5.slips, pile: a.e5.pile, plate: e11?.plates.proactive ? null : a.e5.plate },
+    // the tape's advance and rewind and the Thread's row as beat 6 left them; recall's reading thread wound back in
+    e6: { ...s.e6, advance: a.e6.advance, rewind: a.e6.rewind, threadRow: a.e6.threadRow, thread: threadWoundAt(f, a.e6.thread) },
+    // beat 7's parts at rest as act two left them (the cord, the Thread's gate open on the bay's north wall: the full-duplex
+    // door 11.2 names, the job rail and its glass, the notices on the tape); the worded Productive plate until it lifts
+    e7: a.e7 ? { ...a.e7, plate: e11?.plates.productive ? null : a.e7.plate } : null,
   };
 }
 

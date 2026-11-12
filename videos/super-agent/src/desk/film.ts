@@ -15,7 +15,7 @@
  * so their timing can be judged against the score.
  */
 import { clamp } from '@aiv/core';
-import { BEAT_4, FILM_FRAMES, WORDS, at } from '../cues.ts';
+import { BEAT_4, BEAT_11, FILM_FRAMES, WORDS, at } from '../cues.ts';
 import { ACT_ONE_END } from './actOne.ts';
 import { BUILT as BUILT_7, TAGS_7 } from './beat7.ts';
 import { BUILT as BUILT_8, TAGS_8 } from './beat8.ts';
@@ -162,7 +162,9 @@ export function act2LabelsAt(f: number): RoleLabel[] {
 /**
  * The summary's labels at film frame f (from SEAM_D): act two's as bar 65 left them (so the seam changes none of them),
  * fading over the stamp's 6 f; LABELS_D re-entering once the ease-out has settled (summary.ts summaryLabelAt), landed for
- * still (d); fading over the first 6 f of bar 76's move back to the hook, and away from then on.
+ * still (d); on 11.4's step-down (BEAT_11.stepDown) "Router" and "Worker" fade out over 6 f with the system they name (the
+ * world steps down by contrast; a label is never dimmed by alpha: it leaves), "you · 你" stays; fading over the first 6 f of
+ * bar 76's move back to the hook, and away from then on.
  */
 export function summaryLabelsAt(f: number): RoleLabel[] {
   const g = Math.max(f, SEAM_D);
@@ -173,9 +175,12 @@ export function summaryLabelsAt(f: number): RoleLabel[] {
       return a ? [{ ...l, ...a }] : [];
     });
   }
-  if (g >= TO_BOOKEND.from) return g < TO_BOOKEND.from + 6 ? LABELS_D.map((l) => ({ ...l, opacity: 1 - (g - TO_BOOKEND.from) / 6 })) : [];
+  if (g >= TO_BOOKEND.from) return g < TO_BOOKEND.from + 6 ? LABELS_D.filter((l) => !SYSTEM_LABELS.has(l.text)).map((l) => ({ ...l, opacity: 1 - (g - TO_BOOKEND.from) / 6 })) : [];
+  if (g >= BEAT_11.stepDown) return labelsDAt(g).flatMap((l) => (!SYSTEM_LABELS.has(l.text) ? [l] : g < BEAT_11.stepDown + 6 ? [{ ...l, opacity: 1 - (g - BEAT_11.stepDown) / 6 }] : []));
   return labelsDAt(g);
 }
+/** The labels that name the system (they leave on 11.4's step-down; yours stays). */
+const SYSTEM_LABELS = new Set<string>([WORDS.router.en, WORDS.worker.en]);
 
 /** Still (d)'s labels after the stamp: LABELS_D re-entering once the ease-out has settled (summary.ts summaryLabelAt). */
 export const labelsDAt = (f: number): RoleLabel[] =>
