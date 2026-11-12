@@ -396,19 +396,19 @@ export const BEAT_7 = {
 /**
  * Beat 8 (STORYBOARD 8.1-8.5): many runs, the evidence. On bar 50's downbeat the camera trucks east to the printed
  * test sheet at 0.7x (camera.ts TO_SHEET; 1.0x would break the 700 px/s cap) and everything else steps down to 55%
- * from 3914. The load line prints as `ticks.n` tiny ticks, `inked` of them inked, as texture while the camera moves.
+ * on the same downbeat (beat8.ts FOCUS_8). The load line prints as `ticks.n` tiny ticks, `inked` of them inked, as texture while the camera moves.
  * At 4000 the caveat stamp (the chart tag) inks in 3 f with C20 and the load tag; the three lanes slide out as paper
  * strips, each cut at its slowest run (p95) with a hole punched at its typical one (p50), every strip sliding for
  * `stripFrames` x its p95 frames (the score sounds each for as long). Then the hero stamps (their text cues), the
  * bracket between the told-to-delegate and two-level holes, the told-to-delegate lane's delegation notches on
  * eighths (4 punched and 1 not: in that run it did the work itself, and its strip's tail slides out long), and the
- * token stacks, each built in turn and done on its frame; "2–4×" lands on the tallest's completion. The sheet slides
+ * token stacks, each built in turn and done on its own beat after the header; "2–4×" lands on the tallest's completion. The sheet slides
  * away on bar 58's downbeat. Lane data: the article's synthetic test (FACTS.md; src/film/chart.ts RUNS holds them
  * equal): p50 and p95 task time, cache-read tokens (M).
  */
 export const BEAT_8 = {
-  stepDown: 3914,
-  ticks: { from: 3936, to: 3992, n: 300, inked: [7, 22, 31, 48, 63, 79, 92, 108, 121, 139, 152, 167, 183, 198, 214, 229, 243, 258, 274, 291] },
+  stepDown: at(50),
+  ticks: { from: 3936, to: 3992, n: 300, inked: [4, 9, 13, 41, 47, 52, 58, 97, 104, 133, 139, 172, 176, 181, 219, 226, 248, 271, 276, 293] },
   caveat: at(51),
   lanes: [
     { id: 'laneOne', p50: 20.4, p95: 29.5, tokens: 6.1, slide: 4004 },
@@ -426,9 +426,9 @@ export const BEAT_8 = {
   ],
   longRun: { from: 4340, frames: 30 },
   stacks: [
-    { from: 4420, done: 4426 },
-    { from: 4424, done: 4432 },
-    { from: 4428, done: at(56, 3) },
+    { from: 4434, done: at(56, 3) },
+    { from: 4452, done: at(56, 4) },
+    { from: 4468, done: at(57) },
   ],
   away: at(58),
 } as const;
@@ -436,7 +436,8 @@ export const BEAT_8 = {
 /**
  * Beat 9 (STORYBOARD 9.1-9.2): keeping it running, handed over (proposed). On bar 58's downbeat the sheet slides
  * away, your laptop's lid shuts (its click lands at `lidClick`) and the camera eases out to still (d)'s framing
- * (0.64x). The vellum parts are laid down flat east of the system, 12 f each, on `lays` (the plan of the deck, the
+ * (0.64x). The vellum parts are laid down flat east of the system, 12 f each, on `lays` (the first waits for beat 8's
+ * departing sheet to clear its ground: its west edge passes x 1050 on 4578; the plan of the deck, the
  * state cabinet, the loop, the daemon tethers); the lid strut lifts off your tray (the hand-over grammar) and docks
  * on the vellum loop, taking its material, then the Persistent plate docks, in vellum. A machine's lamp comes on and
  * a queued slip drops in. Under N8 the Watchdog is laid outside the system, its sightline sweeps 20 f on `sweeps`,
@@ -446,7 +447,7 @@ export const BEAT_8 = {
 export const BEAT_9 = {
   away: at(58),
   lidClick: 4566,
-  lays: [4568, 4580, 4592, 4604],
+  lays: [4580, 4592, 4604, 4616],
   strut: { lift: 4596, dock: at(58, 4), plateDock: 4624 },
   machineLamp: at(59, 2),
   slipDrop: at(59, 3),
@@ -679,7 +680,7 @@ const events: CueEvent[] = [
   line('c22', at(54, 3), at(56, 1.5)),
   line('c23', at(56, 1.5), at(58)),
   shown('text', 'chart-tokens', at(56, 2), at(58), WORDS.tokenHead),
-  shown('text', 'stamp-tokens', at(56, 3), at(58), WORDS.stampTokens),
+  shown('text', 'stamp-tokens', at(57), at(58), WORDS.stampTokens),
 
   // 9 · Keeping it running, handed over (bars 58-62): proposed
   mark('lid', BEAT_9.lidClick, 'your laptop’s lid shuts for the night as the sheet slides away: a soft click'),

@@ -260,7 +260,8 @@ describe('beat 8: the print and its contact frames', () => {
     expect(E8.legend).toBeGreaterThan(L[2].slide + L[2].p95);
     expect(E8.legend + 3).toBeLessThan(stampAt('half'));
     expect(E8.head).toBe(textWindow(cue('chart-tokens'))[0]);
-    expect([stampAt('half'), stampAt('ten'), stampAt('tokens')]).toEqual([at(51, 3), at(53), at(56, 3)]);
+    expect([stampAt('half'), stampAt('ten'), stampAt('tokens')]).toEqual([at(51, 3), at(53), at(57)]);
+    // the stacks are done on beats after the header (critic P1-2); "2–4×" lands on the tallest's completion
     expect(stampAt('tokens')).toBe(BEAT_8.stacks[2].done);
     expect([inkStage(99, 100), inkStage(100, 100), inkStage(101, 100), inkStage(102, 100), inkStage(500, 100)]).toEqual([-1, 0, 1, 2, 2]);
     // nothing of the form's print while the camera moves (8.1: no text under the move)
