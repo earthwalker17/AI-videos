@@ -114,7 +114,11 @@ declared as a hold.
 **Settled in the build (session 6: the whole-film critics' fixes).**
 - **Captions in English only.** The notes block and the credit show the EN line alone (the user,
   2026-11-13: the film is not going to Bilibili); the zh copy stays signed off in `src/cues.ts`.
-  Tags, plates, labels, the title card and the end card keep their zh.
+  Since 2026-11-14 ("Drop it from long plates") the long in-world text is EN only too: every tag,
+  the evidence sheet's print, the stress plate's header, the six idea labels, the map key and the
+  end key. "you · 你", the trait plates (Persistent's vellum words with them), the title card and
+  the end card's body keep their zh. One policy, `src/look/zhInPicture.ts`, is consulted by every
+  drawer.
 - **2.1.** Each event slip floats down onto its new folder's stack over its last 5 f and lies there
   as the folder's task card; F6–F8 no longer blink dark as they land.
 - **3.1–3.2.** The request stays in the heap, vermilion, and steps down with act one. Fix A's grey
@@ -139,7 +143,7 @@ declared as a hold.
   without turning; the oval has a lit lip and steps to the slate as it sinks under its hatch.
   Productive's hatch stays shut until the sand-glass docks (f3740); the plate rises, docks on f3744
   and its words write on from the west over 8 f. The sand-glass flies north over the south ends of
-  W-08 and W-09, clear of the jobs tag, which sits 28 px east of the 100-word tag's place.
+  W-08 and W-09, clear of the jobs tag. (Wave 2: both tags now share one place, below.)
 - **7.4.** The "≤ 100" tag's cue starts on the reply's landing (f3840).
 - **8.3–8.4.** The bracket springs open over about 9 f and is drawn as a dimension, an extension
   line from each hole. After lane 2's last notch the die travels west and north along the clamp
@@ -163,12 +167,57 @@ declared as a hold.
   fade with bar 65's dolly. The report card is taken in under the deck evenly over 8 f.
 - **11.1–11.4.** Your stamp is a hand-sized rubber stamp (a dark rubber face round a graphite
   mount, a turned handle); it rests between your lamp's base and the in-tray, rises out of a hatch
-  over f5432–5435 and prints the green framed tick on f5440. "compute–" / "state split" sets over
-  存算分离 right of the state cabinet, on a hairline to its east edge. The map key's words step
-  down with the world.
+  over f5432–5435 and prints the green framed tick on f5440. "compute–" / "state split" sets right
+  of the state cabinet in two EN lines, on a level hairline to its east edge. The map key's words
+  step down with the world.
 - **13.1.** The end card is posted in opaque over the dissolve, and its lettering leaves with it.
 
-**Still open for the user.**
-- **C12.** It stays as signed off, outside the built tag: in chat the prototype's Workers also
-  post short acknowledgements. Open option: "Workers report up. Only the Router answers you.",
-  which also holds for the prototype and would need a new zh sign-off.
+**Settled in the build (session 6, fix wave 2, after the user's answers of 2026-11-14).**
+- **4.2 (C11, the built tag, f2000–2130).** Three EN lines, first baseline y 150; its leader runs
+  level from the middle of its last line to the reel frame's east post (world y 363, under the
+  lock), with about 80 px of air over the Router label.
+- **4.2, the first ask.** The first chat slip comes out of the chat drum's spout over f1591–1594,
+  as every chat slip does, aims at the gate during its anticipation (f1595–1597), is posted, rides
+  the belt to its crest and hops over the throat's cheeks, turning flat over f1614–1619; it lies
+  in the throat on f1620 (beat 6's grammar).
+- **4.2, the request.** It slides 112 u out from under the old heap (f1647–1651), wholly clear of
+  the pieces before its post lifts it; the pieces settle from f1652. Its beetle's transit light
+  comes up as an even ramp of its shown value over f1652–1655 and goes down the same way
+  (f1669–1674), as on its dispatch ride (f1761–1764, f1806–1810).
+- **4.2–4.3.** Beat 4's arrivals (the CI card from f1843, the chat slip from f1883) and the request
+  hop into the throat as beat 6's carriers do, so they enter the reading lamp's light whole.
+- **Throughout.** Every chat slip waits inside the chat drum, 42 u back from the spout, and comes
+  out over 4 f: the turn's first slip, beat 4's arrivals, beat 5, MT1, beat 6 and the 7.1/7.3
+  follow-ups. Nothing shows west of the drum.
+- **4.6 (MT1).** As W-10 rises (from f2289) the light reaches into its pit from the south wall as
+  one soft edge along the walls: the nameplate band over f2289–2291, then the floor plate and the
+  bay's contents over f2292–2295. Every carrier's hop rises in-out (4.6, 6.1, 6.4).
+- **6.1–6.4.** The bug bay's pin 0, cut by the frame's east edge, holds passed through the close
+  (f2720–3360). The stress plate comes in from just beyond the east edge, in frame from f2861, at
+  about 65 px a frame at 1080 at its fastest, and slows over its seat (detent on f2880); its header
+  is EN only, the header, hairline and two rows evenly spaced. The cache tag is one EN line; its
+  leader fades out whole over the 6 f before the reading thread's last hop and back in after it
+  lands. C15 and N4–N6 sit on the glyph-hugging halo over the notes card, as C28 does.
+- **7.1/7.3.** The follow-ups' post rounds the spool wider (its control point 150 u south of the
+  spool) and stays in front of it through the clip-on.
+- **7.3–7.4.** The jobs tag and the 100-word tag share one place, first baseline y 736, with at
+  least 24 px of air under W-08's nameplate and over the Productive plate. The heavy dossier lands
+  just east of the card feeder's roller and cards on the thud (f3880) and is pushed in under them
+  over f3884–3889.
+- **8.2–8.5.** The caveat stamp is one line; the legend sits between it and the lanes; "one
+  session, told to delegate" is one line on its own strip; the token header is one line, midway.
+  The load tag is in the tags' secondary grey at the frame's top west of the sheet; its leader drops
+  about 22° to the load line, its run on the sheet and its dot in the print's ink.
+- **10.2–10.3.** The shard's window fades where it lies, beside the real window, over f5282–5289.
+- **11.2.** The idea labels are EN only. Full-duplex names the request bay's side rail: its foot is
+  on the job rail shelf's south edge, under the sand-glass, and the label sits south-west of it,
+  clear of the Thread cord and about 113 px west of the Watchdog's station. The map key is one
+  column, its middle kept at x 1512.
+- **11.3.** The act-one card leaves over 8 f, gathering to a held pace under about 2340 px/s (this
+  card only, not TREATMENT's exit curve).
+- **13.2.** The one warm pool is your lamp's light from the upper left: a round warm pool on the
+  slate by the card's north-west corner (about +15 codes red, +8 blue), falling off east and south
+  to the bare slate. It comes up with the dissolve, holds, and fades with the card's leave. The end
+  key is one column.
+- **C12** (the user, 2026-11-14): "Workers report up. Only the Router answers you." Its zh follows
+  the EN, unsigned, as the zh caption line is not shown.

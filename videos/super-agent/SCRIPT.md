@@ -8,7 +8,11 @@ lower-left notes block (baseline y 938, at most 1560 px wide). It was written as
 over a Simplified Chinese one (zh at y 992). On 2026-11-13 the user dropped Bilibili, and with it
 the zh captions, so the picture draws the English line alone. The zh copy below stays signed off
 and in the cue sheet, which still checks its holds. The tags, the plates, the labels and the test
-sheet sit in the world, beside what they qualify, and keep their zh.
+sheet sit in the world, beside what they qualify. Since 2026-11-14 (the user: "Drop it from long
+plates") only the short text draws its zh: "you · 你", the four trait plates (with Persistent's
+vellum words), the title card and the end card's body. The tags, the test sheet's print, the
+stress plate's header, the six idea labels and both keys are drawn in EN alone
+(`src/look/zhInPicture.ts`).
 
 - **One source.** Every string and frame below comes from [src/cues.ts](src/cues.ts) (`WORDS`,
   `NARRATION`, `BEATS` and the cue sheet). [src/cues.test.ts](src/cues.test.ts) checks the rules

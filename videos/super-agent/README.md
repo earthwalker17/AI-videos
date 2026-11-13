@@ -15,7 +15,7 @@ their URLs and pins, are in [sources.jsonl](sources.jsonl), and every claim is i
 **Series:** [Science & Technology Explainers](../../series/science-explainers/SERIES.md) · **Number:** 4 · **Engine:** remotion
 ▶ **Watch:** not yet published.
 
-## Status: production, the whole film built (beats 1–13, the score for bars 1–84); the user's review is next
+## Status: production, the whole film built and the review answers applied; the 1080p review cut is next
 The film has been in production since 2026-11-08. Decisions with the user so far:
 
 | Date | Decision | The user's words |
@@ -169,7 +169,17 @@ design works.
        arm vanished under the stamp's hatch) fixed (8bfa0f0); the P2s left are listed under Handoff;
      - the draft rendered again for the user's review (8bfa0f0: QA passed, -14.0 LUFS, -2.0 dBTP);
      - the docs: this README, STORYBOARD, `video.json` `next`, the roadmap.
-   - **User:** reviews the film, the changed stills and the score (Handoff).
+   - **User (2026-11-14):** "Right, carry on": apply the answers, fix the cheaper P2s, then the
+     review cut; zh drops from the long in-world text; C12 becomes "Only the Router answers you."
+     (771ed08).
+   - **Done after the answers:**
+     - fix wave 2, two lanes each with an implementer, an adversarial frame critic and a fixer:
+       one zh policy (`src/look/zhInPicture.ts`) and the text-layout P2s, and the motion and
+       one-frame-step P2s (3cef742);
+     - the score's flyover onset, lost to the 2.0 dB limiter margin, restored (its A5 pickup
+       2 dB under the D6); the score rebuilt and verified;
+     - the draft rendered again (3cef742: QA passed, -14.0 LUFS, -2.8 dBTP), then a light
+       two-critic check of the changed regions.
 7. **Review cut, then release.**
    - The 1080p review cut through `aiv qa`.
    - Caption tooling (an SRT generator and a subtitle linter).
@@ -181,10 +191,11 @@ design works.
 
 ## Handoff (for the next session)
 **Start here.** Read this section and `video.json` `next`. The whole film is built (film f0–6719,
-beats 1–13) and the score covers all 84 bars. Session 6 ran two whole-film critic rounds and a fix
-wave between them. Two things are left:
-- the user's review of the film, its changed stills and its score (below);
-- then the review cut and the release (the session plan).
+beats 1–13) and the score covers all 84 bars. Session 6 ran two whole-film critic rounds with a fix
+wave after each, and applied the user's review answers of 2026-11-14. What is left:
+- the 1080p review cut, for the user's approval (with the score's bars 44–84, which nobody has
+  listened to yet: the table below);
+- then caption tooling, `publish/`, the thumbnail, the final and the release (the session plan).
 
 The look is signed off (2026-11-10). The visual spec in force is [TREATMENT.md](TREATMENT.md)
 "Art direction v2: The Register Desk", with the user's picks (15° pitch, bloom 0.3), the standing
@@ -205,11 +216,11 @@ decisions below, and what STORYBOARD.md's "Settled in the build" sections record
 **Where things are.**
 | Path | What |
 |---|---|
-| `src/cues.ts` | Every on-screen string (EN, zh) and span on the 84-bar grid, and the event schedules (`BEAT_4`…`BEAT_11`, `MT1`, `END`): `cue(id)`, `at(bar, beat)`. Since 2026-11-13 the notes block draws the EN line only; the zh copy stays signed off here. `hold` spans declare the reading holds QA allows. It is in both the picture's and the score's input hash: a cue change means `aiv audio`, then `--verify`, before `aiv post` |
+| `src/cues.ts` | Every on-screen string (EN, zh) and span on the 84-bar grid, and the event schedules (`BEAT_4`…`BEAT_11`, `MT1`, `END`): `cue(id)`, `at(bar, beat)`. Since 2026-11-13 the notes block draws the EN line only, and since 2026-11-14 only the short text draws zh (`src/look/zhInPicture.ts`); the zh copy stays here. `hold` spans declare the reading holds QA allows. It is in both the picture's and the score's input hash: a cue change means `aiv audio`, then `--verify`, before `aiv post` |
 | `src/print.ts` | Micro-print strings (texture only, ≥ 18 px, never read as content); the font plan reads them with WORDS |
-| `src/look/` | Palette, type scale, `MAX_TEXT_PX` (136), `STEP_DOWN`, the notes layout `NOTES`; fonts (Plex Sans, Noto Sans SC slices planned from WORDS, IBM Plex Mono) |
+| `src/look/` | Palette, type scale, `MAX_TEXT_PX` (136), `STEP_DOWN`, the notes layout `NOTES`; fonts (Plex Sans, Noto Sans SC slices planned from WORDS, IBM Plex Mono); `zhInPicture.ts`, the one list of strings whose zh is drawn ("you · 你", the trait plates, the title card, the end card's body) |
 | `src/kit/` | Film-agnostic 2D parts the overlay uses: timeline and easings, the notes block (an EN line, a zh line optional) and labels (`GREY_TEXT`), camera maths, diagram and sketch helpers |
-| `src/desk/` | The Register Desk:<br>• `layout.ts`, `geom.ts`: world coordinates.<br>• `film.ts`: the segments (act one [0, 1400), the turn [1400, 1660], act two [1661, 5400), the summary [5400, 6200), the end [6200, 6720)), act two's labels and tags. `FilmFrame.tsx` draws a film frame from them (its animatic slate still exists, but draws nothing now that every beat is built).<br>• Pure schedules, every effect a sum over one event list: `actOne.ts`, `you.ts`, `beat3.ts` (Fix A, Fix B), `turn.ts`, `state.ts` (act two's world, the focus steps, `EVENTS_B`/`C`/`D`), `beat4.ts` to `beat11.ts`, `proposed.ts` (beats 9–10's proposed parts), `summary.ts` (still (d) and the sign-off), `end.ts` (the bookend and the dissolve), `endCard.ts`.<br>• `camera.ts`: framings and moves. `footprints.ts`, `fpKit.ts`, `pools.ts`: analytic SDF shadows and light pools. `springs.ts`, `marks.ts`, `onScreen.ts`: springs, marks and screen-space checks.<br>• `gl/`: desk shader, light set, materials, post, canvas text; `plate.ts` the trait and stress plates; `print5.ts`–`print8.ts` beats 5–8's print; `veil.ts` the dissolve.<br>• `objects/`: one file per part or beat: Register, Bay, YourDesk, Intake, Links, Handshake, Dispatch, Counterfactual, Filter, Batch, Cache, Recall, Proposed, Trace, ActOne, TitleCard, Turn, FixCards, Replies, Thread (7.1), Jobs (7.3), Evidence (beat 8), Beat7–Beat11, End, World.<br>• `*Frame.tsx`, `DeskWorld.tsx`, `Overlay.tsx`: a frame's world and its DOM labels and notes, posed by one camera function.<br>• Tests: a `*.test.ts` per schedule (614 tests in the video, with the cue sheet's and the score's) |
+| `src/desk/` | The Register Desk:<br>• `layout.ts`, `geom.ts`: world coordinates.<br>• `film.ts`: the segments (act one [0, 1400), the turn [1400, 1660], act two [1661, 5400), the summary [5400, 6200), the end [6200, 6720)), act two's labels and tags. `FilmFrame.tsx` draws a film frame from them (its animatic slate still exists, but draws nothing now that every beat is built).<br>• Pure schedules, every effect a sum over one event list: `actOne.ts`, `you.ts`, `beat3.ts` (Fix A, Fix B), `turn.ts`, `state.ts` (act two's world, the focus steps, `EVENTS_B`/`C`/`D`), `beat4.ts` to `beat11.ts`, `proposed.ts` (beats 9–10's proposed parts), `summary.ts` (still (d) and the sign-off), `end.ts` (the bookend and the dissolve), `endCard.ts`.<br>• `camera.ts`: framings and moves. `footprints.ts`, `fpKit.ts`, `pools.ts`: analytic SDF shadows and light pools. `springs.ts`, `marks.ts`, `onScreen.ts`: springs, marks and screen-space checks.<br>• `gl/`: desk shader, light set, materials, post, canvas text; `plate.ts` the trait and stress plates; `print5.ts`–`print8.ts` beats 5–8's print; `veil.ts` the dissolve.<br>• `objects/`: one file per part or beat: Register, Bay, YourDesk, Intake, Links, Handshake, Dispatch, Counterfactual, Filter, Batch, Cache, Recall, Proposed, Trace, ActOne, TitleCard, Turn, FixCards, Replies, Thread (7.1), Jobs (7.3), Evidence (beat 8), Beat7–Beat11, End, World.<br>• `*Frame.tsx`, `DeskWorld.tsx`, `Overlay.tsx`: a frame's world and its DOM labels and notes, posed by one camera function.<br>• Tests: a `*.test.ts` per schedule (639 tests in the video, with the cue sheet's and the score's) |
 | `src/lookdev/round2.tsx`, `frames.ts` | Lookdev round 2, its own entry: `StillA15` (a), `StyleB15` (b, and MT1's span), `StillC15` (c), `StillD15` (d), `MT2`, the 0° and no-bloom variants and ground twins. The signed-off reference; the film draws the same frames through `FilmFrame` |
 | `src/lookdev/probe.tsx` | The determinism probe ('Probe') and the notes width sheet ('Notes') |
 | `src/Main.tsx` | The leader test card (15 frames), then the film: `desk/FilmFrame.tsx` for every film frame |
@@ -217,9 +228,10 @@ decisions below, and what STORYBOARD.md's "Settled in the build" sections record
 
 On the reference host only, since `out/` and `.cache/` are not in git:
 - `out/super-agent/stills/r2-final/` holds the signed-off lookdev set.
-- `out/super-agent/post/draft/super-agent.mp4` is the current draft (8bfa0f0).
-- `out/super-agent/stills/s6-r2-full/`, `s6-r2-full-b/` and `s6-r2-events/` hold full-size stills
-  of it. `s6-r1-full*` hold the same frames before the fix wave.
+- `out/super-agent/post/draft/super-agent.mp4` is the current draft (3cef742).
+- `out/super-agent/stills/s6w2-keys/` holds its keys; `s6t-fx-final/`, `s6m-fx-*` the fix-wave-2
+  lanes' full-size stills of what they changed; `s6-r2-full/`, `s6-r2-full-b/` and `s6-r2-events/`
+  full-size stills of 8bfa0f0, and `s6-r1-full*` the same frames before fix wave 1.
 
 **Commands.** Frames are composition frames: film frame + 15 (the leader).
 ```sh
@@ -235,7 +247,7 @@ pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillD15
 pnpm exec vitest run videos/super-agent --maxWorkers=2
 ```
 Measured on the reference host (session 6):
-- a draft pass is 113 chunks and about 46 minutes, in five or six foreground calls of 9 minutes;
+- a draft pass is 113 chunks and 43–63 minutes, in five to eight foreground calls of 9 minutes;
 - a call cut off by its timeout during the final mezzanine hash resumes there when rerun;
 - a full-size still takes 4–6 s after a 4–8 s boot;
 - the test suite takes about 7 minutes.
@@ -244,13 +256,13 @@ Check free memory first, and close Chrome if it is connected.
 
 The signed-off lookdev stills hash as follows (first 12 hex of the RGBA sha256): (a)
 `5cb677648515`, (b) `6b660e981ea9`, (c) `43d104d679bb`, (d) `fc8ee34c5a43`. The film's own keys
-at 8bfa0f0:
+at 3cef742:
 
 | Composition frame | Hash |
 |---|---|
 | 930 | `db1f4491385a` |
-| 2240 | `dfb63474e476` |
-| 3165 | `c85833f97b92` |
+| 2240 | `f2bc7b4e2c50` (C12's new words, 771ed08) |
+| 3165 | `123f341c0719` (the cache tag EN only, N5's halo: 3cef742) |
 | 3454 | `5ccf303e78ec` |
 | 5435, 5438, 5439, 5446 | `96ca2cbb49ca` (still equal to each other) |
 | 5535 | `8c8005727eea` |
@@ -306,31 +318,30 @@ A change that should not touch a key keeps its hash.
   38, after rejecting round 1 that an uncalibrated critic had passed. Ask the user early, with
   images.
 
-**For the user's review** (session 6; none of this is approved yet).
-- **The film:** `out/super-agent/post/draft/super-agent.mp4` (the 960×540 draft at 8bfa0f0,
-  QA passed).
+**For the user's review** (session 6). The user answered on 2026-11-14 ("Right, carry on"; the
+zh and C12 answers are in the decisions table), but has not yet watched the film, seen the
+stills or heard bars 44–84: the review cut is where that happens, and nothing below is approved.
+- **The film:** `out/super-agent/post/draft/super-agent.mp4` (the 960×540 draft at 3cef742,
+  QA passed); the 1080p review cut supersedes it.
 - **The stills that changed** since the user last saw them (part 1, 2026-11-12):
   - the throat now lights a slip lying in it: keys 2240, 3165, 3454, the seam and (d), at the
     throat only;
   - still (d): the pencil flag on the stuck bay's south-east corner, the Watchdog's aim, the
     hand-sized rubber stamp at rest and its framed green tick;
-  - the notes block in English only.
-- **New elements from the fix wave:**
+  - the notes block in English only; the tags, the evidence sheet, the stress plate's header,
+    the idea labels and both keys in English only (2026-11-14); C12's new words (key 2240).
+- **New elements from the fix waves:**
   - the vermilion tear-off stub on Fix A's copy of the request (beats 3–4);
   - the ink tab on the stuck drum's card under N8;
   - the rubber stamp rising out of a hatch (11.1);
   - the travelling etch crawl (10.1);
-  - the counterfactual cards sliding out of slots (7.2–7.3).
-- **Questions:**
-  - Should the zh also go from the tags, plates and labels now that the film is YouTube only?
-    The round-2 stranger found the short tags ("you · 你", the trait plates) added character, and
-    the long bilingual plates and the chart's doubled labels distracting (1:07–1:27, 2:05–2:32,
-    3:06–3:15).
-  - C12 keeps its signed-off line. Open option: "Workers report up. Only the Router answers
-    you.", which also holds for the prototype and would need a new zh sign-off.
+  - the counterfactual cards sliding out of slots (7.2–7.3);
+  - wave 2: the end card's warm pool from your lamp's side; full-duplex's label under the job
+    rail's shelf; the load tag in grey on an angled leader.
 - **The score.**
   - Bars 1–43: the user heard them ("Right direction"). Since then the only change is the
     master's limiter at -3.5 dBTP: up to 0.9 dB more limiting on the loudest peaks.
+  - The flyover (f3520): its A5 pickup sits 2 dB under its D6 since wave 2.
   - Bars 44–84: nobody has listened yet. In the draft mp4 (film frame + 15 over 30):
 
     | mp4 time | Film frames | What to listen for |
@@ -360,49 +371,61 @@ A change that should not touch a key keeps its hash.
     | 3:20.5–3:25.8 | f6000–6160 | 12.1: one quiet tick a beat (frame 0's rhythm); the motif once with no answer as the slip turns vermilion (f6100); the print head's soft stamp-in on the dissolve's first frame |
     | 3:27.2–3:44.5 | f6200–6719 | 13: a solo mallet plays the motif as the end card lands, four more times, softer and further apart, once at half speed, then one long D5 decaying to nothing |
 
-**Open after critic round 2** (2026-11-13). No P0 or P1 is left: the one confirmed P1, your
-lamp's arm vanishing under the stamp's hatch at comp 5447–5451, was fixed in 8bfa0f0. Everything
-below is P2: crop-level, or seen only on a careful watch. A pass over it is optional before the
-review cut, and the user's review may reorder it.
+**Open after fix wave 2** (2026-11-14). No P0 or P1 is known. Wave 2 closed the round-2 list's
+one-frame steps (the first ask slip, MT1's slip, W-10's rise, the dossier, the rider, the edge
+sliver, the shard window, the transit light), the act-one card's exit speed, the stress plate's
+entry, the load tag, the jobs tag, the end card's flat ground, the captions over the notes card and
+the full-duplex leader. What is left is P2: crop-level, or seen only on a careful watch.
 - **Motion and speed:**
   - the cache card glides at about 2600 px/s, 8% over the cap, and stops hard (comp 3096–3114).
     Its eject (f3080) and dock (f3098) leave 17 f in frame; moving them is a cue change;
-  - the counterfactual cards of beats 4, 10 and 11.3 still come and go across the frame's edges:
-    beat 4's at about 3800 px/s, the act-one card over the cap on its last two exit frames.
-    7.2–7.3's cards slide out of slots;
-  - the title card posts in and out at about 3100–3400 px/s; the stress plate slides in from
-    beyond the east edge;
+  - the counterfactual cards of beats 4 and 10 still come and go across the frame's edges, beat
+    4's at about 3800 px/s (not attempted in wave 2: a rework of their entry);
+  - the title card posts in and out at about 3100–3400 px/s (its frames are in ActOneFrame.tsx,
+    its arc shared with the end card);
   - the trait plates retire at 1200–1800 px/s (f5528–5560): their cue frames cap the flights.
-- **One-frame steps:**
-  - the first ask slip's tilt snaps flat at the throat's mouth (comp 1634→1635);
-  - MT1's slip turns one value at 2259→2260;
-  - W-10's nameplate and panel step while it rises (2307→2308, 2310→2311);
-  - the heavy dossier blinks as it lands (3892–3903);
-  - a rider sliver at the spout (3485); its clip is drawn over the spool, then under it
-    (3496–3498);
-  - a light sliver flickers at the frame edge in the close (3212–3218, 3334–3345);
-  - the shard window's "#0404" double-prints over "#0405" as it retracts (5303–5305);
-  - the request's transit light comes on in one frame (1666).
+- **Small steps left by wave 2:**
+  - W-10's pit: the soft front still lights each small region within 1–2 frames (a point steps
+    about 24 codes); softer needs a soft height edge in `dskShade` or a longer rise;
+  - MT1's nose dips into the reading pool's band for one frame (f2236, its tip only);
+  - the turn's first slip shows a faint notch through the spout's top on its inside frame (c1606);
+  - on its dispatch ride the request comes out of the housing's slit already lit (c1779); the
+    other transit lights (Links.tsx, Beat10.tsx's report card) still ramp linearly toward an
+    over-bright colour, the class wave 2 fixed for the request.
+  - From the light check of the integrated draft (2026-11-14, two frame critics, no P0 or P1):
+    - the heavy dossier lands over the card feeder's roller fan, not clear east of it, so the
+      roller is drawn under it at rest (3894–3899) and over it in the push (3902–3904); its west
+      end shows in the tray's well for 2 f (3903–3904);
+    - the end card's paper takes the lamp's gradient in one frame while it rises (6198→6199,
+      about +6 codes on its west side); the slate's pool ramps smoothly;
+    - W-10's contents show lit through the opening lid (2300–2303), then darken as the light
+      front reaches them (the spool about 105→78 at 540) before the rise ends; the front reads
+      on the nameplate only;
+    - the turn's first slip passes through the gate's post (1622, 1625), and its feed under the
+      head is front-loaded (63% in one frame, 1635–1638), unlike beat 4's carriers;
+    - MT1's slip starts moving with no ease after it leaves the spout (2244→2245);
+    - the request's dark window behind its beetle steps on and off in one frame (1667, 1685);
+    - the dossier's flight crosses the Proactive plate's east end (3869–3893); the Productive
+      plate unfolds from a small chip over 3 f (3755–3759); the map key's swatch strip
+      overshoots as it drops in (5701–5713);
+    - a one-frame value step on the trapdoor bay's lid as it seats (1605→1606).
 - **Reading and focus:**
   - the turn's press still reads mostly as a fast fade at speed: the tone change outweighs the
     squash;
-  - 7.3 is still busy: the rider, the peel, the tag and the glass start within about 20 f. The
-    jobs tag sits tight between W-08's nameplate and the Productive plate, and the capsule is
-    about 86 px;
+  - 7.3 is still busy: the rider, the peel, the tag and the glass start within about 20 f; the
+    capsule is about 86 px;
   - under N8 the reel and W-07's slot light still outweigh the Watchdog by area. The flag's
     pennant is about 35×27 px. The lid shuts during the bar-58 move's fastest frames, with the
     laptop clipped by the frame edge;
   - under C25 the reel's paper stays at full value;
-  - beat 8's legend leaves the notches and the long-run band undefined, and its load tag is the
-    brightest text in the beat;
+  - beat 8's legend leaves the notches and the long-run band undefined; the load tag's ascenders
+    sit at y 60, inside title-safe (54) but close to the top;
   - the lamp's steps at the reply (f2237) and at the stamp (f5440) are about 3 codes: too small
     to see;
-  - the end card sits on a flat ground, without the storyboard's one warm pool;
-  - the captions in the close cross the light notes card's edges (N4–N6);
   - the summary's traces never retire, and lie over the bookend's queued replies;
-  - labels: "Router" and "Worker" come back in different places after the close; the
-    full-duplex leader runs beside the Thread cord; at 0.85× the Worker leader's dot sits on the
-    "8" of #0408, and the lamp's reach for "stepping in" covers its "0".
+  - labels: "Router" and "Worker" come back in different places after the close; at 0.85× the
+    Worker leader's dot sits on the "8" of #0408, and the lamp's reach for "stepping in" covers
+    its "0"; at 5800 the lower band holds batching, Worker, full-duplex and control loop.
 - **Known from before, as described:**
   - the reel's wedge (comp 1587–1590);
   - the jaw's step at the seam (film 1660/1661, in Register.tsx's geometry);
@@ -415,6 +438,10 @@ review cut, and the user's review may reorder it.
   - the riders sinking into the reel;
   - beat 4's floating dispatch trips;
   - the bookend's lamp-lit chute.
+- **Housekeeping:** `ActOneFrame.tsx` builds "you · 你" and the title card's zh straight from
+  WORDS rather than through `pictureLine` (both in the kept set, held by the policy test);
+  `look/fontPlan.ts` still plans glyphs for zh no longer drawn (harmless); `src/lookdev/round2.tsx`
+  would draw still (c)'s cache tag EN only if re-rendered (the signed-off PNGs are untouched).
 - **The round-2 stranger** had no project context. They took away the argument and found the film
   honest about what is built and what is proposed. Their main notes:
   - the wide shots fill a central band, and much in-world text is unreadable at 540p: "a
@@ -422,8 +449,8 @@ review cut, and the user's review may reorder it.
     close is the best stretch;
   - it drags at the act-one desk (0:14–0:32), at the open beat's wide map (2:33–3:01) and on the
     end card (3:27–3:43). It rushes the turn (0:48–0:53) and the idea labels (3:06–3:15);
-  - the long bilingual plates and the chart's doubled labels distract; the short "you · 你"
-    tags add character;
+  - the long bilingual plates and the chart's doubled labels distracted (settled 2026-11-14: EN
+    only); the short "you · 你" tags add character;
   - the test-card leader read as a broken upload. The final drops it (ARCHITECTURE decision 24).
 
 **Tooling and shared, not blocking** (docs/ROADMAP.md, Known gaps).
