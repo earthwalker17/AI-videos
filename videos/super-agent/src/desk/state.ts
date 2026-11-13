@@ -29,14 +29,14 @@ import { Easing } from 'remotion';
 import { BEAT, BEAT_4, BEAT_5, BEAT_7, cue, textWindow } from '../cues.ts';
 import { armRest, beat4At, hammerStroke, hatchRiseAt, inkSpread, type Beat4State } from './beat4.ts';
 import { beat5At, type Beat5State } from './beat5.ts';
-import { E6, beat6At, type Beat6State } from './beat6.ts';
+import { BELT_HEADING as BELT_HEADING_6, BELT_SLOPE as BELT_SLOPE_6, CARRIERS, E6, KEEP_LAND as KEEP_LAND_6, beat6At, hopInto, type Beat6State } from './beat6.ts';
 import { ARM_7, FOCUS_7, LAMP_7, beat7At, replies7, type Beat7State } from './beat7.ts';
 import { ARM_8, FOCUS_8, LAMP_8, beat8At, replies8, type Beat8State } from './beat8.ts';
-import { ARM_9, FOCUS_9, LAMP_9, beat9At, replies9, type Beat9State } from './beat9.ts';
+import { ARM_9, FOCUS_9, LAMP_9, beat9At, replies9, stuckLightAt, type Beat9State } from './beat9.ts';
 import { ARM_10, FOCUS_10, LAMP_10, beat10At, bugLight10, freshLight10, pins10, replies10, type Beat10State } from './beat10.ts';
 import { LAMP_11, beat11At, type Beat11State } from './beat11.ts';
 import { LAMP_END, endAt, type EndState } from './end.ts';
-import { DOLLY_IN, EASE_OUT } from './camera.ts';
+import { DOLLY_IN, EASE_OUT, FRAMING_C, deskCamera, project, projectBox } from './camera.ts';
 import { SPRING, STEP_FRAMES, springAt } from './springs.ts';
 import { CARD, CARD_C, CHUTE, DISPATCH, DRAWER, DRAWER_OPEN_C, FOLDER_OUT, FOLDER_SLOT, FRESH, GROOVE_FRESH, INDEX, LAMP, LOUPE, MOUTH, NEXT_SLIP, PINS, RAMP, TOWER, YOU, rectC, towerTop, type P2, type P3 } from './layout.ts';
 
@@ -102,11 +102,13 @@ export const LAMP_STEPS = { dim: 0.62, up: 0.9 } as const;
 
 /**
  * A step of your lamp's attention: from `at` it moves `steps` steps (one step: LAMP_STEPS.up − dim; + brighter, −
- * dimmer, fractions allowed) on spring-effects. Your lamp is LAMP_STEPS.dim plus every step so far (lampAt).
+ * dimmer, fractions allowed) on spring-effects, or, with `ramp`, on a focus step's ramp (inOutSine over `ramp` frames from
+ * `at`: your lamp stepping with your desk). Your lamp is LAMP_STEPS.dim plus every step so far (lampAt).
  */
 export interface LampStep {
   at: number;
   steps: number;
+  ramp?: number;
 }
 /** Part 1's: up a step as MT1's reply lands (C12), down a step as the intake answers the starter key's dock (beat 5). */
 export const LAMP_PART1: readonly LampStep[] = [
@@ -116,7 +118,7 @@ export const LAMP_PART1: readonly LampStep[] = [
 /** Your lamp's level at film frame f: part 1's steps, then each beat module's (read here: never at module level). */
 export function lampAt(f: number): number {
   let k = 0;
-  for (const x of [...LAMP_PART1, ...LAMP_7, ...LAMP_8, ...LAMP_9, ...LAMP_10, ...LAMP_11, ...LAMP_END]) k += x.steps * springAt(f, x.at, SPRING.effects);
+  for (const x of [...LAMP_PART1, ...LAMP_7, ...LAMP_8, ...LAMP_9, ...LAMP_10, ...LAMP_11, ...LAMP_END]) k += x.steps * (x.ramp ? easings.inOutSine(clamp((f - x.at) / x.ramp)) : springAt(f, x.at, SPRING.effects));
   return LAMP_STEPS.dim + (LAMP_STEPS.up - LAMP_STEPS.dim) * k;
 }
 
@@ -517,9 +519,10 @@ export function deskStateAt(f: number): DeskState {
   const pins = pins10(f, cycling);
   const galley = ((((f - 2000) % 160) + 160) % 160) / 160;
 
-  // bar 68 puts the request's bay's and the stuck bay's work lights out (beat10.ts bugLight10, freshLight10: the summary's are out)
+  // bar 68 puts the request's bay's and the stuck bay's work lights out (beat10.ts bugLight10, freshLight10: the summary's are out);
+  // under N8 the stuck bay's light pulses on the beat (beat9.ts stuckLightAt)
   const next0 = nextAt(f);
-  const next = { ...next0, light: freshLight10(f, next0.light) };
+  const next = { ...next0, light: freshLight10(f, next0.light) * stuckLightAt(f) };
   // MT1: once the slip is stamped in, the arm turns from you to the fresh bay's detent; then each later beat's detents (armAt)
   const armNow = armAt(f, arm);
   const testsSink = springAt(f, EVENTS_D.rest, SPRING.heavy);
@@ -627,7 +630,7 @@ export const EVENTS_D = {
   slipOutFrames: 4,
   post: 2229,
   postFrames: 11,
-  /** it rides the belt up into the throat (linear transport) */
+  /** from the frame after its landing it rides the belt to its crest and hops into the throat (MT1_BELT, beat6.ts hopInto), lying in it on belt + beltFrames */
   belt: 2241,
   beltFrames: 6,
   /** the loupe swings over the policy card (4 f), scans its rules (12 f) and dwells to the beat */
@@ -799,6 +802,8 @@ export const FOLDER_PATH: readonly P3[] = (() => {
   const groove = freshGrooveLine().map(([x, yy]): P3 => [x, yy, 1.2]);
   return [FOLDER_LANDS, ...groove.slice(1), DISPATCH.dock];
 })();
+/** MT1's next slip rides the belt this many frames from its landing to the crest, then hops into the throat (the rest of beltFrames). */
+export const MT1_BELT = 2;
 /** MT1's next dispatch at film frame f (pure). */
 export function nextAt(f: number): NextState {
   const E = EVENTS_D;
@@ -811,20 +816,28 @@ export function nextAt(f: number): NextState {
       const inSpout: P3 = [NEXT_SLIP.spout[0] - 60, NEXT_SLIP.spout[1], NEXT_SLIP.spout[2] + 2];
       slip = { p: lerp3(inSpout, NEXT_SLIP.spout, easings.outCubic(clamp((f - E.slipOut) / E.slipOutFrames))), heading: 0, slope: 0, squash: 0, notched };
     } else if (f < E.belt) {
-      // it leaves the spout fast (off the slip still lying there) and comes down slower onto the belt's foot
+      // it leaves the spout fast (off the slip still lying there) and comes down slower onto the belt past the gate's bar,
+      // nosing up into the belt's pose and in it on the landing (beat 6's post: beat6.ts rideAt), never turned in a frame
       const t = clamp((f - E.post) / E.postFrames);
       const u = easings.outCubic(t);
+      const e = sine((t - 0.3) / 0.7);
       const a = NEXT_SLIP.spout;
-      const b = NEXT_SLIP.gate;
+      const b = KEEP_LAND_6;
       const p: P3 = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * t + 4 * NEXT_SLIP.apex * t * (1 - t)];
       const landed = f - (E.post + E.postFrames);
       const squash = landed < 0 ? 0 : Math.max(0, 1 - landed / 3);
-      slip = { p, heading: Math.atan2(b[1] - a[1], b[0] - a[0]) * u, slope: -0.3 * (u - 0.5) * (u < 1 ? 1 : 0), squash, notched };
+      slip = { p, heading: BELT_HEADING_6 * sine(t), slope: -0.2 * (u - 0.5) * (1 - e) + BELT_SLOPE_6 * e, squash, notched };
     } else if (f < E.feed) {
-      const { p, dir } = polylineAt(SLIP_BELT, clamp((f - E.belt) / E.beltFrames));
-      const h = Math.hypot(dir[0], dir[1]);
-      const atThroat = f >= E.belt + E.beltFrames;
-      slip = { p, heading: atThroat ? 0 : Math.atan2(dir[1], dir[0]), slope: atThroat ? 0 : Math.atan2(dir[2], h), squash: 0, notched };
+      // up the belt to its crest (MT1_BELT frames), then the hop into the throat (beat6.ts hopInto, as beat 6's carriers:
+      // it turns flat and settles over its frames), lying in the throat on belt + beltFrames (the L2-01 swap at f2246-2247)
+      const landed = E.belt - 1;
+      const crest = CARRIERS.chat.crest;
+      const squash = Math.max(0, 1 - (f - landed) / 3);
+      if (f < landed + MT1_BELT) slip = { p: lerp3(KEEP_LAND_6, crest, (f - landed) / MT1_BELT), heading: BELT_HEADING_6, slope: BELT_SLOPE_6, squash, notched };
+      else if (f < E.belt + E.beltFrames) {
+        const h = hopInto(crest, NEXT_SLIP.throat, (f - landed - MT1_BELT) / (E.belt + E.beltFrames - landed - MT1_BELT));
+        slip = { p: h.p, heading: BELT_HEADING_6 * h.k, slope: BELT_SLOPE_6 * h.k, squash: 0, notched };
+      } else slip = { p: NEXT_SLIP.throat, heading: 0, slope: 0, squash: Math.max(0, 1 - (f - E.belt - E.beltFrames) / 3), notched };
     } else {
       slip = { p: lerp3(NEXT_SLIP.throat, NEXT_SLIP.head, easings.inCubic(clamp((f - E.feed) / E.feedFrames))), heading: 0, slope: 0, squash: 0, notched };
     }
@@ -904,7 +917,7 @@ export const EVENTS_C = {
    * report's tab #0408 stays in the drawer (objects/Cache.tsx draws it from here)
    */
   from: 2640,
-  /** the card rises out of the request bay's work slot (4 f), then flies 18 f under the transit light into the mouth (ejecting on the beat) */
+  /** the card rises out of the request bay's work slot (4 f), then flies 18 f under the transit light into the mouth (ejecting on the beat), timed by screen distance (cardFlightS) */
   cardOut: 3076,
   cardEject: 3080,
   cardFly: 18,
@@ -999,6 +1012,71 @@ export function cardArcC(s: number): P3 {
   const b: P3 = [MOUTH.land[0], MOUTH.land[1], MOUTH.z[1] + 3];
   return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u + 4 * CARD_C.apex * u * (1 - u)];
 }
+/**
+ * Its flight timed by screen distance in the close (A5, the L2-03 P1: on its eased world clock it crossed about 1430 px
+ * of the 2.4x frame in 13 f, at up to 146 px a frame, each step close to its own width, so it strobed). Off the frame's
+ * east edge it covers the slot to the frame's edge in the first `off` frame(s); in frame it runs at an even speed on
+ * screen and eases over its last `ease` share into the mouth, landing on its frame (EVENTS_C.cardEject + cardFly,
+ * unchanged). The eject and the landing fix 17 f for its 1430 px in frame, so its even speed is about 87 px a frame
+ * (2600 px/s), a hair over the film's 2410 px/s object cap: the cap needs a later landing or a shorter path (reported).
+ */
+export const CARD_C_FLY = { off: 1, ease: 0.15, endSpeed: 0.5, samples: 600 } as const;
+let cardTable: { s: number[]; d: number[]; enter: number; len: number } | null = null;
+/** The card's path sampled through the close's held pose (FRAMING_C, 15°): screen distance from where its box first meets the frame. */
+export function cardPathC(): { s: number[]; d: number[]; enter: number; len: number } {
+  if (cardTable) return cardTable;
+  const pose = deskCamera(FRAMING_C, 15);
+  const N = CARD_C_FLY.samples;
+  const s: number[] = [];
+  const d: number[] = [];
+  let enter = -1;
+  let acc = 0;
+  let prev: [number, number] | null = null;
+  for (let i = 0; i <= N; i++) {
+    const u = i / N;
+    const p = cardArcC(u);
+    const hw = CARD_C.w / 2;
+    const hd = CARD_C.d / 2;
+    const box = projectBox(pose, [
+      [p[0] - hw, p[1] - hd, p[2]],
+      [p[0] + hw, p[1] - hd, p[2]],
+      [p[0] - hw, p[1] + hd, p[2]],
+      [p[0] + hw, p[1] + hd, p[2]],
+    ]);
+    const inFrame = box.x0 < 1920 && box.x1 > 0 && box.y0 < 1080 && box.y1 > 0;
+    const q = project(pose, p);
+    if (enter < 0 && inFrame) enter = u;
+    if (enter >= 0 && prev) acc += Math.hypot(q[0] - prev[0], q[1] - prev[1]);
+    if (enter >= 0) {
+      s.push(u);
+      d.push(acc);
+    }
+    prev = q;
+  }
+  cardTable = { s, d, enter, len: acc };
+  return cardTable;
+}
+/** The card's place on its path (0..1) at `t` frames from its eject (0 in the slot, cardFly in the mouth). */
+export function cardFlightS(t: number): number {
+  const E = EVENTS_C;
+  const T = cardPathC();
+  if (t <= 0) return 0;
+  if (t >= E.cardFly) return 1;
+  // off frame: the slot to the frame's edge
+  if (t <= CARD_C_FLY.off) return T.enter * (t / CARD_C_FLY.off);
+  // in frame: an even speed on screen, easing over its last share to endSpeed of it as it lands in the mouth
+  const x = (t - CARD_C_FLY.off) / (E.cardFly - CARD_C_FLY.off);
+  const e = CARD_C_FLY.ease;
+  const v1 = CARD_C_FLY.endSpeed;
+  const whole = 1 - e + (e * (1 + v1)) / 2;
+  const y = x <= 1 - e ? x : 1 - e + (x - 1 + e) - ((1 - v1) * (x - 1 + e) ** 2) / (2 * e);
+  const want = (T.len * y) / whole;
+  let k = 1;
+  while (k < T.d.length - 1 && T.d[k]! < want) k++;
+  const d0 = T.d[k - 1]!;
+  const d1 = T.d[k]!;
+  return T.s[k - 1]! + (T.s[k]! - T.s[k - 1]!) * (d1 > d0 ? (want - d0) / (d1 - d0) : 0);
+}
 
 /**
  * Where the folded tab comes to rest in the spill drawer: its crease (the tab's south edge) on the
@@ -1016,7 +1094,8 @@ export function cacheAt(f: number): CacheState | null {
   if (f < E.from) return null;
   const out = f >= E.cardOut && f < E.cardEject ? easings.outCubic((f - E.cardOut) / (E.cardEject - E.cardOut)) : null;
   const fly = (f - E.cardEject) / E.cardFly;
-  const card = fly >= 0 && fly < 1 ? { s: sine(fly), pos: cardArcC(sine(fly)) } : null;
+  const cs = cardFlightS(f - E.cardEject);
+  const card = fly >= 0 && fly < 1 ? { s: cs, pos: cardArcC(cs) } : null;
   const flown = f - E.cardEject;
   const transit = card ? transitRamp(flown, E.cardFly) : 0;
   const dockAt = E.cardEject + E.cardFly;

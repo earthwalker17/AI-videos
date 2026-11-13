@@ -29,7 +29,9 @@ import {
   PACK_H,
   STOCK_FRAMES,
   WRAP_FULL,
-  PRESS_LATE,
+  PRESS_DELAY,
+  PRESS_PHASE,
+  PRESS_SPREAD,
   SPOOL_NORTH,
   TESTS_SLIDE,
   HIGH_POOL,
@@ -43,6 +45,7 @@ import {
   firstSlipAt,
   fixATurnAt,
   foldPressAt,
+  imprintOf,
   imprintsAt,
   loopTurnAt,
   replyLands,
@@ -111,7 +114,8 @@ describe('the turn (MT2)', () => {
     expect(s.step.amount).toBe(actOneAt(1399).step.amount);
     expect(s.step.ids).toEqual(actOneAt(1399).step.ids);
     expect(actOneAt(1399).step.own?.amount ?? 0).toBe(0);
-    expect(s.testsStep).toBe(0);
+    // (act two's own late ramp, not yet started: −0 from its ease)
+    expect(s.testsStep).toBeCloseTo(0, 9);
     // your desk and lamp
     expect(t.you.lamp).toEqual(youPoseA(actOneAt(1400)).lamp);
     expect(t.you.shift).toEqual(youPoseA(actOneAt(1400)).shift);
@@ -121,7 +125,8 @@ describe('the turn (MT2)', () => {
     expect(t.fixA.tape).toEqual(A.tape);
     expect(t.fixA.items.map((x) => x!.p)).toEqual(A.items.filter((x) => x !== null).map((x) => x!.p));
     expect(t.fixA.stackTop).toBe(A.stackTop);
-    expect(t.fixA.requestInk).toBe(A.requestInk);
+    // the request's copy (and its vermilion stub) not yet turning to paper
+    expect(t.fixA.items.every((x) => x === null || x.paper === 0)).toBe(true);
     expect(t.fixA.chutes).toEqual(A.chutes);
     // Fix B's replies all in your in-tray as beat 3 left them (reply 7 came home on f1317: nothing in flight)
     expect(JSON.stringify(t.fixB.slips)).toBe(JSON.stringify(fixBOf(1400).b.slips));
@@ -261,32 +266,73 @@ describe('the turn (MT2)', () => {
     expect(IMPRINTS[FOLDERS.length].c).toEqual(FIX_A_FOLDER.c);
   });
 
-  it('presses the folders down on a spring with their pens, flags and piles, into the slate’s tone before they go under (nothing vanishes)', () => {
-    let prev = foldPressAt(TURN.press);
-    expect(prev.k).toBe(0);
-    for (let f = TURN.press + 1; f < TURN.press + TURN.pressGone; f++) {
-      const p = foldPressAt(f);
-      // a spring: it only goes down, and the tone only comes in
-      expect(p.scaleZ).toBeLessThanOrEqual(prev.scaleZ + 1e-9);
-      expect(p.sink).toBeGreaterThanOrEqual(prev.sink - 1e-9);
-      expect(p.slate!).toBeGreaterThanOrEqual(prev.slate! - 1e-9);
-      prev = p;
+  it('presses the folders down with their pens, flags and piles: a squash spreading flat, the rim, the draw-in, then the slate’s tone and the sink, run along the arc (L1-05, R-A3)', () => {
+    // from the hit, along the arc from Fix A's to F8: 0 to PRESS_SPREAD (1-2 f), every body after its neighbour
+    expect(TURN.press).toBe(TURN.hit);
+    expect(PRESS_DELAY).toHaveLength(FOLDERS.length + 1);
+    expect(PRESS_DELAY[FOLDERS.length]).toBe(0);
+    expect(PRESS_DELAY[FOLDERS.length - 1]).toBeCloseTo(PRESS_SPREAD, 9);
+    expect(PRESS_SPREAD).toBeGreaterThanOrEqual(1);
+    expect(PRESS_SPREAD).toBeLessThanOrEqual(2);
+    // Fix A's, then F1 to F8 in order, no two closer than 0.15 f (by radius five had pressed within 0.44 f)
+    const order = [PRESS_DELAY[FOLDERS.length], ...PRESS_DELAY.slice(0, FOLDERS.length)];
+    for (let i = 1; i < order.length; i++) expect(order[i] - order[i - 1], `body ${i}`).toBeGreaterThan(0.15);
+    expect(TURN.pressGone).toBe(PRESS_SPREAD + TURN.pressFrames - 1);
+    expect(TURN.pressFrames).toBeGreaterThanOrEqual(10);
+    expect(TURN.pressFrames).toBeLessThanOrEqual(14);
+    // the first body moves on the hit itself; nothing moves before it
+    expect(foldPressAt(TURN.press, 0).scaleZ).toBeLessThan(0.8);
+    expect(foldPressAt(TURN.press - 1, 0).k).toBe(0);
+    for (const delay of PRESS_DELAY) {
+      // its own frame t (1 on its first frame)
+      const at = (t: number) => foldPressAt(TURN.press + delay - 1 + t, delay);
+      expect(at(0).k).toBeCloseTo(0, 9);
+      // a visible squash in 3 f (its shadow pulls in with its height), spreading flat and held spread until the draw-in
+      expect(at(3).scaleZ).toBeLessThan(0.5);
+      expect(at(3).scaleZ).toBeGreaterThan(0.4);
+      for (const t of [3, 4, 5]) expect(at(t).inset!, `d${delay} t${t}`).toBeCloseTo(-PRESS_PHASE.spread, 9);
+      // the imprint's rim comes in from t 2 and is full before the tone starts (4 frames of physical change first)
+      expect(imprintOf(at(2))).toBeCloseTo(0, 9);
+      expect(imprintOf(at(PRESS_PHASE.rimTo))).toBeCloseTo(1, 9);
+      for (let t = 0; t <= PRESS_PHASE.slateFrom; t++) expect(at(t).slate, `d${delay} t${t}`).toBeCloseTo(0, 9);
+      expect(at(PRESS_PHASE.drawTo).inset).toBeCloseTo(5, 9);
+      // flat and in the slate's tone by `flat`, only then sunk to −2 (nothing goes under the slate before it is in its tone)
+      expect(at(PRESS_PHASE.flat).scaleZ).toBeLessThan(0.03);
+      expect(at(PRESS_PHASE.flat).slate).toBeGreaterThan(0.999);
+      expect(at(PRESS_PHASE.sinkTo).sink).toBeGreaterThan(2.39);
+      for (let t = 0; t <= PRESS_PHASE.sinkFrom; t++) expect(at(t).sink, `d${delay} t${t}`).toBeCloseTo(0, 9);
+      let prev = at(0);
+      for (let t = 1; t < TURN.pressFrames; t++) {
+        const p = at(t);
+        // it only goes down; the tone only comes in, over 6 f (never a fade of nine bodies in 4: at most a quarter a frame)
+        expect(p.scaleZ, `d${delay} t${t}`).toBeLessThanOrEqual(prev.scaleZ + 1e-9);
+        expect(p.sink, `d${delay} t${t}`).toBeGreaterThanOrEqual(prev.sink - 1e-9);
+        expect(p.slate!, `d${delay} t${t}`).toBeGreaterThanOrEqual(prev.slate! - 1e-9);
+        expect(p.slate! - prev.slate!, `d${delay} t${t}`).toBeLessThanOrEqual(0.26);
+        expect(imprintOf(p), `d${delay} t${t}`).toBeGreaterThanOrEqual(imprintOf(prev) - 1e-9);
+        prev = p;
+      }
+      // its last drawn frame: in the slate's tone, every part (the lifted pen, the flag, Fix A's pile) under the slate
+      const fl = Math.ceil(TURN.press + delay - 1 + TURN.pressFrames) - 1;
+      const last = foldPressAt(fl, delay);
+      expect(last.k).toBeLessThan(1);
+      expect(last.slate).toBeGreaterThan(0.999);
+      for (const f of FOLDERS) expect((stackTop(f) + 1.2 + PEN.lift + 8) * last.scaleZ - last.sink, `F${f.n} pen`).toBeLessThan(0);
+      for (const f of FOLDERS) expect((stackTop(f) + 1 + FLAG.staff + FLAG.plate[1]) * last.scaleZ - last.sink, `F${f.n} flag`).toBeLessThan(0);
+      expect((A_STACK_END + 0.5 + 0.8 * A_PILE.length + 2) * last.scaleZ - last.sink).toBeLessThan(0);
+      expect(foldPressAt(fl + 1, delay).k).toBe(1);
+      expect(fl + 1).toBeLessThanOrEqual(TURN.press + TURN.pressGone);
     }
-    // about 8 f to flat, h 0 → −2
-    expect(foldPressAt(TURN.press + 8).scaleZ).toBeLessThan(0.05);
-    expect(foldPressAt(TURN.press + 8).sink).toBeGreaterThan(2);
-    // its last drawn frame: in the slate's tone, the imprint in, and every part (the lifted pen, the flag, Fix A's pile) under the slate
-    const last = foldPressAt(TURN.press + TURN.pressGone - 1);
-    expect(last.slate).toBeGreaterThan(0.999);
-    expect(slateAt(TURN.press + TURN.pressGone - 1) * PRESS_LATE).toBeCloseTo(PRESS_LATE, 3);
+    // the bodies in the frame carry their own delays
+    const t = turnAt(TURN.press + 3);
+    FOLDERS.forEach((_, i) => expect(t.press[i].scaleZ).toBeCloseTo(foldPressAt(TURN.press + 3, PRESS_DELAY[i]).scaleZ, 9));
+    expect(t.pressA.scaleZ).toBeCloseTo(foldPressAt(TURN.press + 3, PRESS_DELAY[FOLDERS.length]).scaleZ, 9);
+    expect(slateAt(TURN.press + TURN.pressGone - 1, PRESS_SPREAD)).toBeGreaterThan(0.999);
     expect(imprintsAt(turnAt(TURN.press + TURN.pressGone - 1)).every((d) => d === 1)).toBe(true);
-    for (const fl of FOLDERS) expect((stackTop(fl) + 1.2 + PEN.lift + 8) * last.scaleZ - last.sink, `F${fl.n} pen`).toBeLessThan(0);
-    for (const fl of FOLDERS) expect((stackTop(fl) + 1 + FLAG.staff + FLAG.plate[1]) * last.scaleZ - last.sink, `F${fl.n} flag`).toBeLessThan(0);
-    expect((A_STACK_END + 0.5 + 0.8 * A_PILE.length + 2) * last.scaleZ - last.sink).toBeLessThan(0);
-    expect(foldPressAt(TURN.press + TURN.pressGone).k).toBe(1);
-    // the kit's late ramp carries the pens to the slate's tone while the folders are drawn, then lets go
-    expect(turnDeskState(TURN.press + TURN.pressGone - 1).testsStep).toBeCloseTo(PRESS_LATE, 3);
-    expect(turnDeskState(TURN.press + TURN.pressGone).testsStep).toBeCloseTo(0, 9);
+    expect(turnAt(TURN.press + TURN.pressGone).press.every((p) => p.k === 1)).toBe(true);
+    // the pens, flags and clips are toned with each folder's own press (objects/ActOne.tsx folderKit): the kit's late ramp
+    // is act two's own through the press (nothing on it moves)
+    for (let f = TURN.press - 1; f <= TURN.press + TURN.pressGone; f++) expect(turnDeskState(f).testsStep).toBe(deskStateAt(f).testsStep);
   });
 
   it('lets every part emerge over frames from a visible source', () => {

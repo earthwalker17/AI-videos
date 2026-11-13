@@ -19,7 +19,7 @@
  */
 import { rand } from '@aiv/core';
 import { useLayoutEffect, useMemo } from 'react';
-import { BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, Path, Quaternion, Shape, Vector3, type MeshStandardMaterial, type Texture } from 'three';
+import { BufferGeometry, Color, CylinderGeometry, Float32BufferAttribute, MeshPhysicalMaterial, Path, Quaternion, Shape, Vector3, type MeshStandardMaterial, type Texture } from 'three';
 import { FOLDER_PRINT, LOOP_NOTES } from '../../print.ts';
 import { TRACER_STEP, quieterColour } from './Bay.tsx';
 import { chatSlipPrint, leafPrint } from './Intake.tsx';
@@ -58,7 +58,7 @@ import {
 } from '../actOne.ts';
 import { cylinderZ, extrude, fitUv, merge, piece, slab, slipShape, tube } from '../geom.ts';
 import type { Press } from '../turn.ts';
-import { HEX, STEP_TARGET_PAPER, paper, whiteTexture } from '../gl/materials.ts';
+import { HEX, STEP_TARGET_PAPER, enamel, graphite, paper, whiteTexture } from '../gl/materials.ts';
 import { INK, print, texture, tooth } from '../gl/text.ts';
 import { Step, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
 import { DESK_HEX } from '../gl/desk.ts';
@@ -496,16 +496,50 @@ interface FolderMats {
 
 const mix = (a: string, b: string, t: number): Color => new Color(a).lerp(new Color(b), t);
 
+/** A folder's own kit part for the turn's press, with the full set's colour, metalness and clearcoat it starts from. */
+interface KitPart {
+  m: MeshStandardMaterial;
+  colour: Color;
+  rough: number;
+  env: number;
+  coat?: number;
+}
+/** The kit's parts a folder carries (its post, pen, nib, flag and clip), as the full set makes them (kit.tsx buildSet). */
+interface FolderKit {
+  graphite: MeshStandardMaterial;
+  graphiteDark: MeshStandardMaterial;
+  enamel: MeshStandardMaterial;
+  steel: MeshStandardMaterial;
+  parts: KitPart[];
+}
+
+/**
+ * A folder's own kit parts for the turn's press: the full set's graphite, dark graphite, steel and enamel made alike (the
+ * same programs), so each folder takes its pen, flag and clip to the slate's tone with its own press (turn.ts PRESS_DELAY),
+ * as it does its paper (R-A3: on the kit's one late ramp the flags and pens lagged or led their bodies by 1–2 f).
+ */
+function folderKit(full: ReturnType<typeof useDeskSets>['full']): FolderKit {
+  const hexOf = (x: MeshStandardMaterial) => `#${x.color.getHexString()}`;
+  const like = (x: MeshStandardMaterial, brush: number) => graphite(hexOf(x), { roughness: x.roughness, metalness: x.metalness, brush });
+  // (kit.tsx buildSet: graphite's brush is its default 0.04, steel's 0.03)
+  const kit = {
+    graphite: like(full.graphite, 0.04),
+    graphiteDark: like(full.graphiteDark, 0.04),
+    steel: like(full.steel, 0.03),
+    enamel: enamel(full.enamel.map!, full.enamel.envMap!) as MeshStandardMaterial,
+  };
+  const parts = Object.values(kit).map((m): KitPart => ({ m, colour: m.color.clone(), rough: m.roughness, env: m.envMapIntensity, coat: m instanceof MeshPhysicalMaterial ? m.clearcoat : undefined }));
+  return { ...kit, parts };
+}
+
 /** The slate's own tone (linear): what a pressed folder's paper glows to as its own light goes out (desk/turn.ts foldPressAt). */
 const SLATE = new Color(DESK_HEX.base);
 
-function Folder({ fl, s, mats, press }: { fl: FolderLayout; s: FolderState; mats: FolderMats; press?: Press }) {
-  // pressed at the turn (desk/turn.ts foldPressAt), its pen, flag, clip and post take the slate's tone on the kit's late
-  // ramp (the turn sets it; nothing else is on the late set then), its paper by its own colour, so it goes under the slate
-  // in the slate's tone
+function Folder({ fl, s, mats, kit, press }: { fl: FolderLayout; s: FolderState; mats: FolderMats; kit: FolderKit; press?: Press }) {
+  // pressed at the turn (desk/turn.ts foldPressAt), its pen, flag, clip and post take the slate's tone on its own kit
+  // materials with its own press, its paper by its own colour, so it goes under the slate in the slate's tone
   const ctx = useDeskMats();
-  const sets = useDeskSets();
-  const m = press ? sets.late : ctx;
+  const m = press ? kit : ctx;
   const slate = press?.slate ?? 0;
   // the slate as lit where it lies (desk/turn.ts slateToneAt), or its bare tone
   const tone = press?.tone;
@@ -522,15 +556,30 @@ function Folder({ fl, s, mats, press }: { fl: FolderLayout; s: FolderState; mats
     mats.top.color.copy(sheet);
     mats.cover.color.copy(cover);
     mats.card.color.copy(sheet).lerp(new Color(HEX.paperLit), 0.12 * (1 - lit));
-    // pressed: its own light goes out and the slate's tone comes in (by amount, never alpha), print and all
+    // pressed: its own light goes out and the slate's tone comes in (by amount, never alpha), print and all (its colour
+    // and its diffuse share, 1 − metalness, both going with `slate`: its displayed value falls about evenly with it)
     const target = tone ? new Color(tone[0], tone[1], tone[2]) : SLATE;
+    const k = slate;
     for (const x of [mats.sheet, mats.top, mats.cover, mats.card]) {
-      x.color.multiplyScalar(1 - slate);
-      x.emissive.copy(target).multiplyScalar(slate);
+      x.color.multiplyScalar(1 - k);
+      x.emissive.copy(target).multiplyScalar(k);
       // its sheen goes with its own light (metalness on a colour going to black: nothing reflected at the end)
-      x.metalness = slate;
+      x.metalness = k;
     }
-  }, [mats, s.warmth, lit, slate, tone]);
+    // its kit parts in step with it, from the full set's values (every value written from this frame alone): their own
+    // light (diffuse and metal sheen, the enamel's room light) by (1 − slate)², as the paper's goes (its colour and its
+    // diffuse share both by 1 − slate), their gloss spread out (the pennants face you: a dielectric's sharp glint kept
+    // them bright over bodies already in the slate's tone), the slate's tone coming in; the enamel's clearcoat never
+    // quite to 0 (0 would switch its program)
+    const own = (1 - k) * (1 - k);
+    for (const x of kit.parts) {
+      x.m.color.copy(x.colour).multiplyScalar(own);
+      x.m.emissive.copy(target).multiplyScalar(k);
+      x.m.roughness = x.rough + (1 - x.rough) * k;
+      x.m.envMapIntensity = x.env * own;
+      if (x.coat !== undefined) (x.m as MeshPhysicalMaterial).clearcoat = Math.max(x.coat * own, 1e-3);
+    }
+  }, [mats, kit, s.warmth, lit, slate, tone]);
   if (s.present <= 0 || (press && press.k >= 1)) return null;
   // F6–F8 are posted in whole (actOne.ts boardAt): the board flies in at full scale and squashes 3% as it lands; its task
   // card is on the stack once the event slip has landed on it, and its clip, riding open on the board's north edge, slides
@@ -831,13 +880,17 @@ export function ActOneObjects({ a, printFamily, press, loop = true, stepRequest 
     },
     [mats, print],
   );
+  // each folder's own kit parts for the turn's press (folderKit)
+  const sets = useDeskSets();
+  const kits = useMemo(() => FOLDERS.map(() => folderKit(sets.full)), [sets]);
+  useLayoutEffect(() => () => kits.forEach((k) => k.parts.forEach((x) => x.m.dispose())), [kits]);
   const stepFolders = isStepped(a.step, 'folders');
   const stepLoop = isStepped(a.step, 'loop');
   return (
     <>
       <Step on={stepFolders}>
         {FOLDERS.map((fl, i) => (
-          <Folder key={fl.n} fl={fl} s={a.folders[i]} mats={mats.folders[i]} press={press?.[i]} />
+          <Folder key={fl.n} fl={fl} s={a.folders[i]} mats={mats.folders[i]} kit={kits[i]} press={press?.[i]} />
         ))}
       </Step>
       <EventSlips a={a} mats={mats.folders} />

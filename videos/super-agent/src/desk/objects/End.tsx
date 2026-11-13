@@ -3,8 +3,8 @@
  * - in the summary's world (FilmFrame.tsx SummaryFrame, from bar 76): the bookend slip, which is the chat drum's spout
  *   slip (objects/Intake.tsx draws it until then; this draws the same piece in the same place, with the intake's step,
  *   from f6000), turning vermilion and riding out into the Register; the next slip the ticker feeds out of the spout;
- *   the dissolve's veil (gl/veil.ts) and the end card posted in with it (the incoming layer: the bare desk and the card,
- *   laid over the world at the dissolve's alpha);
+ *   the dissolve's veil (gl/veil.ts) and the end card posted in with it (the incoming layer: the bare desk laid over the
+ *   world at the dissolve's alpha, the card opaque over both, END_CARD_OVER);
  * - in the end's own world (desk/EndFrame.tsx, from the card's landing): the card and the end key's plate.
  * Built from the kit's materials and programs; the veil's program is the one new one (gl/veil.ts).
  */
@@ -24,11 +24,14 @@ import { isStepped } from '../kit.tsx';
 import { KEY_WORDS } from '../beat11.ts';
 import { cueReveal } from '../onScreen.ts';
 import { TEXT_HEX } from '../Overlay.tsx';
+import { TEXT_OUT } from '../../cues.ts';
 import type { DeskState } from '../state.ts';
 import { KEY_TYPE, KeyLegend } from './Beat11.tsx';
 import { chatSlipPrint } from './Intake.tsx';
 import { CARD_HEX, CARD_T, cardCentre, cardGeometry, useCardTexture, type CardState } from './TitleCard.tsx';
 
+/** The end card's blend over the dissolve (EndCardBody `over`): opaque, a card laid on the desk as it dissolves. */
+export const END_CARD_OVER = 1;
 /** The summary's world from bar 76: the bookend slip and the next one, the dissolve's veil, the end card posted in with it. */
 export function End({ s, printFamily }: { s: DeskState; printFamily: string }) {
   const e = s.end;
@@ -40,7 +43,9 @@ export function End({ s, printFamily }: { s: DeskState; printFamily: string }) {
       <Slips s={s} e={e} />
       {e.veil > 0 && <Veil alpha={alpha} />}
       <EndLight f={s.f} />
-      {card.present && e.veil > 0 && <EndCardBody f={s.f} printFamily={printFamily} over={alpha} />}
+      {/* the card is posted in opaque over the dissolve (session 6's stranger read it, blended in at the dissolve's alpha, as
+          a compositing error: the lamp and the in-tray showed through it); it still takes the end's light and the veil's pass */}
+      {card.present && e.veil > 0 && <EndCardBody f={s.f} printFamily={printFamily} over={END_CARD_OVER} />}
     </>
   );
 }
@@ -189,8 +194,9 @@ export function EndKey({ f }: { f: number }) {
 // The DOM text: the card's lettering (13.2)
 
 /**
- * The end card's lettering (the 'end' card cue: a 6 f wipe in from the landing, left to right, and a 6 f fade out), set on
- * the card through the camera line by line: each line starts where its baseline's start point on the card's top face is
+ * The end card's lettering (the 'end' card cue: a 6 f wipe in from the landing, left to right; its print stays on the card
+ * as it leaves, never faded off it first: session 6's stranger saw a blank cream card leave), set on the card through the
+ * camera line by line: each line starts where its baseline's start point on the card's top face is
  * seen and takes the card's own scale there across and down the frame (about 1.59 and 1.53 px a unit), its glyphs upright.
  * (TitleCard.tsx CardText fits one affine to the card's corners: on this card, which spans most of the frame's width, the
  * frame's perspective leans its west edge about 42 px over its depth, and that fit set the lettering in a false italic.)
@@ -203,7 +209,9 @@ export function EndCardText({ f, family, pose, state }: { f: number; family: str
   return (
     <svg width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
       {c.lines.map((l, i) => {
-        const r = cueReveal(l.cue, f);
+        const cr = cueReveal(l.cue, f);
+        // from the cue's fade on the print is whole: it leaves with the card (endCardAt's offset carries it)
+        const r = f >= c.frames.leave - TEXT_OUT ? { visible: true, wipe: 1, opacity: 1 } : cr;
         if (!r.visible) return null;
         const a = at(l.x, l.y);
         const sx = (at(l.x + 100, l.y)[0] - a[0]) / 100;

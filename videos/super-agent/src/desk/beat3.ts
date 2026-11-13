@@ -24,7 +24,7 @@
 import { clamp } from '@aiv/core';
 import { Easing } from 'remotion';
 import { BEAT, FIX_A, FIX_B } from '../cues.ts';
-import { FOLDERS, MOUTH, YOU_SHIFT_A, requestOnTapeAt, type FeederId } from './actOne.ts';
+import { FOLDERS, MOUTH, YOU_SHIFT_A, type FeederId } from './actOne.ts';
 import { segFp, type Footprint } from './footprints.ts';
 import { FEEDERS, YOU, rectC, type BayId, type P2, type P3 } from './layout.ts';
 import { SPRING, springAt } from './state.ts';
@@ -365,14 +365,20 @@ const onTape = (d: number): AItemPose => {
 const flat = (c: P3, rot: number): Pick<AItemPose, 'p' | 'x' | 'y'> => ({ p: c, x: [Math.cos(rot), Math.sin(rot), 0], y: [-Math.sin(rot), Math.cos(rot), 0] });
 
 /** A pour in the air: out of its feeder's mouth (3 f anticipation), then over its chute onto its place as it lands. */
+/** How far inside the chat spout's mouth point (MOUTH.chat.out) a poured piece's nose is at most on its first frame (the spout's end lies 6 u inside it). */
+export const POUR_INSIDE = 8;
 function pourPose(q: QueueItem, f: number): AItemPose | null {
   const P = q.pour!;
   const t0 = P.lands - P.arc - 3;
   if (f < t0) return null;
   const M = MOUTH[P.from];
   if (f < t0 + 3) {
+    // from inside the spout: on its first frame its nose is behind the spout's end (POUR_INSIDE short of its mouth), so a
+    // long piece (the request's copy, its vermilion stub on its nose) never shows a tip out of the mouth before it comes
+    // out (R-A2-speck: a one-frame vermilion speck at c992)
+    const inX = P.from === 'chat' ? Math.min(M.in[0], M.out[0] - POUR_INSIDE - A_SIZE[q.kind][0] / 2) : M.in[0];
     const e = MOVE(span01(f, t0, t0 + 3));
-    return { ...flat(lerp3(M.in, M.out, e), 0), paper: 0, air: true };
+    return { ...flat(lerp3([inX, M.in[1], M.in[2]], M.out, e), 0), paper: 0, air: true };
   }
   const land = onTape(q.d + aBackAt(P.lands));
   const u = (f - t0 - 3) / P.arc;
@@ -400,16 +406,13 @@ export interface FixAView extends Omit<FixATurn, 'items'> {
   folderDy?: number;
   /** its stack's top (it thickens with each swallow; the turn's: A_STACK_END) */
   stackTop?: number;
-  /** the request's copy in the request's own vermilion (0 grey stock … 1), while Fix A holds the focus */
-  requestInk?: number;
 }
 
-/**
- * One request on screen in 3.1: the copy on the tape carries the request's vermilion while Fix A holds the focus (from
- * its pour out of the chat spout until the focus moves to Fix B) and the heap's request drains to its paper meanwhile
- * (actOne.ts actOneAt); both over spring-effects, crossing in the same frames. From 3.2 on the heap's is the request again.
+/*
+ * One request on screen in 3.1: the request stays in the heap (actOne.ts REQUEST_ON_TAPE); the copy on the tape is grey
+ * stock and marks the request's place in the queue with the request's vermilion tear-off stub on its nose, which comes out
+ * of the chat spout with it (objects/Turn.tsx requestCopyParts). No colour passes between the two.
  */
-export const aRequestInkAt = (f: number): number => requestOnTapeAt(f);
 
 /** A pile piece's pose in world, on the stack as thick as it is at this point (`top`). */
 const pileWorld = (k: number, dy: number, top: number): AItemPose => {
@@ -471,7 +474,6 @@ export function fixAAt(f: number): FixAView {
     chutes: A_CHUTES.map((_, k) => aChuteAt(k, f)),
     folderDy: dy,
     stackTop: top,
-    requestInk: aRequestInkAt(f),
   };
 }
 

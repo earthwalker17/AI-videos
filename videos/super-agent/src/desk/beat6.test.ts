@@ -37,13 +37,14 @@ import {
   stripSlipAt,
   threadAt,
   threadRowX,
+  trayGlide,
   type PathPose,
 } from './beat6.ts';
 import { cameraAt, deskCamera, FRAMING_C, project } from './camera.ts';
-import { footprintsAt, MAX_FOOTPRINTS } from './footprints.ts';
-import { GATE, INDEX, PRINT_HEAD, TAPE_FLAT_X1, THROAT, type P3 } from './layout.ts';
+import { footprintsAt, MAX_FOOTPRINTS, registerFootprints, THROAT_FLOOR_FP } from './footprints.ts';
+import { DECK, GATE, INDEX, PRINT_HEAD, TAPE_FLAT_X1, THROAT, type P3 } from './layout.ts';
 import { poolsAt } from './pools.ts';
-import { DETENT, EVENTS_C, N6_GONE, SPRING, STEP_FRAMES, STRESS_LATE, TAB_LEAN_C, closeAt, deskStateAt, headDipAt, springAt } from './state.ts';
+import { DETENT, EVENTS_C, EVENTS_D, MT1_BELT, N6_GONE, SPRING, STEP_FRAMES, STRESS_LATE, TAB_LEAN_C, cacheAt, cardArcC, closeAt, deskStateAt, headDipAt, nextAt, springAt } from './state.ts';
 import { isStepped } from './kit.tsx';
 
 const dock = (f: number, at: number) => springAt(f, at, SPRING.dock);
@@ -177,7 +178,9 @@ describe('beat 6: every cue sheet frame is a contact frame', () => {
     const R = BEAT_6.recall;
     const at = reviewAt(R.card)!;
     const before = reviewAt(R.card - 1)!;
-    expect(before.p[0]).toBeLessThan(at.p[0]);
+    // still settling down between the cheeks the frame before (beat6.ts hopInto: over the slot first, then down onto its floor)
+    expect(before.p[0]).toBeLessThanOrEqual(at.p[0]);
+    expect(before.p[2]).toBeGreaterThan(at.p[2]);
     expect(at.flying).toBe(false);
     expect(before.flying).toBe(true);
     expect(reviewAt(R.card + 5)!.p).toEqual(at.p);
@@ -418,6 +421,177 @@ describe('beat 6: nothing jumps, snaps or vanishes in the open', () => {
       expect(n).toBeGreaterThanOrEqual(-0.035 * 8);
       prev = n;
     }
+  });
+});
+
+describe('the hop into the throat: it turns flat and settles over frames, never in one (L2-01)', () => {
+  // a carrier's pose frame by frame up to its landing in the throat: its drop, turn and tilt per frame
+  const steps = (poses: { p: P3; heading: number; slope: number }[]) =>
+    poses.slice(1).map((x, k) => ({ drop: poses[k]!.p[2] - x.p[2], turn: dAng(x.heading, poses[k]!.heading), tilt: Math.abs(x.slope - poses[k]!.slope) }));
+  it('lands every strip slip and the review card in the throat at rest: flat two frames before, its drop spread over three', () => {
+    const rides: { who: string; th: number; at: (f: number) => PathPose | null }[] = [];
+    for (const b of BATCHES) for (let i = 0; i < b.n; i++) rides.push({ who: `slip ${b.k}.${i}`, th: stripFrames(b, i).th, at: (f) => stripSlipAt(f, b, i)?.pose ?? null });
+    rides.push({ who: 'review card', th: BEAT_6.recall.card, at: (f) => reviewAt(f) });
+    for (const r of rides) {
+      const poses = [-6, -5, -4, -3, -2, -1, 0].map((k) => r.at(r.th + k)!);
+      const st = steps(poses);
+      // lying along the throat (flat, its tab state settled) from two frames before it lands, so the last frames only settle it
+      for (const x of poses.slice(4)) {
+        expect(x.heading, r.who).toBeCloseTo(0, 6);
+        expect(x.slope, r.who).toBeCloseTo(0, 6);
+      }
+      // the descent onto the throat's floor: over the last three frames, smaller each frame, the last a settle (it had dropped 15 u in one)
+      expect(st.slice(3).every((x) => x.drop > 0), r.who).toBe(true);
+      expect(st[3]!.drop, r.who).toBeGreaterThan(st[4]!.drop);
+      expect(st[4]!.drop, r.who).toBeGreaterThan(st[5]!.drop);
+      expect(st[5]!.drop, r.who).toBeLessThan(4);
+      expect(Math.max(...st.map((x) => x.drop)), r.who).toBeLessThan(12);
+      for (const x of st) expect(x.turn, r.who).toBeLessThan(0.15);
+    }
+  });
+  it('takes MT1’s next slip the same way: posted into the belt’s pose, up the belt, the hop, in the throat on belt + beltFrames', () => {
+    const E = EVENTS_D;
+    const th = E.belt + E.beltFrames;
+    const poses = [];
+    for (let f = E.post; f <= th; f++) poses.push(nextAt(f).slip!);
+    const st = steps(poses);
+    // never a pose swapped in a frame (it turned 0.5 rad and tilted 0.45 rad in one at f2246-2247, and again on the belt's foot at 2241)
+    st.forEach((x, k) => {
+      expect(x.turn, `f${E.post + k + 1}`).toBeLessThan(0.2);
+      expect(x.tilt, `f${E.post + k + 1}`).toBeLessThan(0.2);
+      // (the post comes down onto the belt as every post does; from the crest on, the hop settles)
+      if (E.post + k >= E.belt - 1 + MT1_BELT) expect(x.drop, `f${E.post + k + 1}`).toBeLessThan(12);
+    });
+    // in the belt's pose on its landing and the frame after; flat in the throat from the frame before it lands there
+    const land = nextAt(E.belt - 1).slip!;
+    expect(land.heading).toBeCloseTo(BELT_HEADING, 6);
+    expect(land.slope).toBeCloseTo(BELT_SLOPE, 6);
+    expect(land.p).toEqual(KEEP_LAND);
+    expect(nextAt(E.belt - 1 + MT1_BELT).slip!.p).toEqual(CARRIERS.chat.crest);
+    expect(nextAt(th - 1).slip!.heading).toBeCloseTo(0, 6);
+    expect(nextAt(th).slip!.p).toEqual(CARRIERS.chat.throat);
+    expect(st[st.length - 1]!.drop).toBeLessThan(4);
+  });
+  it('never shades MT1’s next slip by its own footprint (its 3% landing squash put its top under it for 3 f)', () => {
+    for (let f = EVENTS_D.post; f < EVENTS_D.belt + EVENTS_D.beltFrames + 8; f++) {
+      const sl = nextAt(f).slip;
+      if (!sl) continue;
+      const own = footprintsAt(deskStateAt(f)).find((fp) => fp.kind === 'rect' && fp.c[0] === sl.p[0] && fp.c[1] === sl.p[1] && fp.h[0] === 48);
+      expect(own, `f${f}`).toBeDefined();
+      // its top face (objects/Dispatch.tsx slipGeometry: ±0.4, squashed 3% at most) at or over its footprint's top
+      if (own?.kind === 'rect') expect(sl.p[2] + 0.4 * (1 - 0.03 * sl.squash), `f${f}`).toBeGreaterThanOrEqual(own.z1 + 0.1);
+    }
+  });
+  it('shades a carrier settling into the throat only by the cheeks’ cast shade: nothing over the slot stands above it (R-A4)', () => {
+    // (one footprint over the whole throat up to 126 shaded a carrier the frame it went under 126, on a hard edge at the
+    // throat's west face: every beat-6 landing and MT1's)
+    const lying = CARRIERS.chat.throat[2];
+    const floor = THROAT.z[1] - 8;
+    const over = (x: number, y: number) =>
+      registerFootprints().filter((fp) => fp.kind === 'rect' && fp.rot === 0 && Math.abs(x - fp.c[0]) <= fp.h[0] && Math.abs(y - fp.c[1]) <= fp.h[1]);
+    const slotY = (THROAT.box.y0 + THROAT.box.y1) / 2;
+    // (east of the deck's west rail's inner face the rail's own top, 122, lies over the carrier's east end: drawn there too)
+    for (let x = THROAT.box.x0; x < DECK.x0; x += 4)
+      for (const y of [slotY - 18, slotY, slotY + 18]) {
+        const fps = over(x, y);
+        for (const fp of fps) if (fp.kind === 'rect') expect(fp.z1, `${x},${y}`).toBeLessThanOrEqual(lying);
+        // the floor still in its own shade (as before)
+        expect(fps.some((fp) => fp.kind === 'rect' && fp.z1 > floor + 0.5), `${x},${y}`).toBe(true);
+      }
+    expect(THROAT_FLOOR_FP).toBeGreaterThan(floor + 0.5);
+    // the cheeks cast: standing over the carrier's height, either side of the slot
+    for (const y of [THROAT.box.y0 + 1, THROAT.box.y1 - 1]) expect(over(THROAT.box.x0 + 10, y).some((fp) => fp.kind === 'rect' && fp.z1 >= THROAT.z[1] + 2)).toBe(true);
+  });
+});
+
+describe('flights in the 2.4x close timed by screen distance (L2-03)', () => {
+  const px = (f: number, p: P3) => project(cameraAt(f, 15), p);
+  const stepPx = (f: number, a: P3, b: P3) => Math.hypot(px(f, a)[0] - px(f - 1, b)[0], px(f, a)[1] - px(f - 1, b)[1]);
+  it('flies the cache card into the mouth at an even speed on screen (no strobe), ejecting and landing on its frames', () => {
+    const E = EVENTS_C;
+    expect(E.cardEject).toBe(BEAT_6.cacheEject);
+    expect(cacheAt(E.cardEject)!.card!.s).toBe(0);
+    expect(cacheAt(E.cardEject + E.cardFly)!.card).toBeNull();
+    expect(cacheAt(E.cardEject + E.cardFly - 1)!.card!.s).toBeLessThan(1);
+    let inFrame = 0;
+    for (let f = E.cardEject + 2; f <= E.cardEject + E.cardFly; f++) {
+      const a = f < E.cardEject + E.cardFly ? cacheAt(f)!.card!.pos : cardArcC(1);
+      const b = cacheAt(f - 1)!.card!.pos;
+      const step = stepPx(f, a, b);
+      // at most about 87 px a frame (it had run up to 146, each step close to its own width: about 190 px at 2.4x)
+      expect(step, `f${f}`).toBeLessThan(90);
+      if (px(f, a)[0] < 1920) inFrame++;
+    }
+    expect(inFrame).toBeGreaterThanOrEqual(16);
+    // it slows into the mouth
+    const s1 = stepPx(E.cardEject + E.cardFly - 1, cacheAt(E.cardEject + E.cardFly - 1)!.card!.pos, cacheAt(E.cardEject + E.cardFly - 2)!.card!.pos);
+    expect(s1).toBeLessThan(75);
+  });
+  it('gulps each swept strip in over 8 f at about 80 px a frame, the tray clear before the next batch comes out', () => {
+    for (const b of BATCHES) {
+      const xs: number[] = [];
+      let f = b.sweep;
+      while (stripSlipAt(f, b, 0)) xs.push(stripSlipAt(f++, b, 0)!.pose.p[0]);
+      const moving = xs.slice(1).map((x, k) => xs[k]! - x).filter((d) => d > 1e-6);
+      expect(moving.length, `batch ${b.k}`).toBeGreaterThanOrEqual(7);
+      // (the tray's floor at the deck's top, 2.66 px a unit at 2.4x)
+      for (const d of moving) expect(d * 2.66, `batch ${b.k}`).toBeLessThan(84);
+    }
+    // never two batches' slips in view in the tray on one frame
+    for (let f = BATCHES[1]!.sweep - 200; f < BATCHES[1]!.sweep; f++) {
+      const seen = stripAt(f).filter((x) => x.inTray && x.view);
+      expect(new Set(seen.map((x) => x.b)).size, `f${f}`).toBeLessThanOrEqual(1);
+    }
+  });
+  it('slides each slip out of the west hood into the strip under the object cap (an even glide, then its stop), on its frame', () => {
+    expect(trayGlide(0)).toBe(0);
+    expect(trayGlide(1)).toBeCloseTo(1, 12);
+    for (const b of BATCHES)
+      for (let i = 0; i < b.n; i++) {
+        const F = stripFrames(b, i);
+        let prev = stripSlipAt(Math.floor(F.inTray), b, i)!.pose.p[0];
+        const steps: number[] = [];
+        for (let f = Math.floor(F.inTray) + 1; f <= F.L; f++) {
+          const x = stripSlipAt(f, b, i)!.pose.p[0];
+          steps.push(x - prev);
+          prev = x;
+        }
+        // (the tray's floor at the deck's top, 2.66 px a unit at 2.4x: under 80 px a frame; it had come out at 115-125)
+        for (const d of steps) expect(d * 2.66, `slip ${b.k}.${i}`).toBeLessThan(80);
+        expect(steps.every((d) => d >= -1e-9), `slip ${b.k}.${i}`).toBe(true);
+        // in its place on its frame, slowing into it over its last frames
+        expect(stripSlipAt(F.L, b, i)!.pose.p[0]).toBeCloseTo(F.place, 9);
+        expect(steps[steps.length - 1]!, `slip ${b.k}.${i}`).toBeLessThan(Math.max(...steps) / 2);
+      }
+  });
+  it('never shades the tilted stress plate by its own footprint as it flies (a band swept up its face for 8 f)', () => {
+    const B = STRESS_PLATE.box;
+    const hd = (B.y1 - B.y0) / 2;
+    for (let f = E6.plateDetent - E6.plateFly; f < E6.plateExit + E6.plateOut; f++) {
+      const p = plateAt(f);
+      if (!p) continue;
+      const c = [(B.x0 + B.x1) / 2 + p.d[0], (B.y0 + B.y1) / 2 + p.d[1]];
+      const own = footprintsAt(deskStateAt(f)).find((fp) => fp.kind === 'rect' && Math.abs(fp.c[0] - c[0]) < 1e-6 && Math.abs(fp.c[1] - c[1]) < 1e-6 && fp.h[0] === (B.x1 - B.x0) / 2);
+      expect(own, `f${f}`).toBeDefined();
+      // its face's lowest point (its south edge as it tilts north edge up) at or over its footprint's top
+      const face = STRESS_PLATE.z[0] + p.d[2] - hd * Math.sin(p.tilt) + (STRESS_PLATE.z[1] - STRESS_PLATE.z[0] + 0.2) * Math.cos(p.tilt);
+      if (own?.kind === 'rect') expect(face, `f${f}`).toBeGreaterThanOrEqual(own.z1 + (p.tilt > 0 ? 0.2 : -0.3));
+    }
+  });
+  it('takes the stress plate out east over 14 f in frame, gathering speed, never over 80 px a frame', () => {
+    const c: P3 = [(STRESS_PLATE.box.x0 + STRESS_PLATE.box.x1) / 2, (STRESS_PLATE.box.y0 + STRESS_PLATE.box.y1) / 2, STRESS_PLATE.z[1]];
+    const at = (f: number): P3 => {
+      const p = plateAt(f)!;
+      return [c[0] + p.d[0], c[1] + p.d[1], c[2] + p.d[2]];
+    };
+    let prev = 0;
+    for (let f = E6.plateExit + E6.plateUnhook + 1; f < E6.plateExit + E6.plateOut; f++) {
+      const step = stepPx(f, at(f), at(f - 1));
+      expect(step, `f${f}`).toBeLessThan(80);
+      expect(step, `f${f}`).toBeGreaterThanOrEqual(prev - 1e-6);
+      prev = step;
+    }
+    expect(E6.plateOut - E6.plateUnhook).toBeGreaterThanOrEqual(8);
   });
 });
 

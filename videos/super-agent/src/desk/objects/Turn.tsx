@@ -27,10 +27,10 @@ import { PRINT_FONT, cargoMark, texture, tooth } from '../gl/text.ts';
 import { useDeskMats, useDeskSets, useStepMode } from '../kit.tsx';
 import { BAYS, BAY_FLOOR, LEG_R, NEXT_SLIP, REEL, TAPE, TAPE_FLAT_X1, type BayId, type P2, type P3, type Rect } from '../layout.ts';
 import { CLIP_T, COIL_R0, OLDER_REPLY_REST, TURN, wrapRadius, bayShapeAt, coilRim, legsAt, replyLands, shapeWalls, turnDeskState, type BayShape, type BayTurn, type CoilState, type Press, type TurnState, type olderReplyAt } from '../turn.ts';
-import { BeetleLight, BugBay, DocsBay, SLOT_IDLE, TestsBay } from './Bay.tsx';
+import { BeetleLight, BugBay, DocsBay, SLOT_IDLE, TRACER_STEP, TestsBay, quieterColour } from './Bay.tsx';
 import { Hatch, shellInside } from './Dispatch.tsx';
 import { bubbleMark } from './Intake.tsx';
-import { TAPE_HEX, clipGeometry, fitUv, loopArc, loopNoteFlips, loopNotes, loopNotesAt, makeActOnePrint, piece, requestGeometry, slipShape } from './ActOne.tsx';
+import { TAPE_HEX, clipGeometry, fitUv, loopArc, loopNoteFlips, loopNotes, loopNotesAt, makeActOnePrint, piece, requestGeometry } from './ActOne.tsx';
 
 /** The slate's own tone (linear): what a pressed folder's stock glows to as its own light goes out (desk/turn.ts foldPressAt). */
 const SLATE = new Color(DESK_HEX.base);
@@ -434,23 +434,59 @@ export function itemTexture(kind: AItemKind, v: number): Texture {
   );
 }
 
-/** The request's grey copy: 1.3x a chat slip, its beetle cut out (as act one's request, never vermilion here). */
-export function requestCopy(): BufferGeometry {
+/**
+ * The request's grey copy on Fix A's tape: 1.3x a chat slip, its beetle cut out, in grey stock, and its nose a vermilion
+ * tear-off stub behind a perforation (`stub`): the request's place in the queue, as the Register's tape keeps the
+ * request's stub in act two. The request itself stays in the heap (actOne.ts REQUEST_ON_TAPE); no colour passes between
+ * them. The stub is the slip's own notched nose, so the copy keeps its outline (its footprint and its place nose to tail).
+ */
+export const REQUEST_STUB = { from: 13, gap: 1.4 } as const;
+export function requestCopyParts(): { body: BufferGeometry; stub: BufferGeometry } {
   const [l, w] = A_SIZE.request;
-  const s = slipShape('chat', l, w);
+  const x = l / 2;
+  const y = w / 2;
+  const nk = w * 0.28;
+  // the body: the slip's tail up to the perforation
+  const s = new Shape();
+  s.moveTo(-x, -y);
+  s.lineTo(REQUEST_STUB.from, -y);
+  s.lineTo(REQUEST_STUB.from, y);
+  s.lineTo(-x, y);
+  s.closePath();
   // the beetle as large as the slip allows (its body about 23 px long at 1.2x), so the cut-out reads at the tape's scale
   const bx = -l / 2 + 21;
-  const hole = (x: number, y: number, rx: number, ry: number) => {
+  const hole = (hx: number, hy: number, rx: number, ry: number) => {
     const h = new Shape();
-    h.absellipse(x, y, rx, ry, 0, Math.PI * 2, true);
+    h.absellipse(hx, hy, rx, ry, 0, Math.PI * 2, true);
     s.holes.push(h);
   };
   // (each hole clear of the next by 2 u or more: holes that touch are dropped by the triangulator, as the body was)
   hole(bx, 0, 9.5, 6.2);
   hole(bx - 15, 0, 3.2, 3.4);
   for (const side of [-1, 1]) for (const k of [-1, 0, 1]) hole(bx + k * 5.6, side * 11.4, 1.3, 2.4);
-  return fitUv(extrude(s, 0, 0.8, 0.2), l, w);
+  // the stub: the notched nose past the perforation
+  const t = new Shape();
+  const x0 = REQUEST_STUB.from + REQUEST_STUB.gap;
+  t.moveTo(x0, -y);
+  t.lineTo(x, -y);
+  t.lineTo(x - nk, 0);
+  t.lineTo(x, y);
+  t.lineTo(x0, y);
+  t.closePath();
+  return { body: fitUv(extrude(s, 0, 0.8, 0.2), l, w), stub: fitUv(extrude(t, 0, 0.8, 0.2), l, w) };
 }
+/**
+ * The stub's colour (linear): the request's vermilion, turning to paper with its copy as the turn winds it off the desk;
+ * stepped down with Fix A (3.2, `step`) as the heap's request steps (objects/ActOne.tsx requestTone: its chroma cut by
+ * TRACER_STEP by amount, its value kept), so stepped it is still the request's vermilion, a step quieter, never Fix A's
+ * grey (R-A2-stub-step: on the kit's late set it had gone a brownish grey while the heap's request stayed brick).
+ */
+export const requestStubColour = (paperK: number, step = 0): Color => {
+  const c = lerpHex(HEX.vermilion, HEX.paper, paperK);
+  return step > 0 ? quieterColour(c, TRACER_STEP * step) : c;
+};
+/** The request's place in the turn's queue (A_ITEMS by index). */
+const A_ITEM_REQUEST = A_ITEMS.findIndex((it) => it.kind === 'request');
 
 /** An item lying on its axes (the basis keeps its top face up). */
 function ItemMesh({ it, geometry, material }: { it: { p: P3; x: P3; y: P3 }; geometry: BufferGeometry; material: Material }) {
@@ -477,12 +513,15 @@ function chuteGeometry(c: (typeof A_CHUTES)[number], e: number): BufferGeometry 
  * queue riding it; posed by beat3.ts fixAAt in beat 3 and turn.ts fixATurnAt from f1400 (whose items carry no kind: they
  * are A_ITEMS by index). Its materials step down with the enclosing `<Step>` (beat 3.2: the focus moves to Fix B).
  */
-export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pressA: TurnState['pressA'] }) {
+export function FixA({ fixA, pressA, stepA = 0 }: { fixA: FixAView | TurnState['fixA']; pressA: TurnState['pressA']; stepA?: number }) {
   const mode = useStepMode();
   const A = fixA as FixAView;
   const tex = useMemo(() => tapeTexture(), []);
   const kindTex = useMemo(() => Object.fromEntries((['chat', 'ci', 'task', 'request'] as const).flatMap((k) => [0, 1, 2, 3].map((v) => [`${k}${v}`, itemTexture(k, v)]))) as Record<string, Texture>, []);
-  const geo = useMemo(() => ({ chat: piece('chat', ...A_SIZE.chat), ci: piece('ci', ...A_SIZE.ci), task: piece('ci', ...A_SIZE.task), request: requestCopy() }), []);
+  const geo = useMemo(() => {
+    const rc = requestCopyParts();
+    return { chat: piece('chat', ...A_SIZE.chat), ci: piece('ci', ...A_SIZE.ci), task: piece('ci', ...A_SIZE.task), request: rc.body, stub: rc.stub };
+  }, []);
   const F = FIX_A_FOLDER;
   const folder = useMemo(() => {
     const r = { x0: -F.w / 2, x1: F.w / 2, y0: -F.d / 2, y1: F.d / 2 };
@@ -516,6 +555,9 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
       chute: paper(whiteTexture(), FIX_HEX.stock, o),
       // its clip: the kit's dark graphite (as the enclosing set's), its own so the turn can take it to the slate's tone
       clip: graphite(CLIP_HEX, { roughness: 0.5, stepped: mode }),
+      // the request's stub on its copy's nose (requestCopyParts): vermilion paper in the full set, stepped with Fix A in its
+      // colour (requestStubColour), as the heap's request is
+      stub: paper(whiteTexture(), HEX.vermilion),
     };
     out.span.side = DoubleSide;
     out.tape.side = DoubleSide;
@@ -530,8 +572,6 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
     });
     return out;
   }, [tex, kindTex, mode]);
-  // the request's copy carries the request's vermilion while Fix A holds the focus (beat3.ts aRequestInkAt; the turn's: grey)
-  const ink = A.requestInk ?? 0;
   // pressed at the turn (desk/turn.ts foldPressAt): the folder's grey stock, its clip and its pile go to the slate's tone as
   // lit where it lies (pressA.tone) by amount, monotonic, so it is in the desk's own tone by the time it goes under
   const slate = pressA.slate ?? 0;
@@ -543,12 +583,13 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
     const target = tone ? new Color(tone[0], tone[1], tone[2]) : SLATE;
     // (its sheen goes with its own light: by metalness toward 1 on a colour going to black, nothing is reflected at the end,
     // so it is exactly the slate's tone; the clip starts from the kit graphite's metalness)
+    const k = slate;
     const set = (x: MeshStandardMaterial, c: Color, toned: boolean, metal = 0) => {
       x.color.copy(c);
       if (toned && slate > 0) {
-        x.color.multiplyScalar(1 - slate);
-        x.emissive.copy(target).multiplyScalar(slate);
-        x.metalness = metal + (1 - metal) * slate;
+        x.color.multiplyScalar(1 - k);
+        x.emissive.copy(target).multiplyScalar(k);
+        x.metalness = metal + (1 - metal) * k;
       } else {
         x.emissive.setRGB(0, 0, 0);
         x.metalness = metal;
@@ -562,10 +603,11 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
     set(mats.sheet, new Color(FIX_HEX.light), true);
     set(mats.clip, new Color(CLIP_HEX), true, 0.55);
     // the pile's pieces (in the turn the queue draws with its own i-mats, so the k-mats are the pile's)
-    for (const key of Object.keys(mats)) if (key.startsWith('k')) set(mats[key], key.startsWith('krequest') ? lerpHex(FIX_HEX.request, HEX.vermilion, ink) : new Color(FIX_HEX.item), true);
+    for (const key of Object.keys(mats)) if (key.startsWith('k')) set(mats[key], new Color(key.startsWith('krequest') ? FIX_HEX.request : FIX_HEX.item), true);
     const p = papers.split(',').map(Number);
+    set(mats.stub, requestStubColour(p[A_ITEM_REQUEST] ?? 0, stepA), false);
     A_ITEMS.forEach((it, i) => mats[`i${i}`] && set(mats[`i${i}`], lerpHex(it.kind === 'request' ? FIX_HEX.request : FIX_HEX.item, HEX.paper, p[i] ?? 0), false));
-  }, [ink, slate, tone, papers, mats]);
+  }, [slate, tone, papers, mats, stepA]);
   // the tape along its path: beat 3's stretch (A.tape), or the turn's from the folder back; u by material place (the print travels with it)
   const t0 = A.tape?.d0 ?? 0;
   const t1 = A.tape?.d1 ?? A.deskLen;
@@ -628,7 +670,16 @@ export function FixA({ fixA, pressA }: { fixA: FixAView | TurnState['fixA']; pre
           </Pressed>
         </group>
       )}
-      {A.items.map((it, i) => (it ? <ItemMesh key={i} it={it} geometry={geo[it.kind ?? A_ITEMS[i]?.kind ?? 'chat']} material={matOf(it, i)} /> : null))}
+      {A.items.map((it, i) => {
+        if (!it) return null;
+        const kind = it.kind ?? A_ITEMS[i]?.kind ?? 'chat';
+        return (
+          <group key={i}>
+            <ItemMesh it={it} geometry={geo[kind]} material={matOf(it, i)} />
+            {kind === 'request' && <ItemMesh it={it} geometry={geo.stub} material={mats.stub} />}
+          </group>
+        );
+      })}
     </group>
   );
 }

@@ -36,6 +36,7 @@
 import { clamp, easings } from '@aiv/core';
 import { BEAT_6, at as bar, cue } from '../cues.ts';
 import { CACHE_WINDOW, CARD_C, DECK, DRAWER, DRAWER_OPEN_C, FEEDERS, FILED_TABS, NEXT_SLIP, PRINT_HEAD, TAB_C, TAPE, THROAT, rectC, type P3 } from './layout.ts';
+import { FRAMING_C, deskCamera, project, projectBox } from './camera.ts';
 
 /** In and out (never -0, so a hold compares equal). */
 const sine = (t: number): number => easings.inOutSine(clamp(t)) + 0;
@@ -215,6 +216,26 @@ export interface RidePose extends PathPose {
 }
 
 /**
+ * The hop from the belt's crest into the throat (A4; MT1's next slip, state.ts nextAt, takes it too): up off the belt's top
+ * to HOP.peak over the throat's floor (clear of the cheeks' tops) in its first `rise` share, across on an in-out ease (over
+ * the slot by `across[1]`, along it to its place by `along[1]`), turning to lie along the throat (k: 1 the belt's pose, 0 flat) at an even rate over its first
+ * `turn` share (under 0.15 rad a frame on a 6 f hop), and only then, lying along the slot, settling down between the
+ * cheeks on an out-ease, so it lands at rest (it had dropped 15 u and turned flat in its last frame, a parabola's end:
+ * the L2-01 P1). u: 0 at the crest, 1 in the throat.
+ */
+export const HOP = { peak: 20, rise: 0.5, turn: 0.6, across: [0.1, 0.65], along: [0.1, 1] } as const;
+export function hopInto(from: P3, to: P3, u: number): { p: P3; k: number } {
+  // across (y) a hair after it lifts, so its nose is up before it reaches the cheeks' west end, and over the slot before it
+  // comes down between the cheeks; along (x) all the way, so its nose (its kind's tab) slides in under the head's west
+  // face over the settle's frames, never in one
+  const y = sine((u - HOP.across[0]) / (HOP.across[1] - HOP.across[0]));
+  const x = sine((u - HOP.along[0]) / (HOP.along[1] - HOP.along[0]));
+  const top = to[2] + HOP.peak;
+  const z = u < HOP.rise ? from[2] + (top - from[2]) * easings.outQuad(clamp(u / HOP.rise)) : top - HOP.peak * easings.outQuad(clamp((u - HOP.rise) / (1 - HOP.rise)));
+  return { p: [from[0] + (to[0] - from[0]) * x, from[1] + (to[1] - from[1]) * y, z], k: 1 - clamp(u / HOP.turn) };
+}
+
+/**
  * A carrier's ride at film frame `now`: out of its feeder (outFrames), posted in an arc onto the belt, landing in the
  * belt's pose on `land` (a contact), up the belt to the crest, the hop into the throat, waiting there until `feed`, then
  * fed under the head over RIDE6.feed frames (in-quad); null before it comes out and once it is wholly under the head.
@@ -236,11 +257,9 @@ export function rideAt(now: number, c: Carrier, land: number, feed: number): Rid
   if (now < hop) return { p: lerp3(KEEP_LAND, c.crest, (now - land) / R.belt), heading: BELT_HEADING, slope: BELT_SLOPE, squash: Math.max(0, 1 - (now - land) / 3), flying: false };
   const th = hop + R.hop;
   if (now < th) {
-    // up off the belt's top, over the cheeks, down between them; turning to lie along the throat over the whole hop
-    const u = (now - hop) / R.hop;
-    const xy = sine(u);
-    const k = 1 - sine(u);
-    return { p: [c.crest[0] + (c.throat[0] - c.crest[0]) * xy, c.crest[1] + (c.throat[1] - c.crest[1]) * xy, c.crest[2] + (c.throat[2] - c.crest[2]) * u + 4 * R.apex * u * (1 - u)], heading: BELT_HEADING * k, slope: BELT_SLOPE * k, squash: 0, flying: true };
+    // up off the belt's top, over the cheeks, settling down between them (hopInto: no last-frame drop), lying along the throat
+    const h = hopInto(c.crest, c.throat, (now - hop) / R.hop);
+    return { p: h.p, heading: BELT_HEADING * h.k, slope: BELT_SLOPE * h.k, squash: 0, flying: true };
   }
   const squash = Math.max(0, 1 - (now - th) / 3);
   if (now < feed) return { p: c.throat, heading: 0, slope: 0, squash, flying: false };
@@ -264,9 +283,27 @@ export const CROP = { west: TRAY.x0 + TRAY.hood / 2, east: TRAY.x1 - TRAY.hood /
 export const PITCH = 16.8;
 /** The front slip's centre (x): its nose a hair short of the east hood's lip. */
 export const FRONT_X = TRAY.x1 - TRAY.hood - 1 - NEXT_SLIP.l / 2;
-/** Where a slip comes in (its centre: its nose at the west crop, the rest under the hood) and how fast it comes out (u a frame; it slows into the strip). */
+/**
+ * Where a slip comes in (its centre: its nose at the west crop, the rest under the hood), and the speed that times its
+ * slide to its place (u a frame: the slide takes 2 · distance / TRAY_V frames, as an out-quad from TRAY_V did).
+ */
 export const ENTRY_X = CROP.west - NEXT_SLIP.l / 2;
 export const TRAY_V = 48;
+/**
+ * The slide's shape over those frames (A5, R-A5-tray-slide: an out-quad from 48 u a frame ran 115–125 px a frame out of
+ * the west hood in the 2.4x close, over the 2410 px/s object cap): an even glide out of the hood, then a linear stop over
+ * its last `ease` share into its place; its glide speed is TRAY_V / (2 − ease), 28.8 u (about 77 px) a frame at 2.4x.
+ */
+export const TRAY_GLIDE = { ease: 1 / 3 } as const;
+/** How far along its slide a slip is (0..1) at `x` (0..1) of the slide's frames (TRAY_GLIDE). */
+export function trayGlide(x: number): number {
+  const c = TRAY_GLIDE.ease;
+  const t = clamp(x);
+  const whole = 1 - c / 2;
+  if (t <= 1 - c) return t / whole;
+  const u = t - (1 - c);
+  return (1 - c + u - (u * u) / (2 * c)) / whole;
+}
 /** Frames a slip spends out of sight between wholly under the head and its nose at the west hood's crop (under the deck plate). */
 export const HIDDEN = 8;
 /** The slips lie a sheet above the one before in the strip (the follower on top), on the tray's floor. */
@@ -306,8 +343,8 @@ export const BATCHES = BEAT_6.batches.map((b, k) => {
 export function stripFrames(b: (typeof BATCHES)[number], i: number) {
   const L = b.slips[i]!;
   const place = FRONT_X - i * PITCH;
-  // it comes out at TRAY_V and slows into the strip (out-quad), so it slides over the slip before it for a few frames
-  // (never one frame of the print under it cut off at its nose)
+  // it comes out gliding and slows into the strip (trayGlide, timed by TRAY_V), so it slides over the slip before it for a
+  // few frames (never one frame of the print under it cut off at its nose)
   const inTray = L - (2 * (place - ENTRY_X)) / TRAY_V;
   // a whole frame (the feed's last frame lands it exactly wholly under the head: it leaves the open there, never mid-throat)
   const under = Math.floor(inTray - HIDDEN);
@@ -319,8 +356,21 @@ export function stripFrames(b: (typeof BATCHES)[number], i: number) {
 /** The reading bar's park (x): over the front slip's nose, by the east hood's lip; the far end of its sweep, by the west hood's lip. */
 export const BAR_PARK = TRAY.x1 - TRAY.hood - 3.5;
 export const BAR_FAR = TRAY.x0 + TRAY.hood + 3.5;
-/** The strip is drawn in under the west hood over `frames`, from `at` frames after the downbeat (as the bar starts back). */
-export const GULP = { at: E6_READ, frames: 7 } as const;
+/**
+ * The strip is drawn in under the west hood over `frames`, from `at` frames after the downbeat (the bar's last frame of
+ * its read: A5, the L2-03 P1, it was gulped in 4 visible frames at up to 126 px a frame), at an even pace with short
+ * ramps (`ramp` of it each end), so the 2.4x close sees it run in at about 80 px a frame; the tray is clear (its front's
+ * nose under the west crop) the frame before the next batch's first slip comes out from under the same hood.
+ */
+export const GULP = { at: E6_READ - 1, frames: 8, ramp: 0.1 } as const;
+/** Even transport with short ramps (0..1): as tape runs. */
+function transport(t: number, ramp: number): number {
+  const x = clamp(t);
+  const v = 1 / (1 - ramp);
+  if (x < ramp) return (v * x * x) / (2 * ramp);
+  if (x > 1 - ramp) return 1 - (v * (1 - x) * (1 - x)) / (2 * ramp);
+  return v * (x - ramp / 2);
+}
 
 /** How far the batch's sweep has gone at f: the bar's run west down the strip (0..1, the read), then its run back to its park (0..1). */
 function sweepAt(f: number, b: (typeof BATCHES)[number]): { read: number; back: number } {
@@ -333,7 +383,7 @@ function sweepAt(f: number, b: (typeof BATCHES)[number]): { read: number; back: 
 }
 
 /** How far the gulp has drawn the batch's strip in (0..1). */
-const gulpK = (f: number, b: (typeof BATCHES)[number]): number => sine((f - b.sweep - GULP.at + 1) / GULP.frames);
+const gulpK = (f: number, b: (typeof BATCHES)[number]): number => transport((f - b.sweep - GULP.at + 1) / GULP.frames, GULP.ramp) + 0;
 /** How far the batch's strip has been drawn in west at f (u): its front's nose under the west crop by the end. */
 const gulpOf = (f: number, b: (typeof BATCHES)[number]): number => (FRONT_X + NEXT_SLIP.l / 2 - CROP.west) * gulpK(f, b);
 
@@ -358,8 +408,8 @@ export function stripSlipAt(f: number, b: (typeof BATCHES)[number], i: number): 
   };
   // under the head and the deck plate on its way to the tray's west hood
   if (f < F.inTray) return { ...at(ENTRY_X), hidden: true, view: null };
-  // out from under the west hood, sliding east to its place (linear transport), butting on its frame
-  if (f < F.L) return at(ENTRY_X + (F.place - ENTRY_X) * easings.outQuad(clamp((f - F.inTray) / (F.L - F.inTray))));
+  // out from under the west hood, gliding east and stopping into its place (trayGlide), butting on its frame
+  if (f < F.L) return at(ENTRY_X + (F.place - ENTRY_X) * trayGlide((f - F.inTray) / (F.L - F.inTray)));
   const x = F.place - gulpOf(f, b);
   if (x + NEXT_SLIP.l / 2 <= CROP.west) return null;
   // in the strip: still until the sweep; read as the bar passes its nose band; drawn in under the west hood with the strip
@@ -497,6 +547,62 @@ export interface PlatePose {
 /** The seated plate's contact shadow, faded with its lift off the hooks over this many frames from the exit's first (A10). */
 export const PLATE_CONTACT = { seated: 0.6, fade: E6.plateUnhook + 2 } as const;
 
+const PLATE_HOVER = 12;
+/** The exit's path (offset from the seat) at u (0 over the seat at its hover, 1 back where it came from, off the frame's east edge, high). */
+function plateExitD(u: number): P3 {
+  const c: P3 = [(STRESS_PLATE.box.x0 + STRESS_PLATE.box.x1) / 2, (STRESS_PLATE.box.y0 + STRESS_PLATE.box.y1) / 2, 0];
+  const from: P3 = [PLATE_FROM[0] - c[0], PLATE_FROM[1] - c[1], PLATE_FROM[2]];
+  return [from[0] * u, from[1] * u, PLATE_HOVER + (from[2] - PLATE_HOVER) * u + 30 * Math.sin(Math.PI * u) * u];
+}
+/**
+ * The exit timed by screen distance in the 2.4x close (A5, the L2-03 P1: on its eased world clock it left the frame in
+ * about 5 f, at up to 160 px a frame): the plate's centre runs an in-ease (power `ease`) of its screen distance from its
+ * hover to where its box has wholly left the frame, over the plateOut - plateUnhook frames after the unhook, so it
+ * gathers speed in frame and leaves at about 75 px a frame (under the film's 2410 px/s object cap), off on its last frame
+ * (the exit's first frame, the score's unhook, unchanged).
+ */
+export const PLATE_EXIT = { ease: 1.6, samples: 400, margin: 40 } as const;
+let plateTable: { u: number[]; d: number[]; len: number } | null = null;
+export function plateExitPath(): { u: number[]; d: number[]; len: number } {
+  if (plateTable) return plateTable;
+  const pose = deskCamera(FRAMING_C, 15);
+  const B = STRESS_PLATE.box;
+  const u: number[] = [];
+  const d: number[] = [];
+  let acc = 0;
+  let prev: [number, number] | null = null;
+  for (let i = 0; i <= PLATE_EXIT.samples; i++) {
+    const k = i / PLATE_EXIT.samples;
+    const o = plateExitD(k);
+    const z = STRESS_PLATE.z[1] + o[2];
+    const q = project(pose, [(B.x0 + B.x1) / 2 + o[0], (B.y0 + B.y1) / 2 + o[1], z]);
+    if (prev) acc += Math.hypot(q[0] - prev[0], q[1] - prev[1]);
+    prev = q;
+    u.push(k);
+    d.push(acc);
+    const box = projectBox(pose, [
+      [B.x0 + o[0], B.y0 + o[1], z],
+      [B.x1 + o[0], B.y0 + o[1], z],
+      [B.x0 + o[0], B.y1 + o[1], z],
+      [B.x1 + o[0], B.y1 + o[1], z],
+    ]);
+    // stop once it has wholly left the frame (east, or over the top), with a margin for its tilt and turn
+    if (box.x0 > 1920 + PLATE_EXIT.margin || box.y1 < -PLATE_EXIT.margin) break;
+  }
+  plateTable = { u, d, len: acc };
+  return plateTable;
+}
+/** The exit's place on its path at `t` frames after its unhook (0 at its hover; the last frame, off the frame's edge). */
+export function plateExitU(t: number): number {
+  const T = plateExitPath();
+  const want = T.len * clamp(t / (E6.plateOut - E6.plateUnhook)) ** PLATE_EXIT.ease;
+  let k = 1;
+  while (k < T.d.length - 1 && T.d[k]! < want) k++;
+  const d0 = T.d[k - 1]!;
+  const d1 = T.d[k]!;
+  return T.u[k - 1]! + (T.u[k]! - T.u[k - 1]!) * (d1 > d0 ? clamp((want - d0) / (d1 - d0)) : 0);
+}
+
 /** The stress plate at f: null before it enters, then its flight, its press onto the rail on plate-detent, seated; its lift off the hooks and flight back out on plateExit; null once it is gone. */
 export function plateAt(f: number): PlatePose | null {
   const at = E6.plateDetent;
@@ -512,8 +618,9 @@ export function plateAt(f: number): PlatePose | null {
     // its contact shadow fades as it lifts (never cut on the exit's first frame: A10)
     const contact = x < PLATE_CONTACT.fade ? { contact: PLATE_CONTACT.seated * (1 - sine(x / PLATE_CONTACT.fade)) } : {};
     if (x <= E6.plateUnhook) return { d: [0, 0, HOVER * sine(x / E6.plateUnhook)], tilt: 0, turn: 0, squash: 0, flying: true, ...contact };
-    const u = sine((x - E6.plateUnhook) / (E6.plateOut - E6.plateUnhook));
-    return { d: [from[0] * u, from[1] * u, HOVER + (from[2] - HOVER) * u + 30 * Math.sin(Math.PI * u) * u], tilt: 0.35 * u, turn: 0.22 * u, squash: 0, flying: true, ...contact };
+    // timed by screen distance (plateExitU): it gathers speed in frame and is off the east edge on its last frame
+    const u = plateExitU(x - E6.plateUnhook);
+    return { d: plateExitD(u), tilt: 0.35 * u, turn: 0.22 * u, squash: 0, flying: true, ...contact };
   }
   if (f >= at) return { d: [0, 0, 0], tilt: 0, turn: 0, squash: 0.03 * Math.max(0, 1 - (f - at) / 4), flying: false };
   const pressFrom = at - E6.platePress;

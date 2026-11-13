@@ -6,9 +6,10 @@
  * locked, the request riding the belt). One object becomes another by physical means only, one idea at a
  * time (at most two or three motions overlap):
  * 1. 1400–1440: Fix A's queue moves its last station; everything stills (pens lifted) before the hit.
- * 2. 1442–1452: on the hit the eight folders and Fix A's are pressed into the desk together, each as one
- *    body with its pen, flag and pile (squashed on spring-heavy down to −2), drawing in to their imprints
- *    and taking the slate's tone as they go under; the notes loop dips and lifts.
+ * 2. 1440–1453: from the hit the eight folders and Fix A's are pressed into the desk, each as one body with
+ *    its pen, flag and pile, the press running along the arc from Fix A's to F8 (2 f from first to last):
+ *    a 3 f squash spreading flat (their shadows pull in), the imprint's rim, the draw-in, then the slate's
+ *    tone and a sink to −2 as they go under (13 f each); the notes loop dips and lifts.
  * 3. 1452–1530: the loop turns on edge (its outer edge up), rounds, its tabs fold in over its rim and it
  *    coils into a pack; the hub telescopes out of its centre. Fix A's tape end lifts off the desk at its
  *    folder's old mouth and is caught by the rising loop; the coil winds the whole tape in, grey stock
@@ -94,10 +95,15 @@ export const TURN = {
   coilEnd: 1508,
   hub: 1494,
   hubFrames: 14,
-  /** the folders, act one's eight and Fix A's, pressed into the desk together on the hit (spring-heavy, flat in about 8 f), then gone under the slate */
-  press: 1442,
-  pressFrames: 14,
-  pressGone: 13,
+  /**
+   * the folders, act one's eight and Fix A's, pressed into the desk from the hit, the press running along the arc
+   * (PRESS_DELAY, 0–2 f; the first body moves on the hit itself): each a squash spreading flat, its imprint's rim, the
+   * draw-in, then the slate's tone and the sink (PRESS_PHASE), gone under the slate on its own frame pressFrames; all gone
+   * by press + pressGone (the L1-05 P1: the nine had faded into the slate together in about 4 f)
+   */
+  press: 1440,
+  pressFrames: 13,
+  pressGone: 14,
   /** Fix A's tape end lifts off the desk at its folder's old mouth and is caught by the rising loop (the camera curve, a small arc) */
   catch: 1456,
   catchFrames: 16,
@@ -475,12 +481,12 @@ export function fixATurnAt(f: number, lt: LoopTurn): FixAView {
   const adv = advanceAt(f);
   const chutes = A_CHUTES.map((_, k) => 1 - MOVE(span01(f, CHUTE_IN[k], CHUTE_IN[k] + 4)));
   const none: TapeSpan = { a: A_MOUTH, b: A_MOUTH, wa: [0, 1, 0], wb: [0, 1, 0], len: 0 };
-  const base = { stackTop: A_STACK_END, requestInk: 0, folderDy: 0, chutes };
+  const base = { stackTop: A_STACK_END, folderDy: 0, chutes };
   if (f < TURN.catch) {
     // beat 3's tape, one station further in: drawn from inside the folder's mouth (from the mouth once the folder is
     // pressed: what lay under its cover is never seen) back to its tail
     const lead = A_ADV_LEAD + (A_PITCH - adv);
-    const d0 = Math.max(lead, f < TURN.press ? A_FOLDER_IN - 14 : A_FOLDER_IN);
+    const d0 = Math.max(lead, pressT(f, PRESS_DELAY[FOLDERS.length]) <= 0 ? A_FOLDER_IN - 14 : A_FOLDER_IN);
     const d1 = A_TAPE.tail - (A_TAPE.lead - lead);
     const items = A_ITEM_U.map((u) => ({ ...onTape(u + lead), paper: 0 }));
     return { ...base, wound: A_MOUTH_U, span: none, deskLen: d1 - d0, spanLen: 0, items, tape: { d0, d1, u0: d0 - lead } };
@@ -537,27 +543,79 @@ export function pressAt(f: number, start: number, depth: number, top: number, fr
   const sink = (top * 0.06 + (depth / 2) * Math.sin(0.06) + 0.8) * clamp((k - 0.7) / 0.3) ** 1.2;
   return { k, scaleZ, tilt, sink };
 }
-/** How far the folders are pressed (0..1: spring-heavy from the hit, never past flat). */
-export const pressedAt = (f: number): number => clamp(springOver(f, TURN.press, TURN.pressFrames, SPRING.heavy));
-/** How far a pressed folder has taken the slate's tone: with its squash, all of it by the time it is flat (before it goes under). */
-export const slateAt = (f: number): number => {
-  const x = clamp((pressedAt(f) - 0.05) / 0.9);
+/** The press runs along the arc over this many frames (Fix A's first, F8 last). */
+export const PRESS_SPREAD = 2;
+/**
+ * Each body's press delay after TURN.press (FOLDERS order, then Fix A's): the press runs along the arc at one pace, from
+ * Fix A's in the west round to F8 in the east (the bodies in order of their bearing from your desk, each delayed by its
+ * distance along that chain): 0 to PRESS_SPREAD, every body a share of it after its neighbour (R-A3: by distance from
+ * your desk, five of the eight had pressed within 0.44 f of each other).
+ */
+export const PRESS_DELAY: readonly number[] = (() => {
+  const cs = [...FOLDERS.map((fl) => fl.c), FIX_A_FOLDER.c];
+  const bearing = (c: P2) => {
+    const a = Math.atan2(c[1] - LOOP_A.c[1], c[0] - LOOP_A.c[0]);
+    return a < -Math.PI / 2 ? a + 2 * Math.PI : a;
+  };
+  const order = cs.map((_, i) => i).sort((i, j) => bearing(cs[j]) - bearing(cs[i]));
+  const along = new Array<number>(cs.length).fill(0);
+  order.forEach((i, n) => {
+    if (n > 0) along[i] = along[order[n - 1]] + Math.hypot(cs[i][0] - cs[order[n - 1]][0], cs[i][1] - cs[order[n - 1]][1]);
+  });
+  const total = along[order[order.length - 1]];
+  return along.map((x) => (PRESS_SPREAD * x) / total);
+})();
+/**
+ * A body's press phases (its own frames: 1 on its first frame, which is the hit's for the first body; pressFrames in all):
+ * - a 3 f squash to 45% of its height (fast in: its shadow and its pen's pull in), spreading 4 u each side as it goes
+ *   flat, held spread until the draw-in (so it reads as flattening outward, not a puff: R-A3);
+ * - the imprint's embossed rim deepens under it from `rimFrom` to `rimTo` (before any colour change);
+ * - it draws in from its spread to 5 u inside its outline (`drawFrom`–`drawTo`), uncovering the rim, and flattens on;
+ * - it takes the slate's tone from `slateFrom` (4 frames of physical change first) to `flat`;
+ * - only then, in the slate's tone, does it sink under the slate (`sinkFrom`–`sinkTo`): nothing goes under the slate's
+ *   surface before it is in the slate's tone.
+ */
+export const PRESS_PHASE = { squash: 3, half: 0.55, spread: 4, rimFrom: 2, rimTo: 6, drawFrom: 5, drawTo: 9, slateFrom: 5, flat: 11, sinkFrom: 11, sinkTo: 12 } as const;
+/** A body's own press frame (`delay` after TURN.press: PRESS_DELAY): 1 on its first frame, so the first body moves on the hit itself. */
+export const pressT = (f: number, delay: number): number => f - TURN.press - delay + 1;
+/** How far a body is pressed (0..1 of the way to flat; monotonic, never past flat). */
+export const pressedAt = (f: number, delay: number): number => {
+  const t = pressT(f, delay);
+  const P = PRESS_PHASE;
+  return P.half * easings.outQuad(clamp(t / P.squash)) + (1 - P.half) * easings.inOutSine(clamp((t - P.squash) / (P.flat - P.squash)));
+};
+/** How far a pressed body has taken the slate's tone: after its squash and draw-in have started, all of it by the time it is flat. */
+export const slateAt = (f: number, delay: number): number => {
+  const x = clamp((pressT(f, delay) - PRESS_PHASE.slateFrom) / (PRESS_PHASE.flat - PRESS_PHASE.slateFrom));
   return x * x * (3 - 2 * x);
 };
 /** The kit's late step amount that takes graphite, enamel and steel exactly to the slate's tone (gl/materials.ts: 0.45 of the way per unit). */
 export const PRESS_LATE = 1 / 0.45;
 /**
- * A folder pressed into the desk (act one's eight and Fix A's, together on the hit): one body with its pen, flag, clip
- * and pile, squashed flat on spring-heavy and sunk 2.4 u (h 0 → −2), drawing in 5 u from its outline into its imprint
- * and taking the slate's tone as it goes; its top is under the slate, its tone the slate's, before it is dropped.
+ * A folder pressed into the desk (act one's eight and Fix A's, from the hit, `delay` frames after TURN.press:
+ * PRESS_DELAY): one body with its pen, flag, clip and pile, on PRESS_PHASE: squashed and spread, drawn in 5 u from its
+ * outline into its imprint as it flattens and takes the slate's tone, then sunk 2.4 u (h 0 → −2) in that tone; its top is
+ * under the slate, its tone the slate's, before it is dropped (from its own frame pressFrames).
  */
-export function foldPressAt(f: number): Press {
-  if (f >= TURN.press + TURN.pressGone) return { k: 1, scaleZ: 0.02, tilt: 0, sink: 2.4, inset: 5, slate: 1 };
-  const s = pressedAt(f);
-  return { k: Math.min(s, 0.999), scaleZ: 1 - 0.98 * s, tilt: 0, sink: 2.4 * s, inset: 5 * easings.inOutSine(s), slate: slateAt(f) };
+export function foldPressAt(f: number, delay: number = 0): Press {
+  const t = pressT(f, delay);
+  if (t >= TURN.pressFrames) return { k: 1, scaleZ: 0.02, tilt: 0, sink: 2.4, inset: 5, slate: 1 };
+  if (t <= 0) return { k: 0, scaleZ: 1, tilt: 0, sink: 0, inset: 0, slate: 0 };
+  const P = PRESS_PHASE;
+  const s = pressedAt(f, delay);
+  const spread = P.spread * easings.outQuad(clamp(t / P.squash));
+  const draw = easings.inOutSine(clamp((t - P.drawFrom) / (P.drawTo - P.drawFrom)));
+  return {
+    k: Math.min(t / TURN.pressFrames, 0.999),
+    scaleZ: 1 - 0.98 * s,
+    tilt: 0,
+    sink: 2.4 * easings.inOutSine(clamp((t - P.sinkFrom) / (P.sinkTo - P.sinkFrom))),
+    inset: -spread + (5 + spread) * draw,
+    slate: slateAt(f, delay),
+  };
 }
-/** How deep the desk's imprint under a pressed folder is (its embossed edge in before the folder takes the slate's tone). */
-export const imprintOf = (p: Press): number => clamp((p.k - 0.2) / 0.5);
+/** How deep the desk's imprint under a pressed folder is (its embossed rim in, PRESS_PHASE rimFrom–rimTo, before the folder takes the slate's tone). */
+export const imprintOf = (p: Press): number => clamp((p.k * TURN.pressFrames - PRESS_PHASE.rimFrom) / (PRESS_PHASE.rimTo - PRESS_PHASE.rimFrom));
 
 // ------------------------------------------------------------------------------------------------
 // Fix B: the replies home; five trays posted back out east; three walled up into the bays of (b)
@@ -1049,7 +1107,6 @@ export function slateToneAt(pools: readonly Pool[], c: P2): P3 {
 }
 
 export function turnAt(f: number): TurnState {
-  const p = foldPressAt(f);
   const loop = loopTurnAt(f);
   const act = heldActOne(f);
   // the pools reach the slate as act one's (held) pool and the Register's (which never reaches the desk: z from 118)
@@ -1057,8 +1114,8 @@ export function turnAt(f: number): TurnState {
   return {
     f,
     act,
-    pressA: { ...p, tone: slateToneAt(pools, FIX_A_FOLDER.c) },
-    press: FOLDERS.map((fl) => ({ ...p, tone: slateToneAt(pools, fl.c) })),
+    pressA: { ...foldPressAt(f, PRESS_DELAY[FOLDERS.length]), tone: slateToneAt(pools, FIX_A_FOLDER.c) },
+    press: FOLDERS.map((fl, i) => ({ ...foldPressAt(f, PRESS_DELAY[i]), tone: slateToneAt(pools, fl.c) })),
     you: youPoseTurn(f),
     loop,
     fixA: fixATurnAt(f, loop),
@@ -1075,15 +1132,14 @@ export function turnAt(f: number): TurnState {
 }
 
 /**
- * The desk state the act-two objects read during the turn: act two's rest (nothing of (b)'s handshake has happened), the
- * intake's step held from act one, and the kit's late ramp carrying the pressed folders' pens, flags and clips to the
- * slate's tone (while any is still drawn; nothing else is on the late set in the turn).
+ * The desk state the act-two objects read during the turn: act two's rest (nothing of (b)'s handshake has happened) and
+ * the intake's step held from act one. (The pressed folders' pens, flags and clips are on their own materials, each
+ * folder's toned with its own press: objects/ActOne.tsx Folder; they no longer ride the kit's late ramp, one for all.)
  */
 export function turnDeskState(f: number): DeskState {
   const step = turnStepAt(f);
   const s = deskStateAt(f);
-  const late = f < TURN.press + TURN.pressGone ? PRESS_LATE * slateAt(f) : s.testsStep;
-  return { ...s, step: { amount: step, ids: step > 0 ? ['intake'] : [] }, testsStep: late };
+  return { ...s, step: { amount: step, ids: step > 0 ? ['intake'] : [] } };
 }
 
 /** Each imprint's depth (beat3.ts IMPRINTS order: F1..F8, then Fix A's). */

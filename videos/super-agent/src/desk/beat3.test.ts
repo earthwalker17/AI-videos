@@ -3,14 +3,20 @@ import { BEAT, BOTH_FIXES, FIX_A, FIX_B } from '../cues.ts';
 import { STEP_FRAMES } from './state.ts';
 import { actOneFrameFootprints, fixAOf, fixBOf } from './ActOneFrame.tsx';
 import { FIX_LAMP, FOLDERS, LOOP_A, MOUTH, POOL_A_Z, REQUEST_ON_TAPE, REQUEST_STEPPED_FROM, actOneAt, actOneStep, actOneStepA, loopPoint, requestStepOf, stackTop } from './actOne.ts';
+import { Color } from 'three';
+import { HEX } from './gl/materials.ts';
+import { requestStubColour } from './objects/Turn.tsx';
+import { TRACER_STEP, quieterColour } from './objects/Bay.tsx';
 import {
   A_CHUTES,
   A_FOLDER_IN,
   A_FOLDER_TOP,
+  A_ITEMS,
   A_STACK_END,
   A_LAST_LAUNCH,
   A_PILE,
   A_POURS,
+  POUR_INSIDE,
   A_QUEUE,
   A_REQUEST,
   A_SIZE,
@@ -120,7 +126,12 @@ describe('Fix A (3.1): one folder, one tape, every feeder pouring onto it', () =
     for (const P of A_POURS) {
       const t0 = P.lands - P.arc - 3;
       expect(fixAOf(t0 - 1).items[P.q]).toBeNull();
-      expect(fixAOf(t0).items[P.q]!.p).toEqual(MOUTH[P.from].in);
+      // from its feeder's inside (a long piece out of the chat spout starts deeper, its nose behind the spout's end: POUR_INSIDE)
+      const first = fixAOf(t0).items[P.q]!.p;
+      expect(first.slice(1)).toEqual(MOUTH[P.from].in.slice(1));
+      expect(first[0]).toBeLessThanOrEqual(MOUTH[P.from].in[0]);
+      if (P.from === 'chat') expect(first[0] + A_SIZE[A_QUEUE[P.q]!.kind][0] / 2).toBeLessThanOrEqual(MOUTH.chat.out[0] - POUR_INSIDE);
+      else expect(first).toEqual(MOUTH[P.from].in);
       const before = fixAOf(P.lands - 1).items[P.q]!;
       const at = fixAOf(P.lands).items[P.q]!;
       expect(at.air).toBeUndefined();
@@ -448,52 +459,48 @@ describe('Fix B (3.2): eight trays, one per event, none alike', () => {
 });
 
 describe('the request in 3.1, and Fix A as one session holding everything', () => {
-  it('puts one request on screen: its copy on the tape is vermilion while Fix A holds the focus, the heap’s drained meanwhile', () => {
+  it('keeps the request in the heap through beat 3, its vermilion never handed to the tape (L1-02); its copy marks its place with a stub', () => {
     const q = A_QUEUE[A_REQUEST];
-    // the copy is inside the spout on the pour's first frame (beat3.ts pourPose: from the mouth's inside): it takes the
-    // vermilion from the next, its first in sight, while the heap's drains over the same frames
+    // the copy (and its stub) are inside the spout on the pour's first frame (beat3.ts pourPose: from the mouth's inside)
     expect(q.pour!.lands - q.pour!.arc - 3 + 1).toBe(REQUEST_ON_TAPE.from);
-    expect(fixAOf(REQUEST_ON_TAPE.from).requestInk).toBe(0);
-    expect(fixAOf(REQUEST_ON_TAPE.from + 1).requestInk).toBeGreaterThan(0);
+    // the heap's request keeps its vermilion on every frame of beat 3: no colour passes between two bodies
+    for (let f = 40; f < 1400; f++) expect(actOneAt(f).request.ink, `f${f}`).toBeGreaterThan(0.99);
+    for (const f of span(FIX_A.in, 1399)) expect('requestInk' in fixAOf(f), `f${f}`).toBe(false);
+    // on the pour's first frame the copy's nose (its stub) is inside the chat spout, behind its end: no tip out of the mouth
+    // before the copy comes out (R-A2-speck, c992)
+    const t0 = q.pour!.lands - q.pour!.arc - 3;
+    const first = fixAOf(t0).items[A_REQUEST]!;
+    expect(first.p[0] + A_SIZE.request[0] / 2).toBeLessThanOrEqual(MOUTH.chat.out[0] - 6);
+    expect(fixAOf(t0 - 1).items[A_REQUEST]).toBeNull();
+    // the stub on the copy's nose is the request's vermilion, and turns to paper only with its copy, as the turn winds it in
+    expect(requestStubColour(0).getHex()).toBe(new Color(HEX.vermilion).getHex());
+    // stepped with Fix A (3.2) it steps as the heap's request does: its hue and value kept, its chroma cut by TRACER_STEP
+    const stepped = requestStubColour(0, 1);
+    expect(stepped.getHex()).toBe(quieterColour(new Color(HEX.vermilion), TRACER_STEP).getHex());
+    expect(stepped.r).toBeGreaterThan(stepped.g * 1.5);
+    expect(requestStubColour(1).getHex()).toBe(new Color(HEX.paper).getHex());
+    const ri = A_ITEMS.findIndex((it) => it.kind === 'request');
+    expect(ri).toBeGreaterThanOrEqual(0);
+    expect(turnAt(1400).fixA.items[ri]!.paper).toBe(0);
+    let prev = 0;
+    for (let f = 1400; f < 1560; f++) {
+      const k = turnAt(f).fixA.items[ri]?.paper ?? prev;
+      expect(k - prev, `f${f}`).toBeGreaterThanOrEqual(0);
+      expect(k - prev, `f${f}`).toBeLessThan(0.3);
+      prev = k;
+    }
+  });
+
+  it('steps the heap’s request down with the rest of act one as Fix A takes the focus, by amount and continuous into the turn', () => {
+    // untouched through beat 2 (the intake steps down round it: it is the film's tracer)
+    for (let f = 400; f < FIX_A.in + 6; f++) expect(Math.abs(requestStepOf(actOneAt(f))), `f${f}`).toBeLessThan(1e-9);
     // the heap's request changes sets only once both its ramps are fully down (nothing jumps)
     expect(actOneStep(REQUEST_STEPPED_FROM).own?.amount).toBe(1);
     expect(actOneStep(REQUEST_STEPPED_FROM).amount).toBe(1);
     expect(REQUEST_STEPPED_FROM).toBeLessThan(BOTH_FIXES);
-    for (let f = REQUEST_ON_TAPE.from; f < 1400; f++) {
-      const copy = fixAOf(f).requestInk!;
-      const heap = actOneAt(f).request.ink;
-      expect(copy + heap, `f${f}`).toBeCloseTo(1, 1);
-      expect(Math.abs(copy - fixAOf(f - 1).requestInk!)).toBeLessThan(0.5);
-    }
-    for (const f of span(1000, 1125)) expect(fixAOf(f).requestInk).toBeGreaterThan(0.95);
-    expect(fixAOf(1399).requestInk).toBe(0);
-    expect(actOneAt(1399).request.ink).toBeCloseTo(1, 6);
-  });
-
-  it('keeps the heap’s request its colour until its copy is in sight, steps it only on the hand-over’s spring, and never greys it (the worked example)', () => {
-    // nothing of it changes before the copy's first frame in sight, while the rest of act one steps down
-    for (let f = 900; f <= REQUEST_ON_TAPE.from; f++) {
-      expect(Math.abs(requestStepOf(actOneAt(f))), `f${f}`).toBeLessThan(1e-9);
-      expect(actOneAt(f).request.ink, `f${f}`).toBeCloseTo(1, 6);
-    }
-    expect(actOneStep(REQUEST_ON_TAPE.from).own!.amount).toBeGreaterThan(0.5);
-    // then by amount, frame to frame, as its ink goes (and comes back with the hand-back), and continuous into the turn
-    for (let f = REQUEST_ON_TAPE.from + 1; f < 1400; f++) expect(Math.abs(requestStepOf(actOneAt(f)) - requestStepOf(actOneAt(f - 1))), `f${f}`).toBeLessThan(0.45);
+    expect(requestStepOf(actOneAt(1100))).toBe(1);
+    for (let f = 401; f < 1400; f++) expect(Math.abs(requestStepOf(actOneAt(f)) - requestStepOf(actOneAt(f - 1))), `f${f}`).toBeLessThanOrEqual(1.6 / STEP_FRAMES + 1e-9);
     expect(requestStepOf(actOneAt(1399))).toBeCloseTo(requestStepOf(turnAt(1400).act, turnAt(1400).step), 6);
-  });
-
-  it('hands the vermilion back on the step-down’s own ramp, with Fix A stepping down round it (12-16 f, never a 4 f spring)', () => {
-    const to = REQUEST_ON_TAPE.to;
-    expect(fixAOf(to).requestInk).toBeGreaterThan(0.99);
-    for (let f = to + 1; f <= to + STEP_FRAMES; f++) {
-      const copy = fixAOf(f).requestInk!;
-      // as much as Fix A has stepped down (its late set: actOneStepA), and at most 1/8 of the way in a frame
-      expect(copy + actOneStepA(f), `f${f}`).toBeCloseTo(1, 2);
-      expect(fixAOf(f - 1).requestInk! - copy, `f${f}`).toBeLessThan(1 / 8);
-      expect(fixAOf(f - 1).requestInk! - copy, `f${f}`).toBeGreaterThanOrEqual(0);
-    }
-    expect(fixAOf(to + STEP_FRAMES).requestInk).toBe(0);
-    expect(STEP_FRAMES).toBeGreaterThanOrEqual(12);
   });
 
   it('is the fattest folder on the desk (200 px and more across), its stack thickening with every swallow', () => {

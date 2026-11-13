@@ -18,22 +18,22 @@
 import type { CamPose } from '@aiv/remotion-kit';
 import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
-import { BufferAttribute, Color, MeshBasicMaterial, PlaneGeometry, Shape } from 'three';
-import { CAP_10, CARDS_10, SHARD_WINDOW, SPOT_10, capLanded, pose0405, type Beat10State, type CapPose, type HijackPose, type ReportPose, type ShardWindow } from '../beat10.ts';
+import { BufferAttribute, BufferGeometry, Color, MeshBasicMaterial, PlaneGeometry, RepeatWrapping, Shape } from 'three';
+import { CAP_10, CARDS_10, CRAWL_PATH, CRAWL_W, HIJACK_SLIP, SHARD_WINDOW, SPOT_10, capLanded, pose0405, type Beat10State, type CapPose, type HijackPose, type ReportPose, type ShardWindow } from '../beat10.ts';
 import { cardAt, cardIn, cardPose, cardSize } from '../beat4.ts';
 import { extrude, slab } from '../geom.ts';
 import { HEX, paper } from '../gl/materials.ts';
 import { PRINT_CSS } from '../gl/print7.ts';
 import { PRINT_EM, print, rule, texture, tooth } from '../gl/text.ts';
 import { EMIT, Step, isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
-import { BAYS, CACHE_WINDOW, CARD, NEXT_SLIP, PRINT_HEAD, WINDOW, rectC, type P3 } from '../layout.ts';
+import { BAYS, CACHE_WINDOW, CARD, PRINT_HEAD, WINDOW, rectC, type P3 } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
 import type { DeskState } from '../state.ts';
 import { Counterfactual } from './Counterfactual.tsx';
 import { FixAPlay, FixBPlay } from './FixCards.tsx';
 import { CardHalves } from './Handshake.tsx';
 import { PROPOSED_STEP_ID } from './Beat9.tsx';
-import { VELLUM_INK, useVellumOpacity, useVellumStep } from './Proposed.tsx';
+import { ETCH_INK, VELLUM_INK, useVellumOpacity, useVellumStep } from './Proposed.tsx';
 import { SignedReply } from './Replies.tsx';
 
 export function Beat10({ s }: { s: DeskState }) {
@@ -46,6 +46,7 @@ function Beat10Body({ s, e }: { s: DeskState; e: Beat10State }) {
   return (
     <>
       {e.hijack && <Hijack h={e.hijack} />}
+      {e.crawl && <Crawl c={e.crawl} />}
       {e.window && (
         // (vellum: it rides the step with act two's other proposed parts, objects/Beat9.tsx)
         <Step on={isStepped(s.step, PROPOSED_STEP_ID)}>
@@ -82,26 +83,130 @@ function hatchedSlip(g: CanvasRenderingContext2D, w: number, h: number): void {
   tooth(g, w, h);
 }
 
-function useHijackSlip() {
+/**
+ * The slip's body from `tail` (u along it from its centre: -l/2 whole, its tail swallow-notched; further east, cut straight
+ * there, beat10.ts HIJACK_CUT: the part inside the chat drum is not drawn), its UVs the whole slip's, so its print never slides.
+ */
+function hijackBody(tail: number): BufferGeometry {
+  const hl = HIJACK_SLIP.l / 2;
+  const hw = HIJACK_SLIP.w / 2;
+  const whole = tail <= -hl + 1e-6;
+  const sh = new Shape();
+  sh.moveTo(whole ? -hl : tail, -hw);
+  sh.lineTo(hl, -hw);
+  sh.lineTo(hl, hw);
+  sh.lineTo(whole ? -hl : tail, hw);
+  if (whole) sh.lineTo(-hl + 9, 0);
+  sh.closePath();
+  const slip = extrude(sh, -0.5, 0.5, 0);
+  const pos = slip.getAttribute('position');
+  const uv = slip.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (pos.getX(i) + hl) / HIJACK_SLIP.l, (pos.getY(i) + hw) / HIJACK_SLIP.w);
+  uv.needsUpdate = true;
+  return slip;
+}
+function useHijackSlip(tail: number) {
   const gl = useThree((x) => x.gl);
-  const g = useMemo(() => {
-    const hl = NEXT_SLIP.l / 2;
-    const hw = NEXT_SLIP.w / 2;
-    const sh = new Shape();
-    sh.moveTo(-hl, -hw);
-    sh.lineTo(hl, -hw);
-    sh.lineTo(hl, hw);
-    sh.lineTo(-hl, hw);
-    sh.lineTo(-hl + 9, 0);
-    sh.closePath();
-    const slip = extrude(sh, -0.5, 0.5, 0);
-    const pos = slip.getAttribute('position');
-    const uv = slip.getAttribute('uv');
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, (pos.getX(i) + hl) / NEXT_SLIP.l, (pos.getY(i) + hw) / NEXT_SLIP.w);
-    uv.needsUpdate = true;
-    return slip;
-  }, []);
-  const mat = useMemo(() => paper(texture(NEXT_SLIP.l, NEXT_SLIP.w, (c) => hatchedSlip(c, NEXT_SLIP.l, NEXT_SLIP.w), Math.min(8, gl.capabilities.getMaxAnisotropy())), HEX.paperLit), [gl]);
+  const g = useMemo(() => hijackBody(tail), [tail]);
+  const mat = useMemo(() => paper(texture(HIJACK_SLIP.l, HIJACK_SLIP.w, (c) => hatchedSlip(c, HIJACK_SLIP.l, HIJACK_SLIP.w), Math.min(8, gl.capabilities.getMaxAnisotropy())), HEX.paperLit), [gl]);
+  useLayoutEffect(() => () => g.dispose(), [g]);
+  useLayoutEffect(
+    () => () => {
+      mat.map?.dispose();
+      mat.dispose();
+    },
+    [mat],
+  );
+  return { g, mat };
+}
+
+/** The hatched slip at its pose: cargo in motion, never stepped; no transit light (it slips in unannounced). */
+function Hijack({ h }: { h: HijackPose }) {
+  const { g, mat } = useHijackSlip(Math.round(h.tail * 100) / 100);
+  return <mesh geometry={g} material={mat} position={h.p} rotation={[0, -h.slope, h.heading, 'ZYX']} />;
+}
+
+// ------------------------------------------------------------------------------------------------
+// 10.1 the etch's crawl
+
+/** The crawl's hatching tile along the band (u: along, a whole number of the etch's 12.5 u pitch, so it repeats seamlessly). */
+const CRAWL_TILE = 50;
+/** The band's quads (about 4 u each along its way). */
+const CRAWL_SEG = 360;
+/**
+ * The crawl's band: a flat ribbon along CRAWL_PATH (normal up), CRAWL_SEG quads evenly spaced by arc length, u along it in
+ * tiles of CRAWL_TILE, v across; drawn from its tail to its head by its draw range (6 indices a quad).
+ */
+function crawlRibbon(): BufferGeometry {
+  const pts = CRAWL_PATH;
+  const seg = pts.slice(1).map((q, i) => Math.hypot(q[0] - pts[i]![0], q[1] - pts[i]![1]));
+  const total = seg.reduce((a, b) => a + b, 0);
+  const at = (d: number): { p: P3; dir: [number, number] } => {
+    let r = Math.min(Math.max(d, 0), total);
+    for (let i = 0; i < seg.length; i++) {
+      if (r <= seg[i]! || i === seg.length - 1) {
+        const a = pts[i]!;
+        const b = pts[i + 1]!;
+        const t = Math.min(1, r / seg[i]!);
+        return { p: [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2]], dir: [(b[0] - a[0]) / seg[i]!, (b[1] - a[1]) / seg[i]!] };
+      }
+      r -= seg[i]!;
+    }
+    return { p: pts[pts.length - 1]!, dir: [1, 0] };
+  };
+  const n = CRAWL_SEG;
+  const pos = new Float32Array((n + 1) * 2 * 3);
+  const uv = new Float32Array((n + 1) * 2 * 2);
+  const idx: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    const d = (total * i) / n;
+    // (at a corner the band's two sides take the mean of the legs' normals: no gap, no fold)
+    const e = 0.5 * (total / n);
+    const a = at(d - e);
+    const b = at(d + e);
+    const dx = a.dir[0] + b.dir[0];
+    const dy = a.dir[1] + b.dir[1];
+    const l = Math.hypot(dx, dy) || 1;
+    const nx = -dy / l;
+    const ny = dx / l;
+    const p = at(d).p;
+    for (const [k, s] of [
+      [0, 1],
+      [1, -1],
+    ] as const) {
+      pos.set([p[0] + (nx * s * CRAWL_W) / 2, p[1] + (ny * s * CRAWL_W) / 2, p[2]], (i * 2 + k) * 3);
+      uv.set([d / CRAWL_TILE, k], (i * 2 + k) * 2);
+    }
+    if (i < n) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(pos, 3));
+  g.setAttribute('uv', new BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  return g;
+}
+/** The crawl's hatching (the etch's: 45° strokes, 3.1 u at a 12.5 u pitch, pencil's light grey over a faint wash), on a transparent tile. */
+function crawlTile(g: CanvasRenderingContext2D, w: number, h: number): void {
+  g.fillStyle = 'rgba(140,138,133,0.16)';
+  g.fillRect(0, 0, w, h);
+  g.strokeStyle = ETCH_INK;
+  g.lineWidth = 3.1;
+  g.lineCap = 'butt';
+  g.beginPath();
+  for (let c = -h - 12.5; c < w + h + 12.5; c += 12.5) {
+    g.moveTo(c, h);
+    g.lineTo(c + h, 0);
+  }
+  g.stroke();
+}
+function useCrawl() {
+  const gl = useThree((x) => x.gl);
+  const g = useMemo(() => crawlRibbon(), []);
+  const mat = useMemo(() => {
+    const t = texture(CRAWL_TILE, CRAWL_W, (c) => crawlTile(c, CRAWL_TILE, CRAWL_W), Math.min(8, gl.capabilities.getMaxAnisotropy()), 'transparent');
+    t.wrapS = RepeatWrapping;
+    return new MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  }, [gl]);
   useLayoutEffect(
     () => () => {
       g.dispose();
@@ -112,11 +217,15 @@ function useHijackSlip() {
   );
   return { g, mat };
 }
-
-/** The hatched slip at its pose: cargo in motion, never stepped; no transit light (it slips in unannounced). */
-function Hijack({ h }: { h: HijackPose }) {
-  const { g, mat } = useHijackSlip();
-  return <mesh geometry={g} material={mat} position={h.p} rotation={[0, -h.slope, h.heading, 'ZYX']} />;
+/** The etch crawling from the throat to the loop: never stepped (it is the beat's action, as the hatched slip is); vellum's grammar: no shadow. */
+function Crawl({ c }: { c: { tail: number; head: number } }) {
+  const { g, mat } = useCrawl();
+  const a = Math.floor(c.tail * CRAWL_SEG);
+  const b = Math.ceil(c.head * CRAWL_SEG);
+  useLayoutEffect(() => {
+    g.setDrawRange(a * 6, Math.max(0, b - a) * 6);
+  }, [g, a, b]);
+  return b > a ? <mesh geometry={g} material={mat} renderOrder={3} /> : null;
 }
 
 // ------------------------------------------------------------------------------------------------

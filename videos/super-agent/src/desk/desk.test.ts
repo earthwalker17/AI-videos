@@ -658,13 +658,15 @@ describe('focus hand-overs (state.ts FocusEntry.handFrom, stepOf)', () => {
     // these objects draw a part with the main stepped set (or its amount, or the full set) whatever its mode, so on the
     // set named here it would pop where the hand-over moves it there: Intake.tsx:391 maps 'late' to the stepped set;
     // Cache.tsx:199 (the window's cards), Register.tsx:770-771 (the jewel, the tape rows) and Filter.tsx:173 (the pile's
-    // slips) map 'own' and 'late' to it; YourDesk.tsx:495/503 keeps your desk's own surfaces full on the main and late sets
-    // but steps them on the own set. Fix the object (main agent) before a hand-over carries one of these parts there.
+    // slips) map 'own' and 'late' to it. Fix the object (main agent) before a hand-over carries one of these parts there.
+    // Your desk ('you') is not blind: from part 2 (objects/YourDesk.tsx YOU_MODES_FROM, at(44), no later than the first
+    // hand-over, CORD_FROM) YourDesk, the in-tray's landed replies (Links.tsx) and the lamp's parts step on whichever set
+    // 'you' rides, so beat 9's N8 hold carries it on the own set as it adds it (session 6, lane C).
+    expect(CORD_FROM).toBeGreaterThanOrEqual(at(44));
     const BLIND: [FocusId, readonly ('own' | 'late')[]][] = [
       ['intake', ['late']],
       ['deck', ['own', 'late']],
       ['spike', ['own', 'late']],
-      ['you', ['own']],
     ];
     for (const e of focusEntries()) {
       if (e.handFrom === undefined) continue;

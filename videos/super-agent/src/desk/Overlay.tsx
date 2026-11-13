@@ -104,6 +104,8 @@ export interface TagSpec {
    * text wipes in over 8 f; it fades with its cue. Absent: the cue's 6 f wipe, the leader growing with it (every other tag).
    */
   reveal?: 'leader';
+  /** Opt-in: a factor on its opacity at film frame f (a focus hold fading it toward the stepped world's value, beat9.ts domDimAt); absent: 1. */
+  dim?: (f: number) => number;
 }
 /** The zh line's baseline under the EN line's (and one line's under the one before it), and where the leader leaves the text block. */
 export const TAG_GAP = 50;
@@ -226,14 +228,34 @@ export function SoftGround({ id, boxes, feather, color, alpha, edge, edgeFeather
  * your lamp's arm and the in-tray's #0405 slip and its "≤ 100" tab; the halo gives every glyph a slate to read on
  * there (at least 4.5:1), where a camera move or a moved world would break the rhyme.
  */
-export const NOTES_GROUND: Readonly<Partial<Record<string, { dilate: number; blur: number; alpha: number }>>> = {
+export const NOTES_GROUND: Readonly<Partial<Record<string, NotesGroundSpec>>> = {
   c28: { dilate: 10, blur: 6, alpha: 0.85 },
+  // the credit (desk/ActOneFrame.tsx CreditLine draws it): your loop's tape comes up under it as bar 3 eases out (L1-04:
+  // its box knockout cut the tape on a hard edge right of "team"); its halo stops just over the ascenders (`top`: the
+  // tape's lower edge lies a few px over them through the credit's hold, and the halo's full reach put soft dark dents
+  // in it above k, H and t: R-A6-halo-bites)
+  credit: { dilate: 10, blur: 6, alpha: 0.85, top: { gap: 2, fade: 8 } },
 };
+/**
+ * A notes halo: the glyphs dilated `dilate` px, feathered by a gaussian of `blur` px, at `alpha`; with `top`, cut off
+ * above the line's ascenders (NOTES_ASCENT over its baseline): whole to `gap` px over them, gone `fade` px further up.
+ */
+export interface NotesGroundSpec {
+  dilate: number;
+  blur: number;
+  alpha: number;
+  top?: { gap: number; fade: number };
+}
+/** The notes' ascender height as a share of their size (the sans's caps and ascenders: 35 px at 48). */
+export const NOTES_ASCENT = 0.73;
+/** Where a halo with `top` is whole up to and where it has gone (screen y, px), for a line of `size` px. */
+export const notesHaloTop = (g: NotesGroundSpec, size: number): { full: number; zero: number } | null =>
+  g.top ? { full: NOTES.enBaseline - NOTES_ASCENT * size - g.top.gap, zero: NOTES.enBaseline - NOTES_ASCENT * size - g.top.gap - g.top.fade } : null;
 /** How far a notes halo reaches past the ink, px: the dilation and three of the feather's standard deviations. */
 export const notesHaloReach = (g: { dilate: number; blur: number }) => g.dilate + 3 * g.blur;
 
 /** The halo under a notes line opted in by its cue id (NOTES_GROUND), on the line's own reveal; null for every other line. */
-function NotesGround({ id, f, en, look }: { id: string; f: number; en: string; look: { en: TextLook } }) {
+export function NotesGround({ id, f, en, look }: { id: string; f: number; en: string; look: { en: TextLook } }) {
   const g = NOTES_GROUND[id];
   if (!g) return null;
   const s = revealState(f, cue(id), TEXT_IN, TEXT_OUT);
@@ -244,6 +266,7 @@ function NotesGround({ id, f, en, look }: { id: string; f: number; en: string; l
   // to an edge that leads it by R x the wipe and fades over R past it, so when the wipe ends (edge at the halo's own
   // reach) the mask already covers all of it and is dropped with no change
   const edge = s.wipe >= 1 ? undefined : NOTES.x + (W + R) * s.wipe;
+  const top = notesHaloTop(g, look.en.size);
   const hid = `halo-${id}`;
   const line = (text: string, baseline: number, l: TextLook) => (
     <text x={NOTES.x} y={baseline} fontFamily={l.family} fontWeight={l.weight} fontSize={l.size} fill={DESK_HEX.base} stroke={DESK_HEX.base} strokeWidth={2 * g.dilate} strokeLinejoin="round" style={{ ...AS_TYPED, fontVariantNumeric: l.numeric }}>
@@ -268,10 +291,24 @@ function NotesGround({ id, f, en, look }: { id: string; f: number; en: string; l
             </mask>
           </>
         )}
+        {top && (
+          <>
+            <linearGradient id={`${hid}-top`} gradientUnits="userSpaceOnUse" x1={0} y1={top.zero} x2={0} y2={top.full}>
+              {FEATHER_STOPS.map(({ t, a }) => (
+                <stop key={t} offset={t} stopColor="#fff" stopOpacity={a} />
+              ))}
+            </linearGradient>
+            <mask id={`${hid}-topcut`} maskUnits="userSpaceOnUse" x={0} y={0} width={1920} height={1080}>
+              <rect x={0} y={0} width={1920} height={1080} fill={`url(#${hid}-top)`} />
+            </mask>
+          </>
+        )}
       </defs>
       <g mask={edge !== undefined ? `url(#${hid}-wipe)` : undefined}>
-        <g filter={`url(#${hid}-blur)`} opacity={g.alpha}>
-          {line(en, NOTES.enBaseline, look.en)}
+        <g mask={top ? `url(#${hid}-topcut)` : undefined}>
+          <g filter={`url(#${hid}-blur)`} opacity={g.alpha}>
+            {line(en, NOTES.enBaseline, look.en)}
+          </g>
         </g>
       </g>
     </svg>
@@ -362,7 +399,7 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         const keep = t.leaderUntil === undefined ? 1 : 1 - Math.min(1, Math.max(0, (f - t.leaderUntil) / 6)) + (t.leaderBack === undefined ? 0 : Math.min(1, Math.max(0, (f - t.leaderBack) / 6)));
         const from: readonly [number, number] = keep < 1 ? [lx + (foot[0] - lx) * keep, ly + (foot[1] - ly) * keep] : foot;
         return (
-          <svg key={id} width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity }}>
+          <svg key={id} width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity * (t.dim?.(f) ?? 1) }}>
             <defs>
               <clipPath id={`wipe-${id}`}>
                 <rect x={x0 - 4} y={t.at[1] - 60} width={(w + 8) * r.wipe} height={bottom - t.at[1] + 90} />

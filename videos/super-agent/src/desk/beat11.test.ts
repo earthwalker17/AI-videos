@@ -39,13 +39,15 @@ import {
   readLampAt,
   retireLiftOf,
   type PlateId,
+  KEY_STEP,
+  keyStepAt,
 } from './beat11.ts';
 import { REPLY_0405 } from './beat10.ts';
 import { cardIn, cardPose, cardSize } from './beat4.ts';
 import { EASE_OUT_D, TO_BOOKEND, project } from './camera.ts';
 import { SUMMARY_TAGS } from './film.ts';
 import { LAMP, PRINT_HEAD, READ_LAMP, YOU, rectC, type P3 } from './layout.ts';
-import { deskStateAt, replyPose } from './state.ts';
+import { STEP_FRAMES, deskStateAt, replyPose } from './state.ts';
 import { SEAM_D, WATCHDOG, poseD, summaryDeskState, summaryStep } from './summary.ts';
 import { tagLeaderReveal } from './Overlay.tsx';
 
@@ -392,6 +394,17 @@ describe('beat 11.4 and the end of the beat', () => {
     expect(Math.hypot(lampAims()[0]![0] - youPoseAt(BEAT_11.stamp).lamp.aim[0], lampAims()[0]![1] - youPoseAt(BEAT_11.stamp).lamp.aim[1])).toBeGreaterThan(40);
     expect(rectC(YOU.inTray)[0]).toBeLessThan(0);
   });
+  it('fades the map key’s words with the world under 11.4’s step-down, on its ramp, to 55%', () => {
+    expect(keyStepAt(KEY_STEP.from)).toBe(1);
+    expect(keyStepAt(KEY_STEP.from + STEP_FRAMES)).toBeCloseTo(0.55, 9);
+    for (let f = KEY_STEP.from; f < KEY_STEP.from + STEP_FRAMES + 2; f++) {
+      expect(keyStepAt(f + 1), `f${f}`).toBeLessThanOrEqual(keyStepAt(f));
+      expect(keyStepAt(f) - keyStepAt(f + 1), `f${f}`).toBeLessThan(0.07);
+      const main = summaryStep(f);
+      if (main.ids.includes('deck')) expect(keyStepAt(f), `f${f}`).toBeCloseTo(1 - 0.45 * main.amount, 9);
+    }
+  });
+
   it('is built (the slate drops its cues over f5440-5999)', () => {
     expect(BUILT).toBe(true);
     expect(EASE_OUT_D.to).toBeLessThan(ROUND2.stillD);

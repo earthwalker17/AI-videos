@@ -10,6 +10,8 @@ import {
   CAVEAT,
   CLAMP,
   DIE,
+  DIE_REST,
+  ONE_PASS,
   E8,
   FOCUS_8,
   HOLE_R,
@@ -168,7 +170,8 @@ describe('beat 8: the notches, the die and the long run', () => {
     expect(NOTCH.s[4] + NOTCH.w / 2).toBeLessThan(stripLength(2) - 10);
   });
   it('presses the die onto each punched place on its contact frame (the notch cut under its face) and never brings it down on the fourth run', () => {
-    expect(dieAt(BEAT_8.notches[0].f - 14)).toEqual({ u: DIE.home.u, z: DIE.home.z });
+    const first = BEAT_8.notches[0].f;
+    expect(dieAt(first - 13)).toEqual({ u: DIE.home.u, v: DIE.v, z: DIE.home.z });
     BEAT_8.notches.forEach((n, k) => {
       const d = dieAt(n.f);
       expect(Math.abs(d.u - notchU(k)), `notch ${k}`).toBeLessThan(1e-9);
@@ -184,14 +187,59 @@ describe('beat 8: the notches, the die and the long run', () => {
         expect(DIE.v + DIE.d / 2).toBeGreaterThan(LANES8[1].strip[0] + NOTCH.d + 4);
       } else for (let f = n.f - 2; f <= n.f + 3; f++) expect(dieAt(f).z, `f${f}`).toBeGreaterThanOrEqual(DIE.hover - 1e-9);
     });
-    const last = BEAT_8.notches[4].f;
-    expect(dieAt(last + 16)).toEqual({ u: DIE.home.u, z: DIE.home.z });
-    // it moves continuously
-    for (let f = 4270; f < 4350; f++) {
+    // at rest on the clamp bar at the single session's row once its pass is done
+    expect(dieAt(DIE_REST)).toEqual({ u: DIE.home.u, v: ONE_PASS.v, z: DIE.home.z });
+    expect(dieAt(BEAT_8.away)).toEqual(dieAt(DIE_REST));
+    // it moves continuously, from leaving the clamp to its rest
+    for (let f = first - 14; f < DIE_REST + 2; f++) {
       const [a, b] = [dieAt(f), dieAt(f + 1)];
-      expect(Math.abs(b.u - a.u), `f${f}`).toBeLessThan(40);
+      expect(Math.hypot(b.u - a.u, b.v - a.v), `f${f}`).toBeLessThan(32);
       expect(Math.abs(b.z - a.z), `f${f}`).toBeLessThan(8);
     }
+  });
+  it('then walks the die over the single session’s five run places on the eighths under C22, coming down short of the strip on each', () => {
+    const last = BEAT_8.notches[4].f;
+    const [c22from, c22to] = [at(54, 3), at(56, 1.5)];
+    // five places, west to east, 10 f apart on the eighths, after the told-to-delegate run and inside C22 (lifted off the last before C22 ends)
+    expect(ONE_PASS.at.map((x) => x.k)).toEqual([0, 1, 2, 3, 4]);
+    ONE_PASS.at.forEach((x, i) => {
+      if (i > 0) expect(x.f - ONE_PASS.at[i - 1]!.f).toBe(10);
+      expect(x.f % 10).toBe(0);
+      const d = dieAt(x.f);
+      expect(Math.abs(d.u - notchU(x.k)), `place ${x.k}`).toBeLessThan(1e-9);
+      expect(d.v).toBe(ONE_PASS.v);
+      // its dip on the eighth, short of the strip; over it at its walking height 2 f before and 3 f after
+      expect(d.z).toBeCloseTo(ONE_PASS.miss, 9);
+      expect(dieAt(x.f - 2).z).toBeCloseTo(ONE_PASS.hover, 9);
+      expect(dieAt(x.f + 3).z).toBeCloseTo(ONE_PASS.hover, 9);
+    });
+    expect(ONE_PASS.at[0]!.f).toBeGreaterThanOrEqual(last + 20);
+    expect(ONE_PASS.at[0]!.f).toBeGreaterThan(c22from);
+    expect(ONE_PASS.at[4]!.f + 3).toBeLessThanOrEqual(c22to);
+    // a legible miss: a fall of 10 u or more that stops 2-3 u over the strip's face (its shadow all but closed; its contact
+    // shade, which a footprint within 2 u of a receiver casts, never switches on)
+    expect(ONE_PASS.hover - ONE_PASS.miss).toBeGreaterThanOrEqual(10);
+    expect(ONE_PASS.miss - DIE.contact).toBeGreaterThan(2);
+    expect(ONE_PASS.miss - DIE.contact).toBeLessThanOrEqual(3);
+    // never down on the strip: nothing is cut (the single session's strip has no notch place)
+    for (let f = last + 3; f <= DIE_REST; f++) expect(dieAt(f).z, `f${f}`).toBeGreaterThan(DIE.contact + 2);
+    expect(LANES8[0].notches).toBe('none');
+    // over the strip's south edge: its face over the strip and clear of the lane's name (north of it) and of the next lane's name
+    expect(ONE_PASS.v - DIE.d / 2).toBeGreaterThan(LANES8[0].names[0]!.v + 20);
+    expect(ONE_PASS.v + DIE.d / 2).toBeLessThan(LANES8[1].names[0]!.v - 0.75 * LANE_EM);
+    // it never passes over the told-to-delegate lane's name (between the strips it keeps to the clamp bar, west of the names)
+    const names = { v0: LANES8[1].names[0]!.v - 0.75 * LANE_EM, v1: LANES8[1].names[1]!.v + 0.25 * LANE_EM };
+    for (let f = BEAT_8.notches[0].f - 14; f <= DIE_REST; f++) {
+      const d = dieAt(f);
+      if (d.v + DIE.d / 2 > names.v0 && d.v - DIE.d / 2 < names.v1) expect(d.u + DIE.w / 2, `f${f}`).toBeLessThan(NAME_U);
+    }
+    // nor over the long run's band while it slides out
+    for (let f = BEAT_8.longRun.from; f <= BEAT_8.longRun.from + BEAT_8.longRun.frames; f++) {
+      const d = dieAt(f);
+      if (d.v + DIE.d / 2 > BAND.v0 && d.v - DIE.d / 2 < BAND.v1) expect(d.u + DIE.w / 2, `f${f}`).toBeLessThan(BAND.u0);
+    }
+    // its places clear of the strip's hole
+    for (const x of ONE_PASS.at) expect(Math.abs(notchU(x.k) - (ORIGIN_U + holeAt(0))), `place ${x.k}`).toBeGreaterThan(DIE.w / 2 + HOLE_R);
   });
   it('slides each punched chad out from under the die’s face from the frame after its contact', () => {
     BEAT_8.notches.forEach((n, k) => {
@@ -222,13 +270,24 @@ describe('beat 8: the bracket and the stacks', () => {
     expect(BRACKET.a[0]).toBeCloseTo(ORIGIN_U + holeAt(1), 9);
     expect(BRACKET.b[0]).toBeCloseTo(ORIGIN_U + holeAt(2), 9);
     expect(BRACKET.bar > LANES8[1].strip[1] && BRACKET.bar < LANES8[2].strip[0]).toBe(true);
-    expect(2 * BRACKET.serif * pxPerU(BRACKET.a[0], BRACKET.bar, 'v')).toBeGreaterThanOrEqual(24);
+    expect((BRACKET.serif + BRACKET.over) * pxPerU(BRACKET.a[0], BRACKET.bar, 'v')).toBeGreaterThanOrEqual(18);
+    // each serif reaches past the bar by a hair only, on the far side from its hole (a jog, never the symmetric H)
+    expect(BRACKET.over).toBeLessThan(BRACKET.serif / 2);
     expect(beat8At(BEAT_8.bracket)!.bracketSpring).toBe(0);
     expect(beat8At(BEAT_8.bracket + 2)!.bracketSpring).toBeGreaterThan(0.3);
-    // it overshoots and settles within about 8 f
+    // it opens over about 9 f (session 6's critics: on the dock spring it snapped open in 3 f and read as a letter H): never
+    // more than 0.3 of the way in a frame, not 90% open before +5, a hair over and settled from +6
     const s = Array.from({ length: 16 }, (_, k) => beat8At(BEAT_8.bracket + k)!.bracketSpring);
-    expect(Math.max(...s)).toBeGreaterThan(1.02);
-    for (let k = 9; k < 16; k++) expect(Math.abs(s[k]! - 1)).toBeLessThan(0.03);
+    for (let k = 1; k < 16; k++) expect(s[k]! - s[k - 1]!, `+${k}`).toBeLessThan(0.3);
+    expect(s[4]!).toBeLessThan(0.9);
+    expect(Math.max(...s)).toBeGreaterThan(1.005);
+    for (let k = 6; k < 16; k++) expect(Math.abs(s[k]! - 1)).toBeLessThan(0.02);
+    // its arrows outside the serifs: the whole mark (arrows, serifs and bar) 24 px or more across, so it reads as a dimension
+    const across = Math.abs(BRACKET.a[0] - BRACKET.b[0]) + 2 * (BRACKET.arrow.head + BRACKET.arrow.shaft);
+    expect(across * pxPerU(BRACKET.a[0], BRACKET.bar)).toBeGreaterThanOrEqual(24);
+    // the rings' leaders still reach the serifs' ends (print8.ts: from each ring to its serif's far end)
+    expect(BRACKET.a[1] + 14.1).toBeLessThan(BRACKET.bar - BRACKET.serif);
+    expect(BRACKET.b[1] - 14.1).toBeGreaterThan(BRACKET.bar + BRACKET.serif);
   });
   it('feeds each stack out of the token clamp, its sheets peeling off the pack (never a jump), its last landing on its done', () => {
     BEAT_8.stacks.forEach((st, i) => {

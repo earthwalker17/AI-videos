@@ -16,7 +16,7 @@
  */
 import { useLayoutEffect, useMemo, type ReactNode } from 'react';
 import { textCanvas } from '@aiv/remotion-kit';
-import { CanvasTexture, CircleGeometry, Color, MeshBasicMaterial, Path, SRGBColorSpace, Shape, ShapeGeometry, TorusGeometry, type BufferGeometry, type Texture } from 'three';
+import { BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, Color, MeshBasicMaterial, Path, SRGBColorSpace, Shape, ShapeGeometry, TorusGeometry, type Texture } from 'three';
 import { REQUEST_DOCK, REQUEST_DOCK_HEADING, RIDE, SHADE_TONE, WORK_DEPTH, liftOf, testsCapOpenAt, workLift, type BayDispatch, type Carry } from '../beat4.ts';
 import { bayDoor, bayWalls } from '../footprints.ts';
 import { cylinderZ, disc, dome, extrude, frame, merge, plane, planeOn, ringFlat, slab, tube } from '../geom.ts';
@@ -27,6 +27,7 @@ import { CAP_SLOT, closeAt, type DeskState } from '../state.ts';
 import { Hatch, TaskCarrier, shellInside } from './Dispatch.tsx';
 import { HEX, paper, whiteTexture } from '../gl/materials.ts';
 import { TO_REGISTER, TO_SHEET } from '../camera.ts';
+import { DRUM_MARK, drumMarkAt } from '../beat9.ts';
 import { INK, stagedInk } from '../gl/text.ts';
 
 const inset = (r: Rect, d: number): Rect => ({ x0: r.x0 + d, x1: r.x1 - d, y0: r.y0 + d, y1: r.y1 - d });
@@ -766,14 +767,54 @@ function useCardFileGeometry() {
   }, []);
 }
 
-/** The fresh bay's own fixture: the card file (ask, look up). `drum` (beat 9, desk/beat9.ts drumAt): the drum and its crank turned about the axle (radians), as it steps out and back while stuck. */
-function FreshParts({ m, drum = 0 }: { m: DeskMats; drum?: number }) {
+/**
+ * The stuck card's ink tab (desk/beat9.ts DRUM_MARK): a strip of the drum's outer face, 0.8 u proud of the cards' edges,
+ * across a third of its length, built round the axle as the cards are (a point at angle a from the top lies at
+ * (y - R sin a, z + R cos a)), facing out.
+ */
+function useDrumMark() {
+  const g = useMemo(() => {
+    const F = CARD_FILE;
+    const R = F.r + 0.8;
+    const n = 6;
+    const [xa, xb] = DRUM_MARK.x.map((k) => F.x0 + (F.x1 - F.x0) * k) as [number, number];
+    const pos: number[] = [];
+    const idx: number[] = [];
+    for (let i = 0; i <= n; i++) {
+      const a = DRUM_MARK.a - DRUM_MARK.half + (2 * DRUM_MARK.half * i) / n;
+      for (const x of [xa, xb]) pos.push(x, F.y - R * Math.sin(a), F.z + R * Math.cos(a));
+      // (counter-clockwise seen from outside: the angle's way round, then x)
+      if (i < n) idx.push(2 * i, 2 * i + 2, 2 * i + 1, 2 * i + 1, 2 * i + 2, 2 * i + 3);
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+    geo.setIndex(idx);
+    return geo;
+  }, []);
+  const mat = useMemo(() => new MeshBasicMaterial({ color: new Color(HEX.ink), transparent: true, depthWrite: false }), []);
+  useLayoutEffect(
+    () => () => {
+      g.dispose();
+      mat.dispose();
+    },
+    [g, mat],
+  );
+  return { g, mat };
+}
+
+/** The fresh bay's own fixture: the card file (ask, look up). `drum` (beat 9, desk/beat9.ts drumAt): the drum and its crank turned about the axle (radians), as it steps out and back while stuck; `mark`: the stuck card's ink tab (beat9.ts drumMarkAt, 0 none). */
+function FreshParts({ m, drum = 0, mark = 0 }: { m: DeskMats; drum?: number; mark?: number }) {
   const g = useCardFileGeometry();
+  const tab = useDrumMark();
+  useLayoutEffect(() => {
+    tab.mat.opacity = mark;
+  }, [tab, mark]);
   const turning = (
     <>
       <mesh geometry={g.core} material={m.graphiteDark} />
       <mesh geometry={g.cards} material={m.paper} />
       <mesh geometry={g.crank} material={m.steel} />
+      {mark > 0 && <mesh geometry={tab.g} material={tab.mat} />}
     </>
   );
   return (
@@ -819,7 +860,7 @@ export function FreshBay({ s }: { s: DeskState }) {
     <Step on={isStepped(s.step, 'freshBay')}>
       <group position={[0, 0, liftOf(n.rise, HATCH_DEPTH)]}>
         <BayBase b={FRESH} slot="slotFresh" door={n.door}>
-          <WithMats>{(mm) => <FreshParts m={mm} drum={s.e9?.drum ?? 0} />}</WithMats>
+          <WithMats>{(mm) => <FreshParts m={mm} drum={s.e9?.drum ?? 0} mark={drumMarkAt(s.f)} />}</WithMats>
         </BayBase>
       </group>
     </Step>

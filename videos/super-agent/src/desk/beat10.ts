@@ -27,9 +27,10 @@ import { clamp, easings } from '@aiv/core';
 import { BEAT_10 } from '../cues.ts';
 import { cardAt, type CardSpot, type CardUp } from './beat4.ts';
 import { carrierSpan, type Footprint } from './fpKit.ts';
-import { CARD, CARD_C, MOUTH, NEXT_SLIP, YOU, rectC, type P3, type Pool } from './layout.ts';
+import { CARD, CARD_C, DECK, FEEDERS, MOUTH, NEXT_SLIP, YOU, rectC, type P3, type Pool } from './layout.ts';
+import { FRAMING_D, deskCamera, project, screenToDesk } from './camera.ts';
 import type { TagSpec } from './Overlay.tsx';
-import { ETCH, MACHINES_9, SEAM, lerp, sine, trapezoid } from './proposed.ts';
+import { CRAWL, ETCH, LOOP_SHEET, MACHINES_9, SEAM, lerp, sine, trapezoid } from './proposed.ts';
 import { SPRING, springAt } from './springs.ts';
 import { polylineAt, replyPose, replyRideAt, SLIP_BELT, type ArmStep, type DeskState, type FocusEntry, type LampStep, type ReplyState, type SlipRide } from './state.ts';
 import { LAMP_ARMS, LAMP_FOOT_Z, lampElbow, type YouPose } from './you.ts';
@@ -47,13 +48,30 @@ const lerp3 = (a: P3, b: P3, t: number): P3 => [lerp(a[0], b[0], t), lerp(a[1], 
  * foot, up the belt into the throat, fed into the head), slower: it glides. MT1's post lands on the belt 84 u south of the
  * docked key (layout.ts KEY_DOCK), so it never touches the key's lever: no strike, no tick.
  */
-export const HIJACK = { out: BEAT_10.hatch.spout - 1, outFrames: 5, back: 50, post: BEAT_10.hatch.spout + 4, postFrames: 12, register: BEAT_10.hatch.register, hold: 16, feedFrames: 6, turn: 4 } as const;
+/**
+ * The hatched slip's size: 1.35x a chat slip (MT1's NEXT_SLIP, 96 x 40 u), so the film's biggest open risk rides a slip that
+ * reads at 0.64x (session 6's critics: at a chat slip's size it was about 52 x 25 px, missed under C25's wipe). Its hatch
+ * keeps the storyboard's pitch (2 px at 8 px at 0.64x).
+ */
+export const HIJACK_SLIP = { l: Math.round(NEXT_SLIP.l * 1.35), w: Math.round(NEXT_SLIP.w * 1.35) } as const;
+/** (`back`: how far inside the spout it starts, so its nose shows as far out on its first frame as a chat slip's does.) */
+export const HIJACK = { out: BEAT_10.hatch.spout - 1, outFrames: 5, back: 50 + (HIJACK_SLIP.l - NEXT_SLIP.l) / 2, post: BEAT_10.hatch.spout + 4, postFrames: 12, register: BEAT_10.hatch.register, hold: 16, feedFrames: 6, turn: 4 } as const;
 /** When it is wholly in the head (the hatched slip lies in the throat from `register` for most of a beat, the etch spreading from it, then it is fed in). */
 export const HIJACK_GONE = HIJACK.register + HIJACK.hold + HIJACK.feedFrames;
+/**
+ * The chat drum hides the slip's start (layout.ts FEEDERS.chat: a drum of radius 49 round x -942, its open top covered by
+ * its ring and its roll from z 50 up). At 1.35x a chat slip is longer than the drum is wide, so while it slides out of the
+ * spout the part of it west of `x` is not drawn (the cut lies inside the drum, 18 u west of its axis, under its roll: never
+ * seen), and its tail never pokes out through the drum's back wall (session 6's review, C-R1: a hatched sliver showed
+ * west of the drum on f4962-4963). It is whole from the post on (its tail then east of the cut).
+ */
+export const HIJACK_CUT = { x: rectC(FEEDERS.chat)[0] - 18 } as const;
 export interface HijackPose {
   p: P3;
   heading: number;
   slope: number;
+  /** where its drawn part starts along its length (u from its centre, west -l/2 when whole): HIJACK_CUT while it leaves the drum */
+  tail: number;
 }
 /** The belt's own heading and slope (its first segment, the gate's foot to the belt's top: the throat's short corner is not the slip's heading). In a function: SLIP_BELT is state.ts's (the import rule). */
 function beltDir(): { heading: number; slope: number } {
@@ -67,7 +85,9 @@ export function hijackAt(f: number): HijackPose | null {
   if (f < H.post) {
     // out of the spout's mouth (from its nose at the drum's wall: its first frame out shows on the cue), easing onto the lip
     const inSpout: P3 = [NEXT_SLIP.spout[0] - H.back, NEXT_SLIP.spout[1], NEXT_SLIP.spout[2] + 2];
-    return { p: lerp3(inSpout, NEXT_SLIP.spout, sine((f - H.out) / H.outFrames)), heading: 0, slope: 0 };
+    const p = lerp3(inSpout, NEXT_SLIP.spout, sine((f - H.out) / H.outFrames));
+    // (lying level along x here: the cut is a length along it)
+    return { p, heading: 0, slope: 0, tail: Math.max(-HIJACK_SLIP.l / 2, HIJACK_CUT.x - p[0]) };
   }
   const belt = H.post + H.postFrames;
   if (f < belt) {
@@ -78,7 +98,7 @@ export function hijackAt(f: number): HijackPose | null {
     const b = NEXT_SLIP.gate;
     // nose up off the spout's lip, then down onto the belt's foot, settling in the belt's slope (its rise and fall on the
     // same run: from rest and to rest in every axis)
-    return { p: [lerp(a[0], b[0], u), lerp(a[1], b[1], u), lerp(a[2], b[2], u) + 4 * NEXT_SLIP.apex * u * (1 - u)], heading: Math.atan2(b[1] - a[1], b[0] - a[0]) * u, slope: BELT_DIR.slope * u * u - 0.5 * u * (1 - u) };
+    return { p: [lerp(a[0], b[0], u), lerp(a[1], b[1], u), lerp(a[2], b[2], u) + 4 * NEXT_SLIP.apex * u * (1 - u)], heading: Math.atan2(b[1] - a[1], b[0] - a[0]) * u, slope: BELT_DIR.slope * u * u - 0.5 * u * (1 - u), tail: -HIJACK_SLIP.l / 2 };
   }
   if (f < H.register) {
     // up the belt at an even pace (it glides), turning to lie along the throat over its last frames
@@ -87,10 +107,39 @@ export function hijackAt(f: number): HijackPose | null {
     const k = sine((f - (H.register - H.turn)) / H.turn);
     const head0 = Math.atan2(NEXT_SLIP.gate[1] - NEXT_SLIP.spout[1], NEXT_SLIP.gate[0] - NEXT_SLIP.spout[0]);
     const turnIn = sine((f - belt) / 4);
-    return { p, heading: lerp(lerp(head0, BELT_DIR.heading, turnIn), 0, k), slope: BELT_DIR.slope * (1 - k) };
+    return { p, heading: lerp(lerp(head0, BELT_DIR.heading, turnIn), 0, k), slope: BELT_DIR.slope * (1 - k), tail: -HIJACK_SLIP.l / 2 };
   }
   // in the throat on the cue, lying there while the etch spreads from it, then fed into the head
-  return { p: lerp3(NEXT_SLIP.throat, NEXT_SLIP.head, easings.inCubic(clamp((f - H.register - H.hold) / H.feedFrames))), heading: 0, slope: 0 };
+  return { p: lerp3(NEXT_SLIP.throat, NEXT_SLIP.head, easings.inCubic(clamp((f - H.register - H.hold) / H.feedFrames))), heading: 0, slope: 0, tail: -HIJACK_SLIP.l / 2 };
+}
+
+// ------------------------------------------------------------------------------------------------
+// 10.1 the etch's crawl from the throat to the loop
+
+/**
+ * The crawl's way (proposed.ts CRAWL: its frames): a hatched band (CRAWL_W wide) laid flat at the deck's rail-top height,
+ * out from under the hatched slip in the throat, south-east onto the deck's south rail, east along the rail to its east end,
+ * then on east, level, to where the loop's sheet's north-west corner lies on screen at still (d)'s framing (it is held from
+ * bar 58's ease-out to bar 65's dolly), so on screen it runs from the slip along the deck's south edge and on to the loop's
+ * corner, where the loop's etch starts (ETCH.sheets). World points (u), its arc length `length`.
+ */
+export const CRAWL_Z = 123.6;
+export const CRAWL_W = 18;
+export const CRAWL_PATH: readonly P3[] = (() => {
+  const pose = deskCamera(FRAMING_D, 15);
+  const corner = screenToDesk(pose, project(pose, [LOOP_SHEET.x0 + 12, LOOP_SHEET.y1 - 12, 0.4]), CRAWL_Z);
+  return [
+    [NEXT_SLIP.throat[0] + 20, NEXT_SLIP.throat[1], CRAWL_Z],
+    [DECK.x0 + 20, DECK.y0 + DECK.rail / 2, CRAWL_Z],
+    [DECK.x1 - 10, DECK.y0 + DECK.rail / 2, CRAWL_Z],
+    [Math.round(corner[0]), Math.round(corner[1]), CRAWL_Z],
+  ];
+})();
+/** The crawl at f: the band's tail and head as fractions of its way (0 the throat .. 1 the loop's corner), null when none of it shows; its tail follows its head out of the throat and eases into the loop's corner after it (proposed.ts CRAWL). */
+export function crawlAt(f: number): { tail: number; head: number } | null {
+  const head = trapezoid((f - CRAWL.from + 1) / (CRAWL.to - CRAWL.from), 0.18, 0);
+  const tail = trapezoid((f - CRAWL.back) / CRAWL.backRun, 0.18, 0.3);
+  return head <= 0 || tail >= 1 ? null : { tail, head };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -253,9 +302,9 @@ export function pins10(f: number, pins: number[]): number[] {
 /**
  * The report card #0405 (MT1's card, objects/Handshake.tsx CardHalves): pushed up out of the work slit standing (4 f) on
  * `reportUp`, an arc under the transit light up over the deck's south rail into the mouth, docking on `stampIn` (MT1's
- * dock, state.ts DOCK_B, at the mouth's tilt), then taken in under the deck (it slides north and down under the rail, 6 f).
+ * dock, state.ts DOCK_B, at the mouth's tilt), then taken in under the deck (it slides north and down under the rail, 8 f).
  */
-export const REPORT_10 = { up: BEAT_10.reportUp, emerge: 4, dock: BEAT_10.stampIn, apex: 70, takeIn: BEAT_10.stampIn + 3, takeFrames: 7 } as const;
+export const REPORT_10 = { up: BEAT_10.reportUp, emerge: 4, dock: BEAT_10.stampIn, apex: 70, takeIn: BEAT_10.stampIn + 3, takeFrames: 8 } as const;
 /** It rises standing out of the bug bay's work slit (its block's top at z 30: objects/Bay.tsx) and docks on the mouth (MT1's DOCK_B). */
 const SLIT_Z = 30.3;
 const REPORT_FROM: P3 = [CARD_C.from[0], 60, SLIT_Z + CARD.d / 2 + 0.6];
@@ -293,7 +342,8 @@ export function reportAt(f: number): ReportPose | null {
     return { p, tilt: DOCK_TILT + (STAND - DOCK_TILT) * (1 - Math.min(1, u / 0.66)) ** 2, s: u, transit, squash: 0 };
   }
   if (f < R.takeIn) return { p: REPORT_DOCK, tilt: DOCK_TILT, s: null, transit: 0, squash: 0.03 * Math.max(0, 1 - (f - R.dock) / 3) };
-  const k = easings.inCubic(clamp((f - R.takeIn + 1) / R.takeFrames));
+  // (taken in evenly, easing in and out over 8 f: an ease-in folded it under the rail in its last 2 f, unseen: session 6's L4-11)
+  const k = sine((f - R.takeIn + 1) / R.takeFrames);
   return { p: lerp3(REPORT_DOCK, REPORT_IN, k), tilt: DOCK_TILT * (1 - k), s: null, transit: 0, squash: 0 };
 }
 
@@ -351,6 +401,8 @@ export function pose0405(r: SlipRide): { p: P3; heading: number; slope: number; 
 export interface Beat10State {
   f: number;
   hijack: HijackPose | null;
+  /** the etch's crawl from the throat to the loop (its tail and head along CRAWL_PATH), null when none of it shows */
+  crawl: { tail: number; head: number } | null;
   window: ShardWindow | null;
   report: ReportPose | null;
   cap: CapPose | null;
@@ -359,7 +411,7 @@ export interface Beat10State {
 /** DeskState.e10: beat 10's movers, from bar 63 to the seam. */
 export function beat10At(f: number): Beat10State | null {
   if (f < BEAT_10.hatch.spout || f >= SEAM) return null;
-  return { f, hijack: hijackAt(f), window: shardWindowAt(f), report: reportAt(f), cap: capAt(f), reply: ride0405(f) };
+  return { f, hijack: hijackAt(f), crawl: crawlAt(f), window: shardWindowAt(f), report: reportAt(f), cap: capAt(f), reply: ride0405(f) };
 }
 
 /**
@@ -396,8 +448,8 @@ export function footprints10(s: DeskState): Footprint[] {
   const fp: Footprint[] = [];
   const h = e.hijack;
   if (h && h.p[0] > NEXT_SLIP.spout[0] - 10) {
-    const { z0, z1 } = carrierSpan({ p: h.p, slope: h.slope }, NEXT_SLIP.l / 2, 0.8);
-    fp.push({ kind: 'rect', c: [h.p[0], h.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 3, rot: h.heading, z0, z1, contact: 0 });
+    const { z0, z1 } = carrierSpan({ p: h.p, slope: h.slope }, HIJACK_SLIP.l / 2, 0.8);
+    fp.push({ kind: 'rect', c: [h.p[0], h.p[1]], h: [HIJACK_SLIP.l / 2, HIJACK_SLIP.w / 2], r: 3, rot: h.heading, z0, z1, contact: 0 });
   }
   const r = e.report;
   if (r && r.s !== null) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [CARD.w / 2, Math.max(1, (CARD.d / 2) * Math.cos(r.tilt))], r: 3, rot: 0, z0: r.p[2] - (CARD.d / 2) * Math.sin(r.tilt), z1: r.p[2] + (CARD.d / 2) * Math.sin(r.tilt), contact: 0 });

@@ -48,8 +48,8 @@ import { CatmullRomCurve3, Vector3 } from 'three';
 import { BEAT_7, WORDS, at } from '../cues.ts';
 import { FRAMING_B, deskCamera, project, screenToDesk } from './camera.ts';
 import type { CardUp, CardSpot } from './beat4.ts';
-import { cardAt } from './beat4.ts';
-import { carrierSpan, circleFp, polySegs, rectFp, segFp, type Footprint } from './fpKit.ts';
+import { CARD_RISE, cardAt, cardSize } from './beat4.ts';
+import { LIGHT_HEX, carrierSpan, circleFp, polySegs, rectFp, segFp, tint, type Footprint } from './fpKit.ts';
 import { BAYS, CORDS, DECK, FEEDERS, MAST, NEXT_SLIP, REEL_FRAME, REEL_FRAME_Z, SPOOL, TAPE, YOU, rectC, type P3, type Pool, type Rect } from './layout.ts';
 import type { TagSpec } from './Overlay.tsx';
 import { SPRING, STEP_FRAMES, springAt } from './springs.ts';
@@ -444,24 +444,13 @@ export const CARDS_7 = {
   tally: { rise: BEAT_7.tally.ghostRise, strike: BEAT_7.tally.ghostStrike },
   door: { rise: BEAT_7.doorGhost.rise, strike: BEAT_7.doorGhost.strike },
 } as const;
-/** The card's tilt (beat4.ts CARD_SPOT) and how far it hovers (pools.ts lights a card at 240). */
+/** The card's tilt (beat4.ts CARD_SPOT) and how far it hovers (its own light: pools7). */
 const CARD_Z = 240;
 const CARD_TILT = 0.3;
-/**
- * A spot whose card's centre projects to the screen point `scr` (FRAMING_B at the film's 15° pitch), the card coming down
- * from beyond the frame's top edge (beat7.test checks both spots: in frame at their place, wholly beyond the top at `off`).
- */
+/** A spot whose card's centre projects to the screen point `scr` (FRAMING_B at the film's 15° pitch; its `off`: SPOT_7). */
 function spotAt(scr: readonly [number, number], w: number, h: number): CardSpot {
-  const pose = deskCamera(FRAMING_B, 15);
-  const at = screenToDesk(pose, [scr[0], scr[1]], CARD_Z);
-  // beyond the top edge: its lowest corner above the frame's top (the card lies back at its tilt, its near edge low)
-  let off: P3 = [at[0], at[1] + 300, CARD_Z];
-  for (let k = 0; k < 40; k++) {
-    const low = project(pose, [off[0], off[1] - (h / 2) * Math.cos(CARD_TILT), off[2] - (h / 2) * Math.sin(CARD_TILT)])[1];
-    if (low < -12) break;
-    off = [off[0], off[1] + 20, CARD_Z];
-  }
-  return { at, off, w, h };
+  const at = screenToDesk(deskCamera(FRAMING_B, 15), [scr[0], scr[1]], CARD_Z);
+  return { at, off: at, w, h };
 }
 /** The ghost tally's card: the ghost strip (TALLY.ghost ticks, at the real strip's pitch on screen) on a strip of a card, a margin round it. */
 export const TALLY_CARD = (() => {
@@ -470,7 +459,8 @@ export const TALLY_CARD = (() => {
 })();
 /** The door ghost's card: the bay in plan, its gate shut, the long job in its slot, one follow-up waiting outside on the cord. */
 export const DOOR_CARD = { w: 280, h: 200 } as const;
-export const SPOT_7: Record<'tally' | 'door', CardSpot> = {
+/** Each card's place. */
+const SPOT_AT: Record<'tally' | 'door', CardSpot> = {
   tally: (() => {
     // its ghost strip's west end 44 px under the real tally's on screen (FRAMING_B, 15°: the film's pitch)
     const pose = deskCamera(FRAMING_B, 15);
@@ -482,11 +472,132 @@ export const SPOT_7: Record<'tally' | 'door', CardSpot> = {
       const ky = (c[1] - project(pose, [at[0], at[1] + 100 * Math.cos(CARD_TILT), at[2] + 100 * Math.sin(CARD_TILT)])[1]) / 100;
       at = screenToDesk(pose, [real[0] - TALLY_CARD.strip.x0 * kx, real[1] + 46 + TALLY_CARD.strip.y * ky], CARD_Z);
     }
-    return { at, off: [at[0], at[1] + 560, CARD_Z] as P3, w: TALLY_CARD.w, h: TALLY_CARD.h };
+    return { at, off: at, w: TALLY_CARD.w, h: TALLY_CARD.h };
   })(),
   // beside the bay, over the docs bay (W-09): the real gate, open, a hand's breadth east of it
   door: spotAt([1186, 548], DOOR_CARD.w, DOOR_CARD.h),
 };
+
+/**
+ * Where each beat-7 card comes from (TREATMENT element sheet: in 12 f, struck 6 f, off 8 f; nothing from nowhere): a slot
+ * just north of its place, out of which it slides south along its own face, opaque, and back into which it goes. The ghost
+ * tally comes out from under the real tally (the reel frame's north member that carries it: the count without
+ * pass-through pulled out from under the real count); the door ghost from under the Register deck's south rail, over the
+ * docs bay beside the request's bay. Each slot is the screen line (FRAMING_B, the film's 15° pitch) of that edge's lowest
+ * visible face; the card is drawn only south of it (Counterfactual.tsx `clip`: a plane through the camera's eye and that
+ * line), so it reads as coming out from under the edge however high it hovers (session 6's critics: dropped in from beyond
+ * the frame's top, the cards whipped back up through the Continuous plate and the reel; risen in place, they faded in).
+ */
+const SLOT_EDGES: Record<'tally' | 'door', readonly P3[]> = {
+  // the member's south face's foot, and the strip's south edge under its paper
+  tally: [
+    [REEL_FRAME[1].x0, REEL_FRAME[1].y0, REEL_FRAME_Z[0]],
+    [TALLY.x0, TALLY.y - TALLY.w / 2, TALLY.z - TALLY.t],
+  ],
+  // the deck's south rail: its south face's foot
+  door: [[DECK.x1, DECK.y0, DECK.railZ0]],
+};
+/** A plane (three.js Plane: the side where n·p + d >= 0 is kept) as [nx, ny, nz, d]. */
+export type Plane4 = readonly [number, number, number, number];
+/** Each card's slot: its screen line (y, px), the clip plane through the camera's eye and that line, and how far up its face (u) from its centre at its place the line crosses it. */
+export const SLOT_7: Record<'tally' | 'door', { y: number; plane: Plane4; edge: number }> = (() => {
+  const pose = deskCamera(FRAMING_B, 15);
+  const of = (k: 'tally' | 'door') => {
+    const y = Math.max(...SLOT_EDGES[k].map((p) => project(pose, p)[1]));
+    const E = pose.pos;
+    const a = screenToDesk(pose, [600, y], CARD_Z);
+    const b = screenToDesk(pose, [1500, y], CARD_Z);
+    const u = [a[0] - E[0], a[1] - E[1], a[2] - E[2]] as const;
+    const v = [b[0] - E[0], b[1] - E[1], b[2] - E[2]] as const;
+    const c = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]] as const;
+    const l = Math.hypot(c[0], c[1], c[2]);
+    let n: P3 = [c[0] / l, c[1] / l, c[2] / l];
+    let d = -(n[0] * E[0] + n[1] * E[1] + n[2] * E[2]);
+    // the card's place on the kept side (south of the line on screen)
+    const at = SPOT_AT[k].at;
+    if (n[0] * at[0] + n[1] * at[1] + n[2] * at[2] + d < 0) {
+      n = [-n[0], -n[1], -n[2]];
+      d = -d;
+    }
+    const up = upFace(1);
+    const edge = -(n[0] * at[0] + n[1] * at[1] + n[2] * at[2] + d) / (n[0] * up[0] + n[1] * up[1] + n[2] * up[2]);
+    return { y, plane: [n[0], n[1], n[2], d] as Plane4, edge };
+  };
+  return { tally: of('tally'), door: of('door') };
+})();
+/**
+ * How far up its face a card starts and goes back to: in, its south edge `peek` u out of the slot when it starts (so its
+ * first move shows on its cue frame); out, `tuck` u inside it on its last drawn frame (so nothing vanishes). Its contact
+ * shadow comes and goes with its travel (Counterfactual.tsx `inFrame`).
+ */
+const CARD_PEEK = 1.5;
+const CARD_TUCK = 1;
+export const CARD_SLIDE_7: Record<'tally' | 'door', { in: number; out: number }> = {
+  tally: { in: SLOT_7.tally.edge + TALLY_CARD.h / 2 - CARD_PEEK, out: SLOT_7.tally.edge + TALLY_CARD.h / 2 + CARD_TUCK },
+  door: { in: SLOT_7.door.edge + DOOR_CARD.h / 2 - CARD_PEEK, out: SLOT_7.door.edge + DOOR_CARD.h / 2 + CARD_TUCK },
+};
+/** A step of s u up a card's face (its tilt about x). */
+function upFace(s: number): P3 {
+  return [0, s * Math.cos(CARD_TILT), s * Math.sin(CARD_TILT)];
+}
+function add3(a: P3, b: P3): P3 {
+  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+}
+/** The beat's card spots (beat4.ts CardSpot): `off` up its face, in its slot. */
+export const SPOT_7: Record<'tally' | 'door', CardSpot> = {
+  tally: { ...SPOT_AT.tally, off: add3(SPOT_AT.tally.at, upFace(CARD_SLIDE_7.tally.out)) },
+  door: { ...SPOT_AT.door, off: add3(SPOT_AT.door.at, upFace(CARD_SLIDE_7.door.out)) },
+};
+
+/** A beat-7 card at a frame: its centre and tilt, how far up its face it is (u: 0 at its place), how far it has travelled out (0..1: its contact shadow), its strike (0..1), frames since it settled. */
+export interface Card7 {
+  c: P3;
+  tilt: number;
+  back: number;
+  travel: number;
+  strike: number;
+  play: number;
+}
+/**
+ * A beat-7 card on beat 4's beats (beat4.ts cardAt: its life, its strike 6 f, out over 8 f easing in and out), slid out of
+ * its slot along its own face over 12 f from the frame before its cue, easing in and out (a slide out of a slot, never the
+ * move curve's first-frame leap: the door card is 180 px tall), and back in: null outside its life.
+ */
+export function card7At(f: number, k: 'tally' | 'door'): Card7 | null {
+  const C = CARDS_7[k];
+  const s = cardAt(f, C);
+  if (!s) return null;
+  const rise = sine((f - (C.rise - 1)) / CARD_RISE);
+  const S = CARD_SLIDE_7[k];
+  const back = s.exit > 0 ? S.out * s.exit : S.in * (1 - rise);
+  return { c: add3(SPOT_7[k].at, upFace(back)), tilt: CARD_TILT, back, travel: rise * (1 - s.exit), strike: s.strike, play: s.play };
+}
+/** How much of a card is out of its slot (0..1 of its face, from its south edge). */
+export function cardOut7(c: Card7, k: 'tally' | 'door'): number {
+  const h = cardSize(SPOT_7[k]).h;
+  return clamp((SLOT_7[k].edge - c.back + h / 2) / h);
+}
+/**
+ * The light on a beat-7 card (as pools.ts cardPoolOf lights beat 4's, riding with it), weaker: its stock reads as grey
+ * stock level with the real tally's paper, never as the frame's brightest bone paper (session 6's critics: the road not
+ * taken read as the most built object in the frame; the door card, the larger, read brighter than the real tally even at
+ * a third of the tally ghost's light, so the key alone lights it). It comes out of the slot with the card.
+ */
+export const CARD_LIGHT_7 = { tally: 0.3, door: 0 } as const;
+const cardPool7 = (c: Card7, k: 'tally' | 'door'): Pool => ({ c: [c.c[0], c.c[1]], z: [c.c[2] - 40, c.c[2] + 50], sigma: [180, 120], rgb: tint(LIGHT_HEX.reading, CARD_LIGHT_7[k] * cardOut7(c, k)) });
+/**
+ * A beat-7 card's cast shadow (footprints.ts cardFootprint's, at its own pose): of the part out of its slot only, so it
+ * grows out of the slot with the card and goes back in with it.
+ */
+function cardFootprint7(c: Card7, k: 'tally' | 'door'): Footprint | null {
+  const { w, h } = cardSize(SPOT_7[k]);
+  const out = cardOut7(c, k) * h;
+  const low = c.c[2] - (h / 2) * Math.sin(c.tilt);
+  if (out < 2 || low < 1) return null;
+  // from its south edge up `out` along its face
+  const mid = -h / 2 + out / 2;
+  return { kind: 'rect', c: [c.c[0], c.c[1] + mid * Math.cos(c.tilt)], h: [w / 2, Math.max(1, (out / 2) * Math.cos(c.tilt))], r: 4, rot: 0, z0: low - 1.5, z1: low - 0.5, contact: 0 };
+}
 
 // ------------------------------------------------------------------------------------------------
 // 7.3 the job rail, the long test, its receipt; the sand-glass and the Productive plate
@@ -507,8 +618,12 @@ export const RAIL = { open: 3700, rise: 3704, up: 3716, depth: 24 } as const;
 /** The oval sinks back into a hatch of its own once the test has docked back (the station is still (d)'s shelf from then). */
 export const OVAL_HATCH: Rect = { x0: OVAL_BOX.x0 - 2, x1: OVAL_BOX.x1 + 2, y0: OVAL_BOX.y0 - 2, y1: SHELF.y0 };
 export const OVAL_AWAY = { open: BEAT_7.peel.dock + 6, sink: BEAT_7.peel.dock + 10, down: BEAT_7.peel.dock + 20, depth: 24 } as const;
-/** The long test: a capsule as long as the slit allows (its radius the slit's half width), resting hidden in the slit's middle; its arc's apex. */
-export const CAPSULE = { r: 6, half: 30, rest: [rectC(BAYS.bug.slot)[0], rectC(BAYS.bug.slot)[1], 22] as P3, apex: 124 } as const;
+/**
+ * The long test: a capsule as long as the slit allows (Bay.tsx: the lit slit is the slot less 8 u at each end, 100 u; the
+ * capsule 2 half + 2 r = 98 u, about 85 px at 0.85x), its radius the slit's half width, resting hidden in the slit's middle;
+ * its arc's apex.
+ */
+export const CAPSULE = { r: 6, half: 43, rest: [rectC(BAYS.bug.slot)[0], rectC(BAYS.bug.slot)[1], 22] as P3, apex: 124 } as const;
 /** Its receipt: a ticket pushed up out of a slit in the shelf's west part, leaning back, a bold start mark on it; sinking back as the test docks. */
 export const RECEIPT = { c: [SHELF.x0 + 40, -258, SHELF.z] as P3, w: 46, h: 30, lean: 0.5 } as const;
 /** The sand-glass docked on the shelf: still (d)'s DOCKED.glass (it takes still (d)'s body in flight). */
@@ -520,11 +635,19 @@ export const GLASS_REST: P3 = [CHORES.glass.c[0], CHORES.glass.c[1], TRAY_Z.floo
  * rail and docks there, low in the frame (the tags take the ground over it). Its hatch is its own outline.
  */
 export const PRODUCTIVE_PLATE = { box: { x0: -94, x1: 250, y0: -348, y1: -284 } as Rect, z: [0, 4] as const } as const;
-export const PLATE_RISE = { open: BEAT_7.glass.plateDock - 18, rise: BEAT_7.glass.plateDock - 14, depth: 10 } as const;
+/**
+ * Its order (Persistent's, 9.1): the glass docks, then the plate rises and its words are written on. Its hatch stays shut
+ * until the glass has docked: its leaves part over `leaves` f from the glass's dock while the plate rises from deep in the
+ * pit (its blank face, the plate's enamel with no words, so nothing is cut through a glyph; its top under the slate until
+ * the leaves are most of the way open), it docks on `plate-productive`, and from that frame its words are written on from
+ * its west edge over `words` f (session 6's critics: its words showed through a centre-out clip 14 f before the dock; then
+ * its blank face showed while the glass was still in the air).
+ */
+export const PLATE_RISE = { open: BEAT_7.glass.dock, rise: BEAT_7.glass.dock, leaves: 3, depth: 10, words: 8 } as const;
 
 /** Beat 7's peel frames. */
 const P7 = {
-  emerge: BEAT_7.peel.lift - 7,
+  emerge: BEAT_7.peel.lift - 8,
   crouch: BEAT_7.peel.lift - 3,
   lift: BEAT_7.peel.lift,
   rail: BEAT_7.peel.rail,
@@ -576,8 +699,19 @@ export function ovalAt(d: number): { x: number; y: number; heading: number } {
   const a = -Math.PI / 2 - (L - 2 * OVAL_STRAIGHT - arc) / r;
   return { x: x0 + r * Math.cos(a), y: cy + r * Math.sin(a), heading: a - Math.PI / 2 };
 }
-/** Where the capsule lands on the rail (on its north straight, its middle) and how far round it has run when it lifts off (one lap). */
-const LAND_D = OVAL_STRAIGHT / 2 - 20;
+/**
+ * The capsule comes up out of the slit and goes back down into it tilted `nose` (its east end leading out, its west end
+ * leading in), crossing the slit's plane at an even pace over `cross` f (from its east cap's top at the plane, CAP_FROM, to
+ * its west cap's, CAP_CLEAR), so the lit slit goes under it a quarter at a time and comes back the same way (session 6's
+ * critics: level, it covered all 98 u of the 100 u slit in one frame and uncovered it in one). Clear of the slit it levels
+ * as it rises on (2 f, easing out); going back, it tilts as it comes down to the slit (2 f, easing in).
+ */
+export const CAP_SLIT = { z: 30.3, nose: 0.13, cross: 4 } as const;
+const CAP_REACH = (CAPSULE.half + CAPSULE.r) * Math.tan(CAP_SLIT.nose);
+const CAP_FROM = CAP_SLIT.z - CAPSULE.r - CAP_REACH;
+const CAP_CLEAR = CAP_SLIT.z - CAPSULE.r + CAP_REACH;
+/** Where the capsule lands on the rail (on its north straight, the west end of its lap's: lapAt) and lifts off again after one lap. */
+const LAND_D = 0;
 const CAP_Z = OVAL.stripZ + CAPSULE.r;
 
 export interface CapsulePose {
@@ -590,18 +724,48 @@ export interface CapsulePose {
   /** on the rail (its contact shadow), or in the air */
   onRail: boolean;
 }
+/**
+ * The capsule's lap (its centre's path; it never turns: its axis lies along the straights all the way round). It is longer
+ * (98 u) than the oval's ends are wide (the rail's radius 22, the oval 68 u from side to side): turned to follow the rail
+ * round an end it swung its caps far off the oval (session 6 draft), so it circulates like a carriage on a loop, east along
+ * the north rail, across the east end, west along the south rail and back across the west end, its centre on a loop
+ * inside the oval whose ends keep its caps over the oval's plate: every point of it stays over the oval.
+ */
+export const LAP = { x0: OVAL_BOX.x0 + CAPSULE.half + CAPSULE.r + OVAL.r + 2, x1: OVAL_BOX.x1 - CAPSULE.half - CAPSULE.r - OVAL.r - 2 } as const;
+export const LAP_PERIM = 2 * (LAP.x1 - LAP.x0) + 2 * Math.PI * OVAL.r;
+/** The capsule's centre on its lap at d (from the north straight's west end, clockwise in plan). */
+export function lapAt(d: number): { x: number; y: number } {
+  const L = ((d % LAP_PERIM) + LAP_PERIM) % LAP_PERIM;
+  const S = LAP.x1 - LAP.x0;
+  const r = OVAL.r;
+  const cy = OVAL.c0[1];
+  if (L < S) return { x: LAP.x0 + L, y: cy + r };
+  if (L < S + Math.PI * r) {
+    const a = Math.PI / 2 - (L - S) / r;
+    return { x: LAP.x1 + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  }
+  if (L < 2 * S + Math.PI * r) return { x: LAP.x1 - (L - S - Math.PI * r), y: cy - r };
+  const a = -Math.PI / 2 - (L - 2 * S - Math.PI * r) / r;
+  return { x: LAP.x0 + r * Math.cos(a), y: cy + r * Math.sin(a) };
+}
 /** The long test at f: risen out of the slit (4 f), its crouch, its arc onto the rail, a lap of the oval, docked back into the slot and sunk. Null while it is inside the slot. */
 export function capsuleAt(f: number): CapsulePose | null {
   if (f < P7.emerge || f >= P7.dock + P7.sink) return null;
   const R = CAPSULE.rest;
   const top = SLOT_TOP + CAPSULE.r * 0.7;
   if (f < P7.lift) {
-    // up out of the slit (4 f, in-out), then the anticipation: a crouch (3 f) and its squash, let go on the lift
-    if (f < P7.crouch) return { p: [R[0], R[1], lerp(R[2], top + 1.5, sine((f - P7.emerge + 1) / (P7.crouch - P7.emerge)))], heading: 0, roll: 0, slope: 0, squash: 0, onRail: false };
+    // up out of the slit nose first (5 f, in-out, levelling as it comes: CAP_SLIT), then the anticipation: a crouch (3 f)
+    // and its squash, let go on the lift
+    if (f < P7.crouch) {
+      const t = f - P7.emerge + 1;
+      if (t <= CAP_SLIT.cross) return { p: [R[0], R[1], lerp(CAP_FROM, CAP_CLEAR, t / CAP_SLIT.cross)], heading: 0, roll: 0, slope: CAP_SLIT.nose, squash: 0, onRail: false };
+      const e = 1 - (1 - (t - CAP_SLIT.cross) / (P7.crouch - P7.emerge + 1 - CAP_SLIT.cross)) ** 2;
+      return { p: [R[0], R[1], lerp(CAP_CLEAR, top + 1.5, e)], heading: 0, roll: 0, slope: CAP_SLIT.nose * (1 - e), squash: 0, onRail: false };
+    }
     const k = (f - P7.crouch) / (P7.lift - P7.crouch);
     return { p: [R[0], R[1], top + 1.5 - 2 * sine(k)], heading: 0, roll: 0, slope: 0, squash: 0.03 * sine(k), onRail: false };
   }
-  const land = ovalAt(LAND_D);
+  const land = lapAt(LAND_D);
   const L: P3 = [land.x, land.y, CAP_Z];
   if (f < P7.rail) {
     // the 10 f arc up over the bay's south wall onto the rail, rolling a half turn about its length
@@ -613,9 +777,9 @@ export function capsuleAt(f: number): CapsulePose | null {
   if (f < P7.dockFrom) {
     // the lap: on the rail, gathering speed, round the oval once, slowing back to its landing point
     const T = P7.dockFrom - P7.rail;
-    const d = LAND_D + OVAL_PERIM * trapezoid((f - P7.rail) / T, 8 / T, 8 / T);
-    const o = ovalAt(d);
-    return { p: [o.x, o.y, CAP_Z], heading: o.heading, roll: Math.PI, slope: 0, squash: squashAt(f, P7.rail, 0.03), onRail: true };
+    const d = LAND_D + LAP_PERIM * trapezoid((f - P7.rail) / T, 8 / T, 8 / T);
+    const o = lapAt(d);
+    return { p: [o.x, o.y, CAP_Z], heading: 0, roll: Math.PI, slope: 0, squash: squashAt(f, P7.rail, 0.03), onRail: true };
   }
   if (f < P7.dock) {
     // docked back as an event: up off the rail and back over the wall into the slit (8 f)
@@ -624,9 +788,15 @@ export function capsuleAt(f: number): CapsulePose | null {
     const b: P3 = [R[0], R[1], top];
     return { p: [lerp(L[0], b[0], e), lerp(L[1], b[1], e), lerp(L[2], b[2], u) + 4 * CAPSULE.apex * u * (1 - u)], heading: 0, roll: Math.PI * (1 - e), slope: -0.3 * Math.sin(Math.PI * u) * (1 - 2 * u), squash: 0, onRail: false };
   }
-  // in the slot: its 3% squash on the dock (the contact frame, decaying), then down into the slit (6 f), wholly under it before it goes
-  const w = (f - P7.dock) / (P7.sink - 1);
-  return { p: [R[0], R[1], lerp(top, R[2] - CAPSULE.r - 1, sine(w))], heading: 0, roll: 0, slope: 0, squash: squashAt(f, P7.dock, 0.03), onRail: false };
+  // in the slot: its 3% squash on the dock (the contact frame, decaying), then down to the slit tilting (2 f) and into it tail
+  // first (CAP_SLIT), its last quarter under the slit's plane the frame after its last
+  const w = f - P7.dock;
+  const lead = P7.sink - CAP_SLIT.cross;
+  if (w <= lead) {
+    const e = (w / lead) ** 2;
+    return { p: [R[0], R[1], lerp(top, CAP_CLEAR, e)], heading: 0, roll: 0, slope: CAP_SLIT.nose * e, squash: squashAt(f, P7.dock, 0.03), onRail: false };
+  }
+  return { p: [R[0], R[1], lerp(CAP_CLEAR, CAP_FROM, (w - lead) / CAP_SLIT.cross)], heading: 0, roll: 0, slope: CAP_SLIT.nose, squash: squashAt(f, P7.dock, 0.03), onRail: false };
 }
 /** The receipt: how far it has risen out of the shelf's slit (0..1): pushed up over 4 f to stand on `job-receipt`, sunk back over 5 f from the dock. */
 export const receiptAt = (f: number): number | null => {
@@ -647,10 +817,15 @@ export interface GlassPose {
   /** from your tray's glass (0) to still (d)'s docked body (1: objects/Trace.tsx glassAt's ends and bulbs) */
   morph: number;
 }
-const G7 = { lift: BEAT_7.glass.lift, anticipate: 4, dock: BEAT_7.glass.dock, hover: 34, arc: 80, across: 0.9 } as const;
+/**
+ * Its flight: up out of the tray and north over the south ends of W-08 and W-09 (its plan path a curve through `via`), then
+ * down over the dock: so it flies clear of the jobs tag's lines and its leader, set on its cue as the glass lifts (session
+ * 6's critics: it flew behind "after 5 s" and the leader as they were read; beat7.test checks its screen box per frame).
+ */
+const G7 = { lift: BEAT_7.glass.lift, anticipate: 4, dock: BEAT_7.glass.dock, hover: 34, arc: 100, across: 0.9, ramp: 0.18, via: [-100, 120] as const } as const;
 const GLASS_BACK: P3 = [-3, 0, 2.5];
-/** The glass's run across (0..1 of its way) over its flight's share u: gathering speed, even, easing into the hover over the dock (a trapezoid, so its peak pace is a third under a sine's). */
-const glassAcross = (u: number): number => trapezoid(u / G7.across, 0.25, 0.25);
+/** The glass's run along its way (0..1) over its flight's share u: gathering speed, even, easing into the hover over the dock (a trapezoid, so its peak pace stays under beat 5's key's). */
+const glassAcross = (u: number): number => trapezoid(u / G7.across, G7.ramp, G7.ramp);
 export function glassAt(f: number): GlassPose | null {
   if (f < G7.lift || f >= E7.until) return null;
   const A = GLASS_REST;
@@ -669,16 +844,31 @@ export function glassAt(f: number): GlassPose | null {
     const top = D[2] + G7.hover;
     const z = u < G7.across ? lerp(a[2], top, sine(h)) + 4 * G7.arc * h * (1 - h) : top - (top - D[2]) * ((u - G7.across) / (1 - G7.across)) ** 2;
     const under = lerp(A[2], D[2], k);
-    return { p: [lerp(a[0], D[0], k), lerp(a[1], D[1], k), z], yaw: 0.5 * Math.sin(Math.PI * h), tilt: 0.1 * (1 - h) - 0.35 * Math.sin(Math.PI * h), squash: 0, lift: z - under, morph: sine(h) };
+    // its plan path: a quadratic curve from the anticipation's end through G7.via to the dock
+    const w = 1 - k;
+    const [vx, vy] = G7.via;
+    const x = w * w * a[0] + 2 * w * k * vx + k * k * D[0];
+    const y = w * w * a[1] + 2 * w * k * vy + k * k * D[1];
+    return { p: [x, y, z], yaw: 0.5 * Math.sin(Math.PI * h), tilt: 0.1 * (1 - h) - 0.35 * Math.sin(Math.PI * h), squash: 0, lift: z - under, morph: sine(h) };
   }
   return { p: D, yaw: 0, tilt: 0, squash: squashAt(f, G7.dock, 0.03), lift: 0, morph: 1 };
 }
-/** The Productive plate's hatch and its rise (null before its hatch opens and from the summary on). */
-export function productivePlateAt(f: number): RailState | null {
+/** The Productive plate: its hatch and its rise, and how much of its words are written on (0 none .. 1 all: its west part shows). */
+export interface PlateState extends RailState {
+  words: number;
+}
+/** The Productive plate's hatch, its rise and its words (null before its hatch opens and from the summary on). */
+export function productivePlateAt(f: number): PlateState | null {
   const P = PLATE_RISE;
   const dock = BEAT_7.glass.plateDock;
   if (f < P.open || f >= E7.until) return null;
-  return { leaves: sine((f - P.open) / 4) * (1 - sine((f - dock) / 4)), hole: f < dock + 5, dz: f >= dock ? 0 : -P.depth * (1 - sine((f - P.rise) / (dock - P.rise))) };
+  return {
+    leaves: sine((f - P.open) / P.leaves) * (1 - sine((f - dock) / 4)),
+    hole: f < dock + 5,
+    dz: f >= dock ? 0 : -P.depth * (1 - sine((f - P.rise) / (dock - P.rise))),
+    // its first word's start on the dock frame (the contact), all of them by its 8th frame
+    words: sine((f - dock + 1) / P.words),
+  };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -763,7 +953,7 @@ export interface Beat7State {
   capsule: CapsulePose | null;
   receipt: number | null;
   glass: GlassPose | null;
-  plate: RailState | null;
+  plate: PlateState | null;
   dossier: DossierPose | null;
 }
 /** DeskState.e7: beat 7's parts at f, from `cord-out` to the seam (null outside). */
@@ -800,6 +990,8 @@ const TALLY_STEP: readonly FocusId[] = CARD_STEP_ALL.filter((x) => x !== 'bugBay
 const DOOR_STEP: readonly FocusId[] = CARD_STEP_ALL.filter((x) => x !== 'bugBay' && x !== 'b7-gate' && x !== 'cord');
 /** How far a card steps the rest down (state.ts CARD_DEPTH, beat 4's cards). */
 const CARD_DEPTH = 1.5;
+/** The step that takes graphite, enamel and steel to the slate's tone (gl/materials.ts: 0.45 of the way a unit; turn.ts PRESS_LATE). */
+const OVAL_SLATE = 1 / 0.45;
 /**
  * Focus (state.ts FocusEntry): 7.1's Thread is the action (the spool, the cord, the guide on the deck, the request's bay
  * and the tape it notices on), so the other bays, the gate, the belt and the filter's spike step down from the cord's
@@ -814,6 +1006,9 @@ export const FOCUS_7: readonly FocusEntry[] = [
   { id: 'b7-tally', from: CARDS_7.tally.rise - 1, to: CARDS_7.tally.strike + 5, step: TALLY_STEP, depth: CARD_DEPTH },
   // the door card's world comes back up from just before its strike, so all is up on the peel (your desk's glass hands over at full)
   { id: 'b7-door', from: CARDS_7.door.rise - 1, to: CARDS_7.door.strike - 2, step: DOOR_STEP, depth: CARD_DEPTH },
+  // the oval track, its job done, takes the slate's tone as it sinks (the turn's pressed folders' step, turn.ts PRESS_LATE),
+  // so its hatch's leaves close over a slate-dark track, never as a clip across its lit lip (session 6's critics)
+  { id: 'b7-oval', from: OVAL_AWAY.open, to: OVAL_AWAY.down + 5, step: ['b7-oval'], depth: OVAL_SLATE },
 ];
 /** Your lamp: down a step as the sand-glass docks on the job rail (the receiving part answers 2 f after), up a step as the chat reply lands; net 0 (still (d)'s 0.62). */
 export const LAMP_7: readonly LampStep[] = [
@@ -828,16 +1023,19 @@ export function replies7(e: Beat7State | null): ReplyState[] {
   const ride = replyRideAt(e.f, BEAT_7.reply.leave, BEAT_7.reply.lands);
   return ride ? [{ id: '7-chat', ride, rest: REPLY_REST }] : [];
 }
-/** The counterfactual cards up at a state (footprints.ts casts each, pools.ts lights each). */
-export function cards7(s: DeskState): CardUp[] {
-  if (!s.e7) return [];
-  const out: CardUp[] = [];
-  for (const k of ['tally', 'door'] as const) {
-    const card = cardAt(s.f, CARDS_7[k]);
-    if (card) out.push({ card, spot: SPOT_7[k] });
-  }
-  return out;
+/**
+ * The counterfactual cards up at a state for footprints.ts and pools.ts to cast and light (beat 4's way: in and out along
+ * cardPose's slide): none. Beat 7's rise in place (card7At), so footprints7 casts them and pools7 lights them at that pose.
+ */
+export function cards7(_s: DeskState): CardUp[] {
+  return [];
 }
+/** The beat's cards up at f (card7At), each with its key. */
+const cardsUp7 = (f: number): { k: 'tally' | 'door'; c: Card7 }[] =>
+  (['tally', 'door'] as const).flatMap((k) => {
+    const c = card7At(f, k);
+    return c ? [{ k, c }] : [];
+  });
 
 /**
  * How far below a part's top its footprint ends when that top is a receiver the part lights (footprints.ts TOP_CLEAR): a
@@ -885,8 +1083,10 @@ export function footprints7(s: DeskState): Footprint[] {
   for (const r of e.riders) fp.push({ kind: 'rect', c: [r.p[0], r.p[1]], h: [Math.max(1, (RIDER.l / 2) * Math.abs(Math.cos(r.slope))), Math.max(1, (RIDER.w / 2) * Math.abs(Math.cos(r.roll)))], r: 2, rot: r.heading, ...carrierSpan({ p: r.p, slope: r.slope }, RIDER.l / 2, 0.4), contact: r.p[2] < SLOT_TOP + 2 ? 0.5 : 0 });
   // the tally strip over the cap (a hair under its own top)
   if (e.tally && e.tally.len > 1) fp.push(rectFp({ x0: TALLY.x0, x1: TALLY.x0 + e.tally.len, y0: TALLY.y - TALLY.w / 2, y1: TALLY.y + TALLY.w / 2 }, TALLY.z - TALLY.t, TALLY.z - TOP_CLEAR, 0, 1));
-  // the station while it rises (its shadow on the hatch's leaves and pit; still (d) casts none for the shelf once it is up)
-  if (e.rail && e.rail.dz < 0 && e.rail.dz > -RAIL.depth + 1) fp.push(rectFp(SHELF, 0, Math.max(0.5, SHELF.z + e.rail.dz - TOP_CLEAR), 1, 3));
+  // the station while it rises (its shadow on the hatch's leaves and pit; still (d) casts none for the shelf once it is up),
+  // only once its top is out of the pit: a footprint over its own top shades it (it stepped dark as it rose)
+  const shelfTop = SHELF.z + (e.rail?.dz ?? 0) - TOP_CLEAR;
+  if (e.rail && e.rail.dz < 0 && shelfTop > 0.5) fp.push(rectFp(SHELF, 0, shelfTop, 1, 3));
   const c = e.capsule;
   if (c) fp.push({ kind: 'rect', c: [c.p[0], c.p[1]], h: [CAPSULE.half + CAPSULE.r, CAPSULE.r], r: CAPSULE.r, rot: c.heading, z0: Math.max(0, c.p[2] - CAPSULE.r), z1: c.p[2] - CAPSULE.r * 0.2, contact: c.onRail ? 0.6 : 0 });
   const g = e.glass;
@@ -894,9 +1094,17 @@ export function footprints7(s: DeskState): Footprint[] {
   // docked, it lets its shadow go under bar 50's move (still (d)'s glass casts none, so the seam keeps it)
   const gk = 1 - sine((s.f - GLASS_SHADE_OFF[0]) / (GLASS_SHADE_OFF[1] - GLASS_SHADE_OFF[0]));
   if (g && gk > 0) fp.push({ kind: 'rect', c: [g.p[0], g.p[1]], h: [CHORES.glass.half[0] - 1 - 6 * g.morph, CHORES.glass.half[1] - 4 * g.morph], r: 4, rot: g.yaw, z0: g.p[2], z1: g.p[2] + 0.5 + (26.5 - 8 * g.morph) * gk, contact: 0.8 * clamp(1 - g.lift / 3) * gk });
-  if (e.plate && e.plate.dz > -PLATE_RISE.depth + 0.5) fp.push(rectFp(PRODUCTIVE_PLATE.box, 0, Math.max(0.5, PRODUCTIVE_PLATE.z[1] + e.plate.dz - TOP_CLEAR), 1, 3));
+  // the plate's, only once its top is out of the pit (a footprint over its own top shaded it: it dipped and popped back as it
+  // rose), its contact coming in as it comes up
+  const plateTop = PRODUCTIVE_PLATE.z[1] + (e.plate?.dz ?? 0) - TOP_CLEAR;
+  if (e.plate && plateTop > 0.5) fp.push(rectFp(PRODUCTIVE_PLATE.box, 0, plateTop, clamp((plateTop - 0.5) / (PRODUCTIVE_PLATE.z[1] - TOP_CLEAR - 0.5)), 3));
   const d = e.dossier;
   if (d) fp.push({ kind: 'rect', c: [d.p[0], d.p[1]], h: [DOSSIER.l / 2, DOSSIER.w / 2], r: 3, rot: d.heading, z0: Math.max(0, d.p[2] - DOSSIER.t / 2), z1: d.p[2] + DOSSIER.t / 2 - TOP_CLEAR, contact: d.flying ? 0 : 0.7 });
+  // the counterfactual cards' shadows (in place: cardFootprint7)
+  for (const { k, c: card } of cardsUp7(s.f)) {
+    const cf = cardFootprint7(card, k);
+    if (cf) fp.push(cf);
+  }
   return fp;
 }
 /** The docked glass's shadow goes over these frames (under bar 50's camera move). */
@@ -904,9 +1112,10 @@ const GLASS_SHADE_OFF = [at(50) + 2, at(50) + 18] as const;
 /** The cord and its guide at rest (still (d); the stub's footprints, unchanged). */
 const STATIC_CORD_FP: Footprint[] = [segFp([MAST.arm[0], MAST.arm[1], DECK.top - 4], [MAST.x, MAST.y, DECK.top - 4], 4), segFp([MAST.x, MAST.y, DECK.top - 4], [MAST.x, MAST.y, MAST.h], 5), ...polySegs(CORDS.vermilion, 4)];
 
-/** Beat 7's pools: none of its own (its cards' light is pools.ts cardPoolOf). */
-export function pools7(_s: DeskState): Pool[] {
-  return [];
+/** Beat 7's pools: the light on its counterfactual cards while one is up (cardPool7, riding in and out with it). */
+export function pools7(s: DeskState): Pool[] {
+  if (!s.e7) return [];
+  return cardsUp7(s.f).flatMap(({ k, c }) => (CARD_LIGHT_7[k] > 0 ? [cardPool7(c, k)] : []));
 }
 /**
  * Beat 7's tags, in the clear ground east of your desk and under the docs bays (inside title-safe and the action band, clear
@@ -914,12 +1123,16 @@ export function pools7(_s: DeskState): Pool[] {
  * end); the 100-word tag the chat reply's stop tab, where the reply comes to lie in your in-tray.
  */
 export const TAG_AT = [772, 718] as const;
+/** The jobs tag a little east of the 100-word tag's place, so the sand-glass's flight clears its first letters (G7). */
+export const TAG_JOBS_AT = [TAG_AT[0] + 28, TAG_AT[1]] as const;
 export const TAG_GAP_7 = 42;
 export const TAG_JOBS_LINES = { en: ['prototype: background', 'after 5 s'], zh: ['原型：5 秒后转入后台'] } as const;
 /** The chat reply's stop tab at rest: its east end (the leader's dot clear of its glyphs; the slip lying at heading 0.05). */
 export const TAB_REST: P3 = [REPLY_REST[0] + (50 + STOP_TAB.over - 5) * Math.cos(0.05), REPLY_REST[1] + (50 + STOP_TAB.over - 5) * Math.sin(0.05), REPLY_REST[2] + 2.5];
 export const TAGS_7: readonly TagSpec[] = [
-  { cue: 'tag-jobs', words: WORDS.tagJobs, at: TAG_AT, anchor: 'start', foot: [SHELF.x0 + 4, (SHELF.y0 + SHELF.y1) / 2, SHELF.z], lines: TAG_JOBS_LINES, gap: TAG_GAP_7 },
+  { cue: 'tag-jobs', words: WORDS.tagJobs, at: TAG_JOBS_AT, anchor: 'start', foot: [SHELF.x0 + 4, (SHELF.y0 + SHELF.y1) / 2, SHELF.z], lines: TAG_JOBS_LINES, gap: TAG_GAP_7 },
+  // its wipe (and its leader, growing with it) from the reply's landing, so it never points at the empty in-tray while the
+  // reply is still in the chute (session 6's critics); its cue's window is unchanged
   { cue: 'tag-100', words: WORDS.tag100, at: TAG_AT, anchor: 'start', foot: TAB_REST, gap: TAG_GAP_7 },
 ];
 /** Your desk's pose: beat 7 changes nothing of it (the glass leaves your tray on its lift frame: actOne.ts youPoseAt). */

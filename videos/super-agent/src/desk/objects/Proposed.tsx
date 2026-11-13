@@ -35,7 +35,7 @@ import { EMIT, useDeskMats, useStepMode } from '../kit.tsx';
 import { BAYS, REEL, type P2, type Rect } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
 import type { DeskState } from '../state.ts';
-import { FLAG, HANDLE, MACHINES, QUERIES, TETHER_W, VELLUM, WATCHDOG, clipC } from '../summary.ts';
+import { FLAG, FLAG_SHAPE, HANDLE, MACHINES, QUERIES, TETHER_W, VELLUM, WATCHDOG, clipC } from '../summary.ts';
 
 /**
  * The step on vellum and pencil (a drawing on the desk has no surface to darken): it fades with its set's step amount, as the
@@ -164,11 +164,13 @@ const share = (t: number, a: number, b: number): number => (t >= b ? 1 : t <= a 
 
 /**
  * The etch: 45° graphite strokes (2 px at an 8 px pitch at 0.64×: about 3.1 u at a 12.5 u pitch), scratched light into
- * the vellum (pencil's grey, so they read over the dark desk), on a grid fixed to the canvas, so the hatching never swims
- * as its span grows or recedes. Drawn inside the current clip, over [x0, x1] × [y0, y1].
+ * the vellum (a light pencil grey, the crawl's that carries it there, objects/Beat10.tsx crawlTile: session 6 lifted it
+ * from pencil's 80% so the contagion holds the stepped frame's eye), on a grid fixed to the canvas, so the hatching never
+ * swims as its span grows or recedes. Drawn inside the current clip, over [x0, x1] × [y0, y1].
  */
 const ETCH_W = 3.1;
 const ETCH_PITCH = 12.5;
+export const ETCH_INK = 'rgba(176,174,168,0.95)';
 function etchHatch(g: G, x0: number, y0: number, x1: number, y1: number): void {
   if (x1 <= x0 || y1 <= y0) return;
   g.save();
@@ -177,7 +179,7 @@ function etchHatch(g: G, x0: number, y0: number, x1: number, y1: number): void {
   g.clip();
   g.setLineDash([]);
   g.lineCap = 'butt';
-  g.strokeStyle = LEAD;
+  g.strokeStyle = ETCH_INK;
   g.lineWidth = ETCH_W;
   g.beginPath();
   const h = y1 - y0;
@@ -710,66 +712,80 @@ function sightlinePart(g: G, lx: number, ly: number, fx: number, fy: number, a: 
 }
 
 /**
- * The pencil flag the Watchdog pins on the stuck bay (meso-sized: its pennant about 39 x 29 px at 0.64x): its staff stands
- * north from the east end of the bay's nameplate band, its foot pinned into the band (dark lead on the enamel, a pin's head),
- * its pennant flying west at the top over the bay's south-east corner, hatched (pencil's grey, so it reads over the dark
- * bay). Drawn on a square of FLAG_SIZE whose centre lies FLAG_OFF from the flag's foot (summary.ts FLAG, where the
- * sightline pins it). `t` (act two): drawn on, the staff down from its top into the band (pinned at 0.4), the pennant out
- * from it (to 0.9), the pin's head.
+ * The pencil flag the Watchdog pins on the stuck bay, the beat's payoff: its foot pinned into the nameplate band at the bay's
+ * south-east corner (summary.ts FLAG, where the sightline rings it; dark lead and a pin's head on the enamel), its staff
+ * standing north up the east wall's dark top in light lead, 104 u (about 67 px at 0.64x), its pennant flying east from the
+ * top over the bare slate between the bay and the loop's sheet (52 x 44 u, about 33 x 28 px), densely hatched in pencil's
+ * grey under a heavy lead edge, so all of it reads against the dark wall and slate, clear of the bay's tool rack (session
+ * 6's critic: a 14 px pole and a pennant over the rack were lost there). Drawn on a square of FLAG_SIZE whose centre lies
+ * FLAG_OFF from the flag's foot. `t` (act two): drawn on, the staff down from its top into the band (pinned at 0.4), the
+ * pennant out from it (to 0.9), the pin's head.
  */
-const FLAG_SIZE = 96;
-const FLAG_OFF: P2 = [-28, 38];
-/** The flag's parts on its square (canvas u: x east, y south): the foot on FLAG, the staff's top, the pennant's tip and foot, the band's north edge. */
+const FLAG_SIZE = 128;
+const FLAG_OFF: P2 = [50, 52];
+/** The flag's parts on its square (canvas u: x east, y south): the foot on FLAG, the staff's top, the pennant's tip and foot. */
 const FLAG_FOOT: Pt = [FLAG_SIZE / 2 - FLAG_OFF[0], FLAG_SIZE / 2 + FLAG_OFF[1]];
-const FLAG_TOP: Pt = [FLAG_FOOT[0], FLAG_FOOT[1] - 78];
-const FLAG_TIP: Pt = [FLAG_FOOT[0] - 58, FLAG_TOP[1] + 22];
-const FLAG_LOW: Pt = [FLAG_FOOT[0], FLAG_TOP[1] + 44];
-// (the band: the bay's south wall, FRESH.southWall deep; FLAG lies 12 u into it from its south edge)
-const FLAG_BAND: number = FLAG_FOOT[1] - 22;
+const FLAG_TOP: Pt = [FLAG_FOOT[0], FLAG_FOOT[1] - FLAG_SHAPE.staff];
+const FLAG_TIP: Pt = [FLAG_FOOT[0] + FLAG_SHAPE.pennant[0], FLAG_TOP[1] + FLAG_SHAPE.pennant[1] / 2];
+const FLAG_LOW: Pt = [FLAG_FOOT[0], FLAG_TOP[1] + FLAG_SHAPE.pennant[1]];
+/** The staff's light core and its dark casing (u: about 5 and 7.5 px at 0.64x). */
+const FLAG_STAFF = { core: 7, casing: 11.5 } as const;
+/** The nameplate band's north edge on the square (canvas y). */
+const FLAG_BAND: number = FLAG_FOOT[1] - FLAG_SHAPE.band;
 function flagSheet(g: G, s: number, t = 1): void {
   if (t <= 0) return;
-  // the staff, from its top down into the band (light lead over the bay, dark on the enamel)
+  // the staff, from its top down into the band: light lead cased in dark over the wall's top (a pole that reads on the dark
+  // wall and the lit slate alike), dark on the band's enamel
   const staff = share(t, 0, 0.4);
   const yTo = FLAG_TOP[1] + (FLAG_FOOT[1] - FLAG_TOP[1]) * staff;
-  if (staff > 0) {
-    leadOn(g, [FLAG_TOP, [FLAG_TOP[0], Math.min(yTo, FLAG_BAND)]], 4.6, 'desk', 1);
-    if (yTo > FLAG_BAND) lead(g, [[FLAG_TOP[0], FLAG_BAND], [FLAG_TOP[0], yTo]], 4.6, 'enamel');
-  }
-  // the pennant: its hatch and edges wiped in from the staff, west
+  const pole = (): void => {
+    if (staff <= 0) return;
+    const over: Pt[] = [FLAG_TOP, [FLAG_TOP[0], Math.min(yTo, FLAG_BAND)]];
+    lead(g, over, FLAG_STAFF.casing, 'enamel');
+    lead(g, over, FLAG_STAFF.core, 'desk');
+    if (yTo > FLAG_BAND) lead(g, [[FLAG_TOP[0], FLAG_BAND], [FLAG_TOP[0], yTo]], FLAG_STAFF.core, 'enamel');
+  };
+  pole();
+  // the pennant: its hatch and edges wiped in from the staff, east
   const p = share(t, 0.4, 0.9);
   if (p > 0) {
     g.save();
     g.beginPath();
-    g.rect(FLAG_FOOT[0] - (FLAG_FOOT[0] - FLAG_TIP[0] + 4) * p, 0, s, s);
+    g.rect(0, 0, FLAG_FOOT[0] + (FLAG_TIP[0] - FLAG_FOOT[0] + 4) * p, s);
     g.clip();
     g.beginPath();
     g.moveTo(...FLAG_TOP);
     g.lineTo(...FLAG_TIP);
     g.lineTo(...FLAG_LOW);
     g.closePath();
-    g.fillStyle = rgba(PENCIL, 0.34);
+    g.fillStyle = rgba(PENCIL, 0.55);
     g.fill();
     g.save();
     g.clip();
     // its hatch: 45° pencil strokes on a fixed grid (they never swim as it wipes in)
-    g.lineWidth = 2.6;
-    g.strokeStyle = rgba(PENCIL, 0.8);
+    g.lineWidth = 3;
+    g.strokeStyle = rgba(PENCIL, 0.95);
     g.setLineDash([]);
-    for (let k = -s; k < s; k += 9) {
+    for (let k = -s; k < s; k += 8) {
       g.beginPath();
       g.moveTo(k, 0);
       g.lineTo(k + s, s);
       g.stroke();
     }
     g.restore();
-    lead(g, [FLAG_TOP, FLAG_TIP, FLAG_LOW], 4.2, 'desk');
+    lead(g, [FLAG_TOP, FLAG_TIP, FLAG_LOW], 5, 'desk');
     g.restore();
   }
   // the pin's head, pressed into the band at the foot
   if (t >= 0.95) {
-    lead(g, [FLAG_FOOT, [FLAG_FOOT[0] + 0.5, FLAG_FOOT[1] + 0.5]], 9, 'enamel');
+    lead(g, [FLAG_FOOT, [FLAG_FOOT[0] + 0.5, FLAG_FOOT[1] + 0.5]], 11, 'enamel');
   }
   grain(g, s, s, 97);
+  // the staff's core once more over the grain at half strength, so the pole stays one continuous line on screen
+  g.save();
+  g.globalAlpha = 0.5;
+  pole();
+  g.restore();
 }
 
 /**

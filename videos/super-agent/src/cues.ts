@@ -436,22 +436,23 @@ export const BEAT_8 = {
 
 /**
  * Beat 9 (STORYBOARD 9.1-9.2): keeping it running, handed over (proposed). On bar 58's downbeat the sheet slides
- * away, your laptop's lid shuts (its click lands at `lidClick`) and the camera eases out to still (d)'s framing
- * (0.64x). The vellum parts are laid down flat east of the system, 12 f each, on `lays` (the first waits for beat 8's
+ * away and the camera eases out to still (d)'s framing (0.64x); once your desk is back in frame your laptop's lid shuts
+ * (its click lands at `lidClick`, so the hand-over is seen: session 6's critic round put the old click, f4566, on a
+ * frame where only the laptop's edge showed). The vellum parts are laid down flat east of the system, 12 f each, on `lays` (the first waits for beat 8's
  * departing sheet to clear its ground: its west edge passes x 1050 on 4578; the plan of the deck, the
  * state cabinet, the loop, the daemon tethers); the lid strut lifts off your tray on `strut.lift`, the frame after the lid's
- * click (the hand-over grammar: 4 f of anticipation and a 49 f flight paced on screen, slow enough to follow under bar 58's
- * move; a silent mark: no sound shares its frame) and docks on the vellum loop on
- * `strut.dock`, taking its material, then the Persistent plate docks, in vellum. A machine's lamp comes on and
+ * click (the hand-over grammar: 4 f of anticipation and a flight paced on screen, slow enough to follow as bar 58's
+ * move settles; a silent mark: no sound shares its frame) and docks on the vellum loop on `strut.dock`, bar 59's
+ * downbeat, as the move lands, taking its material; then the Persistent plate docks, in vellum. A machine's lamp comes on and
  * a queued slip drops in. Under N8 the Watchdog is laid outside the system, its sightline sweeps 20 f on `sweeps`,
  * the stuck bay keeps its solid work light while its card drum steps out and back on every beat of `stuck`, and the
  * sightline pins a pencil flag on it.
  */
 export const BEAT_9 = {
   away: at(58),
-  lidClick: 4566,
+  lidClick: 4596,
   lays: [4580, 4592, 4604, 4616],
-  strut: { lift: 4567, dock: at(58, 4), plateDock: 4624 },
+  strut: { lift: 4597, dock: at(59), plateDock: at(59) + 4 },
   machineLamp: at(59, 2),
   slipDrop: at(59, 3),
   watchdog: at(60, 2),
@@ -666,7 +667,8 @@ const events: CueEvent[] = [
   mark('glass-dock', BEAT_7.glass.dock, 'the sand-glass docks on the job rail'),
   mark('plate-productive', BEAT_7.glass.plateDock, 'the Productive plate docks; your lamp has dimmed a step'),
   hit('job-dock', at(48, 3), 'the job docks back as an event'),
-  shown('text', 'tag-100', at(48, 4), at(50), WORDS.tag100),
+  // from the reply's landing in the in-tray it points at (session 6: the picture wiped it in there, after its cue's start)
+  shown('text', 'tag-100', BEAT_7.reply.lands, at(50), WORDS.tag100),
   hit('reply-chat', BEAT_7.reply.lands, 'a short chat reply with its ≤100 stop tab lands in your in-tray: one felt-piano note'),
   hit('dossier', BEAT_7.dossier.lands, 'a heavy tabbed dossier lands in the repo port: a paper thump'),
 
@@ -687,21 +689,28 @@ const events: CueEvent[] = [
   line('c23', at(56, 1.5), at(58)),
   shown('text', 'chart-tokens', at(56, 2), at(58), WORDS.tokenHead),
   shown('text', 'stamp-tokens', at(57), at(58), WORDS.stampTokens),
+  // the sheet is read under C20 and C21 (about 35 words of chart print and two stamps): a reading hold in which only the
+  // working bay's light and the bracket move; freezedetect allows it
+  span('hold', 'hold-sheet', at(51, 3), at(55), 'beat 8: the evidence sheet is read under C20 and C21'),
 
   // 9 · Keeping it running, handed over (bars 58-62): proposed
   mark('lid', BEAT_9.lidClick, 'your laptop’s lid shuts for the night as the sheet slides away: a soft click'),
   mark('vellum', BEAT_9.lays[0], 'the vellum parts are laid down flat east of the system: airy filtered noise'),
   line('c24', at(58, 2), at(60)),
-  // the tag waits for bar 58's move to settle, so it never moves while it is read (STORYBOARD, Open for the build)
-  shown('text', 'tag-proposed', at(59), at(63), WORDS.tagProposed),
+  // the tag waits for bar 58's move to settle, so it never moves while it is read (STORYBOARD, Open for the build), and
+  // for the strut's dock on the downbeat, so the two do not land on one frame
+  shown('text', 'tag-proposed', at(59, 2), at(63), WORDS.tagProposed),
   mark('strut-lift', BEAT_9.strut.lift, 'the lid strut lifts off your tray'),
-  mark('trait-persistent', at(58, 4), 'the lid strut docks on the vellum loop: the Persistent plate docks, in vellum'),
+  mark('trait-persistent', BEAT_9.strut.dock, 'the lid strut docks on the vellum loop: the Persistent plate docks, in vellum'),
   mark('machine-lamp', BEAT_9.machineLamp, 'a machine’s lamp comes on'),
   mark('slip-drop', BEAT_9.slipDrop, 'a queued slip drops into it'),
   mark('watchdog', BEAT_9.watchdog, 'the Watchdog is laid outside the system'),
   ...BEAT_9.sweeps.map((f, i) => hit(`sweep-${i + 1}`, f, 'the Watchdog’s sightline sweeps (20 f) over the stuck bay’s damped two-note loop')),
   mark('flag', BEAT_9.flag, 'the sightline pins a pencil flag on the stuck bay'),
-  line('n8', at(60, 3.5), at(62, 2)),
+  // N8 reads on past the flag (f4900) for a beat and a half, so the pinned flag, the beat's payoff, lands inside its line
+  line('n8', at(60, 3.5), at(62, 4)),
+  // the Watchdog's watch: its two sweeps, the stuck bay's pulse and the flag are its motion; freezedetect allows it
+  span('hold', 'hold-watch', at(60, 4), at(63), '9.2: the Watchdog watches the stuck bay: two sweeps, a pulse and a flag'),
 
   // 10 · Still open (bars 63-68): the chores you cannot hand over yet
   span('silence', 'silence-intrusion', at(63), at(63, 3), 'two beats of silence before the intrusion'),

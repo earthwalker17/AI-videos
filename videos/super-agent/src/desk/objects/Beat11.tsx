@@ -19,7 +19,7 @@ import { GREY_TEXT, Label } from '../../kit/text.tsx';
 import { useFilmFonts } from '../../look/fonts.ts';
 import { cardPose, cardSize, cardIn } from '../beat4.ts';
 import { youPoseAt } from '../actOne.ts';
-import { CARD_SPOT_11, KEY_BOX, KEY_MOVE, KEY_PLATE, KEY_SAMPLES, KEY_SCREEN, KEY_WORDS, MINI, WORDED, collarAt, keyWordsAt, type CollarPose, type PlateId, type PlatePose } from '../beat11.ts';
+import { CARD_SPOT_11, KEY_BOX, KEY_MOVE, KEY_PLATE, KEY_SAMPLES, KEY_SCREEN, KEY_WORDS, MINI, WORDED, collarAt, keyStepAt, keyWordsAt, type CollarPose, type PlateId, type PlatePose } from '../beat11.ts';
 import { disc, dome, extrude, merge, plane, planeOn, slab } from '../geom.ts';
 import { HEX, enamel, graphite, matte, vellum } from '../gl/materials.ts';
 import { PRODUCTIVE_FACE, SANS_CSS } from '../gl/print7.ts';
@@ -543,7 +543,8 @@ export const KEY_TYPE = { size: 36, weight: 500, cjkWeight: 500 } as const;
 export function Beat11Text({ f }: { f: number; pose: CamPose }) {
   const { fonts, ready } = useFilmFonts();
   const r = cueReveal('key-map', f);
-  const opacity = Math.min(r.opacity, keyWordsAt(f));
+  // (faded with the world under 11.4's step-down: beat11.ts keyStepAt)
+  const opacity = Math.min(r.opacity, keyWordsAt(f)) * keyStepAt(f);
   if (!ready || !r.visible || opacity <= 0 || f >= KEY_MOVE.out) return null;
   const x0 = KEY_SCREEN.en - 8;
   const w = 1824 - x0 + 12;

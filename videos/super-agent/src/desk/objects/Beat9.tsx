@@ -17,7 +17,7 @@ import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
 import { BufferAttribute, PlaneGeometry, type BufferGeometry } from 'three';
 import { BEAT_9, WORDS } from '../../cues.ts';
-import { MACHINE_RISE, PERSIST_WORDS, QUEUED, STRUT_LEN, persistWordsAt, proposedAt, type Beam, type Beat9State, type QueuedSlip, type StrutPose } from '../beat9.ts';
+import { MACHINE_RISE, PERSIST_WORDS, QUEUED, STRUT_LEN, persistWordsAt, proposedAt, watchInkAt, type Beam, type Beat9State, type QueuedSlip, type StrutPose } from '../beat9.ts';
 import { cylinderZ, merge, slab, tube } from '../geom.ts';
 import { DESK_HOLES } from '../gl/desk.ts';
 import { SANS_CSS } from '../gl/print7.ts';
@@ -45,7 +45,7 @@ export const PROPOSED_STEP_ID = 'b9-proposed';
  */
 export const WATCHDOG_STEP_ID = 'b9-watchdog';
 /** The Watchdog's vellum opacity at a frame (its own id's step, as Proposed's useVellumOpacity does for the enclosing one). */
-export const watchOpacityOf = (s: DeskState): number => 1 - VELLUM_STEP * stepAmountOf(isStepped(s.step, WATCHDOG_STEP_ID), s.step, s.testsStep);
+export const watchOpacityOf = (s: DeskState): number => (1 - VELLUM_STEP * stepAmountOf(isStepped(s.step, WATCHDOG_STEP_ID), s.step, s.testsStep)) * watchInkAt(s.f);
 
 export function Beat9({ s }: { s: DeskState }) {
   // act two only: the summary draws its own static Proposed (still (d))
@@ -299,7 +299,8 @@ function useBeamMat() {
 /** The sightline out of the lens to `len` of its reach (its plane and UVs cut at its tip), turned `a` about the lens off still (d)'s aim. Vellum: no shadow. */
 function Sightline({ beam, s }: { beam: Beam; s: DeskState }) {
   const mat = useBeamMat();
-  useVellumStep([mat], useVellumOpacity(s.step, s.testsStep));
+  // (it inks up with the Watchdog's sheet under N8's hold: beat9.ts watchInkAt)
+  useVellumStep([mat], useVellumOpacity(s.step, s.testsStep) * watchInkAt(s.f));
   const len = Math.round(beam.len * 1000) / 1000;
   const g = useMemo(() => {
     const k = Math.max(0.001, len);

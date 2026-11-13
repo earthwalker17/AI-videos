@@ -15,7 +15,7 @@ import { AbsoluteFill } from 'remotion';
 import { FIX_A, FIX_B, WORDS } from '../cues.ts';
 import { useFilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
-import { GREY_TEXT, Label, lineWidth, type TextLook } from '../kit/text.tsx';
+import { GREY_TEXT, Label, lineWidth } from '../kit/text.tsx';
 import { cueReveal } from './onScreen.ts';
 import type { FilmFonts } from '../look/fonts.ts';
 import { ACT_ONE_END, YOU_SHIFT_A, actOneAt, actOneFootprints, actOnePools, youLabelAt } from './actOne.ts';
@@ -31,7 +31,7 @@ import { Feeders } from './objects/Intake.tsx';
 import { CARD_HEX, CardText, CardWorld, cardAt, cardContactFootprint, cardFootprint, type CardSpec } from './objects/TitleCard.tsx';
 import { FixA, FixB } from './objects/Turn.tsx';
 import { YourDesk } from './objects/YourDesk.tsx';
-import { Overlay, SoftGround, notesLookDesk, type GroundBox, type RoleLabel } from './Overlay.tsx';
+import { NotesGround, Overlay, notesLookDesk, type RoleLabel } from './Overlay.tsx';
 import { Step } from './kit.tsx';
 import { deskStateAt, type DeskState } from './state.ts';
 import type { Press } from './turn.ts';
@@ -70,53 +70,29 @@ export const TITLE_CARD: CardSpec = {
 };
 /** The credit: a text cue, set in the notes band like every line meant to be read (screen-fixed, still while read). */
 export const CREDIT_CUE = 'credit';
-/** The credit's knockout round its line's box (px, each side). */
-export const CREDIT_KO = 9;
-/** A line's ink box over and under its baseline (em): the Latin ascenders and the Han glyphs' tops, the descenders. */
-export const CREDIT_INK = { up: 0.95, down: 0.27 } as const;
-
-/**
- * The EN line's knockout top (em over its baseline and px more): its tallest ink (the ascenders, the apostrophe) and a
- * hair; the feather lies over it. The knockout's top had stood a quarter em and CREDIT_KO over the ink, and as the camera
- * eased out it sliced the loop's tape flat along a line where no glyph was (wave 4's critic P2-b).
- */
-export const CREDIT_TOP = { up: 0.8, pad: 2 } as const;
-/** One line's knockout box (px: its ink box and CREDIT_KO round it; `top`, px over the baseline, if given), from its measured width. */
-export function creditBox(x: number, baseline: number, width: number, size: number, top?: number): { x: number; y: number; w: number; h: number } {
-  const y = baseline - (top ?? CREDIT_INK.up * size + CREDIT_KO);
-  return { x: x - CREDIT_KO, y, w: width + 2 * CREDIT_KO, h: baseline + CREDIT_INK.down * size + CREDIT_KO - y };
-}
-
 /**
  * The credit in the notes band (NOTES: the tick and the EN line, like every caption since the zh captions were dropped on
- * 2026-11-13, Overlay.tsx; a 6 f wipe in, a 6 f fade out), knocked out of the desk's tone as one box (its ink box and
- * 9 px round it): as the camera eases out your loop's tape comes up under the line, and the box takes it out under it, so
- * every glyph sits on the desk's tone (the desk renders there at its base, within a code). One box, not a knockout round
- * each glyph, which left scalloped tape slivers between and over them (the critic's P2). The knockout's edge is feathered
- * (CREDIT_FEATHER, Overlay.tsx SoftGround), so the tape fades into it rather than being cut square by an edge with nothing
- * there to cut it (wave 0's critic P2-3); its wipe leads the words' with the same feather.
+ * 2026-11-13, Overlay.tsx; a 6 f wipe in, a 6 f fade out). As the camera eases out on bar 3 your loop's tape comes up
+ * under the line: a halo in the slate's tone that hugs the line's own ink (Overlay.tsx NotesGround, opted in as `credit`
+ * in NOTES_GROUND, as C28's) gives every glyph a ground to read on (at least 4.5:1) and lets the tape fade in under it
+ * and out past it, with no edge of its own. It had been a box knocked out of the tape (wave 0's and 4's critics), whose
+ * east edge cut the tape square right of "team" as the tape swept up under it (L1-04), and before that a knockout round
+ * each glyph, which left scalloped tape slivers. The words reveal to the line's own width, as NotesBlock's do, so the
+ * halo's wipe (which leads the line's by its reach) is always ahead of them.
  */
 function CreditLine({ f, fonts, ready }: { f: number; fonts: FilmFonts; ready: boolean }) {
   const r = cueReveal(CREDIT_CUE, f);
   if (!r.visible || !ready) return null;
   const look = notesLookDesk(fonts);
-  const clip = r.wipe >= 1 ? undefined : `inset(0px ${((1 - r.wipe) * (1920 - NOTES.x)).toFixed(2)}px 0px 0px)`;
-  const box = (text: string, baseline: number, l: TextLook, top?: number): GroundBox => {
-    const b = creditBox(NOTES.x, baseline, lineWidth(text, l), l.size, top);
-    return { x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h };
-  };
-  const edge = r.wipe >= 1 ? undefined : NOTES.x + r.wipe * (1920 - NOTES.x);
+  const W = lineWidth(WORDS.credit.en, look.en);
+  const clip = r.wipe >= 1 ? undefined : `inset(0px ${(1920 - (NOTES.x + W * r.wipe)).toFixed(2)}px 0px 0px)`;
   return (
     <>
-      <div style={{ position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, opacity: r.opacity }}>
-        <SoftGround id="credit-ko" boxes={[box(WORDS.credit.en, NOTES.enBaseline, look.en, CREDIT_TOP.up * look.en.size + CREDIT_TOP.pad)]} feather={CREDIT_FEATHER} color={DESK_HEX.base} alpha={1} edge={edge} />
-      </div>
+      <NotesGround id={CREDIT_CUE} f={f} en={WORDS.credit.en} look={look} />
       <CreditWords r={r} clip={clip} look={look} />
     </>
   );
 }
-/** The knockout's feather outside its boxes (px). */
-export const CREDIT_FEATHER = 10;
 function CreditWords({ r, clip, look }: { r: { opacity: number }; clip: string | undefined; look: ReturnType<typeof notesLookDesk> }) {
   return (
     <div style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, clipPath: clip, opacity: r.opacity }}>
@@ -197,7 +173,7 @@ export function ActOneFrame({ f, angle, bloom, objects = true }: ActOneFrameProp
                 {fa && (
                   // Fix A steps down on its own ramp (STEP_LATE: actOne.ts actOneStepA) while the focus is on Fix B (3.2)
                   <Step on='late'>
-                    <FixA fixA={fa} pressA={UNPRESSED} />
+                    <FixA fixA={fa} pressA={UNPRESSED} stepA={a.stepA} />
                   </Step>
                 )}
                 {fb && <FixB fixB={fb.b} f={wf} tear={fb.tear} followUp={fb.followUp} posts={fb.posts} riffle={fb.riffle} />}

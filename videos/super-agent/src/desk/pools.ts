@@ -12,7 +12,7 @@ import { ACT_ONE_END, youPoseAt } from './actOne.ts';
 import { CARD_AT, cardIn, cardPose, type CardSpot, type CardState } from './beat4.ts';
 import { pools7 } from './beat7.ts';
 import { pools8 } from './beat8.ts';
-import { pools9 } from './beat9.ts';
+import { pools9, readingStep9 } from './beat9.ts';
 import { pools10 } from './beat10.ts';
 import { pools11 } from './beat11.ts';
 import { poolsEnd } from './end.ts';
@@ -38,7 +38,7 @@ export function poolsAt(s: DeskState): Pool[] {
     // the Register's hooded reading lamp, on the window (it never blooms: a pool only); in still (c) its light
     // gathers on the inline record (the hood is over the newest cells) as the record prints (beat 6: CacheState.gather,
     // never a jump), so the stubs east of it sit a step below
-    readingPool(newest, cellY, s.cache ? s.cache.gather : 0, s.cache?.lamp ?? 1),
+    readingPool(newest, cellY, s.cache ? s.cache.gather : 0, s.cache?.lamp ?? 1, readingStep9(s.f)),
     // the stamp-in: the newest cell lights as the report's header prints into it; it dims with the other cells as the record stamps in
     { c: [newest, cellY], z: [118, 140], sigma: [40, 30], rgb: tint(LIGHT_HEX.reading, 1.05 * Math.max(s.cellLit, s.b4.cellLit) * (1 - (s.cache?.dim ?? 0))) },
     // your lamp on your in-tray, where the reply lands: its maximum on the tray, a step brighter once it has; from the turn
@@ -72,10 +72,10 @@ const lampAimAt = (f: number): P2 => {
   return [a[0], a[1]];
 };
 
-/** The reading lamp's pool: on the window (k 0), gathered onto still (c)'s record (k 1), every term between them in step. */
-function readingPool(newest: number, cellY: number, k: number, lamp: number): Pool {
+/** The reading lamp's pool: on the window (k 0), gathered onto still (c)'s record (k 1), every term between them in step; `step`: turned down with a beat's hold (beat9.ts readingStep9). */
+function readingPool(newest: number, cellY: number, k: number, lamp: number, step = 1): Pool {
   const mix = (a: number, b: number) => a + (b - a) * k;
-  return { c: [mix(newest + 70, CACHE_POOL_X), cellY], z: [118, 170], sigma: [mix(130, 96), 40], rgb: tint(LIGHT_HEX.reading, mix(2.4, CACHE_POOL_K * lamp)) };
+  return { c: [mix(newest + 70, CACHE_POOL_X), cellY], z: [118, 170], sigma: [mix(130, 96), 40], rgb: tint(LIGHT_HEX.reading, mix(2.4, CACHE_POOL_K * lamp) * step) };
 }
 
 /** Beat 4's card light: on the card up (desk/beat4.ts cardPose), dark at the split card's spot while none is. */

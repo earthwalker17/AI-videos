@@ -2,15 +2,15 @@ import { describe, expect, it } from 'vitest';
 // actOne.ts first: it is the module the film's frame code reaches the beat modules through (its tables read state.ts's)
 import { youPoseAt } from './actOne.ts';
 import { BEAT_10 } from '../cues.ts';
-import { ALL_BUT_CARDS, ARM_10, CAP_LANDS, CARDS_10, FOCUS_10, HIJACK_GONE, PINS_10, POLE_B, REACH, REPLY_0405, SPOT_10, beat10At, capAt, capLanded, etchAt, hijackAt, pins10, pose0405, ride0405, you10 } from './beat10.ts';
-import { FOCUS_9 } from './beat9.ts';
+import { ALL_BUT_CARDS, ARM_10, CAP_LANDS, CARDS_10, CRAWL_PATH, FOCUS_10, HIJACK, HIJACK_CUT, HIJACK_GONE, HIJACK_SLIP, PINS_10, POLE_B, REACH, REPLY_0405, REPORT_10, SPOT_10, beat10At, capAt, capLanded, crawlAt, etchAt, hijackAt, pins10, pose0405, reportAt, ride0405, you10 } from './beat10.ts';
+import { FOCUS_9, SLIP_IN, SLIP_PATH_UP } from './beat9.ts';
 import { REPLY_REST } from './beat7.ts';
 import { CARD_SPOT, cardAt, cardPose } from './beat4.ts';
-import { FRAMING_B, deskCamera, project } from './camera.ts';
+import { FRAMING_B, FRAMING_D, deskCamera, project } from './camera.ts';
 import { cardFootprint } from './footprints.ts';
-import { KEY_DOCK, YOU, rectC, type P3 } from './layout.ts';
+import { FEEDERS, KEY_DOCK, NEXT_SLIP, YOU, rectC, type P3 } from './layout.ts';
 import { YOU_POSE_B, lampElbow } from './you.ts';
-import { SEAM } from './proposed.ts';
+import { CRAWL, ETCH, LOOP_SHEET, SEAM } from './proposed.ts';
 import { DETENT, STEP_FRAMES, deskStateAt } from './state.ts';
 import { PROPOSED_STEP_ID, WATCHDOG_STEP_ID } from './objects/Beat9.tsx';
 import { summaryDeskState } from './summary.ts';
@@ -25,7 +25,10 @@ describe('beat 10: still open, and bar 68', () => {
     }
     expect(nearest).toBeGreaterThan(60);
     // its nose is out of the chat drum's wall (x -893 on its axis) on the cue frame, and not before
-    expect(hijackAt(BEAT_10.hatch.spout)!.p[0] + 48).toBeGreaterThan(-893 + 3);
+    expect(hijackAt(BEAT_10.hatch.spout)!.p[0] + HIJACK_SLIP.l / 2).toBeGreaterThan(-893 + 3);
+    expect(hijackAt(BEAT_10.hatch.spout)!.p[0] + HIJACK_SLIP.l / 2).toBeLessThan(-893 + 12);
+    // 1.3x a chat slip or more (session 6)
+    expect(HIJACK_SLIP.l * HIJACK_SLIP.w).toBeGreaterThanOrEqual(1.3 * 1.3 * NEXT_SLIP.l * NEXT_SLIP.w);
     // it turns smoothly: never a flick of its heading or slope (the belt's corner into the throat is not its heading)
     for (let f = BEAT_10.hatch.spout + 1; f < HIJACK_GONE; f++) {
       const a = hijackAt(f - 1)!;
@@ -36,6 +39,80 @@ describe('beat 10: still open, and bar 68', () => {
     // it lies in the throat from the intrusion for most of a beat, then is fed into the head
     expect(hijackAt(BEAT_10.hatch.register)!.p).toEqual(hijackAt(BEAT_10.hatch.register + 15)!.p);
     expect(hijackAt(HIJACK_GONE)).toBeNull();
+  });
+
+  it('never shows the hatched slip’s tail out of the chat drum’s back wall: what is drawn starts east of the cut inside the drum, on every frame (review C-R1)', () => {
+    // the cut lies inside the drum, well clear of its back wall at the slip's widest (the drum: radius 49 round FEEDERS.chat's centre)
+    const [cx, cy] = rectC(FEEDERS.chat);
+    const r = (FEEDERS.chat.y1 - FEEDERS.chat.y0) / 2;
+    const hw = HIJACK_SLIP.w / 2;
+    const backWall = cx - Math.sqrt(r * r - Math.max((NEXT_SLIP.spout[1] - hw - cy) ** 2, (NEXT_SLIP.spout[1] + hw - cy) ** 2));
+    expect(HIJACK_CUT.x).toBeGreaterThan(backWall + 15);
+    expect(HIJACK_CUT.x).toBeLessThan(cx);
+    // the drawn part's west corners (its pose's rotation: heading about z after slope about y) on every frame it is drawn
+    let nose = -Infinity;
+    for (let f = BEAT_10.hatch.spout; f < HIJACK.post + HIJACK.postFrames; f++) {
+      const h = hijackAt(f)!;
+      expect(h.tail, `f${f}`).toBeGreaterThanOrEqual(-HIJACK_SLIP.l / 2);
+      const wx = (x: number, y: number) => h.p[0] + x * Math.cos(h.slope) * Math.cos(h.heading) - y * Math.sin(h.heading);
+      expect(Math.min(wx(h.tail, -hw), wx(h.tail, hw)), `f${f}`).toBeGreaterThanOrEqual(HIJACK_CUT.x - 0.5);
+      // it comes out whole and steady: its nose never steps back, and it is whole from the post on
+      const n = wx(HIJACK_SLIP.l / 2, 0);
+      expect(n, `f${f}`).toBeGreaterThanOrEqual(nose - 1e-9);
+      nose = n;
+      if (f >= HIJACK.post) expect(h.tail, `f${f}`).toBe(-HIJACK_SLIP.l / 2);
+    }
+  });
+
+  it('carries the etch from the throat to the loop: a band crawling out from under the slip on the intrusion, along the deck’s south edge, onto the loop’s corner before the loop and the tethers etch', () => {
+    // nothing before the intrusion; its first frame of motion on it (the contact), from rest
+    expect(crawlAt(BEAT_10.hatch.register - 1)).toBeNull();
+    const c0 = crawlAt(BEAT_10.hatch.register)!;
+    expect(c0.head).toBeGreaterThan(0);
+    expect(c0.head).toBeLessThan(0.02);
+    // on screen (still (d)'s framing, held through 10.1): from under the slip in the throat to the loop's north-west corner
+    const pose = deskCamera(FRAMING_D, 15);
+    const s0 = project(pose, CRAWL_PATH[0]!);
+    const throat = project(pose, NEXT_SLIP.throat);
+    expect(Math.hypot(s0[0] - throat[0], s0[1] - throat[1])).toBeLessThan(20);
+    const end = project(pose, CRAWL_PATH[CRAWL_PATH.length - 1]!);
+    const corner = project(pose, [LOOP_SHEET.x0 + 12, LOOP_SHEET.y1 - 12, 0.4]);
+    expect(Math.hypot(end[0] - corner[0], end[1] - corner[1])).toBeLessThan(1);
+    // its pace on screen: the film's route-drawing pace, never over 40 px a frame
+    const len = CRAWL_PATH.slice(1).reduce((a, q, i) => {
+      const p = project(pose, CRAWL_PATH[i]!);
+      const r = project(pose, q);
+      return a + Math.hypot(r[0] - p[0], r[1] - p[1]);
+    }, 0);
+    for (let f = CRAWL.from; f < CRAWL.to + 2; f++) expect(((crawlAt(f + 1)?.head ?? 1) - (crawlAt(f)?.head ?? 1)) * len, `f${f}`).toBeLessThan(40);
+    // it arrives as the loop's sheet starts to etch, and the first tether starts after the loop's etch has passed its port
+    const arrive = [...Array(60).keys()].map((k) => CRAWL.from + k).find((f) => crawlAt(f)!.head >= 1 - 1e-9)!;
+    expect(arrive).toBeLessThanOrEqual(ETCH.sheets[0] + 1);
+    expect(etchAt(ETCH.sheets[0] - 1)?.loop ?? [0, 0]).toEqual([0, 0]);
+    // it travels: its tail follows it out of the throat and into the loop's corner, never overtaking it, the band changing
+    // on every frame (never held as a static connector: review C-R5), gone by the first machine's etch
+    for (let f = CRAWL.from; f < CRAWL.back + CRAWL.backRun; f++) {
+      const [a, b] = [crawlAt(f)!, crawlAt(f + 1)];
+      expect(a.tail, `f${f}`).toBeLessThan(a.head);
+      if (b) expect(Math.abs(b.head - a.head) + Math.abs(b.tail - a.tail), `f${f}`).toBeGreaterThan(1e-3);
+    }
+    expect(crawlAt(CRAWL.back + CRAWL.backRun)).toBeNull();
+    expect(CRAWL.back + CRAWL.backRun).toBeLessThanOrEqual(BEAT_10.etch[0]);
+    expect(CRAWL.back).toBeGreaterThan(CRAWL.from);
+  });
+
+  it('takes the report card in under the deck evenly over 8 f, its first move after the dock, gone before the reply leaves (L4-11)', () => {
+    const R = REPORT_10;
+    expect(reportAt(R.takeIn - 1)!.p).toEqual(reportAt(R.dock)!.p);
+    const way = (f: number) => {
+      const a = reportAt(R.takeIn - 1)!.p;
+      const p = reportAt(f)?.p;
+      return p ? Math.hypot(p[0] - a[0], p[1] - a[1], p[2] - a[2]) : Infinity;
+    };
+    const total = way(R.takeIn + R.takeFrames - 1);
+    for (let f = R.takeIn; f < R.takeIn + R.takeFrames; f++) expect(way(f) - way(f - 1), `f${f}`).toBeLessThanOrEqual(0.26 * total);
+    expect(reportAt(R.takeIn + R.takeFrames)).toBeNull();
+    expect(R.takeIn + R.takeFrames).toBeLessThanOrEqual(BEAT_10.replyLeave);
   });
 
   it('spreads the etch to one machine per beat and has it gone (nothing of it left) before bar 65’s dolly', () => {
@@ -81,12 +158,16 @@ describe('beat 10: still open, and bar 68', () => {
 
   it('never pumps the step: 14 f or more between beat 9’s hold, the cards and the rest', () => {
     const watch = FOCUS_9.at(-1)!;
-    expect(watch.id).toBe('b9-etch');
+    expect(watch.id).toBe('b9-spread');
+    // the slip's path is up from before the slip is posted over the gate until it is wholly in the head
+    expect(SLIP_IN).toBe(HIJACK_GONE);
+    expect(SLIP_PATH_UP + STEP_FRAMES).toBeLessThanOrEqual(HIJACK.post);
     const fix = FOCUS_10.find((x) => x.id === 'b10-fix')!;
     const rest = FOCUS_10.find((x) => x.id === 'b10-rest')!;
     expect(fix.from).toBeGreaterThanOrEqual(watch.to + STEP_FRAMES);
     expect(rest.from).toBeGreaterThanOrEqual(fix.to + STEP_FRAMES);
-    for (const e of FOCUS_9) expect(e.step).not.toContain('you');
+    // your desk steps from N8's hold (beat9.ts) through 10.1 and is back up with the rest before the cards (no pump)
+    expect(FOCUS_9.filter((e) => e.step.includes('you')).map((e) => e.id)).toEqual(['b9-n8', 'b9-up', 'b9-etch', 'b9-spread']);
   });
 
   it('names the objects’ step ids as objects/Beat9.tsx mounts them: the cards step the proposed parts and the Watchdog; N8 steps the vellum but the Watchdog', () => {

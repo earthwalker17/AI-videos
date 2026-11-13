@@ -106,7 +106,7 @@ export const X = {
   repoPort: -860,
   /** the stuck bay (FRESH.box's centre) and the pencil flag on it (summary.ts FLAG) */
   stuckBay: 611,
-  flag: 676,
+  flag: 695,
   /** the graphite machines, north to south (summary.ts MACHINES) */
   machines: [1250, 1280, 1240] as readonly number[],
   /** the vellum: the plan of the deck, the state cabinet, the loop's sheet (its centre), the tethers (from the loop's east edge to the clips' mean) */

@@ -33,7 +33,7 @@ import { SPRING, STEP_FRAMES, springAt, type FocusId } from './state.ts';
 import { CHORES, YOU_POSE_B, lampElbow, strutOnLid, type ChoreFlight, type YouPose } from './you.ts';
 import { you7 } from './beat7.ts';
 import { you8 } from './beat8.ts';
-import { you9 } from './beat9.ts';
+import { lidShutAt, you9 } from './beat9.ts';
 import { you10 } from './beat10.ts';
 import { you11 } from './beat11.ts';
 import { youEnd } from './end.ts';
@@ -304,19 +304,22 @@ export interface HeapPiece {
 }
 /** The request: 1.3× a chat slip (layout.ts REQUEST), creased, its south-east corner showing. */
 export const REQUEST_A = { c: [-762, 150] as P2, rot: 0.38, l: 114, w: 52, crease: 38, lift: 0.12 } as const;
-/** The request turns vermilion on its cue (f20), over spring-effects: the request motif. Its spring starts the frame before, so the cue frame already shows it turning. */
-export const REQUEST_INK = cue('request').frame;
 /**
- * In 3.1 the request is on Fix A's tape: its grey copy (desk/beat3.ts) drops out of the chat spout as the first station's
- * move ends (its 3 f anticipation from FIX_A.steps[0] - 3, inside the spout until the next frame) and takes the request's
- * vermilion from its first frame in sight (the spring from FIX_A.steps[0] - 2; beat3.test.ts holds this to the pour) while
- * the heap's request drains to its paper over the same frames (one request on screen, never none), keeps it while Fix A
- * holds the focus, and both swap back as the focus moves to Fix B (FOCUS_A.fixA): the copy hands the vermilion back on
- * the step-down's own ramp (STEP_FRAMES, inOutSine), as Fix A around it steps down, never faster (a 4 f spring was the
- * critic's flag against the 12-16 f token).
+ * The request turns vermilion on its cue (f20), over spring-effects: the request motif. Its spring starts a frame and a half
+ * before (REQUEST_INK_LEAD), so the frame before only warms it a hint and the cue frame shows it vermilion (L1-15: it read
+ * as vermilion only from f21, a frame after its hit).
  */
-export const REQUEST_ON_TAPE = { from: FIX_A.steps[0] - 2, to: FIX_B.in + 10 } as const;
-export const requestOnTapeAt = (f: number): number => clamp(springAt(f, REQUEST_ON_TAPE.from, SPRING.effects) - easings.inOutSine(span01(f, REQUEST_ON_TAPE.to, REQUEST_ON_TAPE.to + STEP_FRAMES)));
+export const REQUEST_INK = cue('request').frame;
+export const REQUEST_INK_LEAD = 1.5;
+/**
+ * In 3.1 the request stays in the heap and Fix A's tape marks its place: Fix A's grey copy of it (desk/beat3.ts) drops out
+ * of the chat spout as the first station's move ends (its 3 f anticipation from FIX_A.steps[0] - 3, inside the spout until
+ * the next frame, `from`) with the request's vermilion tear-off stub on its nose (objects/Turn.tsx requestCopyParts), and
+ * waits in the queue. The request itself never leaves the heap and never hands its colour over: the hue had cross-faded
+ * between the two bodies about 330 px apart, twice, with two half-saturated copies on screen (the L1-02 P1). It steps
+ * down with the rest of act one as Fix A takes the focus (requestStepOf), a step quieter, still vermilion.
+ */
+export const REQUEST_ON_TAPE = { from: FIX_A.steps[0] - 2 } as const;
 /** The pieces that land on the request's west half (f100–150), creasing it: its east flap lifts a quarter of the way with each. */
 const COVER_FRAMES = [100, 110, 130, 150] as const;
 
@@ -479,8 +482,24 @@ export const EVENT_AFTER = 2;
 /** The clip starts to slide onto the card this many frames after the board lands, over this far (u, from the north). */
 export const CLIP_AFTER = 4;
 export const CLIP_TRAVEL = 14;
-/** The event slip's flight from the feeder: 3 f anticipation, a long arc over the heap and the arc of folders. */
-export const EVENT_ARC = { arc: 28, apex: 110 } as const;
+/**
+ * The event slip's flight from the feeder: 3 f anticipation, a long arc over the heap and the arc of folders; over its last
+ * `settle` frames its fall eases onto the stack (its shadow tightening to contact; it had dropped 15 u in its last frame
+ * and lay down as the card in one: R-A1-slip-landing).
+ */
+export const EVENT_ARC = { arc: 28, apex: 110, settle: 5 } as const;
+/** The event slip's height over its arc's straight line at `f` frames into the arc (the parabola, then a Hermite settle to rest). */
+function eventLift(t: number): number {
+  const A = EVENT_ARC;
+  const h = (u: number) => 4 * A.apex * u * (1 - u);
+  const ts = A.arc - A.settle;
+  if (t <= ts) return h(clamp(t / A.arc));
+  const us = ts / A.arc;
+  const h0 = h(us);
+  const m0 = (4 * A.apex * (1 - 2 * us) * A.settle) / A.arc;
+  const x = clamp((t - ts) / A.settle);
+  return h0 * (2 * x ** 3 - 3 * x ** 2 + 1) + m0 * (x ** 3 - 2 * x ** 2 + x);
+}
 /** The task card's world pose on a folder (its centre and turn). */
 export function cardWorld(fl: FolderLayout): { c: P2; rot: number } {
   const k = cardLocal(fl);
@@ -516,7 +535,7 @@ export function eventSlipAt(n: number, f: number): EventSlip | null {
   const z1 = stackTop(fl) + 0.2;
   // it slows as it comes over its board (ease out across, the arc's fall straight down onto the stack)
   const e = 1 - (1 - u) * (1 - u);
-  const p: P3 = [M.out[0] + (to.c[0] - M.out[0]) * e, M.out[1] + (to.c[1] - M.out[1]) * e, M.out[2] + (z1 - M.out[2]) * u + 4 * EVENT_ARC.apex * u * (1 - u)];
+  const p: P3 = [M.out[0] + (to.c[0] - M.out[0]) * e, M.out[1] + (to.c[1] - M.out[1]) * e, M.out[2] + (z1 - M.out[2]) * u + eventLift(f - t0 - 3)];
   return { n, p, rot: to.rot * e, tilt: fl.card === 'chat' ? 0.3 * Math.sin(u * Math.PI * 2) : -0.1 * Math.sin(u * Math.PI) };
 }
 
@@ -608,15 +627,13 @@ export const FOCUS_A = {
 export const REQUEST_STEPPED_FROM = FOCUS_A.rest.from + STEP_FRAMES;
 /**
  * How far the heap's request is stepped down (0..1; objects/ActOne.tsx Heap steps it with its hue kept). It keeps its
- * colour while the rest of act one steps down as Fix A takes the focus, until its copy on Fix A's tape takes the
- * vermilion (requestOnTapeAt): it steps down only as it hands the vermilion over, on the same spring (its ink), so nothing
- * of it changes before the copy is in sight; once the copy hands it back (3.2) it is stepped as the heap is (its own ramp,
- * then the intake's set from REQUEST_STEPPED_FROM). In the turn, the turn's own step (`turnStep`).
+ * colour through beat 2 (the intake steps down round it: it is the film's tracer) and steps down with the rest of act one
+ * as Fix A takes the focus (its own ramp, then the intake's set from REQUEST_STEPPED_FROM, when both are fully down, so
+ * nothing jumps). In the turn, the turn's own step (`turnStep`).
  */
 export function requestStepOf(a: Pick<ActOneState, 'f' | 'step' | 'request'>, turnStep?: number): number {
   if (turnStep !== undefined) return turnStep;
-  const set = a.f >= REQUEST_STEPPED_FROM ? a.step.amount : (a.step.own?.amount ?? 0);
-  return a.f < REQUEST_ON_TAPE.to ? set * (1 - a.request.ink) : set;
+  return a.f >= REQUEST_STEPPED_FROM ? a.step.amount : (a.step.own?.amount ?? 0);
 }
 const ramp = (f: number, r: { from: number; to: number }): number => Math.min(easings.inOutSine(span01(f, r.from, r.from + STEP_FRAMES)), 1 - easings.inOutSine(span01(f, r.to, r.to + STEP_FRAMES)));
 
@@ -908,7 +925,7 @@ export function actOneAt(f: number): ActOneState {
   const still = posts.find((q) => HEAP[q.i].lands === FLIGHT.posted + 15 && q.u > 0);
   const flight = still ? { u: still.u, pos: still.p, tilt: still.tilt } : null;
   const lift = REQUEST_A.lift * COVER_FRAMES.reduce((s, c) => s + springAt(f, c, SPRING.settle), 0) / COVER_FRAMES.length;
-  const request = { ink: springAt(f, REQUEST_INK - 1, SPRING.effects) * (1 - requestOnTapeAt(f)), lift };
+  const request = { ink: springAt(f, REQUEST_INK - REQUEST_INK_LEAD, SPRING.effects), lift };
   const events = [6, 7, 8].map((m) => eventSlipAt(m, f)).filter((e): e is EventSlip => e !== null);
 
   return { f, lamp: { n, aim, bulb: BULB_A.level, sigma, back, head, pole }, folders, loop, chores, flight, landed, posts, request, events, step: actOneStep(f), stepA: actOneStepA(f) };
@@ -941,9 +958,6 @@ export function youPoseA(a: ActOneState): YouPose {
   };
 }
 
-/** Beat 9's downbeat: your laptop's lid shuts for the night (STORYBOARD 9.1). */
-export const LID_SHUTS = BEAT_9.away;
-
 /**
  * Your desk's pose at a film frame: act one's before the turn's run-up, then the act-two pose (the turn, MT2, will ease
  * between them), its tray emptying as the chores are handed over, each on the frame its hand-over lifts it (the flight's
@@ -952,8 +966,9 @@ export const LID_SHUTS = BEAT_9.away;
  */
 export function youPoseAt(f: number): YouPose {
   if (f < ACT_ONE_END) return youPoseA(actOneAt(f));
-  // beat 9 (f4560, STORYBOARD 9.1): the laptop's lid shuts for the night, over 12 f, before the strut lifts off
-  const lidShut = springAt(f, LID_SHUTS, SPRING.settle);
+  // beat 9 (STORYBOARD 9.1): the laptop's lid shuts for the night once your desk is back in frame under bar 58's move,
+  // its click the frame before the strut lifts off (beat9.ts LID; read per frame, so no module-level table meets the cycle)
+  const lidShut = lidShutAt(f);
   const base: YouPose =
     f < cue('trait-proactive').frame ? (lidShut > 0 ? { ...YOU_POSE_B, lidShut } : YOU_POSE_B) : { ...YOU_POSE_B, held: { key: 0, glass: f >= BEAT_7.glass.lift ? 0 : 1, strut: f >= BEAT_9.strut.lift ? 0 : 1 }, lidShut };
   return [you7, you8, you9, you10, you11, youEnd].reduce((pose, refine) => refine(f, pose), base);
@@ -996,12 +1011,17 @@ export function loopFootprints(L: LoopPose): Footprint[] {
  * as it comes down), its pen arm, a raised flag's staff and pennant. The pennant is a plate standing on edge, so its
  * shadow is a thin bar along it, cast from its own height (a soft blob read as dirt on the folder below).
  */
+/** A folder's footprint top at rest (u): a hair under its top sheet, which it must never shade (gl/light.ts tests a receiver against z1). */
+export const folderTopFp = (fl: FolderLayout): number => stackTop(fl) - 0.1;
 export function folderFootprints(fl: FolderLayout, s: FolderState): Footprint[] {
   if (s.present <= 0) return [];
   const fp: Footprint[] = [];
   const off = s.board?.off ?? [0, 0, 0];
   const air = off[2] > 0.5;
-  fp.push({ kind: 'rect', c: [fl.c[0] + off[0], fl.c[1] + off[1]], h: [fl.w / 2, fl.d / 2], r: 3, rot: fl.rot, z0: off[2], z1: off[2] + stackTop(fl) - 0.1, contact: air ? 0 : 0.8 });
+  // its top squashes with the board as it lands (objects/ActOne.tsx scales the folder by 1 - squash in z): an unscaled
+  // top stood over the squashed sheet, which the shader then shaded as under the footprint, so F6–F8 blinked dark for
+  // 1–3 frames as they landed (the L1-01 P0)
+  fp.push({ kind: 'rect', c: [fl.c[0] + off[0], fl.c[1] + off[1]], h: [fl.w / 2, fl.d / 2], r: 3, rot: fl.rot, z0: off[2], z1: off[2] + folderTopFp(fl) * (1 - (s.board?.squash ?? 0)), contact: air ? 0 : 0.8 });
   if (air) return fp;
   const pv = folderPoint(fl, penPivot(fl));
   const nib = penWorld(fl, s);
@@ -1082,7 +1102,12 @@ export function actOneFootprints(a: ActOneState): Footprint[] {
   for (const e of a.events) {
     const fl = FOLDERS[e.n - 1];
     const [w, d] = CARD[fl.card];
-    fp.push({ kind: 'rect', c: [e.p[0], e.p[1]], h: [w / 2, d / 2], r: 2, rot: e.rot, z0: e.p[2] - 0.3, z1: e.p[2] + 0.5, contact: e.p[2] < stackTop(fl) + 2 ? 0.4 : 0 });
+    // no contact of its own: lying on the stack it is the folder's card, which has none (its contact had come on 2 u over
+    // the stack and gone again as it landed: R-A1-slip-landing); its cast shadow tightens as it settles. Its top under its
+    // face's lowest point as it flutters (objects/ActOne.tsx EventSlips: 0.7 u thick, tilted about its length): a level
+    // top at 0.5 u shaded its low half, so it flew in grey and turned to the card's paper as it landed
+    const dip = (d / 2) * Math.abs(Math.sin(e.tilt));
+    fp.push({ kind: 'rect', c: [e.p[0], e.p[1]], h: [w / 2, (d / 2) * Math.cos(e.tilt)], r: 2, rot: e.rot, z0: e.p[2] - dip, z1: e.p[2] + 0.7 * Math.cos(e.tilt) - dip - 0.25, contact: 0 });
   }
   return fp;
 }

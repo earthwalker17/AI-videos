@@ -15,7 +15,7 @@
  */
 import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
-import { Color, PlaneGeometry, type BufferGeometry, type MeshStandardMaterial, type Texture } from 'three';
+import { Color, PlaneGeometry, Shape, ShapeGeometry, type BufferGeometry, type MeshStandardMaterial, type Texture } from 'three';
 import { BAND, BRACKET, CARRIAGE, CLAMP, DIE, LANES8, ORIGIN_U, RAIL, SECTION_RULE, SHEET8, SHEET_H, SHEET_W, STACK_DZ, STACKS8, STAMPS8, STRIP_W, TOKENS, Z8, onSheet, sheetRect, stackSheetReach, stripLength, type Beat8State } from '../beat8.ts';
 import { dome, merge, plane, slab, tube } from '../geom.ts';
 import { HEX, paper, whiteTexture } from '../gl/materials.ts';
@@ -77,6 +77,7 @@ interface Assets {
     head: BufferGeometry;
     stamps: Record<keyof typeof STAMPS8, BufferGeometry>;
     unit: PlaneGeometry;
+    arrowHead: BufferGeometry;
     ticks: PlaneGeometry;
     strips: PlaneGeometry[];
     band: PlaneGeometry;
@@ -154,6 +155,16 @@ function useEvidenceAssets(): Assets {
       head: decalPlane(HEAD_BOX, zp(6)),
       stamps: { half: decalPlane(stampBox('half'), zp(7)), ten: decalPlane(stampBox('ten'), zp(8)), tokens: decalPlane(stampBox('tokens'), zp(9)) },
       unit: new PlaneGeometry(1, 1),
+      // the bracket's arrowhead: its tip at the origin, pointing +x
+      arrowHead: (() => {
+        const { head, w } = BRACKET.arrow;
+        const sh = new Shape();
+        sh.moveTo(0, 0);
+        sh.lineTo(-head, w / 2);
+        sh.lineTo(-head, -w / 2);
+        sh.closePath();
+        return new ShapeGeometry(sh);
+      })(),
       ticks: new PlaneGeometry(1, 1),
       strips: LANES8.map(() => new PlaneGeometry(1, 1)),
       band: new PlaneGeometry(1, 1),
@@ -241,7 +252,7 @@ export function Evidence({ e }: { e: Beat8State }) {
   }, [t, mats, geo, colours, ink.form, n0, n1, n2, ink.legend, ink.bracket, ink.head, ink.half, ink.ten, ink.tokens, e.stampStep.half, e.stampStep.ten, e.notches, e.strips, e.band, tickLen, tickFull]);
   const [cu, cv] = onSheet(e.carriage, 0);
   const tickBox = sheetRect(TICKS_BOX.u0, TICKS_BOX.u0 + Math.min(tickLen, tickFull), TICKS_BOX.v0, TICKS_BOX.v1);
-  const [du, dv] = onSheet(e.die.u, DIE.v);
+  const [du, dv] = onSheet(e.die.u, e.die.v);
   // the bracket: its serifs at both holes' u and its bar between them, springing open from the bar's middle on its frame
   const sp = e.bracketSpring;
   const [ba, bb] = [onSheet(BRACKET.a[0], BRACKET.bar), onSheet(BRACKET.b[0], BRACKET.bar)];
@@ -280,9 +291,24 @@ export function Evidence({ e }: { e: Beat8State }) {
       {sp > 0.001 && (
         <>
           <mesh geometry={geo.unit} material={mats.bracket} position={[bx, ba[1], Z8.mark + 0.02]} scale={[2 * half + BRACKET_W, BRACKET_W, 1]} />
-          {[ba[0], bb[0]].map((x, k) => (
-            <mesh key={k} geometry={geo.unit} material={mats.bracket} position={[bx + (x - bx) * sp, ba[1], Z8.mark + 0.02]} scale={[BRACKET_W, Math.max(BRACKET_W, 2 * BRACKET.serif * sp), 1]} />
-          ))}
+          {/* each serif an extension line from its hole's side (the told-to-delegate hole's north, the two-level hole's south) to a hair past the bar: a jog, never an H */}
+          {[ba[0], bb[0]].map((x, k) => {
+            const dir = k === 0 ? 1 : -1;
+            const len = Math.max(BRACKET_W, (BRACKET.serif + BRACKET.over) * sp);
+            return <mesh key={k} geometry={geo.unit} material={mats.bracket} position={[bx + (x - bx) * sp, ba[1] + (dir * (BRACKET.serif - BRACKET.over) * sp) / 2, Z8.mark + 0.02]} scale={[BRACKET_W, len, 1]} />;
+          })}
+          {/* the arrows outside the serifs, each pointing in at its serif (east of the east one, west of the west one), growing out of it */}
+          {[ba[0], bb[0]].map((x, k) => {
+            const out = x > bx ? 1 : -1;
+            const tip = bx + (x - bx) * sp + (out * BRACKET_W) / 2;
+            const { shaft, head } = BRACKET.arrow;
+            return (
+              <group key={`a${k}`} position={[tip, ba[1], Z8.mark + 0.02]} scale={[-out * sp, sp, 1]}>
+                <mesh geometry={geo.arrowHead} material={mats.bracket} />
+                <mesh geometry={geo.unit} material={mats.bracket} position={[-head - shaft / 2 + 0.5, 0, 0]} scale={[shaft + 1, BRACKET_W, 1]} />
+              </group>
+            );
+          })}
         </>
       )}
       {ink.head >= 0 && <mesh geometry={geo.head} material={mats.head} />}

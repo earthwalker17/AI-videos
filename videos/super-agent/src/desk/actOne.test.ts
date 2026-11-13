@@ -3,10 +3,12 @@ import { ROUND2 } from '../lookdev/frames.ts';
 import { FOLDER_PRINT, LOOP_NOTES } from '../print.ts';
 import { TEXT_OUT, WORDS, cue } from '../cues.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
-import { CREDIT_KO, CREDIT_TOP, TITLE_CARD, actOneFrameFootprints, creditBox } from './ActOneFrame.tsx';
+import { CREDIT_CUE, TITLE_CARD, actOneFrameFootprints } from './ActOneFrame.tsx';
+import { NOTES_ASCENT, NOTES_GROUND, notesHaloReach, notesHaloTop } from './Overlay.tsx';
 import {
   ACT_ONE_END,
   ARRIVE,
+  CARD,
   CHORE_ARC,
   CHORE_POSTS,
   CLIP_AFTER,
@@ -38,6 +40,7 @@ import {
   eventLands,
   eventSlipAt,
   flagTop,
+  folderFootprints,
   folderPoint,
   loopNormal,
   loopPoint,
@@ -215,10 +218,11 @@ describe('act one over time (beats 1–2)', () => {
     expect(dist(at(0).lamp.aim, at(3).lamp.aim)).toBeGreaterThan(0.5);
   });
   it('turns the request vermilion on its cue (f20), over a few frames, never in one', () => {
-    // the cue frame already shows it turning (its spring starts the frame before), never all at once
-    expect(at(REQUEST_INK - 1).request.ink).toBe(0);
-    expect(at(REQUEST_INK).request.ink).toBeGreaterThan(0.25);
-    expect(at(REQUEST_INK).request.ink).toBeLessThan(0.6);
+    // a hint the frame before, vermilion on the hit itself (L1-15), never all of it in one frame
+    expect(at(REQUEST_INK - 2).request.ink).toBe(0);
+    expect(at(REQUEST_INK - 1).request.ink).toBeLessThan(0.2);
+    expect(at(REQUEST_INK).request.ink).toBeGreaterThan(0.5);
+    expect(at(REQUEST_INK).request.ink).toBeLessThan(0.75);
     expect(at(REQUEST_INK + 12).request.ink).toBeGreaterThan(0.95);
   });
   it('buries and creases the request from f100: half buried by f150, its east corner clear', () => {
@@ -269,6 +273,20 @@ describe('act one over time (beats 1–2)', () => {
       expect(eventSlipAt(n, eventLands(n))).toBeNull();
       const last = eventSlipAt(n, eventLands(n) - 1)!;
       expect(dist([last.p[0], last.p[1]], cardWorld(fl).c)).toBeLessThan(12);
+      // it settles onto the stack over its last frames, its fall slowing (it had dropped 15 u in its last frame): R-A1-slip-landing
+      const zs = [5, 4, 3, 2, 1].map((k) => eventSlipAt(n, eventLands(n) - k)!.p[2] - (stackTop(fl) + 0.2));
+      const drops = [...zs.slice(1), 0].map((z, k) => zs[k]! - z);
+      expect(drops.every((d) => d > 0), `F${n}`).toBe(true);
+      expect(drops[4]!, `F${n}`).toBeLessThan(6);
+      expect(drops[4]!, `F${n}`).toBeLessThan(drops[2]!);
+      // never shaded by its own footprint as it flutters (it flew in grey and turned to paper as it landed)
+      for (let f = s0; f < eventLands(n); f++) {
+        const e = eventSlipAt(n, f)!;
+        const own = actOneFootprints(at(f)).find((x) => x.kind === 'rect' && x.c[0] === e.p[0] && x.c[1] === e.p[1]);
+        const face = e.p[2] + 0.7 * Math.cos(e.tilt) - (CARD[fl.card][1] / 2) * Math.abs(Math.sin(e.tilt));
+        if (own?.kind === 'rect') expect(face, `F${n} f${f}`).toBeGreaterThan(own.z1 + 0.2);
+        else throw new Error(`F${n} f${f}: no footprint`);
+      }
       expect(at(eventLands(n) - 1).folders[i].card).toBe(false);
       // the clip rides open on the board, then slides onto the card and snaps shut (spring-dock)
       expect(at(arrive + CLIP_AFTER).folders[i].clip).toBe(0);
@@ -278,6 +296,25 @@ describe('act one over time (beats 1–2)', () => {
       expect(at(arrive + 10).folders[i].note).toBe(0);
       expect(at(arrive + 40).folders[i].tab).toBeGreaterThan(0.99);
       expect(at(arrive + 40).folders[i].note).toBe(1);
+    }
+  });
+  it('never shades a landing folder by its own footprint: its top squashes with the board, so F6–F8 never blink dark (L1-01)', () => {
+    for (const n of [6, 7, 8]) {
+      const arrive = ARRIVE[n];
+      const fl = FOLDERS[n - 1];
+      for (let f = arrive - 2; f <= arrive + 10; f++) {
+        const s = at(f).folders[n - 1];
+        const sq = s.board?.squash ?? 0;
+        const off = s.board?.off ?? [0, 0, 0];
+        // the top sheet's surface as drawn (objects/ActOne.tsx: at stackTop + 0.1, the folder scaled by 1 - squash in z)
+        const top = off[2] + (stackTop(fl) + 0.1) * (1 - sq);
+        const own = folderFootprints(fl, s)[0];
+        expect(own.kind).toBe('rect');
+        // gl/light.ts shades a receiver at height z by a footprint whose top is over z
+        expect((own as { z1: number }).z1, `F${n} f${f}`).toBeLessThan(top);
+      }
+      // the squash is still there (3%), only its shadow no longer cuts the sheet
+      expect(Math.max(...[1, 2, 3, 4, 5].map((k) => boardAt(fl, arrive + k)?.squash ?? 0))).toBeCloseTo(0.03, 3);
     }
   });
   it('lands the chores as posts on their cues: off the frame’s top edge when thrown, the tray nudging 2 f after', () => {
@@ -448,18 +485,26 @@ describe('the title card (1.2)', () => {
     // a board, not a sticker: its edge shows under the 15° camera
     expect(CARD_T).toBeGreaterThanOrEqual(4);
   });
-  it('knocks the credit out of the tape as one box round its line, inside title-safe', () => {
-    const en = creditBox(NOTES.x, NOTES.enBaseline, 1200, TYPE.notesEn.size, CREDIT_TOP.up * TYPE.notesEn.size + CREDIT_TOP.pad);
-    // the box holds the line's descenders and the tick's foot
-    expect(en.y + en.h).toBeGreaterThanOrEqual(NOTES.enBaseline + 0.27 * TYPE.notesEn.size);
-    expect(en.y + en.h).toBeGreaterThanOrEqual(NOTES.tick.top + NOTES.tick.height);
-    // the EN box's top just over its tallest ink (the ascenders at about 0.75 em), at most 4 px over it (critic P2-b)
-    expect(en.y).toBeLessThan(NOTES.enBaseline - 0.78 * TYPE.notesEn.size);
-    expect(en.y).toBeGreaterThanOrEqual(NOTES.enBaseline - 0.8 * TYPE.notesEn.size - 4);
-    expect(en.y + en.h).toBeLessThanOrEqual(1080 - 54);
-    expect(en.x).toBe(NOTES.x - CREDIT_KO);
-    expect(en.x).toBeGreaterThan(NOTES.tick.x + NOTES.tick.width);
-    expect(en.w).toBe(1200 + 2 * CREDIT_KO);
+  it('grounds the credit on a halo that hugs its ink, as C28’s: no box, so no edge cuts the loop’s tape (L1-04)', () => {
+    const g = NOTES_GROUND[CREDIT_CUE]!;
+    const { top, ...halo } = g;
+    expect(halo).toEqual(NOTES_GROUND.c28);
+    // cut off just over the ascenders: the tape's lower edge lies a few px over them through the hold, and the halo's full
+    // reach dented it (R-A6-halo-bites); whole to 2 px over them, gone 10 px over them
+    expect(top).toBeDefined();
+    const cut = notesHaloTop(g, TYPE.notesEn.size)!;
+    const ascenders = NOTES.enBaseline - NOTES_ASCENT * TYPE.notesEn.size;
+    expect(ascenders - cut.full).toBeGreaterThanOrEqual(2);
+    expect(ascenders - cut.zero).toBeLessThanOrEqual(10);
+    expect(notesHaloTop(NOTES_GROUND.c28!, TYPE.notesEn.size)).toBeNull();
+    // dense enough under the glyphs for 4.5:1 over the brightest tape (sRGB mix with the slate), and a soft reach (no edge)
+    const lum = (v: number) => ((v / 255 + 0.055) / 1.055) ** 2.4;
+    const under = (1 - g.alpha) * 0xc8 + g.alpha * 0x21;
+    expect((lum(0xe9) + 0.05) / (lum(under) + 0.05)).toBeGreaterThan(4.5);
+    expect(g.blur).toBeGreaterThanOrEqual(5);
+    // the halo merges the glyphs (no scalloped tape between them) and stays inside title-safe under the line
+    expect(g.dilate).toBeGreaterThanOrEqual(8);
+    expect(NOTES.enBaseline + 0.27 * TYPE.notesEn.size + notesHaloReach(g)).toBeLessThanOrEqual(1080);
   });
   it('lies on the desk in the world: it rides the camera move, the request’s corner in view beside it the whole time', () => {
     // world-locked: its outline on screen is the projection of one fixed place through each frame's camera

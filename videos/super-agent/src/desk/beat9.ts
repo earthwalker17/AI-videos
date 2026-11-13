@@ -1,7 +1,7 @@
 /**
  * Beat 9 (STORYBOARD 9.1-9.2, film f4560-4959; cues.ts BEAT_9): keeping it running, handed over (proposed). On bar 58's
- * downbeat beat 8's sheet slides away east, your laptop's lid shuts (actOne.ts LID_SHUTS) and the camera eases out to
- * still (d)'s framing (camera.ts TO_VELLUM). East of the system the vellum is laid down, each sheet unrolled from its
+ * downbeat beat 8's sheet slides away east and the camera eases out to still (d)'s framing (camera.ts TO_VELLUM); once
+ * your desk is back in frame your laptop's lid shuts (LID, its click on BEAT_9.lidClick). East of the system the vellum is laid down, each sheet unrolled from its
  * west edge in 12 f on `lays` (the plan of the deck, the state cabinet, the loop's sheet, the tethers and their clips),
  * each waiting until the departing sheet has cleared its ground; the graphite machines rise out of the slate through
  * hatches once the sheet has passed them (their holes close under their bases). The lid strut lifts off your tray in the
@@ -26,10 +26,10 @@ import { proposed10, type Proposed10 } from './beat10.ts';
 import { LOOP_SHEET, MACHINES_9, RELEASE, SEAM, clipX, lerp, sine, trapezoid } from './proposed.ts';
 import { rectFp, type Footprint } from './fpKit.ts';
 import type { P2, P3, Pool } from './layout.ts';
-import type { TagSpec } from './Overlay.tsx';
-import { SPRING, springAt } from './springs.ts';
+import type { RoleLabel, TagSpec } from './Overlay.tsx';
+import { SPRING, STEP_FRAMES, springAt } from './springs.ts';
 import { FRAMING_D, TO_REGISTER, cameraAt, deskCamera, project, screenToDesk } from './camera.ts';
-import type { ArmStep, DeskState, FocusEntry, LampStep, ReplyState } from './state.ts';
+import type { ArmStep, DeskState, FocusEntry, FocusId, LampStep, ReplyState } from './state.ts';
 import { CHORES, TRAY_Z, strutInTray, type YouPose } from './you.ts';
 
 /** Whether beat 9 is built (false: the animatic's slate shows its cues' words and the "animatic" mark over its frames). */
@@ -80,6 +80,22 @@ export function machineRiseAt(i: number, f: number): MachineRise {
 }
 
 // ------------------------------------------------------------------------------------------------
+// 9.1 your laptop's lid shuts for the night
+
+/**
+ * The lid shuts once your desk is back in frame under bar 58's move (STORYBOARD 9.1; cues.ts BEAT_9.lidClick: session 6's
+ * critics found the old click, 6 f into the move, on a frame where only the laptop's edge showed). It stays open until
+ * the laptop's west edge has entered the frame (f4589 at x 2), then swings down over the keys over `frames`, gathering
+ * speed (a lid let go: a quarter sine in, so it still reads open for the first half), and meets the base exactly on the
+ * click frame (the contact: the score's soft click), shut from there on (actOne.ts youPoseAt reads it).
+ */
+export const LID = { click: BEAT_9.lidClick, frames: 8 } as const;
+export const lidShutAt = (f: number): number => {
+  const t = clamp((f - (LID.click - LID.frames)) / LID.frames);
+  return t >= 1 ? 1 : 1 - Math.cos((Math.PI / 2) * t);
+};
+
+// ------------------------------------------------------------------------------------------------
 // 9.1 the lid strut's hand-over (beat 5's key's grammar), and the Persistent plate
 
 /** The strut still (d)'s loop sheet draws (objects/Proposed.tsx loopSheet): the loop's centre, its bar's centre. */
@@ -97,11 +113,14 @@ export const STRUT_DOCK: P3 = [STRUT_DRAWN[0], STRUT_DRAWN[1], 6];
  * the dock: up over an arc whose top lies a little before half way (`arc`, over the straight line, on the flight's time) and
  * bowing north on the desk (`bow`), so the arc reads on screen from the camera's pitch; across at a speed chosen frame by
  * frame so that its speed ON SCREEN, bar 58's ease-out included (camera.ts cameraAt), runs a trapezoid: in from rest over
- * `ramp`, level, braking over `brake` (FLIGHT). The level is as low as the cues allow: the camera's pan no longer adds to
- * the strut's own top speed. It comes down onto the sheet as it brakes, its fall meeting the sheet on `dock` (the contact).
- * The bump rises from rest over `rise` of the flight (it gathers height out of the anticipation, never leaving it at speed).
+ * `rampF` frames, level, braking over `brakeF` frames (FLIGHT). The level is as low as the cues allow: the camera's pan no
+ * longer adds to the strut's own top speed. It comes down onto the sheet as it brakes, its fall meeting the sheet on `dock`
+ * (the contact). The bump rises from rest over `rise` of the flight (it gathers height out of the anticipation, never
+ * leaving it at speed). Since the lid's click moved to f4596 the flight runs 39 f (4601-4640, the second half of bar 58's
+ * move) over about 1110 px of screen path, so its ramp and brake are set in frames (4 and 6, the hand-over grammar's
+ * take-off and set-down), not as shares of the flight: the level then stays under 1000 px/s (beat9.test.ts).
  */
-const S9 = { lift: BEAT_9.strut.lift, anticipate: 4, dock: BEAT_9.strut.dock, arc: 318, skew: 0.35, rise: 0.3, bow: 80, ramp: 0.12, brake: 0.18 } as const;
+const S9 = { lift: BEAT_9.strut.lift, anticipate: 4, dock: BEAT_9.strut.dock, arc: 318, skew: 0.35, rise: 0.3, bow: 80, rampF: 4, brakeF: 6 } as const;
 /** The arc's bump, 0 at both ends and 1 at its top: u(1 - u)(1 - skew u), normalised (its top before half way, its fall steeper than its rise). */
 const BUMP = (() => {
   const b = (u: number) => u * (1 - u) * (1 - S9.skew * u);
@@ -128,11 +147,12 @@ function strutPath(k: number, u: number): P3 {
 const FLIGHT: readonly number[] = (() => {
   const cam = (i: number) => cameraAt(FLY_FROM + i, 15);
   const at = (i: number, k: number) => project(cam(i), strutPath(k, i / FLY_N));
+  const [ramp, brake] = [S9.rampF / FLY_N, S9.brakeF / FLY_N];
   const run = (level: number): number[] => {
     const ks = [0];
     let p = at(0, 0);
     for (let i = 1; i <= FLY_N; i++) {
-      const want = level * (trapezoid(i / FLY_N, S9.ramp, S9.brake) - trapezoid((i - 1) / FLY_N, S9.ramp, S9.brake));
+      const want = level * (trapezoid(i / FLY_N, ramp, brake) - trapezoid((i - 1) / FLY_N, ramp, brake));
       let lo = ks[i - 1]!;
       let hi = 1;
       const d = (k: number) => {
@@ -349,10 +369,13 @@ export const FLAG_DRAW = { from: BEAT_9.flag - 4, pin: BEAT_9.flag, to: BEAT_9.f
 export const flagAt = (f: number): number => clamp((f - FLAG_DRAW.from) / (FLAG_DRAW.to - FLAG_DRAW.from));
 
 /**
- * The stuck bay's card drum (objects/Bay.tsx FreshParts): on every beat from `stuck.from` it steps a sixteenth of a turn on (about two cards; out, 4 f)
- * and back (from the half beat, 4 f), never round: the damped two-note loop. Radians about its axle.
+ * The stuck bay's card drum (objects/Bay.tsx FreshParts): on every beat from `stuck.from` it steps a twelfth of a turn on
+ * (about two and a half cards; out over 7 f) and back (from the half beat, 7 f), never round: the damped two-note loop.
+ * Radians about its axle. Paced so the step reads at 0.64x (session 6's critic: a sixteenth over 4 f moved the drum's
+ * cards past half their 12.9 degree pitch a frame, so the ribs only shimmered in place): at most about 6.7 degrees a
+ * frame, the drum's top face carried about 17 u (11 px at 0.64x) out and back, its crank with it.
  */
-export const DRUM = { step: (Math.PI * 2) / 16, out: 4, back: 4, half: 10 } as const;
+export const DRUM = { step: (Math.PI * 2) / 12, out: 7, back: 7, half: 10 } as const;
 export function drumAt(f: number): number {
   const { from, to } = BEAT_9.stuck;
   let a = 0;
@@ -363,6 +386,32 @@ export function drumAt(f: number): number {
     a += DRUM.step * (sine(x / DRUM.out) - sine((x - DRUM.half) / DRUM.back));
   }
   return a;
+}
+/**
+ * The stuck card's index mark (objects/Bay.tsx FreshParts): uniform ribs turning a twelfth of a turn out and back read as
+ * ribs flowing, not as a drum stepping (session 6's review, C-R4), so the card the drum keeps stepping to and back from
+ * carries an ink tab across a third of the drum's length, facing the camera at rest (`a`: radians from the drum's top,
+ * toward the south; `half`: its half width, about a card pitch). It inks in with N8's hold (the stuck bay is the subject)
+ * and fades as the bay steps down after it (SUBJECT_TO), so no still (b), (c) or (d) carries it. Its opacity at f.
+ */
+export const DRUM_MARK = { a: 0.3, half: 0.2, x: [0.52, 0.86] as const } as const;
+export function drumMarkAt(f: number): number {
+  // (+ 0: never a negative zero)
+  return Math.max(0, Math.min(easings.inOutSine(clamp((f - N8_HOLD.from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - SUBJECT_TO) / STEP_FRAMES)))) + 0;
+}
+/**
+ * The stuck bay's solid work-light pulse (STORYBOARD 9.2: alive, not progressing): over `stuck` its light (DeskState.next.light,
+ * the fresh bay's: its slot's glow and its pool on the bench) peaks on every beat as the drum steps out, falls to `low`
+ * over the next 12 f, holds, and swells back over the beat's last 4 f, so it is whole on each beat and on both ends of the
+ * span (no step where it starts or stops). A factor on the light (state.ts).
+ */
+export const STUCK_PULSE = { low: 0.72, fall: 12, swell: 4 } as const;
+export function stuckLightAt(f: number): number {
+  const { from, to } = BEAT_9.stuck;
+  if (f < from || f >= to) return 1;
+  const x = (f - from) % 20;
+  const dip = x < STUCK_PULSE.fall ? sine(x / STUCK_PULSE.fall) : x < 20 - STUCK_PULSE.swell ? 1 : 1 - sine((x - (20 - STUCK_PULSE.swell)) / STUCK_PULSE.swell);
+  return 1 - (1 - STUCK_PULSE.low) * dip;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -430,26 +479,98 @@ export function proposedAt(f: number): ProposedState | null {
 
 /**
  * Focus. Bar 58 takes over from beat 8's 'b8-away' (the same set: nothing comes up or goes down on the hand-over, your desk
- * never steps): everything of the system stays down while the vellum is laid and the strut flies. Under N8 the stuck bay
- * comes up (its drum and its light are the action), from 30 f before the first sweep ('b9-watch'); once it is up, the rest
- * of the vellum and the tests bay step down too ('b9-n8', the hand-over adding them: nothing else moves), so the Watchdog
- * (objects/Beat9.tsx WATCHDOG_STEP_ID: its station, its sightline, its flag) and the stuck bay hold the frame's top
- * contrast through both sweeps and the flag; a beat after the flag's beam is back in its lens they come back up ('b9-etch'
- * dropping them) for 10.1's hijack along the vellum tethers, which holds the rest down, releasing it as bar 65's dolly
- * sets out onto the Register.
+ * does not step: the lid shuts and the strut lifts there): everything of the system stays down while the vellum is laid
+ * and the strut flies. Under N8 the stuck bay comes up (its drum and its light are the action), from 30 f before the first
+ * sweep ('b9-watch'); once it is up, the rest of the vellum, the tests bay and your desk step down too ('b9-n8', the
+ * hand-over adding them: nothing else moves; your lamp turned down for the night on the same ramp, LAMP_9, and the DOM's role labels and
+ * proposed tag faded toward the stepped value with them, DOM_DIM), so the Watchdog (objects/Beat9.tsx WATCHDOG_STEP_ID:
+ * its station, its sightline, its flag) and the stuck bay hold the frame's top contrast through both sweeps and the flag
+ * (STORYBOARD 9.2; session 6's critic measured the labels, your lamp and in-tray over the Watchdog before; the Register's
+ * reading lamp steps down with them, READING_9); as N8's line ends the vellum and the hatched slip's path come back up
+ * ('b9-up') for 10.1's hijack along the vellum tethers, then the stuck bay steps down ('b9-etch'), which holds the rest
+ * down, your desk included (so it never pumps), releasing it as bar 65's dolly sets out onto the Register.
  */
 export const B9_STEP = ['intake', 'gate', 'belt', 'plate', 'fanfold', 'policy', 'docsBay', 'bugBay', 'freshBay', 'cord', 'reel', 'lock', 'gauge', 'head', 'index', 'mouth', 'deck', 'chute', 'proactive', 'spike', 'stress', 'jaws', 'bosses', 'b7-rail', 'b7-plate'] as const;
 export const WATCH_FROM = BEAT_9.sweeps[0] - 34;
-/** N8's hold on the Watchdog and the stuck bay: from 'b9-watch''s full step to a beat after the beam is back (BEAM.back). */
-export const N8_HOLD = { from: WATCH_FROM + 14, to: BEAT_9.flag + 30 } as const;
+/**
+ * N8's hold on the Watchdog and the stuck bay: from 'b9-watch''s full step to N8's last frame (cues.ts 'n8' ends on
+ * at(62, 4), two beats after the flag: STORYBOARD 9.2's "a beat after the flag" at least), the beam back in its lens
+ * (BEAM.back) long before it. Everything else stays down to `to`; the Watchdog's ink and the stuck bay hold their emphasis
+ * one ramp longer (SUBJECT_TO), while the vellum and the hatched slip's path come up, so the subject never loses its
+ * emphasis under its own line (session 6's review, C-R8), and both hand-overs are done as 10.1's slip is posted.
+ */
+export const N8_HOLD = { from: WATCH_FROM + 14, to: BEAT_9.stuck.to } as const;
+/** The Watchdog's ink and the stuck bay step down from here (a hand-over after N8's), done as the hatched slip is posted. */
+export const SUBJECT_TO = N8_HOLD.to + STEP_FRAMES;
 const WATCH_STEP = B9_STEP.filter((x) => x !== 'freshBay');
+/** The hatched slip's path (10.1): up under C25 from here (with the vellum, as N8's hold ends), its ramp done before the slip is posted over the gate. */
+export const SLIP_PATH: readonly FocusId[] = ['intake', 'gate', 'belt', 'jaws', 'head'];
+export const SLIP_PATH_UP = N8_HOLD.to;
+/** ... and down again from here: the slip wholly in the head (beat10.ts HIJACK_GONE, restated: the import rule; beat10.test holds it). */
+export const SLIP_IN = BEAT_10.hatch.register + 22;
 export const FOCUS_9: readonly FocusEntry[] = [
   { id: 'b9', from: BEAT_9.away, to: WATCH_FROM, step: B9_STEP, handFrom: 'b8-away' },
   { id: 'b9-watch', from: WATCH_FROM, to: N8_HOLD.from, step: WATCH_STEP, handFrom: 'b9' },
-  { id: 'b9-n8', from: N8_HOLD.from, to: N8_HOLD.to, step: [...WATCH_STEP, 'testsBay', 'b9-proposed'], handFrom: 'b9-watch' },
-  { id: 'b9-etch', from: N8_HOLD.to, to: RELEASE, step: WATCH_STEP, handFrom: 'b9-n8' },
+  { id: 'b9-n8', from: N8_HOLD.from, to: N8_HOLD.to, step: [...WATCH_STEP, 'testsBay', 'b9-proposed', 'you'], handFrom: 'b9-watch' },
+  // then, a hand-over at a time (each 14 f, so no part pumps and none rides a set its objects do not honour): as N8's line
+  // ends the vellum comes back up for 10.1's hijack along it, and with it the hatched slip's path (the chat spout, the gate,
+  // the belt, the throat's jaws and the print head), up before the slip is posted ('b9-up'); then the stuck bay steps down
+  // with the rest, its light no longer the subject, as the Watchdog's ink does ('b9-etch'); the path steps back down once
+  // the slip is fed into the head ('b9-spread': the etch's crawl and the vellum are the action then); everything else,
+  // your desk too, stays down until the release (session 6's critic L4-01: under C25 the lit in-tray and W-10's light held
+  // the frame's top values over the slip)
+  { id: 'b9-up', from: SLIP_PATH_UP, to: SUBJECT_TO, step: [...WATCH_STEP.filter((x) => !SLIP_PATH.includes(x)), 'testsBay', 'you'], handFrom: 'b9-n8' },
+  { id: 'b9-etch', from: SUBJECT_TO, to: SLIP_IN, step: [...WATCH_STEP.filter((x) => !SLIP_PATH.includes(x)), 'testsBay', 'you', 'freshBay'], handFrom: 'b9-up' },
+  { id: 'b9-spread', from: SLIP_IN, to: RELEASE, step: [...WATCH_STEP, 'testsBay', 'you', 'freshBay'], handFrom: 'b9-etch' },
 ];
-export const LAMP_9: readonly LampStep[] = [];
+/**
+ * Your lamp turned down for the night with your desk (your laptop is shut): two steps from LAMP_STEPS.dim (0.62 to 0.06), on
+ * the focus ramp (state.ts LampStep.ramp), from N8's hold to the release. One step (its pool at 55%) left the in-tray's lit
+ * paper at luma 225-232 over the Watchdog's 213 (session 6 render, comp 4850): a stepped paper only falls under it once its
+ * pool is nearly off (190 at two steps).
+ */
+export const LAMP_9: readonly LampStep[] = [
+  { at: N8_HOLD.from, steps: -2, ramp: STEP_FRAMES },
+  { at: RELEASE, steps: 2, ramp: STEP_FRAMES },
+];
+/**
+ * The DOM's role labels and the proposed tag under the same hold (they would hold the frame's top values over the stepped
+ * world: white type at luma 233): faded to `to` of their opacity on the focus ramp (in over STEP_FRAMES from `from`, out from
+ * `until`), never popped. Their opacity factor at f (1 outside). It holds past the world's release until the labels have
+ * left (they fade out over the first 6 f of bar 65's dolly, film.ts ACT2_AWAY): coming back up at the release they pumped
+ * (55%, full, out) between C25 and N9 (session 6's review, C-R2). Act two's labels re-enter only after 10.2's cards, at full.
+ */
+export const DOM_DIM = { from: N8_HOLD.from, until: TO_REGISTER.from + 6, to: 0.55 } as const;
+export function domDimAt(f: number): number {
+  const k = Math.min(easings.inOutSine(clamp((f - DOM_DIM.from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - DOM_DIM.until) / STEP_FRAMES)));
+  return 1 - (1 - DOM_DIM.to) * k;
+}
+/**
+ * The Watchdog inks up under N8's hold as the rest steps down (its station's sheet, its sightline and its pencil flag: their
+ * opacity times `up` on the focus ramp, so its 75% vellum lines draw at full strength), so with the stuck bay's light it
+ * holds the frame's top values (session 6: its lines peaked at luma 214, under the Register's lit tape at 221). Its factor at f.
+ */
+export const WATCH_INK = { up: 1.25 } as const;
+export function watchInkAt(f: number): number {
+  const k = Math.min(easings.inOutSine(clamp((f - N8_HOLD.from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - SUBJECT_TO) / STEP_FRAMES)));
+  return 1 + (WATCH_INK.up - 1) * k;
+}
+/**
+ * The Register's hooded reading lamp (pools.ts readingPool: its pool on the tape and the window) turned down with the rest
+ * under N8's hold and through 10.1, on the focus ramp, back up as the world is released for 10.2's dolly onto the Register:
+ * the stepped tape's lit paper (luma 221 at 1080) and its area outdrew the Watchdog's lines (session 6's review, C-R3). A
+ * factor on its strength at f.
+ */
+export const READING_9 = { from: N8_HOLD.from, to: RELEASE, k: 0.4 } as const;
+export function readingStep9(f: number): number {
+  const k = Math.min(easings.inOutSine(clamp((f - READING_9.from) / STEP_FRAMES)), 1 - easings.inOutSine(clamp((f - READING_9.to) / STEP_FRAMES)));
+  return 1 - (1 - READING_9.k) * k;
+}
+/** Act two's role labels at f with the hold's dim (FilmFrame Act2Frame): a landed label's opacity times domDimAt. */
+export function dimLabels9(f: number, labels: readonly RoleLabel[]): RoleLabel[] {
+  const k = domDimAt(f);
+  return k >= 1 ? [...labels] : labels.map((l) => ({ ...l, opacity: (l.opacity ?? 1) * k }));
+}
 export const ARM_9: readonly ArmStep[] = [];
 export function replies9(_e: Beat9State | null): ReplyState[] {
   return [];
@@ -481,7 +602,7 @@ export function pools9(_s: DeskState): Pool[] {
  * upper right inside title-safe, its leader straight down from under its block onto the north edge of the vellum plan of
  * the deck, the first sheet laid (it qualifies every vellum part east of the system).
  */
-export const TAGS_9: readonly TagSpec[] = [{ cue: 'tag-proposed', words: WORDS.tagProposed, at: [1824, 96], anchor: 'end', foot: [990, 530, 0.4] }];
+export const TAGS_9: readonly TagSpec[] = [{ cue: 'tag-proposed', words: WORDS.tagProposed, at: [1824, 96], anchor: 'end', foot: [990, 530, 0.4], dim: domDimAt }];
 export function you9(_f: number, pose: YouPose): YouPose {
   return pose;
 }

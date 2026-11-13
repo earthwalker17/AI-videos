@@ -87,7 +87,7 @@ whether N11 goes to buy more (it is the first line to cut).
 | C18 | 7 | f3560–3690 | 1:58.7–2:03.0 | 3.93 s | 3.63 s | Not faster tasks: about 23% fewer Router decisions. |
 | N7 | 7 | f3690–3840 | 2:03.0–2:08.0 | 4.60 s | 3.90 s | Jobs run in the background; new input never waits on them. |
 | Jobs tag | 7 | f3720–3820 | 2:04.0–2:07.3 | 2.93 s | 2.50 s | prototype: background after 5 s |
-| Reply-cap tag | 7 | f3820–3920 | 2:07.3–2:10.7 | 2.93 s | 2.10 s | chat replies: ≤ 100 words |
+| Reply-cap tag | 7 | f3840–3920 | 2:08.0–2:10.7 | 2.27 s | 2.10 s | chat replies: ≤ 100 words |
 | Chart tag | 8 | f4000–4560 | 2:13.3–2:32.0 | 18.27 s | 3.30 s | synthetic test · re-plotted · indicative only |
 | Load tag | 8 | f4000–4560 | 2:13.3–2:32.0 | 18.27 s | 3.03 s | per run: ~300 messages · ~20 work requests |
 | C20 | 8 | f4000–4140 | 2:13.3–2:18.0 | 4.27 s | 3.77 s | Slowest tasks: about half the time of a single session. |
@@ -211,7 +211,7 @@ earlier, or drop a line of the card).
 | C18 | 7 | f3560–3690 | 1:58.7–2:03.0 | 3.93 s | 3.74 s | 任务不会更快 但 Router 决策约少 23% |
 | N7 | 7 | f3690–3840 | 2:03.0–2:08.0 | 4.60 s | 4.48 s | 耗时操作转入后台 新输入不必等它跑完 |
 | Jobs tag | 7 | f3720–3820 | 2:04.0–2:07.3 | 2.93 s | 2.61 s | 原型：5 秒后转入后台 |
-| Reply-cap tag | 7 | f3820–3920 | 2:07.3–2:10.7 | 2.93 s | 2.14 s | 聊天回复：≤ 100 词 |
+| Reply-cap tag | 7 | f3840–3920 | 2:08.0–2:10.7 | 2.27 s | 2.14 s | 聊天回复：≤ 100 词 |
 | Chart tag | 8 | f4000–4560 | 2:13.3–2:32.0 | 18.27 s | 3.50 s | 模拟实验 · 本片重绘 · 仅供参考 |
 | Load tag | 8 | f4000–4560 | 2:13.3–2:32.0 | 18.27 s | 4.28 s | 每次运行：约 300 条消息 · 约 20 个工作请求 |
 | C20 | 8 | f4000–4140 | 2:13.3–2:18.0 | 4.27 s | 4.12 s | 最慢的任务：耗时约为单 Session 的一半 |

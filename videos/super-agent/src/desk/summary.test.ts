@@ -21,6 +21,9 @@ import {
   RAMP_D,
   SPAN_D,
   STAMP,
+  STAMP_BODY,
+  STAMP_H,
+  STAMP_PRINT,
   STAMP_F,
   STAMP_SLOT,
   stampSlotAt,
@@ -38,11 +41,14 @@ import {
   summaryLabelAt,
   traceWidthAt,
 } from './summary.ts';
-import { FRAMING_B, deskCamera, project } from './camera.ts';
+import { FRAMING_B, FRAMING_BOOKEND, deskCamera, project } from './camera.ts';
+import { NOTES, TYPE } from '../look/tokens.ts';
+import { NOTES_ASCENT } from './Overlay.tsx';
 import { CHUTE, CHUTE_W, INDEX, KEY, LEG_R, LEG_STRUTS, PRINT_HEAD, RAMP, REEL, WINDOW, type P3 } from './layout.ts';
 import { poolsAt } from './pools.ts';
 import { DETENT } from './state.ts';
 import { YOU_POSE_B } from './you.ts';
+import { REPLY_0405 } from './beat10.ts';
 
 /** A leg sampled every `step` u of arc (its arc fraction, point and width). */
 const sampled = (leg: (typeof LEGS)['out'], step: number) => {
@@ -333,7 +339,7 @@ describe('the summary at the sign-off rest (still D, f5520)', () => {
     // through the seam and the stillness (f5420-5431: nothing of it moves)
     for (let f = SPAN_D[0]; f <= STAMP_F - 9; f++) {
       expect(stampAt(f).p, `f${f}`).toEqual([STAMP.rest[0], STAMP.rest[1], STAMP.rest[2] - STAMP.sunk]);
-      expect(stampAt(f).p[2] + 42).toBeLessThan(YOU.top);
+      expect(stampAt(f).p[2] + STAMP_H).toBeLessThan(YOU.top);
       expect(stampSlotAt(f), `f${f}`).toBe(0);
     }
     // the hatch's leaves part over 3 f from f5432, the stamp rising in it from the frame after; they shut once its pad has
@@ -346,17 +352,43 @@ describe('the summary at the sign-off rest (still D, f5520)', () => {
     for (let f = STAMP_F - 9; f <= STAMP_F; f++) {
       const st = stampAt(f);
       // out over the desk's top only through the open hatch (its pad inside the hole while it is under the top)
-      if (st.p[2] < YOU.top && st.p[2] + 42 > YOU.top - 0.25) {
-        // the gap between the parting leaves is wider than what of it crosses the desk's top (its pad 36 u, its knob 22 u)
-        const across = st.p[2] + 8 > YOU.top - 0.25 ? 36 : 22;
+      if (st.p[2] < YOU.top && st.p[2] + STAMP_H > YOU.top - 0.25) {
+        // the gap between the parting leaves is wider than what of it crosses the desk's top (its mount, or its knob)
+        const across = st.p[2] + STAMP_BODY.pad.h + STAMP_BODY.mount.h > YOU.top - 0.25 ? Math.max(STAMP_BODY.pad.w, STAMP_BODY.mount.w) : 2 * STAMP_BODY.knob.r;
         expect(stampSlotAt(f) * (STAMP_SLOT.w + 8), `f${f}`).toBeGreaterThan(across + 2);
         expect(st.p[0]).toBe(STAMP.rest[0]);
       }
       if (stampSlotAt(f) > 0 && stampSlotAt(f) < 1 && f > STAMP_F - 6) expect(st.p[2], `f${f}`).toBeGreaterThan(YOU.top + 8);
     }
     expect(stampSlotAt(STAMP_F - 1)).toBe(0);
-    expect(STAMP_SLOT.w).toBeGreaterThan(36 + 6);
-    expect(STAMP_SLOT.d).toBeGreaterThan(32 + 6);
+    const W = Math.max(STAMP_BODY.pad.w, STAMP_BODY.mount.w);
+    expect(STAMP_SLOT.w).toBeGreaterThan(W + 6);
+    expect(STAMP_SLOT.d).toBeGreaterThan(Math.max(STAMP_BODY.pad.d, STAMP_BODY.mount.d) + 2);
+    // session 6 (L4-02): a stamp of the hand's size, its rubber face 60 px or more at 0.64x, its edge showing round the
+    // mount (review C-R6: it reads by its silhouette); its print a third of the reply or more; and the hatch shut behind it
+    // as it leaves (each leaf's edge under its trailing edge: the pit never shows once it has gone)
+    expect(STAMP_BODY.pad.w * 0.64).toBeGreaterThanOrEqual(60);
+    expect(STAMP_BODY.pad.w).toBeGreaterThan(STAMP_BODY.mount.w + 4);
+    expect(STAMP_BODY.pad.d).toBeGreaterThan(STAMP_BODY.mount.d + 4);
+    expect(STAMP_PRINT.w * STAMP_PRINT.d).toBeGreaterThanOrEqual((REPLY_0405.size[0] * REPLY_0405.size[1]) / 3);
+    for (let f = STAMP_F - 9; f <= STAMP_F; f++) {
+      const dx = stampAt(f).p[0] - STAMP.rest[0];
+      const gap = (STAMP_SLOT.w / 2) * stampSlotAt(f);
+      if (gap > 0 && f > STAMP_SLOT.shut) expect(-W / 2 + dx, `f${f}`).toBeLessThanOrEqual(-gap + 0.5);
+    }
+    // at rest it stays clear of C28's line at the bookend's framing (review C-R7): its screen box over the line's ascenders
+    {
+      const pose = deskCamera(FRAMING_BOOKEND, 15);
+      const [hw, hd] = [STAMP_BODY.pad.w / 2, STAMP_BODY.pad.d / 2];
+      const low = Math.max(...[-1, 1].flatMap((sx) => [-1, 1].flatMap((sy) => [0, STAMP_H].map((z) => project(pose, [STAMP.rest[0] + sx * hw, STAMP.rest[1] + sy * hd, YOU.top + z])[1]))));
+      expect(low).toBeLessThanOrEqual(NOTES.enBaseline - NOTES_ASCENT * TYPE.notesEn.size);
+    }
+    // the hatch and the stamp at rest on your desk: inside its slab, clear of the in-tray, the blotter and the laptop
+    const hole = { x0: STAMP.rest[0] - STAMP_SLOT.w / 2, x1: STAMP.rest[0] + STAMP_SLOT.w / 2, y0: STAMP.rest[1] - STAMP_SLOT.d / 2, y1: STAMP.rest[1] + STAMP_SLOT.d / 2 };
+    expect(hole.x1).toBeLessThan(YOU.inTray.x0);
+    expect(hole.y1).toBeLessThan(YOU.slab.y1);
+    expect(hole.y0).toBeGreaterThan(YOU.blotter.y1);
+    expect(hole.y0).toBeGreaterThan(YOU.laptop.y1);
     expect(stampAt(STAMP_F - 3).p[2]).toBeCloseTo(STAMP.rest[2] + STAMP.lift, 6);
     // the press: 5 f on spring-dock from the top; first on the paper on the contact frame, over the mark, square to the reply
     expect(stampAt(STAMP_F - 1).p[2]).toBeGreaterThan(STAMP.paperZ + 1);

@@ -20,8 +20,8 @@ import type { CamPose } from '@aiv/remotion-kit';
 import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
 import { BoxGeometry, PlaneGeometry, Shape, type BufferGeometry } from 'three';
-import { CARDS_7, DOOR_CARD, DOSSIER, NOTICES, OVAL_AWAY, OVAL_HATCH, PLATE_RISE, PRODUCTIVE_PLATE, RAIL, RAIL_HATCH, RIDER, SPOT_7, TALLY, TALLY_CARD, tallyLength, type Beat7State, type DossierPose, type RiderPose } from '../beat7.ts';
-import { cardAt, cardIn, cardPose, cardSize, type CardSpot } from '../beat4.ts';
+import { DOOR_CARD, DOSSIER, NOTICES, OVAL_AWAY, OVAL_HATCH, PLATE_RISE, PRODUCTIVE_PLATE, RAIL, RAIL_HATCH, RIDER, SLOT_7, SPOT_7, TALLY, TALLY_CARD, card7At, tallyLength, type Beat7State, type DossierPose, type RiderPose } from '../beat7.ts';
+import { cardSize } from '../beat4.ts';
 import { FRAMING_B, deskCamera, project } from '../camera.ts';
 import { extrude, merge, slab, tube } from '../geom.ts';
 import { DESK_HOLES } from '../gl/desk.ts';
@@ -83,7 +83,11 @@ function Beat7Body({ s, e }: { s: DeskState; e: Beat7State }) {
           {rail.dz > -RAIL.depth + 0.01 || rail.leaves > 0 ? (
             <>
               <JobRail dz={rail.dz} />
-              {ovalDrawn(e.f) && <OvalTrack dz={rail.dz + (oval?.dz ?? 0)} />}
+              {ovalDrawn(e.f) && (
+                <Step on={isStepped(s.step, 'b7-oval')}>
+                  <OvalTrack dz={rail.dz + (oval?.dz ?? 0)} />
+                </Step>
+              )}
             </>
           ) : null}
           {e.receipt !== null && e.receipt > 0 && <Receipt up={e.receipt} face={t.receipt} />}
@@ -95,7 +99,7 @@ function Beat7Body({ s, e }: { s: DeskState; e: Beat7State }) {
       {plate && (
         <Step on={isStepped(s.step, 'b7-plate')}>
           {plate.hole && <PlateHatch open={plate.leaves} />}
-          {plate.dz > -PLATE_RISE.depth + 0.01 || plate.leaves > 0 ? <ProductivePlate dz={plate.dz} face={t.productive} /> : null}
+          {plate.dz > -PLATE_RISE.depth + 0.01 || plate.leaves > 0 ? <ProductivePlate dz={plate.dz} face={t.productive} words={plate.words} /> : null}
         </Step>
       )}
       {e.dossier && <Dossier d={e.dossier} t={t} />}
@@ -390,17 +394,16 @@ function DoorPlay({ play }: { play: number }) {
   );
 }
 
-/** Beat 7's counterfactual cards (beat7.ts CARDS_7, SPOT_7): each slides in from beyond the frame's top, plays, is struck, slides back. */
+/** Beat 7's counterfactual cards (beat7.ts card7At, SPOT_7, SLOT_7): each slides out of its slot beside what it qualifies, plays, is struck and goes back in. */
 function Cards({ s }: { s: DeskState }) {
   return (
     <>
       {(['tally', 'door'] as const).map((k) => {
-        const card = cardAt(s.f, CARDS_7[k]);
+        const card = card7At(s.f, k);
         if (!card) return null;
-        const spot: CardSpot = SPOT_7[k];
-        const size = cardSize(spot);
+        const size = cardSize(SPOT_7[k]);
         return (
-          <Counterfactual key={k} pose={cardPose(card, spot)} w={size.w} h={size.h} strike={card.strike} inFrame={cardIn(card)}>
+          <Counterfactual key={k} pose={card} w={size.w} h={size.h} strike={card.strike} inFrame={card.travel} clip={SLOT_7[k].plane}>
             {k === 'tally' ? <TallyPlay /> : <DoorPlay play={card.play} />}
           </Counterfactual>
         );

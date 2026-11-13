@@ -14,6 +14,7 @@ import { GREY_TEXT, Label } from '../kit/text.tsx';
 import { useFilmFonts } from '../look/fonts.ts';
 import { TYPE } from '../look/tokens.ts';
 import { ActOneFrame } from './ActOneFrame.tsx';
+import { dimLabels9 } from './beat9.ts';
 import { cameraAt, type Angle } from './camera.ts';
 import { DeskFrame } from './DeskFrame.tsx';
 import { EndFrame } from './EndFrame.tsx';
@@ -43,7 +44,8 @@ const PRINT_CSS = `"AIV ${PRINT_FONT.family}"`;
 
 /** Act two, from the turn's end: the desk world through the film's camera, its labels and tags on their schedules, part 2's beats' text over it. */
 export function Act2Frame({ f, angle = ANGLE, bloom = BLOOM }: { f: number; angle?: Angle; bloom?: boolean }) {
-  const labels = useMemo(() => act2LabelsAt(f), [f]);
+  // (under N8's hold and 10.1 the role labels fade toward the stepped world: beat9.ts dimLabels9)
+  const labels = useMemo(() => dimLabels9(f, act2LabelsAt(f)), [f]);
   return (
     <DeskFrame
       f={f}

@@ -61,6 +61,11 @@ export function bayShellFootprints(b: BayLayout, door = 0): Footprint[] {
  * its spring's last wobble. A quarter unit under it, the shadow it casts on the slate is the same to the eye.
  */
 const TOP_CLEAR = 0.25;
+/**
+ * The top of the throat body's footprint: 0.6 u over its floor (objects/Register.tsx: THROAT.z[1] − 8), so the floor
+ * stays shaded as before, and under a carrier lying on it (its centre at 118.8: layout.ts NEXT_SLIP.throat), which is lit.
+ */
+export const THROAT_FLOOR_FP = THROAT.z[1] - 8 + 0.6;
 /** A bay's work in place: its floor plate, its work slot, its dossier (the superstructure is its own). */
 const bayWorkOf = (b: BayLayout): Footprint[] => [rectFp(b.box, 0, BAY_FLOOR - TOP_CLEAR, 1, 6), rectFp(b.slot, BAY_FLOOR, 40, 1, 4), rectFp(b.dossier, BAY_FLOOR, BAY_FLOOR + 4 + b.sheets * SHEET, 1, 4)];
 /** The test tower's footprint (its cap's top a receiver: TOP_CLEAR). */
@@ -218,7 +223,12 @@ export function registerFootprints(o: { legs?: boolean; fanfold?: boolean; trait
   for (const m of REEL_FRAME) fp.push(rectFp(m, REEL_FRAME_Z[0], REEL_FRAME_Z[1], 0.7));
   // the head's top goes down with its dip (beat 6: state.ts headDipAt), so its cap never falls into its own shadow
   fp.push(rectFp(PRINT_HEAD.box, PRINT_HEAD.z[0], PRINT_HEAD.z[1] + 4 - (o.headDip ?? 0), 0.8));
-  fp.push(rectFp(THROAT.box, THROAT.z[0], THROAT.z[1], 0));
+  // the throat as drawn (objects/Register.tsx): its body up to just over its floor (the floor stays in its own shade) and
+  // its two cheeks, so a carrier settling between the cheeks takes their cast shade as it comes down, never the whole
+  // box's in one frame below 126 (the cheek shade that split a landed slip on a hard edge: R-A4, lane A)
+  fp.push(rectFp(THROAT.box, THROAT.z[0], THROAT_FLOOR_FP, 0));
+  // (each cheek's top at its bevel's foot, 1.2 u under its top: its own bevelled rim is never in its shade)
+  for (const y of [THROAT.box.y0 - 4, THROAT.box.y1 - 6]) fp.push(rectFp({ x0: THROAT.box.x0 - 6, x1: THROAT.box.x1, y0: y, y1: y + 10 }, THROAT.z[0] + 4, THROAT.z[1] + 4 - 1.2, 0));
   const wf = WINDOW.frame;
   const bar = WINDOW.bar;
   fp.push(rectFp({ ...wf, y1: wf.y0 + bar }, WINDOW.z[0], WINDOW.z[1], 0.5, 2));
@@ -312,7 +322,8 @@ export function movingFootprints(s: DeskState): Footprint[] {
   // (the Thread cord and its guide, from 7.1 on: beat7.ts footprints7)
   // MT1's next dispatch: the chat slip in flight or in the throat, the folder, the fresh bay rising out of its hatch
   const n = s.next;
-  if (n.slip) fp.push({ kind: 'rect', c: [n.slip.p[0], n.slip.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 3, rot: n.slip.heading, z0: n.slip.p[2] - 0.4, z1: n.slip.p[2] + 0.4, contact: 0 });
+  // (its top a receiver, TOP_CLEAR: at its own top, the 3% landing squash in the throat put it under for 3 f, c2262–2264)
+  if (n.slip) fp.push({ kind: 'rect', c: [n.slip.p[0], n.slip.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 3, rot: n.slip.heading, z0: n.slip.p[2] - 0.4, z1: n.slip.p[2] + 0.4 - TOP_CLEAR, contact: 0 });
   if (n.folder) fp.push({ kind: 'rect', c: [n.folder.p[0], n.folder.p[1]], h: [DISPATCH.w / 2, DISPATCH.d / 2], r: 3, rot: n.folder.heading, z0: n.folder.p[2] - 1.5, z1: n.folder.p[2] + 1.5, contact: 0.6 });
   if (n.hole || n.rise > 0) {
     // the pit under the open hatch is dark: the desk round it shades and roofs whatever is below the desk (the bay
@@ -408,7 +419,17 @@ export function beat6Footprints(e: Beat6State): Footprint[] {
   if (e.plate) {
     const B = STRESS_PLATE.box;
     const [dx, dy, dz] = e.plate.d;
-    fp.push(rectFp({ x0: B.x0 + dx, x1: B.x1 + dx, y0: B.y0 + dy, y1: B.y1 + dy }, STRESS_PLATE.z[0] + dz, STRESS_PLATE.z[1] + dz, e.plate.contact ?? (e.plate.flying ? 0 : PLATE_CONTACT.seated), 4));
+    const contact = e.plate.contact ?? (e.plate.flying ? 0 : PLATE_CONTACT.seated);
+    const t = e.plate.tilt;
+    if (t > 0) {
+      // tilted as it climbs away (its north edge up, turned): its footprint turned with it and its top under its face's
+      // lowest point, its south edge (a level top over a tilted face shaded the face's south part behind a hard line that
+      // swept up it as it rose: R-A5-plate-band, lane A)
+      const hd = (B.y1 - B.y0) / 2;
+      const low = STRESS_PLATE.z[0] + dz - hd * Math.sin(t);
+      const face = low + (STRESS_PLATE.z[1] - STRESS_PLATE.z[0] + 0.2) * Math.cos(t);
+      fp.push({ kind: 'rect', c: [(B.x0 + B.x1) / 2 + dx, (B.y0 + B.y1) / 2 + dy], h: [(B.x1 - B.x0) / 2, hd * Math.cos(t)], r: 4, rot: e.plate.turn, z0: low, z1: face - TOP_CLEAR, contact });
+    } else fp.push(rectFp({ x0: B.x0 + dx, x1: B.x1 + dx, y0: B.y0 + dy, y1: B.y1 + dy }, STRESS_PLATE.z[0] + dz, STRESS_PLATE.z[1] + dz, contact, 4));
   }
   if (e.review) fp.push({ kind: 'rect', c: [e.review.p[0], e.review.p[1]], h: [(REVIEW.l / 2) * Math.cos(e.review.slope), REVIEW.w / 2], r: 2, rot: e.review.heading, ...carrierSpan(e.review, REVIEW.l / 2, 0.4), contact: 0 });
   return fp;

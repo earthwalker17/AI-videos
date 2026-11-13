@@ -15,11 +15,13 @@
  *   strips are nearly out. Each lane's paper strip slides out from under the clamp bar at a constant pace for exactly
  *   `stripFrames` x its p95 frames (the score holds its tone that long), so its length is its slowest run on one unitless
  *   scale (K u a unit): the cut is its leading end, the typical run (p50) a hole punched through it. "~½" on its window.
- * - 8.3: on `bracket` both holes are ringed in full ink and the bracket between them springs open (its serifs and bar on
- *   the dock spring, an 8 f settle); "~10%" on its window, and "~½" steps to the light print.
+ * - 8.3: on `bracket` both holes are ringed in full ink and the bracket between them springs open (its serifs, bar and
+ *   arrows on the settle spring, about 9 f); "~10%" on its window, and "~½" steps to the light print.
  * - 8.4: the die hops off the clamp and punches the told-to-delegate strip's notches on `notches`, a 2 f press landing on
  *   each contact frame (the notch is cut under its face; the chad slides out from under it as it lifts); over the run
- *   without a notch it hovers through the eighth and never comes down, then goes home. The single session's strip stays
+ *   without a notch it hovers through the eighth and never comes down. Then, still under C22, it goes round by the clamp
+ *   to the single session's strip and walks its five run places on the eighths, coming down short of it on each and
+ *   cutting nothing (ONE_PASS), and comes to rest on the clamp at that strip's row. The single session's strip stays
  *   blank (it never delegated); the two-level strip's five notches were cut before it slid out (delegation is
  *   structural). From `longRun.from` the band of the run the model did itself slides out of its uncut place, east along
  *   the strip's north edge to its cut, over `longRun.frames` (the long tail).
@@ -145,12 +147,20 @@ export const TOLD_PUNCH: readonly number[] = B.notches.map((n, i) => (n.punched 
 export const LONG_RUN = B.notches.findIndex((n) => !n.punched);
 export const BAND = { v0: 590, v1: LANES8[1].strip[0] + 4, u0: ORIGIN_U + NOTCH.s[LONG_RUN]! - NOTCH.w / 2, u1: ORIGIN_U + stripLength(1) } as const;
 
-/** The bracket between the told-to-delegate hole (lane 2) and the two-level hole (lane 3): its bar in the gap between the strips, its serifs' half height. */
+/**
+ * The bracket between the told-to-delegate hole (lane 2) and the two-level hole (lane 3), drawn as a drawing dimensions a
+ * small offset (session 6's critics read the old symmetric serifs and bar as a letter H): its bar in the gap between the
+ * strips; each serif an extension line `serif` u from the bar toward its own hole (where the ring's leader meets it) and
+ * `over` u past the bar; and the dimension arrows outside the serifs, each pointing in at one (an arrow's shaft and its
+ * head's length and width).
+ */
 export const BRACKET = {
   a: [ORIGIN_U + holeAt(1), LANES8[1].strip[0] + LANES8[1].hole] as P2,
   b: [ORIGIN_U + holeAt(2), LANES8[2].strip[0] + LANES8[2].hole] as P2,
   bar: (LANES8[1].strip[1] + LANES8[2].strip[0]) / 2,
-  serif: 18,
+  serif: 22,
+  over: 6,
+  arrow: { shaft: 12, head: 9, w: 10 },
 } as const;
 
 /**
@@ -177,6 +187,26 @@ export const STACKS8 = B.lanes.map((l) => ({ n: Math.round(l.tokens), extent: (T
 
 /** The die that punches the notches: its size, its home on the clamp bar at the told-to-delegate row, its hover over a strip and its contact. */
 export const DIE = { w: 50, d: 46, h: 12, v: LANES8[1].strip[0] + NOTCH.d / 2, home: { u: (CLAMP.u0 + CLAMP.u1) / 2, z: CLAMP.z }, hover: Z8.strip + 10, contact: Z8.strip } as const;
+/**
+ * The single session's pass (C22: "Left to choose, the single session never delegated"; session 6's critics: every mark
+ * that moved was on the told-to-delegate lane, so a viewer read "never delegated" onto the lane being punched). After the
+ * told-to-delegate strip's run, still under C22 (it holds to f4410), the die goes back along that strip to the clamp bar,
+ * north along it and onto the single session's strip, and walks its five run places (NOTCH.s) west to east on the eighths
+ * `ONE_PASS.at` (10 f apart, the first `after` f past the last notch), coming down on each until it hangs `miss` over the
+ * strip's face (its shadow all but closed under it) and lifting off again: nothing is cut, the strip stays whole. It goes
+ * along the strip's south edge (its face clear of the lane's name over the north edge), it comes and goes along the clamp
+ * bar (never over the told-to-delegate lane's name), and it comes to rest on the clamp bar at the single session's row.
+ */
+export const ONE_PASS = {
+  v: LANES8[0].strip[1] - NOTCH.d / 2,
+  after: 30,
+  at: [0, 1, 2, 3, 4].map((k, i) => ({ k, f: B.notches[B.notches.length - 1]!.f + 30 + 10 * i })),
+  /** it walks higher than the told-to-delegate run's hover, so each dip is a longer fall that stops short of the strip */
+  hover: Z8.strip + 14,
+  miss: Z8.strip + 2.5,
+  /** the corner radius of its way round the clamp bar (u) */
+  turn: 30,
+} as const;
 
 // ------------------------------------------------------------------------------------------------
 // Beat 8's frames, hung off the cue sheet's
@@ -267,51 +297,119 @@ export const bandFed = (f: number): number => (BAND.u1 - BAND.u0) * clamp((f - B
 /** How many of the told-to-delegate strip's notches are cut at f (TOLD_PUNCH's first n), each on its contact frame (under the die's face). */
 export const notchesPunched = (f: number): number => B.notches.filter((n) => n.punched && f >= n.f).length;
 
-/** A segment of the die's path: from f0 to f1 (inOutSine), u and z from a to b, an arc of `arc` u over the travel. */
+/** A segment of the die's path: from f0 to f1 (inOutSine), u, v and z from a to b, an arc of `arc` u over the travel; `way`: along the pass's way round the clamp bar instead (PASS_WAY, at an even pace with eased ends). */
 interface DieLeg {
   f0: number;
   f1: number;
   u: readonly [number, number];
+  v: readonly [number, number];
   z: readonly [number, number];
   arc: number;
+  way?: true;
 }
 /** The told-to-delegate strip's notch place k (sheet u of its centre). */
 export const notchU = (k: number): number => ORIGIN_U + NOTCH.s[k]!;
+/** A run 0..1 over t 0..1 at an even pace with eased ends (up over `a`, down over `a`: C1). */
+function evenRun(t: number, a: number): number {
+  const x = clamp(t);
+  const v = 1 / (1 - a);
+  if (x < a) return (v * x * x) / (2 * a);
+  if (x <= 1 - a) return v * (x - a / 2);
+  const y = 1 - x;
+  return 1 - (v * y * y) / (2 * a);
+}
 /**
- * The die's path: off the clamp, a hop to the first notch place, then on each eighth of `notches` a 2 f press landing on
- * the contact frame (held a frame, lifted over 2 f) and a hop to the next place; over the run without a notch it hovers
- * through its eighth and never comes down; after the last it goes home to the clamp.
+ * The pass's way from the told-to-delegate strip's last place to the single session's first: west along that strip to the
+ * clamp bar, north along it, east onto the single session's strip, its two corners rounded (ONE_PASS.turn): its length and
+ * the point at s (0..1 of its length).
+ */
+export const PASS_WAY = (() => {
+  const R = ONE_PASS.turn;
+  const u0 = notchU(NOTCH.s.length - 1);
+  const v2 = DIE.v;
+  const uc = DIE.home.u;
+  const v1 = ONE_PASS.v;
+  const u1 = notchU(0);
+  const parts = [
+    { l: u0 - (uc + R), at: (x: number): P2 => [u0 - x, v2] },
+    { l: (Math.PI * R) / 2, at: (x: number): P2 => [uc + R - R * Math.sin(x / R), v2 - R + R * Math.cos(x / R)] },
+    { l: v2 - R - (v1 + R), at: (x: number): P2 => [uc, v2 - R - x] },
+    { l: (Math.PI * R) / 2, at: (x: number): P2 => [uc + R - R * Math.cos(x / R), v1 + R - R * Math.sin(x / R)] },
+    { l: u1 - (uc + R), at: (x: number): P2 => [uc + R + x, v1] },
+  ];
+  const L = parts.reduce((a, p) => a + p.l, 0);
+  return {
+    L,
+    at(s: number): P2 {
+      let x = clamp(s) * L;
+      for (const p of parts) {
+        if (x <= p.l) return p.at(x);
+        x -= p.l;
+      }
+      return [u1, v1];
+    },
+  };
+})();
+/**
+ * The die's path: off the clamp onto the told-to-delegate strip's first place, then on each eighth of `notches` a 2 f press
+ * landing on the contact frame (held a frame, lifted over 2 f) and a hop to the next place; over the run without a notch it
+ * hovers through its eighth and never comes down. Then the single session's pass (ONE_PASS): round by the clamp bar onto
+ * that strip, a dip short of it on each of its five places, and back west onto the clamp bar, where it comes to rest at
+ * that strip's row.
  */
 export const DIE_LEGS: readonly DieLeg[] = (() => {
   const legs: DieLeg[] = [];
   const { home, hover, contact } = DIE;
+  const V2 = DIE.v;
+  const V1 = ONE_PASS.v;
   const first = B.notches[0]!.f;
-  legs.push({ f0: first - 13, f1: first - 9, u: [home.u, home.u], z: [home.z, home.z + 6], arc: 0 });
-  legs.push({ f0: first - 9, f1: first - 3, u: [home.u, notchU(0)], z: [home.z + 6, hover], arc: 6 });
+  legs.push({ f0: first - 13, f1: first - 9, u: [home.u, home.u], v: [V2, V2], z: [home.z, home.z + 6], arc: 0 });
+  legs.push({ f0: first - 9, f1: first - 3, u: [home.u, notchU(0)], v: [V2, V2], z: [home.z + 6, hover], arc: 6 });
   B.notches.forEach((n, k) => {
     if (n.punched) {
-      legs.push({ f0: n.f - 2, f1: n.f, u: [notchU(k), notchU(k)], z: [hover, contact], arc: 0 });
-      legs.push({ f0: n.f + 1, f1: n.f + 3, u: [notchU(k), notchU(k)], z: [contact, hover], arc: 0 });
+      legs.push({ f0: n.f - 2, f1: n.f, u: [notchU(k), notchU(k)], v: [V2, V2], z: [hover, contact], arc: 0 });
+      legs.push({ f0: n.f + 1, f1: n.f + 3, u: [notchU(k), notchU(k)], v: [V2, V2], z: [contact, hover], arc: 0 });
     }
     const next = B.notches[k + 1];
-    if (next) legs.push({ f0: n.f + 3, f1: next.f - 2, u: [notchU(k), notchU(k + 1)], z: [hover, hover], arc: 4 });
+    if (next) legs.push({ f0: n.f + 3, f1: next.f - 2, u: [notchU(k), notchU(k + 1)], v: [V2, V2], z: [hover, hover], arc: 4 });
   });
   const last = B.notches[B.notches.length - 1]!.f;
-  legs.push({ f0: last + 3, f1: last + 13, u: [notchU(B.notches.length - 1), home.u], z: [hover, home.z + 6], arc: 8 });
-  legs.push({ f0: last + 13, f1: last + 16, u: [home.u, home.u], z: [home.z + 6, home.z], arc: 0 });
+  const one = ONE_PASS.at;
+  const H = ONE_PASS.hover;
+  // round by the clamp bar onto the single session's strip, over its first place 2 f before its eighth
+  legs.push({ f0: last + 3, f1: one[0]!.f - 2, u: [notchU(NOTCH.s.length - 1), notchU(0)], v: [V2, V1], z: [hover, H], arc: 5, way: true });
+  one.forEach((x, i) => {
+    // the dip: down over 2 f to `miss` on its eighth, back up over 2 f (never on the strip)
+    legs.push({ f0: x.f - 2, f1: x.f, u: [notchU(x.k), notchU(x.k)], v: [V1, V1], z: [H, ONE_PASS.miss], arc: 0 });
+    legs.push({ f0: x.f + 1, f1: x.f + 3, u: [notchU(x.k), notchU(x.k)], v: [V1, V1], z: [ONE_PASS.miss, H], arc: 0 });
+    const next = one[i + 1];
+    if (next) legs.push({ f0: x.f + 3, f1: next.f - 2, u: [notchU(x.k), notchU(next.k)], v: [V1, V1], z: [H, H], arc: 4 });
+  });
+  // back west along the strip's south edge onto the clamp bar, and down onto it at this row
+  const end = one[one.length - 1]!;
+  legs.push({ f0: end.f + 3, f1: end.f + 15, u: [notchU(end.k), home.u], v: [V1, V1], z: [H, home.z + 6], arc: 4 });
+  legs.push({ f0: end.f + 15, f1: end.f + 18, u: [home.u, home.u], v: [V1, V1], z: [home.z + 6, home.z], arc: 0 });
   return legs;
 })();
-/** The die's pose at f: its centre's sheet u and its face's z (v is DIE.v throughout). */
-export function dieAt(f: number): { u: number; z: number } {
+/** The frame the die is at rest on the clamp bar again, at the single session's row. */
+export const DIE_REST = ONE_PASS.at[ONE_PASS.at.length - 1]!.f + 18;
+/** The die's pose at f: its centre's sheet u and v and its face's z. */
+export function dieAt(f: number): { u: number; v: number; z: number } {
   let u: number = DIE.home.u;
+  let v: number = DIE.v;
   let z: number = DIE.home.z;
   for (const l of DIE_LEGS) {
     if (f < l.f0) break;
-    const e = easings.inOutSine(clamp((f - l.f0) / (l.f1 - l.f0)));
-    u = l.u[0] + (l.u[1] - l.u[0]) * e;
+    const t = clamp((f - l.f0) / (l.f1 - l.f0));
+    const e = l.way ? evenRun(t, 0.2) : easings.inOutSine(t);
+    if (l.way) [u, v] = PASS_WAY.at(e);
+    else {
+      u = l.u[0] + (l.u[1] - l.u[0]) * e;
+      v = l.v[0] + (l.v[1] - l.v[0]) * e;
+    }
     z = l.z[0] + (l.z[1] - l.z[0]) * e + l.arc * Math.sin(Math.PI * e);
   }
-  return { u, z };
+  return { u, v, z };
 }
 
 /** Where each punched notch's chad comes to rest: pushed out north by the die's face, clear of the strip, a little askew. */
@@ -386,8 +484,8 @@ export interface Beat8State {
   strips: [number, number, number];
   /** the told-to-delegate strip's cut notches (0..4) */
   notches: number;
-  /** the die: its centre's u and its face's z */
-  die: { u: number; z: number };
+  /** the die: its centre's u and v and its face's z */
+  die: { u: number; v: number; z: number };
   /** the punched chads sliding out or lying on the sheet */
   chads: ChadPose[];
   /** the long run's band: fed so far (u) */
@@ -417,7 +515,7 @@ export function beat8At(f: number): Beat8State | null {
       tokens: inkStage(f, stampAt('tokens')),
     },
     stampStep: { half: stampStepAt('half', f), ten: stampStepAt('ten', f) },
-    bracketSpring: springAt(f, E8.bracket, SPRING.dock),
+    bracketSpring: springAt(f, E8.bracket, SPRING.settle),
     strips: [stripFed(0, f), stripFed(1, f), stripFed(2, f)],
     notches: notchesPunched(f),
     die: dieAt(f),
@@ -470,7 +568,7 @@ export function footprints8(s: DeskState): Footprint[] {
   fp.push(rectFp(R(CLAMP.u0, CLAMP.u1, CLAMP.v0, CLAMP.v1), SHEET8.z, CLAMP.z - 0.25, 0.6, 4));
   fp.push(rectFp(R(TOKENS.clamp.u0, TOKENS.clamp.u1, TOKENS.clamp.v0, TOKENS.clamp.v1), SHEET8.z, TOKENS.clamp.z - 0.25, 0.6, 4));
   // the die, wherever it is (on the clamp, hovering, pressing)
-  fp.push(rectFp(R(e.die.u - DIE.w / 2, e.die.u + DIE.w / 2, DIE.v - DIE.d / 2, DIE.v + DIE.d / 2), e.die.z, e.die.z + DIE.h, 0.5, 5));
+  fp.push(rectFp(R(e.die.u - DIE.w / 2, e.die.u + DIE.w / 2, e.die.v - DIE.d / 2, e.die.v + DIE.d / 2), e.die.z, e.die.z + DIE.h, 0.5, 5));
   // the strips as far as they are out, the long run's band, the stacks' packs
   e.strips.forEach((len, i) => {
     if (len > 0.5) fp.push(rectFp(R(CLAMP.u1 - 2, ORIGIN_U + len, LANES8[i]!.strip[0], LANES8[i]!.strip[1]), SHEET8.z, Z8.strip - 0.05, 0.3, 1));

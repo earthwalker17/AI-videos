@@ -22,13 +22,13 @@ import { useThree } from '@react-three/fiber';
 import { useLayoutEffect, useMemo } from 'react';
 import { AlwaysDepth, BufferAttribute, DoubleSide, BufferGeometry, CircleGeometry, Color, DataTexture, LinearFilter, LinearMipmapLinearFilter, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace, ShaderMaterial, type MeshStandardMaterial } from 'three';
 import { LIGHTS } from '../DeskWorld.tsx';
-import { cylinderZ, disc, merge, plane, slab } from '../geom.ts';
+import { cylinderZ, latheZ, merge, plane, slab } from '../geom.ts';
 import { HEX, graphite, matte, paper } from '../gl/materials.ts';
 import { isStepped, useDeskMats, useDeskSets } from '../kit.tsx';
 import { BAYS, KEY, YOU, rectC, type P3 } from '../layout.ts';
 import { poolsAt } from '../pools.ts';
 import { SignedReply } from './Replies.tsx';
-import { LEGS, STAMP, STAMP_SLOT, TRACE_INK, inkHold, inkLight, legAt, rampEdgeZ, stampSlotAt, summaryDeskState, traceWidthAt, type SummaryState } from '../summary.ts';
+import { LEGS, STAMP, STAMP_BODY, STAMP_PRINT, STAMP_SLOT, TRACE_INK, inkHold, inkLight, legAt, rampEdgeZ, stampSlotAt, summaryDeskState, traceWidthAt, type SummaryState } from '../summary.ts';
 
 /** The desk state's step (kit.tsx isStepped's argument). */
 type SummaryStepArg = Parameters<typeof isStepped>[0];
@@ -129,21 +129,28 @@ function headOf(leg: Curve<P3>, a: number): { p: P3; w: number; t: number } {
 const touchDown = (leg: Curve<P3>, a: number): number => easings.inOutSine(clamp((a * leg.length) / (1.5 * traceWidthAt(0))));
 
 /**
- * Your stamp's green on the reply: a ring and a tick (MARK texels, the mark 34 u square), inked by a radial front
- * from its centre as the ink spreads from the contact (summary.ts inkAt): a mask, never a fade. Its texels are the
- * film's green, which the material's green tints again (as the signed-off canvas mark was drawn); the ink's own
- * edges are antialiased over one texel.
+ * Your stamp's green on the reply: its rubber's print, a framed tick (a rounded frame and a bold tick, MARK texels over the
+ * print's STAMP_PRINT, about two fifths of the reply: session 6's critic found the 20 px ringed tick did not register),
+ * inked by a radial front from its centre as the ink spreads from the contact (summary.ts inkAt): a mask, never a fade. Its
+ * texels are the film's green, which the material's green tints again (as the signed-off canvas mark was drawn); the ink's
+ * own edges are antialiased over one texel.
  */
 const MARK_RGB = [1, 3, 5].map((i) => parseInt(HEX.green.slice(i, i + 2), 16));
-const MARK = 64;
+/** The mark's texels (x, y) and texels per unit. */
+const MARK = { w: 128, h: 64 } as const;
+const MARK_K = MARK.w / STAMP_PRINT.w;
 const MARK_COVER = (() => {
-  const c = new Float32Array(MARK * MARK);
-  const k = MARK / 40;
-  const ring = { r: 16 * k, w: 1.7 * k };
+  const c = new Float32Array(MARK.w * MARK.h);
+  const k = MARK_K;
+  // the frame: a rounded rectangle inset 2 u, its stroke 3.2 u; the tick: 4.4 u, across most of it
+  const fr = { hx: (STAMP_PRINT.w / 2 - 2) * k, hy: (STAMP_PRINT.d / 2 - 2) * k, r: 6 * k, w: 1.6 * k };
+  const tw = 2.2 * k;
+  const cx = MARK.w / 2;
+  const cy = MARK.h / 2;
   const tick: [number, number][] = [
-    [11 * k, 21 * k],
-    [17 * k, 27 * k],
-    [29 * k, 13 * k],
+    [cx - 15 * k, cy + 1 * k],
+    [cx - 5 * k, cy - 9 * k],
+    [cx + 17 * k, cy + 11 * k],
   ];
   const seg = (px: number, py: number, a: [number, number], b: [number, number]) => {
     const dx = b[0] - a[0];
@@ -151,22 +158,28 @@ const MARK_COVER = (() => {
     const t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / (dx * dx + dy * dy));
     return Math.hypot(px - a[0] - dx * t, py - a[1] - dy * t);
   };
-  for (let r = 0; r < MARK; r++) {
-    // row 0 is the texture's bottom (v = 0): the canvas the mark was drawn on ran y down from its top
-    const y = MARK - (r + 0.5);
-    for (let x = 0; x < MARK; x++) {
+  // a rounded rectangle's signed distance (inside negative)
+  const box = (px: number, py: number) => {
+    const qx = Math.abs(px - cx) - (fr.hx - fr.r);
+    const qy = Math.abs(py - cy) - (fr.hy - fr.r);
+    return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - fr.r;
+  };
+  for (let r = 0; r < MARK.h; r++) {
+    // row 0 is the texture's bottom (v = 0): y runs up the mark (north), so the tick's foot is low and its long stroke rises east
+    const y = r + 0.5;
+    for (let x = 0; x < MARK.w; x++) {
       const px = x + 0.5;
-      const ringD = Math.abs(Math.hypot(px - MARK / 2, y - MARK / 2) - ring.r) - ring.w;
-      const tickD = Math.min(seg(px, y, tick[0], tick[1]), seg(px, y, tick[1], tick[2])) - ring.w;
-      c[r * MARK + x] = clamp(0.5 - Math.min(ringD, tickD));
+      const frameD = Math.abs(box(px, y)) - fr.w;
+      const tickD = Math.min(seg(px, y, tick[0], tick[1]), seg(px, y, tick[1], tick[2])) - tw;
+      c[r * MARK.w + x] = clamp(0.5 - Math.min(frameD, tickD));
     }
   }
   return c;
 })();
 /** The farthest inked texel from the mark's centre: the front's reach at a full spread. */
-const MARK_REACH = 16 * (MARK / 40) + 1.7 * (MARK / 40) + 1;
+const MARK_REACH = Math.hypot(MARK.w / 2, MARK.h / 2) + 1;
 function markTexture(): DataTexture {
-  const t = new DataTexture(new Uint8Array(MARK * MARK * 4), MARK, MARK);
+  const t = new DataTexture(new Uint8Array(MARK.w * MARK.h * 4), MARK.w, MARK.h);
   t.colorSpace = SRGBColorSpace;
   t.magFilter = LinearFilter;
   t.minFilter = LinearMipmapLinearFilter;
@@ -176,14 +189,14 @@ function markTexture(): DataTexture {
 function fillMark(t: DataTexture, ink: number): void {
   const data = t.image.data as Uint8Array;
   const front = ink * MARK_REACH;
-  for (let r = 0; r < MARK; r++) {
-    for (let x = 0; x < MARK; x++) {
-      const d = Math.hypot(x + 0.5 - MARK / 2, r + 0.5 - MARK / 2);
-      const o = (r * MARK + x) * 4;
+  for (let r = 0; r < MARK.h; r++) {
+    for (let x = 0; x < MARK.w; x++) {
+      const d = Math.hypot(x + 0.5 - MARK.w / 2, r + 0.5 - MARK.h / 2);
+      const o = (r * MARK.w + x) * 4;
       data[o] = MARK_RGB[0];
       data[o + 1] = MARK_RGB[1];
       data[o + 2] = MARK_RGB[2];
-      data[o + 3] = Math.round(255 * MARK_COVER[r * MARK + x] * clamp(front - d + 0.5));
+      data[o + 3] = Math.round(255 * MARK_COVER[r * MARK.w + x]! * clamp(front - d + 0.5));
     }
   }
   t.needsUpdate = true;
@@ -233,11 +246,40 @@ export function Trace({ a, printFamily, step }: { a: SummaryState; printFamily: 
   }, [inks, holdKey]);
   const g = useMemo(() => {
     const route = (leg: Curve<P3>) => ribbon(leg, SEG);
-    // the stamp: a rubber pad (its face a little wider than the mark it prints), a graphite stem, an enamel knob; built
-    // about its pad's underside, posed each frame (summary.ts stampAt: at rest beside the in-tray, or pressing the reply)
-    const stamp = { pad: slab({ x0: -18, x1: 18, y0: -16, y1: 16 }, 0, 8, 3, 1.2), stem: cylinderZ(5, 8, 34, 0, 0, 16), knob: disc(11, 34, 42, { cx: 0, cy: 0, bevel: 3 }) };
-    // the request's reply (#0405: objects/Replies.tsx SignedReply), on top in the tray, and its green: a ring and a tick at its east end
-    const mark = plane(34, 34, STAMP.mark[0], STAMP.mark[1], STAMP.paperZ + 0.35, 0.06);
+    // the stamp (summary.ts STAMP_BODY): its rubber face (dark, its edge showing round the mount: it reads by its
+    // silhouette), a graphite mount over it, and a turned handle in a mid value: a steel ferrule on the mount, a neck and a
+    // pear-shaped bulb, its top rounded over (never an enamel disc: session 6's review C-R6 read that as a button and found
+    // it tied the stamped reply for the frame's top value); built about its pad's underside, posed each frame (summary.ts
+    // stampAt: at rest beside the in-tray, or pressing the reply)
+    const B = STAMP_BODY;
+    const zM = B.pad.h;
+    const zS = zM + B.mount.h;
+    const zK = zS + B.stem.h;
+    const [rn, rk, hk] = [B.stem.r, B.knob.r, B.knob.h];
+    const handle = latheZ(
+      [
+        [0.01, zS],
+        [rn + 1.5, zS],
+        [rn, zS + 3],
+        [rn - 0.5, zK - 3],
+        [rn + 2, zK],
+        [rk * 0.72, zK + hk * 0.22],
+        [rk, zK + hk * 0.5],
+        [rk * 0.94, zK + hk * 0.72],
+        [rk * 0.7, zK + hk * 0.9],
+        [rk * 0.36, zK + hk * 0.99],
+        [0.01, zK + hk],
+      ],
+      32,
+    );
+    const stamp = {
+      pad: slab({ x0: -B.pad.w / 2, x1: B.pad.w / 2, y0: -B.pad.d / 2, y1: B.pad.d / 2 }, 0, zM, 1.5, 0.8),
+      mount: slab({ x0: -B.mount.w / 2, x1: B.mount.w / 2, y0: -B.mount.d / 2, y1: B.mount.d / 2 }, zM, zS, 5, 2),
+      ferrule: cylinderZ(rn + 4, zS, zS + 3, 0, 0, 28, rn + 3),
+      handle,
+    };
+    // the request's reply (#0405: objects/Replies.tsx SignedReply), on top in the tray, and its green: the framed tick on its south half
+    const mark = plane(STAMP_PRINT.w, STAMP_PRINT.d, STAMP.mark[0], STAMP.mark[1], STAMP.paperZ + 0.35, STAMP.turn);
     // the hatch it comes up out of (built about the hole's centre): two leaves of your desk's top (a unit wide, west of x 0,
     // posed to what of each is still over the hole: the rest has slid under the desk's top), a steel lip along each inner
     // edge (seen as they part); the pit under them (its walls and its floor, never darker than the slate's floor tone); the
@@ -390,8 +432,9 @@ export function Trace({ a, printFamily, step }: { a: SummaryState; printFamily: 
       {/* the stamp, squashed about its pad's underside as its rubber takes the press (its volume kept); drawn after the punch, so it shows in the open pit */}
       <group position={sp.p} rotation={[0, 0, sp.turn]} scale={[1 + sp.squash / 2, 1 + sp.squash / 2, 1 - sp.squash]}>
         <mesh geometry={g.stamp.pad} material={m.rubber} renderOrder={12} />
-        <mesh geometry={g.stamp.stem} material={m.graphite} renderOrder={12} />
-        <mesh geometry={g.stamp.knob} material={m.enamel} renderOrder={12} />
+        <mesh geometry={g.stamp.mount} material={m.graphite} renderOrder={12} />
+        <mesh geometry={g.stamp.ferrule} material={m.steel} renderOrder={12} />
+        <mesh geometry={g.stamp.handle} material={m.graphiteDark} renderOrder={12} />
       </group>
       <SignedReply printFamily={printFamily} />
       <mesh geometry={g.mark} material={mats.mark} renderOrder={2} />

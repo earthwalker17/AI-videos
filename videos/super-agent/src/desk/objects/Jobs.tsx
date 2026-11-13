@@ -70,15 +70,20 @@ export function JobRail({ dz = 0 }: { dz?: number }) {
   );
 }
 
-/** The oval's geometry: its plate, the raised rail with a rim on each side, the steel running strip on it (built once). */
+/**
+ * The oval's geometry: its plate, the raised rail with a rim on each side (the outer one a lit enamel lip, 3 u wide, so the
+ * track and the test's lap read on the dark slate at 0.85x: session 6's critics found it dark on dark), the steel running
+ * strip on it (built once).
+ */
 function useOvalGeometry() {
   const g = useMemo(() => {
     const w = OVAL.railW / 2;
     const plate = extrude(racetrack(OVAL.r + w + OVAL.plate) as Shape, 0, OVAL.z, 1.5, 1);
     const rail = band(OVAL.r + w, OVAL.r - w, OVAL.z, OVAL.railZ, 1);
-    const rims = merge([band(OVAL.r + w + 0.2, OVAL.r + w - 1.4, OVAL.railZ - 0.2, OVAL.railZ + 0.9, 0.3), band(OVAL.r - w + 1.4, OVAL.r - w - 0.2, OVAL.railZ - 0.2, OVAL.railZ + 0.9, 0.3)]);
+    const lip = band(OVAL.r + w + 1, OVAL.r + w - 2, OVAL.railZ - 0.2, OVAL.railZ + 1.1, 0.4);
+    const rims = band(OVAL.r - w + 1.4, OVAL.r - w - 0.2, OVAL.railZ - 0.2, OVAL.railZ + 0.9, 0.3);
     const strip = band(OVAL.r + 1.6, OVAL.r - 1.6, OVAL.railZ - 0.05, OVAL.stripZ, 0.2);
-    return { plate, rail, rims, strip };
+    return { plate, rail, lip, rims, strip };
   }, []);
   useLayoutEffect(() => () => Object.values(g).forEach((x) => x.dispose()), [g]);
   return g;
@@ -91,6 +96,7 @@ export function OvalTrack({ dz = 0 }: { dz?: number }) {
     <group position={[0, 0, dz]}>
       <mesh geometry={g.plate} material={m.graphiteDark} />
       <mesh geometry={g.rail} material={m.graphite} />
+      <mesh geometry={g.lip} material={m.enamel} />
       <mesh geometry={g.rims} material={m.steel} />
       <mesh geometry={g.strip} material={m.steel} />
     </group>
@@ -252,26 +258,42 @@ export function Glass({ pose }: { pose: GlassPose }) {
 }
 void GLASS_REST;
 
-/** The Productive plate (as objects/Filter.tsx's Proactive plate: a graphite back, an enamel body, its engraved face), `dz` under its dock while it rises. */
-export function ProductivePlate({ dz, face }: { dz: number; face: Texture }) {
+/**
+ * The Productive plate (as objects/Filter.tsx's Proactive plate: a graphite back, an enamel body, its engraved face), `dz`
+ * under its dock while it rises; `words` (0..1, default all): how much of its engraved face is written on from its west
+ * edge (beat7.ts productivePlateAt), the enamel body's blank top showing east of it.
+ */
+export function ProductivePlate({ dz, face, words = 1 }: { dz: number; face: Texture; words?: number }) {
   const g = useMemo(() => {
     const B = PRODUCTIVE_PLATE.box;
     const [z0, z1] = PRODUCTIVE_PLATE.z;
     return { back: slab(B, z0, z0 + 1.6, 4, 0.8), body: slab(inset(B, 3), z0 + 1.6, z1, 3, 1), face: planeOn(inset(B, 5), z1 + 0.2) };
   }, []);
   useLayoutEffect(() => () => Object.values(g).forEach((x) => x.dispose()), [g]);
-  return <WithMats>{(m) => <PlateBody g={g} m={m} dz={dz} face={face} />}</WithMats>;
+  return <WithMats>{(m) => <PlateBody g={g} m={m} dz={dz} face={face} words={words} />}</WithMats>;
 }
-function PlateBody({ g, m, dz, face }: { g: { back: BufferGeometry; body: BufferGeometry; face: BufferGeometry }; m: ReturnType<typeof useDeskMats>; dz: number; face: Texture }) {
+function PlateBody({ g, m, dz, face, words }: { g: { back: BufferGeometry; body: BufferGeometry; face: BufferGeometry }; m: ReturnType<typeof useDeskMats>; dz: number; face: Texture; words: number }) {
   const mode = useStepMode();
   // its engraved face: the kit's enamel (the room's light on it) with the plate's words for a map, in this set's mode
   const mat = useMemo(() => enamel(face, (m.enamel as MeshPhysicalMaterial).envMap!, HEX.enamel, { stepped: mode }), [face, m, mode]);
   useLayoutEffect(() => () => mat.dispose(), [mat]);
+  const k = Math.min(1, Math.max(0, words));
+  // the written part: the face's west k of its width, its map cut to match (the texture's u 0..k), so nothing stretches
+  useLayoutEffect(() => {
+    face.repeat.set(Math.max(1e-3, k), 1);
+  }, [face, k]);
+  const x0 = PRODUCTIVE_PLATE.box.x0 + 5;
   return (
     <group position={[0, 0, dz]}>
       <mesh geometry={g.back} material={m.graphiteDark} />
       <mesh geometry={g.body} material={m.enamel} />
-      <mesh geometry={g.face} material={mat} />
+      {k >= 1 ? (
+        <mesh geometry={g.face} material={mat} />
+      ) : k > 0 ? (
+        <group position={[x0, 0, 0]} scale={[k, 1, 1]}>
+          <mesh geometry={g.face} material={mat} position={[-x0, 0, 0]} />
+        </group>
+      ) : null}
     </group>
   );
 }

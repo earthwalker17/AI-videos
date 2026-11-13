@@ -44,7 +44,7 @@ import { FRAMING_D, deskCamera, project, screenToDesk } from './camera.ts';
 import { carrierSpan, rectFp, type Footprint } from './fpKit.ts';
 import { BAYS, CHUTE, CORDS, DECK, GATE, PROACTIVE_PLATE, THROAT, TRAIT_PLATE, WINDOW, YOU, rectC, type P2, type P3, type Pool, type Rect } from './layout.ts';
 import type { TagSpec } from './Overlay.tsx';
-import { SPRING, springAt } from './springs.ts';
+import { SPRING, STEP_FRAMES, springAt } from './springs.ts';
 import { REPLY_LEAD, replyPose, type DeskState, type FocusId, type LampStep, type ReplyState, type SlipRide } from './state.ts';
 import { CHORES, YOU_POSE_B, type YouPose } from './you.ts';
 
@@ -292,7 +292,8 @@ const GATE_POST: P3 = [CORDS.vermilion[CORDS.vermilion.length - 1]![0] - 5, BAYS
  * batching on the throat, set south in the clear slate between your desk and the first bay (its leader the gap between
  * them); full-duplex on the Thread's gate standing open on the request's bay's north wall (the bay's open door), set in
  * the clear slate north-east of it between the cord and the vellum; the compute–state split on the vellum state
- * cabinet, set right of it (EN broken between its words, zh under it); the control loop on the Watchdog's station, set
+ * cabinet, set right of it (EN broken after its dash, so no word stands alone and the block stands clear of the cabinet
+ * on a real hairline: session 6's L4-09, zh under it); the control loop on the Watchdog's station, set
  * east of it in the clear slate under the cabinet (its leader short and level onto the station's east edge).
  */
 export const TAGS_11: readonly TagSpec[] = [
@@ -300,7 +301,7 @@ export const TAGS_11: readonly TagSpec[] = [
   { cue: 'ideas', reveal: 'leader', id: 'idea-batching', from: BEAT_11.ideas[1]!, words: WORDS.ideaBatching, lines: twoLines(WORDS.ideaBatching), gap: 48, at: [650, 750], anchor: 'start', foot: [THROAT.box.x0 + 14, THROAT.box.y0 + 2, THROAT.z[1]] },
   { cue: 'ideas', reveal: 'leader', id: 'idea-cache', from: BEAT_11.ideas[2]!, words: WORDS.ideaCache, lines: twoLines(WORDS.ideaCache), gap: 46, at: [790, 124], anchor: 'start', foot: [-137, WINDOW.frame.y1 - WINDOW.bar / 2, WINDOW.z[1] + 1] },
   { cue: 'ideas', reveal: 'leader', id: 'idea-duplex', from: BEAT_11.ideas[3]!, words: WORDS.ideaDuplex, lines: twoLines(WORDS.ideaDuplex), gap: 46, at: [1216, 392], anchor: 'start', foot: GATE_POST },
-  { cue: 'ideas', reveal: 'leader', id: 'idea-split', from: BEAT_11.ideas[4]!, words: WORDS.ideaSplit, lines: { en: ['compute–state', 'split'], zh: [WORDS.ideaSplit['zh-Hans']] }, gap: 42, at: [1824, 676], anchor: 'end', foot: [986, -230, 1] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-split', from: BEAT_11.ideas[4]!, words: WORDS.ideaSplit, lines: { en: ['compute–', 'state split'], zh: [WORDS.ideaSplit['zh-Hans']] }, gap: 42, at: [1824, 676], anchor: 'end', foot: [986, -230, 1] },
   { cue: 'ideas', reveal: 'leader', id: 'idea-control', from: BEAT_11.ideas[5]!, words: WORDS.ideaControl, lines: twoLines(WORDS.ideaControl), gap: 42, at: [1416, 818], anchor: 'start', foot: WATCH_EAST },
 ];
 
@@ -444,6 +445,13 @@ export function collarAt(f: number, pose: YouPose): CollarPose | null {
  * the Register's deck and its parts, the gate, the belt, the spike, the folders' feeders, beat 7's job rail, the route's
  * inks and the bay's cap (objects/Trace.tsx 'b11-trace'), the vellum parts (objects/Proposed.tsx 'b11-proposed').
  */
+/**
+ * The map key's words under 11.4's step-down (objects/Beat11.tsx Beat11Text): faded with the world to 55% on its ramp (STEP_FRAMES
+ * from BEAT_11.stepDown, the summary's step), so the key never holds the frame's top over your desk and the stamped reply
+ * (session 6's critic L4-06: it stayed full white through the step). Its opacity factor at f.
+ */
+export const KEY_STEP = { from: BEAT_11.stepDown, to: 0.55 } as const;
+export const keyStepAt = (f: number): number => 1 - (1 - KEY_STEP.to) * easings.inOutSine(clamp((f - KEY_STEP.from) / STEP_FRAMES));
 export const STEP_11: readonly FocusId[] = ['gate', 'belt', 'head', 'index', 'mouth', 'deck', 'chute', 'proactive', 'spike', 'jaws', 'bosses', 'testsBay', 'folders', 'stress', 'b7-rail', 'b7-plate', 'b11-trace', 'b11-proposed'];
 
 /**

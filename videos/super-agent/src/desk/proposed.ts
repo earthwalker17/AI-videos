@@ -35,8 +35,19 @@ export const LOOP_SHEET = { x0: 760, x1: 990, y0: -86, y1: 286 } as const;
 export const clipX = (i: number): number => MACHINES_9[i]!.c[0] - MACHINES_9[i]!.w / 2 - 36;
 
 /**
- * The etch (10.1, beat10.ts): along each tether from the loop's port to its machine, arriving on BEAT_10.etch[i] (one
- * machine per beat), each run `run` frames; the loop's sheet and the plan of the deck are etched from the intrusion; it
- * recedes from `recede` (the sheets first, then each tether from its port out), all of it gone by `gone`.
+ * The etch's crawl (10.1, beat10.ts CRAWL_PATH): from the intrusion (the hatched slip lying in the throat) a hatched band
+ * crawls out from under it along the deck's south rail and on east to the loop's sheet, arriving on `to` (from rest, at
+ * the film's route-drawing pace: about 30 px a frame at 0.64x). Its tail sets out from the throat after it (`back`, over
+ * `backRun`, easing into the loop's corner), so it travels into the loop as the loop etches and is gone as the first
+ * machine is reached: never held as a static connector across the slate (session 6's review, C-R5: held about 60 f, its
+ * last leg read as an extra tether or a rope). Session 6's critics: the etch appeared on the loop 700 px from the throat
+ * with nothing carrying it.
  */
-export const ETCH = { run: 16, sheets: [BEAT_10.hatch.register, BEAT_10.hatch.register + 18] as const, recede: BEAT_10.etch[2] + 4, recedeRun: 14, gone: BEAT_10.query + 12 } as const;
+export const CRAWL = { from: BEAT_10.hatch.register, to: BEAT_10.hatch.register + 26, back: BEAT_10.hatch.register + 12, backRun: 26 } as const;
+/**
+ * The etch (10.1, beat10.ts): the loop's sheet (north to south) and the plan of the deck from as the crawl arrives at the
+ * loop's north-west corner (`sheets`), then along each tether from the loop's port to its machine, arriving on
+ * BEAT_10.etch[i] (one machine per beat), each run `run` frames; it recedes from `recede` (the sheets first, then each
+ * tether from its port out), all of it gone by `gone`.
+ */
+export const ETCH = { run: 12, sheets: [CRAWL.to - 2, CRAWL.to + 8] as const, recede: BEAT_10.etch[2] + 4, recedeRun: 14, gone: BEAT_10.query + 12 } as const;

@@ -15,8 +15,8 @@
  * standing in for things, never three equal cards in a row). The strike is a heavy ink rule laid corner to corner over
  * everything on it: ink, never a glow.
  */
-import { useLayoutEffect, useMemo } from 'react';
-import { CanvasTexture, Color, MeshBasicMaterial, Path, Shape, ShapeGeometry, SRGBColorSpace, type BufferGeometry, type Texture } from 'three';
+import { useLayoutEffect, useMemo, useRef } from 'react';
+import { CanvasTexture, Color, MeshBasicMaterial, Path, Plane, Shape, ShapeGeometry, SRGBColorSpace, type BufferGeometry, type Group, type Material, type Mesh, type Object3D, type Texture } from 'three';
 import { textCanvas } from '@aiv/remotion-kit';
 import { useThree } from '@react-three/fiber';
 import { extrude, merge } from '../geom.ts';
@@ -147,12 +147,36 @@ function faceUv(g: BufferGeometry, w: number, h: number): BufferGeometry {
 }
 
 /**
+ * A card that slides out of a slot (beat7.ts SLOT_7): every material under it (its stock, rim, shadow, play and strike) is
+ * cut by one world plane, the side where n·p + d < 0 not drawn. Without a clip, nothing this set is left on them.
+ */
+function clipCard(root: Object3D, plane: Plane | null): void {
+  root.traverse((o) => {
+    const m = (o as Mesh).isMesh ? (o as Mesh).material : null;
+    for (const x of m ? (Array.isArray(m) ? m : [m]) : []) {
+      const d = x.userData as { cardClip?: boolean };
+      if (plane) {
+        if (!d.cardClip || x.clippingPlanes?.[0] !== plane) x.clippingPlanes = [plane];
+        d.cardClip = true;
+      } else if (d.cardClip) {
+        (x as Material).clippingPlanes = null;
+        delete d.cardClip;
+      }
+    }
+  });
+}
+
+/**
  * A counterfactual card at its pose; `inFrame`: how far it is in (beat4.ts cardIn, 0 off frame .. 1 at its place): its contact
  * shadow, which reaches past the card's lowest edge, comes in and goes with it, so on the last frame the card is drawn
- * (wholly beyond the frame's top) nothing of its shadow is left at the frame's edge to vanish the frame after.
+ * (wholly beyond the frame's top) nothing of its shadow is left at the frame's edge to vanish the frame after. `clip`
+ * (beat7.ts SLOT_7, [nx, ny, nz, d] in world units): a card sliding out of a slot is drawn only on the plane's kept side,
+ * its contact shadow with it (pass `inFrame` 1: the slot hides what is not out yet).
  */
-export function Counterfactual({ pose, w, h, strike, inFrame = 1, children }: { pose: CardPose; w: number; h: number; strike: number; inFrame?: number; children?: React.ReactNode }) {
+export function Counterfactual({ pose, w, h, strike, inFrame = 1, clip, children }: { pose: CardPose; w: number; h: number; strike: number; inFrame?: number; clip?: readonly [number, number, number, number]; children?: React.ReactNode }) {
+  const root = useRef<Group>(null);
   const gl = useThree((st) => st.gl);
+  const plane = useMemo(() => new Plane(), []);
   const mats = useMemo(() => {
     const face = cardFace(w, h, Math.min(8, gl.capabilities.getMaxAnisotropy()));
     const white = whiteTexture();
@@ -208,8 +232,19 @@ export function Counterfactual({ pose, w, h, strike, inFrame = 1, children }: { 
   const b: P2 = [w / 2 - 18, -h / 2 + 14];
   const L = Math.hypot(b[0] - a[0], b[1] - a[1]) * strike;
   const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+  // (written every frame, after the children have mounted their materials)
+  const [cx, cy, cz, cd] = clip ?? [0, 0, 1, 0];
+  useLayoutEffect(() => {
+    if (clip) {
+      // a material's own clipping planes are honoured only with the renderer's local clipping on (a material without any is drawn as before)
+      gl.localClippingEnabled = true;
+      plane.normal.set(cx, cy, cz);
+      plane.constant = cd;
+    }
+    if (root.current) clipCard(root.current, clip ? plane : null);
+  });
   return (
-    <group position={pose.c} rotation={[pose.tilt, 0, 0]}>
+    <group ref={root} position={pose.c} rotation={[pose.tilt, 0, 0]}>
       <mesh geometry={g.shadow} material={mats.shadow} position={[SHADOW.dx, SHADOW.dy, -3]} />
       <mesh geometry={g.sheet} material={mats.card} />
       <mesh geometry={g.rim} material={mats.rim} />

@@ -68,19 +68,35 @@ export const FOCUS_LEAD = 5;
 
 // ------------------------------------------------------------------------------------------------
 // Your stamp (STORYBOARD 11.1, TREATMENT Relationships "Stamp"): act two's desk has none, so in the summary's world it
-// waits in a pit in your desk under a shut hatch west of the in-tray (its leaves your desk's own top, so the seam and the
-// stillness before the stamp, f5420-5431, show nothing). For the sign-off the hatch's leaves part (3 f, the film's slate
-// hatches' grammar: objects/Trace.tsx), the stamp comes up out of the pit knob first (5 f, `sunk` to `lift` over the
-// desk) and the leaves shut under it; it is carried over the tray's rim to the reply's east end (5 f) and presses onto it
-// on spring-dock (5 f): its pad touches the paper on the cue (the contact frame), the spring's overshoot taken up as a 4%
-// squash of its rubber. Its green spreads from the contact over 6 f (a radial ink front, never a fade). Then it lifts off
-// and is carried back to its rest on the shut hatch (8 f), landing on spring-dock.
+// waits in a pit in your desk under a shut hatch west of the in-tray, under your lamp's hood (its leaves your desk's own
+// top, so the seam and the stillness before the stamp, f5420-5431, show nothing). For the sign-off the hatch's leaves part
+// (3 f, the film's slate hatches' grammar: objects/Trace.tsx), the stamp comes up out of the pit knob first (3 f, `sunk`
+// to `lift` over the desk: the hatch is open before anything of it crosses the desk's top) and is carried over the tray's
+// rim to the reply (5 f), the leaves shutting behind it as it leaves the hole (2 f, each leaf's edge under the stamp's
+// trailing edge: the pit never shows once it has gone, session 6's critic L4-02), and presses onto the reply on spring-dock
+// (5 f): its pad touches the paper on the cue (the contact frame), the spring's overshoot taken up as a 4% squash of its
+// rubber. Its green spreads from the contact over 6 f (a radial ink front, never a fade). Then it lifts off and is carried
+// back to its rest on the shut hatch (8 f), landing on spring-dock. A rubber stamp of the hand's size (STAMP_BODY: its
+// rubber face 96 x 58 u, about 61 x 37 px at 0.64x, a strip of it showing round a graphite mount, and a turned handle in a
+// mid value on a steel ferrule), so it reads as one at the whole desk by its silhouette, never as a button (session 6's
+// review, C-R6: an enamel knob and a paper label tied the stamped reply for the frame's top value beside the lamp).
+
+/** The stamp's parts (u): the rubber pad (its face, wider than the mount so its edge shows), the mount block over it, the handle's neck (stem) and its turned bulb (knob), heights stacked from the pad's underside. */
+export const STAMP_BODY = { pad: { w: 96, d: 58, h: 6 }, mount: { w: 88, d: 50, h: 12 }, stem: { r: 6, h: 12 }, knob: { r: 17, h: 22 } } as const;
+/** Its whole height (the knob's top over the pad's underside). */
+export const STAMP_H = STAMP_BODY.pad.h + STAMP_BODY.mount.h + STAMP_BODY.stem.h + STAMP_BODY.knob.h;
+/** The green it prints (u): a framed tick, about a third of the reply (REPLY_0405 104 x 72 u) and more. */
+export const STAMP_PRINT = { w: 72, d: 36 } as const;
 
 export const STAMP = {
-  /** the pad's centre at rest, on your desk (z: its underside) */
-  rest: [YOU.inTray.x0 - 34, rectC(YOU.inTray)[1] + 6, YOU.top] as P3,
-  /** where it prints: the reply's east end, under its ID (objects/Trace.tsx lays the reply there, turned `turn`) */
-  mark: [rectC(YOU.inTray)[0] + 28, YOU.inTray.y1 - 62] as P2,
+  /**
+   * the pad's centre at rest, on your desk (z: its underside): west of the in-tray, north of the blotter (its hatch clear of
+   * both and inside the slab), as far north as the hatch allows, so at the bookend's framing its south edge stays over C28's
+   * line (summary.test); no farther west than its 5 f carry allows (at most 46 u a frame to the mark)
+   */
+  rest: [YOU.inTray.x0 - 80, YOU.slab.y1 - 32, YOU.top] as P3,
+  /** where it prints: the reply's south half, under its ID (objects/Trace.tsx lays the reply there, turned `turn`) */
+  mark: [REPLY_0405.rest[0] - 12, REPLY_0405.rest[1] - 16] as P2,
   turn: 0.06,
   /** the pad's underside on the reply (beat10.ts REPLY_0405: where #0405 lies on top in your in-tray), a hair over it */
   paperZ: REPLY_0405.rest[2] + 0.05,
@@ -88,8 +104,8 @@ export const STAMP = {
   lift: 30,
   liftFrames: 3,
   /** how far under its rest it waits in the pit (its knob's top 2 u under the desk's), and over how many frames it comes up out of it to the lift's height */
-  sunk: 44,
-  riseFrames: 5,
+  sunk: STAMP_H + 2,
+  riseFrames: 3,
   /** the carry across (sine), from the frame its pad has cleared the desk, ending on the contact; and the carry home */
   carryFrames: 5,
   homeFrames: 8,
@@ -105,8 +121,8 @@ export const STAMP = {
 /** The press's spring starts so that it first reaches the paper on the contact frame. */
 const PRESS_F = STAMP_F - 3;
 const CARRY_F = STAMP_F - STAMP.carryFrames;
-/** It comes up out of the pit over (RISE_F, RISE_F + riseFrames], reaching the lift's height as the press starts. */
-const RISE_F = PRESS_F - STAMP.riseFrames;
+/** It comes up out of the pit over (RISE_F, RISE_F + riseFrames], at the lift's height as the carry starts. */
+const RISE_F = CARRY_F - STAMP.riseFrames;
 const BACK_F = STAMP_F + STAMP.back;
 /** The landing at rest: its spring starts so that it first meets the desk as the carry home ends. */
 const LAND_F = BACK_F + STAMP.homeFrames - 3;
@@ -154,8 +170,8 @@ export const inkAt = (f: number): number => clamp((f - STAMP_F + 1) / STAMP.spre
  * moving from f5432 (open over 3 f, the stamp rising in the open hatch from the frame after), shut again over 3 f once the
  * stamp's pad has cleared the desk's top; the stamp lands home on it shut. `depth`: the pit's floor under the desk's top.
  */
-export const STAMP_SLOT = { w: 44, d: 40, depth: STAMP.sunk + 4, open: RISE_F - 1, shut: CARRY_F + 1, frames: 3 } as const;
-export const stampSlotAt = (f: number): number => easings.inOutSine(clamp((f - STAMP_SLOT.open) / STAMP_SLOT.frames)) * (1 - easings.inOutSine(clamp((f - STAMP_SLOT.shut) / STAMP_SLOT.frames))) + 0;
+export const STAMP_SLOT = { w: Math.max(STAMP_BODY.pad.w, STAMP_BODY.mount.w) + 8, d: Math.max(STAMP_BODY.pad.d, STAMP_BODY.mount.d) + 4, depth: STAMP.sunk + 4, open: RISE_F - 1, shut: CARRY_F, frames: 3, shutFrames: 2 } as const;
+export const stampSlotAt = (f: number): number => easings.inOutSine(clamp((f - STAMP_SLOT.open) / STAMP_SLOT.frames)) * (1 - easings.inOutSine(clamp((f - STAMP_SLOT.shut) / STAMP_SLOT.shutFrames))) + 0;
 
 // ------------------------------------------------------------------------------------------------
 // The trace's drawing: each leg's head runs at an even speed on screen, measured through still (d)'s camera (a
@@ -855,7 +871,15 @@ export const TETHER_W = 16;
  * film.ts LABELS_D). At FRAMING_B (10.2-10.3, after bar 65's dolly) its static sheet lies in the frame's lower-right corner,
  * partly below the band, about 140 px east of the notes' line ends (N9, N10): never on a word.
  */
-export const FLAG: P3 = [FRESH.box.x1 - 24, FRESH.box.y0 + 12, FRESH.wallH + 0.6];
+/**
+ * The pencil flag's foot, where the sightline pins it: on the stuck bay's south-east corner, in the nameplate band where it
+ * meets the east wall (session 6: it stood 24 u further west, its pennant flying west over the bay's tool rack, where it read
+ * as the bay's clutter), so its staff stands up the east wall's top, clear of the bay body, and its pennant flies east over
+ * the bare slate between the bay and the loop's sheet (objects/Proposed.tsx flagSheet).
+ */
+export const FLAG: P3 = [FRESH.box.x1 - FRESH.wall / 2, FRESH.box.y0 + 8, FRESH.wallH + 0.6];
+/** The flag's staff (u, north from its foot), its pennant (u: east from the staff's top, down the staff) and how far its foot's staff runs over the nameplate band (u), objects/Proposed.tsx flagSheet. */
+export const FLAG_SHAPE = { staff: 104, pennant: [52, 44] as const, band: FRESH.southWall - 8 } as const;
 export const WATCHDOG = { c: [605, -356] as P2, w: 190, d: 150, look: [FLAG[0], FLAG[1]] as P2 } as const;
 /** Pencil "?" marks (open problems: STORYBOARD 10.1–10.3), at least 64 px on screen (about 100 u of glyph at 0.64×). */
 export const QUERY_SIZE = 136;
