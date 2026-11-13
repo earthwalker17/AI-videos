@@ -29,8 +29,11 @@ to be worth watching. A look-rework session now comes before the build. The rema
 (captions, Bilibili publishing) move back one session. The reworked look (the Register Desk,
 lookdev round 2) was signed off on 2026-11-10. Session 4 (2026-11-10 to 11-11) built part 1:
 the film plays as one continuous world, beats 1–6 (f0–3439) are built on draft renders, an
-animatic covers the rest, and the score is laid on the 84 bars (composed for bars 1–43). Part 2
-(beats 7–13 and the rest of the score) is next.
+animatic covers the rest, and the score is laid on the 84 bars (composed for bars 1–43). Session 5
+(2026-11-12 to 11-13) built part 2: beats 7–13 and the score for bars 44–84. Session 6
+(2026-11-13) dropped the zh caption line (the film is YouTube only), ran two whole-film critic
+rounds with a fix wave between them, and passed QA on the full draft. The user's review is next,
+then the review cut.
 - [x] **Determinism lint for 2D DOM work** (2026-11-08): frame code may not use CSS
   `transition`/`animation`/`@keyframes`, the Web Animations API or `ResizeObserver`/
   `IntersectionObserver`.
@@ -59,11 +62,13 @@ animatic covers the rest, and the score is laid on the 84 bars (composed for bar
 - [ ] **The build** (the video's README has the session plan):
   - [x] part 1 (session 4, 2026-11-11): beats 1–6, the animatic and the score for bars 1–43, on
     draft renders;
-  - [ ] part 2: beats 7–13 and the rest of the score; then the review cut.
+  - [x] part 2 (sessions 5–6, 2026-11-13): beats 7–13, the score for bars 44–84 and two
+    whole-film critic rounds, on draft renders;
+  - [ ] the user's review, then the review cut.
 - [ ] **Two-user promotions:** `readingSeconds` and the hold rule → `@aiv/core` are done
   (2026-11-08). Still to do:
-  - the bilingual caption pattern and the cue-text helpers → `@aiv/remotion-kit` / `@aiv/core`,
-    when the film's notes block settles;
+  - the caption pattern and the cue-text helpers → `@aiv/remotion-kit` / `@aiv/core`: the
+    film's notes block has settled (an EN line, a second-language line optional);
   - the film's 2D motion kit (`videos/super-agent/src/kit/`), promoted with the next 2D explainer.
 - [ ] **Captions:** an SRT draft generator from cue-sheet text events and a per-language
   subtitle linter (the limits in `references/subtitles.md`), in `@aiv/pipeline` and `aiv`.
