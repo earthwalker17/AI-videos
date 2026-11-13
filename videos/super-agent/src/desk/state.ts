@@ -2,7 +2,7 @@
  * What the Register Desk is doing at a film frame: a pure function of the frame, so any frame
  * renders the same whichever frame its page started on.
  *
- * Around style frame (b) (C12 "Workers report up. Only the Router talks to you.") the handshake runs
+ * Around style frame (b) (C12 "Workers report up. Only the Router answers you.") the handshake runs
  * in cause order (STORYBOARD 4.6, synthesis §5 MT1), all inside MT1 (f2140–2340):
  * - 2140 the test tower's lamps go out one by one as their tests finish (2 f stagger); its cap swings
  *   shut over 8 f and lands on the 2160 downbeat; its work light dims from there;

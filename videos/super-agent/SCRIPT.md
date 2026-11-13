@@ -73,7 +73,7 @@ whether N11 goes to buy more (it is the first line to cut).
 | N2 | 4 | f1820–1970 | 1:00.7–1:05.7 | 4.60 s | 4.10 s | Why? Every task passes here; it must never be the bottleneck. |
 | C11 | 4 | f1980–2130 | 1:06.0–1:11.0 | 4.60 s | 3.83 s | Below: each task gets its own Worker, context and tools. |
 | Built tag | 4 | f2000–2130 | 1:06.7–1:11.0 | 3.93 s | 3.57 s | two levels: built in the public research prototype |
-| C12 | 4 | f2130–2260 | 1:11.0–1:15.3 | 3.93 s | 3.37 s | Workers report up. Only the Router talks to you. |
+| C12 | 4 | f2130–2260 | 1:11.0–1:15.3 | 3.93 s | 3.37 s | Workers report up. Only the Router answers you. |
 | N3 | 5 | f2320–2460 | 1:17.3–1:22.0 | 4.27 s | 3.70 s | It listens for events, so no one has to prompt each run. |
 | Gate tag | 5 | f2320–2630 | 1:17.3–1:27.7 | 9.93 s | 3.17 s | prototype: proactive pickup off by default |
 | C14 | 5 | f2470–2630 | 1:22.3–1:27.7 | 4.93 s | 3.90 s | By design: rules drop most noise; a model judges the rest. |
@@ -197,7 +197,7 @@ earlier, or drop a line of the card).
 | N2 | 4 | f1820–1970 | 1:00.7–1:05.7 | 4.60 s | 4.54 s | 为什么？任务都经过它 它绝不能成为瓶颈 |
 | C11 | 4 | f1980–2130 | 1:06.0–1:11.0 | 4.60 s | 4.28 s | 下层：一事一个 Worker 上下文与工具独立 |
 | Built tag | 4 | f2000–2130 | 1:06.7–1:11.0 | 3.93 s | 3.66 s | 双层架构：公开研究原型已实现 |
-| C12 | 4 | f2130–2260 | 1:11.0–1:15.3 | 3.93 s | 3.72 s | Worker 向上汇报 只有 Router 和你说话 |
+| C12 | 4 | f2130–2260 | 1:11.0–1:15.3 | 3.93 s | 3.50 s | Worker 向上汇报 只有 Router 回复你 (2026-11-14, not signed off: not shown) |
 | N3 | 5 | f2320–2460 | 1:17.3–1:22.0 | 4.27 s | 4.03 s | 它监听事件 不必再由人逐次下指令 |
 | Gate tag | 5 | f2320–2630 | 1:17.3–1:27.7 | 9.93 s | 2.99 s | 原型：主动接单默认关闭 |
 | C14 | 5 | f2470–2630 | 1:22.3–1:27.7 | 4.93 s | 4.77 s | 按设计：规则滤掉大半噪声 余下由模型判断 |
@@ -266,8 +266,8 @@ The frames in this list are the 2:56 cut's; the 3:45 cut moved every window (bel
   line got its hold by moving C19–C21 20 frames earlier inside beat 6 (C19 now starts f2890,
   10 frames after the beat-6 downbeat).
 - **The built tag** now ends where C12 begins (f1680–1810, was f1680–1940). It sits only
-  under C11, which is built, and never under "Only the Router talks to you", which is the
-  design (Workers in the prototype also reply on GitHub). The Router's reply line in C12 stays
+  under C11, which is built, and never under C12's "Only the Router talks to you" (since
+  2026-11-14 "answers you"), which is the design (Workers in the prototype also reply on GitHub). The Router's reply line in C12 stays
   solid: the prototype's Router does deliver IM answers and results.
 - **The stress plate** reads "~1 → ~40 /min": the article says about 1 to about 40.
 - **双层架构 for the architecture** (C8, the built tag, the third lane, C23), as IT之家 and
@@ -350,7 +350,9 @@ The frames in this list are the 2:56 cut's; the 3:45 cut moved every window (bel
 - **The proposed tag** covers both C24 and N8 (f4600–4960), and **the key** is read on the
   summary map before the end card (see [End card](#end-card)).
 - **C12 stays as signed off.** "Workers report up. Only the Router answers you." is recorded as
-  an open option for the user ([zh sign-off](#zh-sign-off)).
+  an open option for the user ([zh sign-off](#zh-sign-off)). **Changed 2026-11-14:** the user
+  chose "Change to 'answers you'"; with the captions in English only, its zh line was changed to
+  match (Worker 向上汇报 只有 Router 回复你) without a sign-off, since it is not shown.
 
 ## zh sign-off
 **Signed off 2026-11-08.** Asked whether every zh-Hans string in this section is correct, the

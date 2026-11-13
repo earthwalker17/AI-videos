@@ -41,6 +41,9 @@ The film has been in production since 2026-11-08. Decisions with the user so far
 | 2026-11-12 | The recall in the 2.4× close, the ease-out on bar 43 (not STORYBOARD 6.4's bar 42) | "Keep the bar-43 ease-out (Recommended)" |
 | 2026-11-12 | The docs galley's mirrored cast type | "Flip to right-reading (Recommended)" |
 | 2026-11-13 | Bilibili, and the zh captions | "I'm not going to publish this film to BiliBili. So can you remove the Chinese captions if it's cheap to do? Leave other parts unchanged unless genuinely necessary." The notes block and the credit draw the EN line alone; the zh copy stays in `src/cues.ts`, and tags, plates, labels, the title card and the end card keep their zh |
+| 2026-11-14 | Review of the session-6 draft | "Right, carry on (Recommended)": apply the answers below, fix the cheaper P2s, then the 1080p review cut |
+| 2026-11-14 | zh in the picture | "Drop it from long plates (Recommended)": the long plates, the chart's labels and the idea labels go EN only; the short tags ("you · 你", the trait plates), the title card and the end card keep their zh |
+| 2026-11-14 | C12 | "Change to 'answers you' (Recommended)": "Workers report up. Only the Router answers you." (its zh follows unsigned: not shown) |
 
 **What this means (session 3).** The session-3 brief named the faults:
 - basic flat geometry;

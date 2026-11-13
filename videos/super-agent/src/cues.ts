@@ -75,7 +75,8 @@ export const WORDS = {
   c10: { en: 'It hands each task over whole and never does the work.', 'zh-Hans': '任务整个派出 它从不亲自动手' },
   n2: { en: 'Why? Every task passes here; it must never be the bottleneck.', 'zh-Hans': '为什么？任务都经过它 它绝不能成为瓶颈' },
   c11: { en: 'Below: each task gets its own Worker, context and tools.', 'zh-Hans': '下层：一事一个 Worker 上下文与工具独立' },
-  c12: { en: 'Workers report up. Only the Router talks to you.', 'zh-Hans': 'Worker 向上汇报 只有 Router 和你说话' },
+  // changed 2026-11-14 (the user: "Change to 'answers you'"); its zh follows the EN unsigned, as the zh caption line is not shown
+  c12: { en: 'Workers report up. Only the Router answers you.', 'zh-Hans': 'Worker 向上汇报 只有 Router 回复你' },
   // beat 5 · Prompting each run, handed over (Proactive, by design)
   n3: { en: 'It listens for events, so no one has to prompt each run.', 'zh-Hans': '它监听事件 不必再由人逐次下指令' },
   c14: { en: 'By design: rules drop most noise; a model judges the rest.', 'zh-Hans': '按设计：规则滤掉大半噪声 余下由模型判断' },

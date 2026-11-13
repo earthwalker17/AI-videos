@@ -2,7 +2,7 @@
  * The Register Desk's world (TREATMENT.md, Art direction v2): where every object stands, how big it
  * is and how tall, in world units. One unit is one screen pixel at camera zoom 1.0 (camera.ts), x
  * runs east, y north, z up; the desk is the plane z = 0. The origin is the centre of style frame
- * (b) ("Workers report up. Only the Router talks to you.", camera 0.85×), so at that framing a
+ * (b) ("Workers report up. Only the Router answers you.", camera 0.85×), so at that framing a
  * point (x, y) on the desk lands near screen (960 + 0.85 x, 540 − 0.85 y).
  *
  * The planes (synthesis §2, Depth): pressed history −2, the desk 0, paper 1–20, the bays up to 80
