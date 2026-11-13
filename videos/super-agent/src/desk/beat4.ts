@@ -30,6 +30,7 @@
 import { clamp, easings } from '@aiv/core';
 import { Easing } from 'remotion';
 import { BEAT_4 } from '../cues.ts';
+import { SPOUT_INSIDE, hopInto } from './beat6.ts';
 import { BAYS, BAY_FLOOR, BELT, BENCH, FEEDERS, GALLEY_TRAY, NEXT_SLIP, PINS, RAMP, REQUEST, SHEET, THROAT, TOWER, rectC, towerTop, type BayId, type P2, type P3 } from './layout.ts';
 import { DETENT, SPRING, springAt } from './state.ts';
 
@@ -661,10 +662,9 @@ const BELT_B: P3 = [BELT.to[0], BELT.to[1], BELT.to[2] + 8];
 export const BELT_HEADING = Math.atan2(BELT_B[1] - BELT_A[1], BELT_B[0] - BELT_A[0]);
 export const BELT_SLOPE = Math.atan2(BELT_B[2] - BELT_A[2], Math.hypot(BELT_B[0] - BELT_A[0], BELT_B[1] - BELT_A[1]));
 const beltAt = (t: number): P3 => lerp3(BELT_A, BELT_B, t);
-/** The throat's floor (a carrier lying in it, between its cheeks), and how high a carrier hops off the belt's top into it. */
+/** The throat's floor (a carrier lying in it, between its cheeks; it hops off the belt's top into it as beat 6's carriers do: beat6.ts hopInto). */
 const THROAT_Y = (THROAT.box.y0 + THROAT.box.y1) / 2;
 const THROAT_Z = 118.8;
-const HOP_APEX = 36;
 
 /** The intake ride every arrival shares, for a carrier of half sizes [hl, hw]: where it lands on the belt, where it leaves it, where it lies in the throat and where it is hidden under the head. */
 function intakeStations(hl: number, hw: number): { land: P3; crest: P3; throat: P3; hidden: P3 } {
@@ -723,12 +723,12 @@ function intakeRide(f: number, o: IntakePlan): Omit<Carry, 'transit'> | null {
     return { p: lerp3(S.land, S.crest, (f - F.belt) / o.beltFrames), heading: BELT_HEADING, slope: BELT_SLOPE, squash };
   }
   if (f < F.inThroat) {
-    // the hop: across fast, then down between the cheeks; it turns to lie along the throat in the first 70% of it
-    const u = clamp((f - F.hop) / o.hopFrames);
-    const xy = easings.outCubic(u);
-    const e = sine(u / 0.7);
-    const z = S.crest[2] + (S.throat[2] - S.crest[2]) * u + 4 * HOP_APEX * u * (1 - u);
-    return { p: [S.crest[0] + (S.throat[0] - S.crest[0]) * xy, S.crest[1] + (S.throat[1] - S.crest[1]) * xy, z], heading: BELT_HEADING * (1 - e), slope: BELT_SLOPE * (1 - e), squash: 0 };
+    // the hop: beat 6's (beat6.ts hopInto): up off the crest on an in-out rise, over the cheeks, settling down between
+    // them, turning to lie along the throat as it goes. Its rise had been linear with a parabola on it, so on its first
+    // frame off the crest a tilted carrier lay across the reading pool's floor (pools.ts: z 118), half lit with a hard
+    // edge across its face for a frame or two (the CI card f1844, the chat slip f1884-1885, the request f1667-1668)
+    const h = hopInto(S.crest, S.throat, clamp((f - F.hop) / o.hopFrames));
+    return { p: h.p, heading: BELT_HEADING * h.k, slope: BELT_SLOPE * h.k, squash: 0 };
   }
   // in the throat (landed with a squash), then pulled under the head
   const squash = Math.max(0, 1 - (f - F.inThroat) / 3);
@@ -743,7 +743,7 @@ export interface Arrival {
 /** A CI card's mouth: it is pushed out from under the card lying in the feeder's mouth (4 f). */
 const CI_OUT: { from: P3; to: P3 } = { from: [FEEDERS.ci.x1 - 30, rectC(FEEDERS.ci)[1] - 2, 5.2], to: [FEEDERS.ci.x1 + 30, rectC(FEEDERS.ci)[1] - 2, 5.2] };
 /** A chat slip comes out of the spout from inside its drum (as MT1's next slip). */
-const SPOUT_OUT: { from: P3; to: P3 } = { from: [NEXT_SLIP.spout[0] - 60, NEXT_SLIP.spout[1], NEXT_SLIP.spout[2] + 2], to: NEXT_SLIP.spout };
+const SPOUT_OUT: { from: P3; to: P3 } = { from: SPOUT_INSIDE, to: NEXT_SLIP.spout };
 /** An arrival's plan for its stamp on frame `stamp`: under the head 6 f before it (the reel's detent drives the tape on as it goes in). */
 function arrivalPlan(kind: 'ci' | 'chat', stamp: number): IntakePlan & { emerge: number } {
   const [hl, hw] = kind === 'ci' ? [42, 25] : [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2];
@@ -791,20 +791,29 @@ export interface RequestState {
   crease: number;
 }
 
+/**
+ * How far the request slides out along its own axis from under the pieces lying on it before its post lifts it: wholly
+ * clear of every one of them (beat4.test.ts). From 46 u its west end was still under them as it lifted, and it rose
+ * through the ci card on it, its beetle's light shining over it (R2-L2-08, c1665-1667).
+ */
+export const REQUEST_SLIDE = 112;
 export function requestAt(f: number): RequestState {
   const R = REQUEST_RIDE;
   const heap: P3 = [REQUEST_HEAP.c[0], REQUEST_HEAP.c[1], REQUEST_HEAP.z];
   const axis: P2 = [Math.cos(REQUEST_HEAP.rot), Math.sin(REQUEST_HEAP.rot)];
-  const slid: P3 = [heap[0] + axis[0] * 46, heap[1] + axis[1] * 46, heap[2]];
-  // the light through its beetle, while it moves: in over 4 f from the cue, out over the 7 f before the beetle (at its east
-  // end) reaches the head's edge, 2 f into the feed (the head would cut the lit beetle off in one frame)
-  const transit = clamp((f - R.slide) / 4) * clamp((R.feed + 2 - f) / 7) ** 2;
+  const slid: P3 = [heap[0] + axis[0] * REQUEST_SLIDE, heap[1] + axis[1] * REQUEST_SLIDE, heap[2]];
+  // the light through its beetle, while it flies: in over 4 f once its post has lifted it off the heap (from the cue it
+  // had ramped up hidden under the piece lying on it, and shone out at full in one frame, R2-L2-08), out over the 7 f
+  // before the beetle (at its east end) reaches the head's edge, 2 f into the feed (the head would cut the lit beetle off
+  // in one frame)
+  const transit = clamp((f - R.post) / 4) * clamp((R.feed + 2 - f) / 7) ** 2;
   // it gathers: its crease flattens to a slight curl (paper, never a flat card), which it keeps all the way to the head
   const crease = 1 - (1 - CREASE_RIDE) * sine((f - R.from) / 3);
   if (f < R.slide) return { pose: { p: heap, heading: REQUEST_HEAP.rot, slope: 0, squash: 0, transit: 0 }, crease };
   if (f < R.post) {
-    // it slides out from under the pieces on it along its own axis, gathering speed (its first move shows on the cue)
-    const u = easings.inQuad(clamp((f - R.slide) / (R.post - R.slide)));
+    // it slides out from under the pieces on it along its own axis (its first move shows on the cue), clear of them and
+    // slowing before its post lifts it (from rest: it had stopped dead from its fastest frame)
+    const u = sine((f - R.slide) / (R.post - R.slide));
     return { pose: { p: lerp3(heap, slid, u), heading: REQUEST_HEAP.rot, slope: 0, squash: 0, transit }, crease };
   }
   const ride = f <= R.hidden ? intakeRide(f, { ...R.plan, from: slid }) : null;
@@ -834,8 +843,9 @@ export interface HeapState {
   gone?: { tone: number; fade: number };
 }
 export function heapAt(f: number): HeapState {
-  // its tail clears them on the slide's last frame
-  const settle = sine((f - (REQUEST_RIDE.post - 1)) / 3);
+  // once the request's post has lifted it off them (settling from the slide's last frame, they dropped through it while it
+  // still lay under them, R2-L2-08)
+  const settle = sine((f - (REQUEST_RIDE.post + 1)) / 3);
   return { settle, press: springAt(f, B4.heapPress, SPRING.heavy), step: sine((f - B4.heapPress) / 14), cast: f < B4.heapPress + HEAP_CAST };
 }
 /** Frames after the press starts that the pressed pieces stop casting: spring-heavy is within 0.2% of flat by then, their shadows drawn in under them. */

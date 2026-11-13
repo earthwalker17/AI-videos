@@ -10,6 +10,7 @@
  */
 import { fillTextChecked, textCanvas } from '@aiv/remotion-kit';
 import { CanvasTexture, SRGBColorSpace, type Texture } from 'three';
+import { pictureLine, zhInPicture } from '../../look/zhInPicture.ts';
 
 /** Texels per world unit on a plate (as gl/text.ts TEX). */
 const TEX = 2.8;
@@ -19,8 +20,8 @@ const TEX_STRESS = 6;
 export const PLATE_EM = 43;
 const INK = '#2A2B2A';
 
-/** The plate's words as one line: "Continuous · 连续". */
-export const plateLine = (w: { en: string; 'zh-Hans': string }): string => `${w.en} · ${w['zh-Hans']}`;
+/** The plate's words as one line: "Continuous · 连续" (the zh policy keeps the trait plates' zh: look/zhInPicture.ts). */
+export const plateLine = (w: { en: string; 'zh-Hans': string }): string => pictureLine(w);
 
 /**
  * A trait plate's face texture for `size` (world units, the face inside the plate's rim): an engraved border rule and
@@ -47,9 +48,9 @@ export function plateTexture(sans: string, words: { en: string; 'zh-Hans': strin
   g.lineTo(3, 3 + k);
   g.closePath();
   g.stroke();
-  // the words: EN and the dot in SemiBold, the Han a step lighter (the labels' CJK weight)
-  const en = `${words.en} · `;
-  const zh = words['zh-Hans'];
+  // the words: EN and the dot in SemiBold, the Han a step lighter (the labels' CJK weight); the EN alone if the zh policy drew no zh
+  const zh = zhInPicture(words) ?? '';
+  const en = zh ? `${words.en} · ` : words.en;
   const fit = (em: number) => {
     g.font = `600 ${em}px ${sans}`;
     const a = g.measureText(en).width;
@@ -68,7 +69,7 @@ export function plateTexture(sans: string, words: { en: string; 'zh-Hans': strin
   fillTextChecked(g, en, x0, base);
   const enW = g.measureText(en).width;
   g.font = `500 ${em}px ${sans}`;
-  fillTextChecked(g, zh, x0 + enW, base);
+  if (zh) fillTextChecked(g, zh, x0 + enW, base);
   const t = new CanvasTexture(c);
   t.colorSpace = SRGBColorSpace;
   t.anisotropy = aniso;
@@ -77,12 +78,21 @@ export function plateTexture(sans: string, words: { en: string; 'zh-Hans': strin
 
 /** The stress plate's lines (world units): about 38 px in the close (2.4x, camera.ts FRAMING_C), the header fitted to the face (never under 14 u, 36 px). */
 export const STRESS_EM = 14.5;
+/**
+ * The stress plate's face, down from its top (u, on the 84 u face inside the plate's rim): the header's baseline, the
+ * hairline, the two rows' baselines. With the header's zh line gone the four are spaced evenly: about 8 u of air from the
+ * engraved border to the header's caps and from the last row's descenders to the border, 10 u either side of the hairline.
+ */
+export const STRESS_LINES = { head: 21, rule: 31.5, rows: [51, 70] as const } as const;
+/** The lines the stress plate engraves, as they read (the tests hold them to the zh policy). */
+export const stressText = (w: { head: { en: string; 'zh-Hans': string }; arrivals: { en: string }; decision: { en: string } }): string[] => [pictureLine(w.head), w.arrivals.en, w.decision.en];
 
 /**
  * The stress plate's face (STORYBOARD 6.2; cues.ts WORDS.plateHead, plateArrivals, plateDecision): engraved like the
- * trait plates, ink on enamel, set in the film's sans: the header in EN, its zh under it (a step lighter: the labels' CJK
- * weight), a hairline, then the two rows of endpoints, which read the same in both languages and are drawn once.
- * Endpoints only: no axis, no curve. Stamped, never rolled: the plate arrives engraved.
+ * trait plates, ink on enamel, set in the film's sans: the header in EN (its zh is not drawn: the zh policy,
+ * look/zhInPicture.ts, the user, 2026-11-14), a hairline, then the two rows of endpoints, which read the same in both
+ * languages and are drawn once; the lines spaced evenly down the face (STRESS_LINES). Endpoints only: no axis, no curve.
+ * Stamped, never rolled: the plate arrives engraved.
  */
 export function stressTexture(sans: string, w: { head: { en: string; 'zh-Hans': string }; arrivals: { en: string }; decision: { en: string } }, size: readonly [number, number], aniso: number): Texture {
   const [W, H] = size;
@@ -116,19 +126,19 @@ export function stressTexture(sans: string, w: { head: { en: string; 'zh-Hans': 
     he -= 0.25;
     g.font = `600 ${he}px ${sans}`;
   }
-  fillTextChecked(g, w.head.en, x0, 17);
-  g.font = `500 ${em}px ${sans}`;
-  fillTextChecked(g, w.head['zh-Hans'], x0, 34);
+  const [head, arrivals, decision] = stressText(w);
+  if (head !== w.head.en) throw new Error(`stress plate: its face is laid out for its header's EN alone, not "${head}" (gl/plate.ts STRESS_LINES)`);
+  fillTextChecked(g, head, x0, STRESS_LINES.head);
   g.strokeStyle = '#8E8A82';
   g.lineWidth = 0.9;
   g.beginPath();
-  g.moveTo(x0, 40.5);
-  g.lineTo(W - x0, 40.5);
+  g.moveTo(x0, STRESS_LINES.rule);
+  g.lineTo(W - x0, STRESS_LINES.rule);
   g.stroke();
   // the endpoints, the arrows between them: one row each
   g.font = `600 ${em}px ${sans}`;
-  fillTextChecked(g, w.arrivals.en, x0, 57.5);
-  fillTextChecked(g, w.decision.en, x0, 74.5);
+  fillTextChecked(g, arrivals!, x0, STRESS_LINES.rows[0]);
+  fillTextChecked(g, decision!, x0, STRESS_LINES.rows[1]);
   const t = new CanvasTexture(c);
   t.colorSpace = SRGBColorSpace;
   t.anisotropy = aniso;

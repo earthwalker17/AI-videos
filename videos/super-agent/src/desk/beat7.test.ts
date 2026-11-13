@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BEAT_7, at, cue, textWindow } from '../cues.ts';
+import { BEAT_7, WORDS, at, cue, textWindow } from '../cues.ts';
 import {
   BUILT,
   CAPSULE,
@@ -8,6 +8,7 @@ import {
   CORD_L,
   DOSSIER,
   DOSSIER_IN_X,
+  DOSSIER_LAND_X,
   E7,
   ENTRY,
   FOCUS_7,
@@ -32,6 +33,7 @@ import {
   STOP_S,
   TAGS_7,
   TAG_GAP_7,
+  TAG_JOBS_LINES,
   TALLY,
   beat7At,
   capsuleAt,
@@ -59,13 +61,14 @@ import {
   tallyAt,
   tallyLength,
 } from './beat7.ts';
-import { CI_MOUTH } from './beat6.ts';
+import { CI_MOUTH, SPOUT_INSIDE } from './beat6.ts';
 import { cardSize } from './beat4.ts';
 import { FRAMING_B, deskCamera, project, projectBox, screenToDesk } from './camera.ts';
-import { BAYS, CORDS, DECK, FEEDERS, MAST, PINS, BENCH, REEL_FRAME, REEL_FRAME_Z, SPOOL, TRAIT_PLATE } from './layout.ts';
+import { BAYS, CORDS, DECK, FEEDERS, MAST, NEXT_SLIP, PINS, BENCH, REEL_FRAME, REEL_FRAME_Z, SPOOL, TRAIT_PLATE, rectC } from './layout.ts';
 import { DETENT, armOf, deskStateAt, focusAt, stepAt, type DeskState } from './state.ts';
 import { DOCKED, JOB_RAIL, SEAM_D, summaryDeskState } from './summary.ts';
 import { polySegs, segFp } from './fpKit.ts';
+import { tagText } from './Overlay.tsx';
 
 const RAIL_RISE_FROM = RAIL.open;
 /** How much of the bug bay's lit slit (Bay.tsx: x slot.x0 + 8 .. slot.x1 - 8, its plane at CAP_SLIT.z) the capsule's top stands over at f, in or at its slot. */
@@ -401,7 +404,8 @@ describe('7.3 the job, the sand-glass and the Productive plate', () => {
     const pose = deskCamera(FRAMING_B, 15);
     const tag = TAGS_7.find((t) => t.cue === 'tag-jobs')!;
     // the tag's block as Overlay.tsx sets it (its longest line, "prototype: background", is about 420 px; 460 allowed)
-    const block = { x0: tag.at[0] - 8, x1: tag.at[0] + 460, y0: tag.at[1] - 40, y1: tag.at[1] + 2 * TAG_GAP_7 + 20 };
+    const n = tagText(tag).en.length + tagText(tag).zh.length;
+    const block = { x0: tag.at[0] - 8, x1: tag.at[0] + 460, y0: tag.at[1] - 40, y1: tag.at[1] + (n - 1) * TAG_GAP_7 + 20 };
     const foot = project(pose, tag.foot);
     for (let f = BEAT_7.glass.lift; f <= BEAT_7.glass.dock; f++) {
       const g = glassAt(f)!;
@@ -457,8 +461,18 @@ describe('7.4 the replies; the hooks', () => {
   });
   it('lands the dossier on the card feeder’s mouth on its cue and pushes it wholly in (no sender line)', () => {
     const d = dossierAt(BEAT_7.dossier.lands)!;
-    expect(d.p[0]).toBe(PORT.to[0]);
+    expect(d.p[0]).toBe(DOSSIER_LAND_X);
+    expect(d.p[1]).toBe(PORT.to[1]);
     expect(d.squash).toBeGreaterThan(0.05);
+    // it comes down east of the roller and the cards' east edges (objects/Intake.tsx: the roller's axis at x1 - 2, radius 6),
+    // its west end never over them in flight and under them on the thud (RV-M3-LIP, c3894-3895); flat from the thud while
+    // it is pushed in under them
+    for (let f = BEAT_7.dossier.leave; f <= BEAT_7.dossier.lands + 4; f++) {
+      const x = dossierAt(f)!;
+      const west = x.p[0] - (DOSSIER.l / 2) * (1 + x.squash / 2) * Math.cos(x.slope);
+      expect(west, `f${f}`).toBeGreaterThan(FEEDERS.ci.x1 - 2 + 6 + 1);
+    }
+    for (let f = BEAT_7.dossier.lands; f < BEAT_7.dossier.lands + 10; f++) if (dossierAt(f)) expect(dossierAt(f)!.slope, `f${f}`).toBe(0);
     expect(dossierAt(BEAT_7.dossier.lands + 2)!.squash).toBeGreaterThan(0.01);
     // its last frame: its east end inside the feeder's face (under the roller), so nothing of it is left on the mouth
     const last = Array.from({ length: 20 }, (_, i) => BEAT_7.dossier.lands + i).filter((f) => dossierAt(f)).pop()!;
@@ -485,13 +499,79 @@ describe('7.4 the replies; the hooks', () => {
     for (const t of TAGS_7) {
       expect(t.at[0]).toBeGreaterThanOrEqual(96);
       expect(t.at[1] - 40).toBeGreaterThanOrEqual(72);
-      const lines = (t.lines?.en.length ?? 1) + (t.lines?.zh.length ?? 1);
-      expect(t.at[1] + (lines - 1) * (t.gap ?? 50) + 10).toBeLessThanOrEqual(868);
+      const { en, zh } = tagText(t);
+      expect(t.at[1] + (en.length + zh.length - 1) * (t.gap ?? 50) + 10).toBeLessThanOrEqual(868);
     }
     expect(TAGS_7.map((t) => t.cue)).toEqual(['tag-jobs', 'tag-100']);
+    // their EN alone (the zh policy), the jobs tag broken where its words break
+    for (const t of TAGS_7) expect(tagText(t).zh, t.cue).toEqual([]);
+    expect(TAG_JOBS_LINES.en.join(' ')).toBe(WORDS.tagJobs.en);
+    // 24 px or more of air under W-08's nameplate (its foot at y 679 at 0.85x) to the first line's ascenders (0.72 of 40 px
+    // over its baseline), and from the jobs tag's last line (no descenders: "after 5 s") to the Productive plate's rim (y 814)
+    // that it overlaps in x (R2-L3-06)
+    for (const t of TAGS_7) expect(t.at[1] - 0.72 * 40 - 679, t.cue).toBeGreaterThanOrEqual(24);
+    const jobs = TAGS_7.find((t) => t.cue === 'tag-jobs')!;
+    expect(814 - (jobs.at[1] + (tagText(jobs).en.length - 1) * TAG_GAP_7)).toBeGreaterThanOrEqual(24);
     // the 100-word tag (and its leader) only once the reply has landed in the in-tray it points at, inside its cue's window
     const t100 = TAGS_7.find((t) => t.cue === 'tag-100')!;
     expect(t100.from).toBeUndefined();
     expect(textWindow(cue('tag-100'))[0]).toBe(BEAT_7.reply.lands);
+  });
+});
+
+describe('the heavy dossier keeps one value through its flight and landing (R2-L3-03)', () => {
+  it('never puts any of its top under its own footprint: tilted in flight, squashed on the thud, pushed in', () => {
+    // (a receiver under a footprint's top is in its shade: gl/materials.ts shades at z − 0.5 against z1 + 0.5. Tilted, its
+    // low end sat under it; the landing's 8% squash put its whole top under it for 4 f, c3895-3898: lit, grey, lit)
+    let n = 0;
+    for (let f = BEAT_7.dossier.leave - DOSSIER.outFrames; f < BEAT_7.dossier.lands + 12; f++) {
+      const d = dossierAt(f);
+      if (!d) continue;
+      n++;
+      const own = footprints7(deskStateAt(f)).find((x) => x.kind === 'rect' && x.c[0] === d.p[0] && x.c[1] === d.p[1] && x.h[1] === DOSSIER.w / 2);
+      expect(own, `f${f}`).toBeDefined();
+      // the lowest point of its top face as drawn (objects/Beat7.tsx: z scaled 1 − squash, length 1 + squash / 2, tilted)
+      const low = d.p[2] + (DOSSIER.t / 2) * (1 - d.squash) * Math.cos(d.slope) - (DOSSIER.l / 2) * (1 + d.squash / 2) * Math.abs(Math.sin(d.slope));
+      if (own?.kind === 'rect') {
+        expect(low, `f${f}`).toBeGreaterThanOrEqual(own.z1 + 0.1);
+        expect(own.z0, `f${f}`).toBeLessThan(own.z1);
+      }
+    }
+    expect(n).toBeGreaterThan(30);
+    // lying flat and still, the footprint it always had (its shadow on the mouth unchanged)
+    const rest = BEAT_7.dossier.lands + 8;
+    const d = dossierAt(rest)!;
+    const own = footprints7(deskStateAt(rest)).find((x) => x.kind === 'rect' && x.c[0] === d.p[0] && x.h[1] === DOSSIER.w / 2);
+    expect(d.squash).toBeLessThan(0.02);
+    expect(own?.kind === 'rect' && own.h[0]).toBe(DOSSIER.l / 2);
+  });
+});
+
+describe('the follow-ups come out of the spout and round the spool clear of it (R2-L3-04)', () => {
+  const corners = (r: NonNullable<ReturnType<typeof riderAt>>) =>
+    [-1, -0.5, 0, 0.5, 1].flatMap((u) =>
+      [-1, 0, 1].map((v) => {
+        const x = (u * RIDER.l) / 2;
+        const y = (v * RIDER.w) / 2;
+        const c = Math.cos(r.heading);
+        const sn = Math.sin(r.heading);
+        return [r.p[0] + c * x * Math.cos(r.slope) - sn * y, r.p[1] + sn * x * Math.cos(r.slope) + c * y, r.p[2] - x * Math.sin(r.slope)] as const;
+      }),
+    );
+  it('starts wholly inside the chat drum, east of its back wall, so nothing of it shows west of the drum (c3485)', () => {
+    const [cx, cy] = rectC(FEEDERS.chat);
+    const R = (FEEDERS.chat.y1 - FEEDERS.chat.y0) / 2;
+    const back = (y: number) => cx - Math.sqrt(R * R - (y - cy) ** 2);
+    for (const y of [SPOUT_INSIDE[1] - NEXT_SLIP.w / 2, SPOUT_INSIDE[1] + NEXT_SLIP.w / 2]) expect(SPOUT_INSIDE[0] - NEXT_SLIP.l / 2).toBeGreaterThan(back(y) + 3);
+    BEAT_7.riders.forEach((r, i) => {
+      expect(riderAt(i, r.spout)!.p).toEqual(SPOUT_INSIDE);
+      for (let f = r.spout; f < r.spout + 5; f++) for (const [x, y] of corners(riderAt(i, f)!)) expect(x, `rider ${i} f${f}`).toBeGreaterThan(back(Math.min(Math.max(y, cy - R + 1), cy + R - 1)));
+    });
+  });
+  it('rounds the spool wide: never within its reach while any of it is under the spool’s top (drawn over its winding, then under its foot, c3496-3498)', () => {
+    BEAT_7.riders.forEach((r, i) => {
+      for (let f = r.spout; f <= r.clipOn + 2; f++)
+        for (const [x, y, z] of corners(riderAt(i, f)!)) if (z < SPOOL.z[1] + 6) expect(Math.hypot(x - SPOOL.x, y - SPOOL.y), `rider ${i} f${f}`).toBeGreaterThan(SPOOL.r + 16);
+    });
   });
 });

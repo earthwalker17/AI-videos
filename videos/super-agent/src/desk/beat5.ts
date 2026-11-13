@@ -28,6 +28,7 @@
  */
 import { clamp, easings } from '@aiv/core';
 import { BEAT_5, cue } from '../cues.ts';
+import { SPOUT_INSIDE } from './beat6.ts';
 import { BAYS, FINGER_ROOT, FINGER_Y, GALLEY_TRAY, GATE, KEY_DOCK, NEXT_SLIP, PRINT_HEAD, PROACTIVE_PLATE, PUNCH, SHEET, SPIKE, THROAT, YOU, rectC, type P3, type Rect } from './layout.ts';
 import { LOUPE_READ, SPRING, springAt } from './state.ts';
 import { CHORES, TRAY_Z } from './you.ts';
@@ -318,7 +319,7 @@ function postAt(now: number, f: number, to: P3, heading: number, roll: number, a
   const t0 = f - E.out;
   if (now < f - E.post) {
     // inside the drum (its west end never shows past the drum's far wall), out of the spout's mouth
-    const inSpout: P3 = [NEXT_SLIP.spout[0] - 60, NEXT_SLIP.spout[1], NEXT_SLIP.spout[2] + 2];
+    const inSpout = SPOUT_INSIDE;
     return { p: lerp3(inSpout, NEXT_SLIP.spout, easings.outCubic(clamp((now - t0) / E.outFrames))), heading: 0, slope: 0, roll: 0, squash: 0, flying: true };
   }
   const t = clamp((now - (f - E.post)) / E.post);

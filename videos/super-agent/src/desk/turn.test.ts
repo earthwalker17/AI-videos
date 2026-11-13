@@ -6,8 +6,9 @@ import { FLAG, FOLDERS, LOOP_A, PEN, POOL_A_Z, actOneAt, actOnePools, stackTop, 
 import { A_CHUTES, A_FOLDER_IN, A_ITEMS, A_PILE, A_STACK_END, BAY_TRAYS, FIX_A_FOLDER, IMPRINTS, RETIRE_TRAYS, TRAYS, TRAY_Z } from './beat3.ts';
 import { FRAMING_B, cameraAt, deskCamera, project } from './camera.ts';
 import { REQUEST_FROM } from './beat4.ts';
+import { BELT_SLOPE, CARRIERS, SPOUT_INSIDE } from './beat6.ts';
 import { MAX_FOOTPRINTS, footprintsAt, youFootprints, type Footprint } from './footprints.ts';
-import { BAYS, DECK, DECK_PLATE, REEL, SPOOL, YOU, type P3 } from './layout.ts';
+import { BAYS, DECK, DECK_PLATE, NEXT_SLIP, REEL, SPOOL, YOU, type P3 } from './layout.ts';
 import { EMIT, MAX_POOLS, linearOf, poolsAt } from './pools.ts';
 import { DESK_HEX } from './gl/desk.ts';
 import { LAMP_STEPS, deskStateAt } from './state.ts';
@@ -42,6 +43,8 @@ import {
   bayTimes,
   deckPoint,
   deckTurnAt,
+  FIRST_HOP,
+  FIRST_OUT,
   firstSlipAt,
   fixATurnAt,
   foldPressAt,
@@ -793,5 +796,56 @@ describe('the Register’s footprints ride the deck as it is drawn (its tilt too
     expect(rest.c).toEqual([(DECK_PLATE.x0 + DECK_PLATE.x1) / 2, (DECK_PLATE.y0 + DECK_PLATE.y1) / 2]);
     expect(rest.z0).toBe(DECK.top - 6);
     expect(rest.z1).toBe(DECK.top);
+  });
+});
+
+describe('the first chat slip into the throat (R2-L1-02)', () => {
+  const dAng = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  it('posts, rides and hops over the cheeks as beat 6’s carriers do: never turned or tilted in a frame, flat before it lies in the throat', () => {
+    // (it rode straight into the jaw tilted 0.45 rad and turned 0.45 rad, then lay flat across the jaw in one frame, f1619-1620)
+    for (let f = TURN.post - FIRST_OUT + 1; f < TURN.throat + TURN.feedFrames; f++) {
+      const a = firstSlipAt(f - 1)!;
+      const b = firstSlipAt(f)!;
+      expect(dAng(a.heading, b.heading), `f${f}`).toBeLessThan(0.15);
+      expect(Math.abs(a.slope - b.slope), `f${f}`).toBeLessThan(0.15);
+      // from the crest on, the hop settles: never a drop of 12 u in a frame
+      if (f > FIRST_HOP) expect(a.p[2] - b.p[2], `f${f}`).toBeLessThan(12);
+    }
+    // in the belt's pose on its landing on the gate and up to its crest; flat from the frame before it lies in the throat
+    expect(firstSlipAt(TURN.ride)!.p).toEqual(NEXT_SLIP.gate);
+    expect(firstSlipAt(TURN.ride)!.slope).toBeCloseTo(BELT_SLOPE, 6);
+    expect(firstSlipAt(FIRST_HOP)!.p).toEqual(CARRIERS.chat.crest);
+    expect(firstSlipAt(TURN.throat - 1)!.heading).toBeCloseTo(0, 6);
+    expect(firstSlipAt(TURN.throat - 1)!.slope).toBeCloseTo(0, 6);
+    expect(firstSlipAt(TURN.throat)!.p).toEqual(NEXT_SLIP.throat);
+    // its last drop onto the throat's floor a settle
+    expect(firstSlipAt(TURN.throat - 1)!.p[2] - NEXT_SLIP.throat[2]).toBeLessThan(4);
+  });
+  it('comes out of the spout from inside the chat drum over FIRST_OUT frames, as every chat slip (it had appeared 42 u out of it, RV-TURN-SPOUT-POP)', () => {
+    expect(firstSlipAt(TURN.post - FIRST_OUT - 1)).toBeNull();
+    expect(firstSlipAt(TURN.post - FIRST_OUT)!.p).toEqual(SPOUT_INSIDE);
+    expect(firstSlipAt(TURN.post)!.p).toEqual(NEXT_SLIP.spout);
+    // out along the spout's axis, square to it, slowing to rest at its mouth for the anticipation
+    let last = Infinity;
+    for (let f = TURN.post - FIRST_OUT + 1; f <= TURN.post; f++) {
+      const [a, b] = [firstSlipAt(f - 1)!, firstSlipAt(f)!];
+      // (square to the spout while it comes out; it starts turning to aim at the gate as it comes to rest at its mouth)
+      if (f < TURN.post) expect(b.heading, `f${f}`).toBe(0);
+      else expect(Math.abs(b.heading), `f${f}`).toBeLessThan(0.06);
+      expect(b.p[1], `f${f}`).toBe(NEXT_SLIP.spout[1]);
+      const step = b.p[0] - a.p[0];
+      expect(step, `f${f}`).toBeGreaterThan(0);
+      expect(step, `f${f}`).toBeLessThan(last);
+      last = step;
+    }
+  });
+  it('never shades its own top face by its footprint (on the belt’s slope its lower half had sat under it)', () => {
+    for (let f = TURN.post - FIRST_OUT; f < TURN.throat + TURN.feedFrames; f++) {
+      const sl = firstSlipAt(f)!;
+      const own = turnFootprints(turnAt(f)).find((fp) => fp.kind === 'rect' && fp.c[0] === sl.p[0] && fp.c[1] === sl.p[1] && fp.rot === sl.heading && fp.h[1] === NEXT_SLIP.w / 2);
+      expect(own, `f${f}`).toBeDefined();
+      const low = sl.p[2] + 0.4 * Math.cos(sl.slope) - (NEXT_SLIP.l / 2) * Math.abs(Math.sin(sl.slope));
+      if (own?.kind === 'rect') expect(low, `f${f}`).toBeGreaterThanOrEqual(own.z1 + 0.1);
+    }
   });
 });

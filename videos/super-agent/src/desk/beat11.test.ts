@@ -2,20 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { BEAT_11, cue, textWindow } from '../cues.ts';
 import { ROUND2 } from '../lookdev/frames.ts';
 import { SAFE, DIAGRAM_BAND } from '../look/tokens.ts';
+import { hasHan } from '../look/zhInPicture.ts';
 import { youPoseAt } from './actOne.ts';
 import {
   BUILT,
   CARD_SPOT_11,
   COLLAR,
   KEY_BOX,
+  KEY_LINES,
   KEY_MOVE,
   KEY_SAMPLES,
   KEY_SCREEN,
+  KEY_WORDS,
   LAMP_11,
   NEXT_REPLIES,
   RETIRE,
   SETTLE,
   STEP_11,
+  RAIL_SOUTH,
+  SPLIT_Y,
   TAGS_11,
   TAB_FLAT,
   TRAY_DOCK,
@@ -49,7 +54,9 @@ import { SUMMARY_TAGS } from './film.ts';
 import { LAMP, PRINT_HEAD, READ_LAMP, YOU, rectC, type P3 } from './layout.ts';
 import { STEP_FRAMES, deskStateAt, replyPose } from './state.ts';
 import { SEAM_D, WATCHDOG, poseD, summaryDeskState, summaryStep } from './summary.ts';
-import { tagLeaderReveal } from './Overlay.tsx';
+import { TAG_MID, tagLayout, tagLeaderReveal, tagText } from './Overlay.tsx';
+import { SHELF } from './beat7.ts';
+import { CORDS } from './layout.ts';
 
 const ids: PlateId[] = ['proactive', 'productive', 'continuous'];
 /** A plate's four plan corners at its pose (its turn about z, its plan scale; its roll ignored: a bound). */
@@ -220,13 +227,56 @@ describe('beat 11.2: the idea labels and the map key', () => {
     expect(tagLeaderReveal(t, t.from! + 13).wipe).toBe(1);
     expect(textWindow(cue('ideas'))[1]).toBeLessThanOrEqual(BEAT_11.collar.from);
     expect(tagLeaderReveal(t, BEAT_11.collar.from).visible).toBe(false);
-    // the control loop's foot on the Watchdog's station (restated for the import rule)
+    // the control loop's foot on the Watchdog's station, the full-duplex one on the job rail's shelf by its south edge (restated for the import rule)
     expect(WATCH_EAST).toEqual([WATCHDOG.c[0] + WATCHDOG.w / 2, WATCHDOG.c[1], 1]);
+    expect(RAIL_SOUTH[0]).toBeGreaterThan(SHELF.x0);
+    expect(RAIL_SOUTH[0]).toBeLessThan(SHELF.x1);
+    expect(RAIL_SOUTH[1] - SHELF.y0).toBeGreaterThan(0);
+    expect(RAIL_SOUTH[1] - SHELF.y0).toBeLessThanOrEqual(4);
+    expect(RAIL_SOUTH[2]).toBe(SHELF.z);
+  });
+  it('draws each label’s EN alone (the zh policy), the compute–state split’s leader level between its two lines onto the cabinet’s edge', () => {
+    for (const t of TAGS_11) {
+      expect(tagText(t).zh, t.id).toEqual([]);
+      expect(tagText(t).en.join(' ').replace('– ', '–'), t.id).toBe(t.words.en);
+    }
+    const split = TAGS_11.find((t) => t.id === 'idea-split')!;
+    expect(split.at[1]).toBe(SPLIT_Y);
+    const foot = onD(split.foot);
+    const L = tagLayout(split, foot, (x) => 21 * x.length);
+    expect(Math.abs(L.l[1] - foot[1])).toBeLessThanOrEqual(3);
+    expect(L.l[0]).toBeLessThan(L.x0);
+  });
+  it('leads the full-duplex label onto the side rail with 20 px or more of clear air from the Thread cord, never onto the cord’s clip (R2-L4-05)', () => {
+    const t = TAGS_11.find((x) => x.id === 'idea-duplex')!;
+    const foot = onD(t.foot);
+    const L = tagLayout(t, foot, (x) => 21 * x.length);
+    const [a, b] = [foot, L.l] as const;
+    // the cord, as still (d) holds it, its points and the segments between them
+    const cord = CORDS.vermilion.map((p) => onD(p));
+    const segDist = (p: readonly [number, number], q: readonly [number, number], r: readonly [number, number]) => {
+      const [dx, dy] = [r[0] - q[0], r[1] - q[1]];
+      const k = Math.max(0, Math.min(1, ((p[0] - q[0]) * dx + (p[1] - q[1]) * dy) / (dx * dx + dy * dy || 1)));
+      return Math.hypot(p[0] - q[0] - k * dx, p[1] - q[1] - k * dy);
+    };
+    for (let i = 0; i <= 20; i++) {
+      const p: [number, number] = [a[0] + ((b[0] - a[0]) * i) / 20, a[1] + ((b[1] - a[1]) * i) / 20];
+      for (let j = 1; j < cord.length; j++) expect(segDist(p, cord[j - 1]!, cord[j]!), `leader point ${i}`).toBeGreaterThanOrEqual(20);
+    }
+    // a real hairline: 24 px or more, down from the shelf to the line's east end at its middle
+    expect(Math.hypot(b[0] - a[0], b[1] - a[1])).toBeGreaterThanOrEqual(24);
+    expect(b[1]).toBeGreaterThan(a[1]);
+    expect(b[0]).toBeGreaterThanOrEqual(L.x0 + L.w);
+    expect(b[1]).toBe(t.at[1] - TAG_MID);
+    // the label stands 60 px or more west of the Watchdog's station (its dashed west edge), so it never reads as naming it (T-rv-03)
+    const station = onD([WATCHDOG.c[0] - WATCHDOG.w / 2, WATCHDOG.c[1] + WATCHDOG.d / 2, 1]);
+    expect(station[0] - (L.x0 + L.w)).toBeGreaterThanOrEqual(60);
   });
   it('sets every line inside title-safe and the diagram band (widths at about 21 px a Latin character, 40 a Han one)', () => {
     const width = (s: string): number => [...s].reduce((w, c) => w + ((c.codePointAt(0) ?? 0) >= 0x2e80 ? 40 : 21), 0);
     for (const t of TAGS_11) {
-      const lines = [...(t.lines?.en ?? [t.words.en]), ...(t.lines?.zh ?? [t.words['zh-Hans']])].filter(Boolean);
+      const { en, zh } = tagText(t);
+      const lines = [...en, ...zh];
       const gap = t.gap ?? 50;
       lines.forEach((l, i) => {
         const w = width(l);
@@ -266,8 +316,14 @@ describe('beat 11.2: the idea labels and the map key', () => {
     // the key-map cue's window ends with the words' fade (the cue sheet's own 6 f fade out)
     expect(textWindow(c)[1]).toBe(KEY_MOVE.out);
     expect(c.end).toBe(KEY_MOVE.out - KEY_MOVE.fade);
-    // its right edge inside title-safe (zh: six Han at 36 px)
-    expect(KEY_SCREEN.zh + 6 * 36).toBeLessThanOrEqual(1824);
+    // its words EN alone (the zh policy), inside title-safe; the block (its plate's west edge, 31 px west of the samples'
+    // column, to its words' end) has its middle where the two-column block's was (x 1512, the score's pan: audio/places.ts),
+    // so no empty column is left beside it
+    expect(KEY_LINES).toEqual(KEY_WORDS.map((w) => w.en));
+    for (const l of KEY_LINES) expect(hasHan(l), l).toBe(false);
+    expect(KEY_SCREEN.end).toBeLessThanOrEqual(1824);
+    expect(KEY_SCREEN.en - KEY_SCREEN.x).toBe(48);
+    expect(Math.abs((KEY_SCREEN.x - 31 + KEY_SCREEN.end) / 2 - 1512)).toBeLessThanOrEqual(3);
   });
 });
 
@@ -301,8 +357,9 @@ describe('beat 11.3: the act-one card and the collar', () => {
     const { w } = cardSize(CARD_SPOT_11);
     const at = CARD_SPOT_11.at;
     expect(onD([at[0] + w / 2, at[1], at[2]])[0] - onD([at[0] - w / 2, at[1], at[2]])[0]).toBeGreaterThanOrEqual(340);
-    // (its exit eases in on the exit curve, gathering speed as it leaves: the cap holds while it comes in and is up)
-    for (let f = BEAT_11.actOneCard.rise; f < exit; f++) {
+    // the cap holds while it comes in, is up and leaves (its exit gathers speed to a held pace under it: R2-L4-02), on every
+    // frame any of it is in the frame
+    for (let f = BEAT_11.actOneCard.rise; f < exit + 8; f++) {
       const [a, b] = [actOneCardAt(f), actOneCardAt(f + 1)];
       if (!a || !b || eastAt(a) < 0) continue;
       expect(Math.abs(eastAt(b) - eastAt(a)) * 30, `f${f}`).toBeLessThanOrEqual(2410);

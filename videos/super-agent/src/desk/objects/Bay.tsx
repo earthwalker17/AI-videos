@@ -26,6 +26,7 @@ import { LIGHT_HEX } from '../pools.ts';
 import { CAP_SLOT, closeAt, type DeskState } from '../state.ts';
 import { Hatch, TaskCarrier, shellInside } from './Dispatch.tsx';
 import { HEX, paper, whiteTexture } from '../gl/materials.ts';
+import { neutral, preToe } from '../gl/post.ts';
 import { TO_REGISTER, TO_SHEET } from '../camera.ts';
 import { DRUM_MARK, drumMarkAt } from '../beat9.ts';
 import { INK, stagedInk } from '../gl/text.ts';
@@ -323,6 +324,32 @@ export function requestParts(): { body: BufferGeometry; print: BufferGeometry; l
 export const BEETLE_LIGHT = 2.2;
 /** What the cut-out shows with its light out: a dark graphite, as the belt, the throat and the groove under it (its light ramps up from this, never from black). */
 const BEETLE_DARK = '#3A3C3B';
+/** The beetle light's shown value (Rec. 709 luma of the 8-bit output, 0..255) at its colour's mix `k` (0: dark, 1: lit): through the post chain's PreToe and NEUTRAL (gl/post.ts). */
+export function beetleLuma(k: number): number {
+  const a = new Color(BEETLE_DARK);
+  const b = new Color(LIGHT_HEX.work).multiplyScalar(BEETLE_LIGHT);
+  const c = neutral(preToe([a.r + (b.r - a.r) * k, a.g + (b.g - a.g) * k, a.b + (b.b - a.b) * k]));
+  const enc = (x: number): number => 255 * (x <= 0.0031308 ? 12.92 * x : 1.055 * Math.min(1, x) ** (1 / 2.4) - 0.055);
+  return 0.2126 * enc(c[0]) + 0.7152 * enc(c[1]) + 0.0722 * enc(c[2]);
+}
+/**
+ * The colour's mix for a transit level (0..1): the mix whose shown value is that share of the way from dark to lit. The
+ * lit colour is over-bright (BEETLE_LIGHT), so mixed in linear light a quarter of the level had already shown about 75% of
+ * the step, and the light came on mostly in one frame (R2-L2-08, RV-M7: c1666-1667). Solved by bisection: a pure function.
+ */
+export function beetleMix(transit: number): number {
+  if (!(transit > 0)) return 0;
+  if (transit >= 1) return 1;
+  const lo = beetleLuma(0);
+  const want = lo + (beetleLuma(1) - lo) * transit;
+  let [a, b] = [0, 1];
+  for (let i = 0; i < 30; i++) {
+    const m = (a + b) / 2;
+    if (beetleLuma(m) < want) a = m;
+    else b = m;
+  }
+  return (a + b) / 2;
+}
 /** The beetle's cut-out as light: its body, head and legs (each hole's outline, a hair larger, under the paper), the head toward `dir` along x. */
 function beetleGeometry(x: number, y: number, dir: 1 | -1, z: number): BufferGeometry {
   const s = (cx: number, cy: number, rx: number, ry: number): Shape => {
@@ -338,7 +365,8 @@ function beetleGeometry(x: number, y: number, dir: 1 | -1, z: number): BufferGeo
 }
 /**
  * The one transit light while the request moves (TREATMENT Emission): seen only through its beetle (the light is the
- * cut-out's own shape, under the paper), its level ramped by `transit` (its own material: nothing else scales it).
+ * cut-out's own shape, under the paper), its level ramped by `transit` as its shown value (beetleMix; its own material:
+ * nothing else scales it).
  */
 export function BeetleLight({ x, y, dir, z, transit }: { x: number; y: number; dir: 1 | -1; z: number; transit: number }) {
   const g = useMemo(() => beetleGeometry(x, y, dir, z), [x, y, dir, z]);
@@ -346,7 +374,7 @@ export function BeetleLight({ x, y, dir, z, transit }: { x: number; y: number; d
   useLayoutEffect(() => () => g.dispose(), [g]);
   useLayoutEffect(() => () => mat.dispose(), [mat]);
   useLayoutEffect(() => {
-    mat.color.set(BEETLE_DARK).lerp(new Color(LIGHT_HEX.work).multiplyScalar(BEETLE_LIGHT), Math.min(1, Math.max(0, transit)));
+    mat.color.set(BEETLE_DARK).lerp(new Color(LIGHT_HEX.work).multiplyScalar(BEETLE_LIGHT), beetleMix(transit));
   }, [mat, transit]);
   return <mesh geometry={g} material={mat} />;
 }

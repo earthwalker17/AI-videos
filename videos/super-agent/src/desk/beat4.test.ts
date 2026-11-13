@@ -62,12 +62,13 @@ import {
 } from './beat4.ts';
 import { deskCamera, FRAMING_B, project } from './camera.ts';
 import { bayWalls, cardFootprint, footprintsAt, heapFootprintsAt, MAX_FOOTPRINTS, type Footprint } from './footprints.ts';
-import { BAYS, BAY_FLOOR, BENCH, DECK, DISPATCH_HOUSING, DRAWER, LEG_R, LEG_STRUTS, MOUTH, NEXT_SLIP, PINS, RAMP, REQUEST, SHEET, TOWER, rectC, towerTop, type BayId, type P3 } from './layout.ts';
+import { BAYS, BAY_FLOOR, BENCH, DECK, DISPATCH_HOUSING, DRAWER, LEG_R, LEG_STRUTS, MOUTH, NEXT_SLIP, PINS, RAMP, REQUEST, SHEET, THROAT, TOWER, rectC, towerTop, type BayId, type P3 } from './layout.ts';
 import { LIGHT_GLSL } from './gl/light.ts';
 import { poolsAt, MAX_POOLS } from './pools.ts';
 import { DETENT, EVENTS_D, FOCUS_BEATS, deskStateAt, nextAt, SLIP_LANDS, stepAt } from './state.ts';
 import { SPIN_TOTAL, TURN_SPAN, turnAt, turnFootprints } from './turn.ts';
 import { HEAP, PIECE } from './actOne.ts';
+import { beetleLuma, beetleMix } from './objects/Bay.tsx';
 
 const range = (a: number, b: number) => Array.from({ length: b - a }, (_, i) => a + i);
 /** The smallest turn between two headings (radians). */
@@ -448,7 +449,30 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
     const onReq = HEAP.filter((p) => Math.abs(p.z - (REQUEST_HEAP.z + ON_REQUEST)) < 1e-6);
     expect(onReq.length).toBeGreaterThan(0);
     // settled onto what lay under the request once it has slid out (no piece left at its old height)
-    for (const p of onReq) expect(heapPieceAt(p.z, true, heapAt(REQUEST_RIDE.post + 3)).z).toBeCloseTo(REQUEST_HEAP.z, 6);
+    for (const p of onReq) expect(heapPieceAt(p.z, true, heapAt(REQUEST_RIDE.post + 4)).z).toBeCloseTo(REQUEST_HEAP.z, 6);
+    // and not before the request has lifted off them on its post (R2-L2-08: they dropped through it as it slid out)
+    for (const p of onReq) expect(heapPieceAt(p.z, true, heapAt(REQUEST_RIDE.post + 1)).z).toBe(p.z);
+    expect(requestAt(REQUEST_RIDE.post + 1).pose!.p[2]).toBeGreaterThan(REQUEST_HEAP.z + ON_REQUEST + 2);
+    // it has slid wholly clear of every piece lying over it before its post lifts it (it rose through the ci card on it)
+    {
+      const r = requestAt(REQUEST_RIDE.post).pose!;
+      const c = Math.cos(r.heading);
+      const sn = Math.sin(r.heading);
+      for (const q of HEAP.filter((x) => x.z > REQUEST_HEAP.z)) {
+        const [hl, hw] = [PIECE[q.kind][0] / 2, PIECE[q.kind][1] / 2];
+        const qc = Math.cos(q.rot);
+        const qs = Math.sin(q.rot);
+        for (let u = -1; u <= 1; u += 0.05)
+          for (let v = -1; v <= 1; v += 0.1) {
+            const x = r.p[0] + c * u * (REQUEST.l / 2) - sn * v * (REQUEST.w / 2) - q.c[0];
+            const y = r.p[1] + sn * u * (REQUEST.l / 2) + c * v * (REQUEST.w / 2) - q.c[1];
+            expect(Math.abs(qc * x + qs * y) <= hl && Math.abs(-qs * x + qc * y) <= hw, `${q.kind} at ${q.c}`).toBe(false);
+          }
+      }
+    }
+    // its beetle's light comes up over 4 f once it flies, never under the piece that lay on it
+    expect(requestAt(REQUEST_RIDE.post).pose!.transit).toBe(0);
+    for (let f = REQUEST_RIDE.post + 1; f <= REQUEST_RIDE.post + 4; f++) expect(requestAt(f).pose!.transit - requestAt(f - 1).pose!.transit, `f${f}`).toBeCloseTo(0.25, 6);
     for (const f of range(B4.requestRise, 2140)) {
       const h = heapAt(f);
       const g = heapAt(f - 1);
@@ -689,5 +713,71 @@ describe('beat 4 after the turn (desk/beat4.ts)', () => {
       expect(d.hatch).toBe(0);
       expect(rectC(BAYS[id].box)).toBeTruthy();
     }
+  });
+});
+
+describe('beat 4’s hops into the throat and the request’s transit light (lane M fix wave)', () => {
+  const rides: { who: string; l: number; w: number; from: number; to: number; at: (f: number) => Carry | null }[] = [
+    { who: 'the CI card', l: 84, w: 50, from: 1820, to: 1870, at: (f) => beat4At(f).arrivals.find((a) => a.kind === 'ci')?.pose ?? null },
+    { who: 'the chat slip', l: NEXT_SLIP.l, w: NEXT_SLIP.w, from: 1862, to: 1910, at: (f) => beat4At(f).arrivals.find((a) => a.kind === 'chat')?.pose ?? null },
+    { who: 'the request', l: REQUEST.l, w: REQUEST.w, from: REQUEST_RIDE.post, to: REQUEST_RIDE.inThroat + 2, at: (f) => requestAt(f).pose },
+  ];
+  it('never lies across a lit pool’s floor as it hops (beat6.ts hopInto’s in-out rise: it had at f1844, f1884-1885 and f1667-1668)', () => {
+    let lit = 0;
+    for (const r of rides)
+      for (let f = r.from; f <= r.to; f++) {
+        const x = r.at(f);
+        if (!x) continue;
+        const reach = (r.l / 2) * Math.abs(Math.sin(x.slope));
+        const [lo, hi] = [x.p[2] + 0.4 * Math.cos(x.slope) - reach, x.p[2] + 0.4 * Math.cos(x.slope) + reach];
+        for (const q of poolsAt(deskStateAt(f))) {
+          if (q.rgb[1] < 0.02 || Math.hypot((x.p[0] - q.c[0]) / q.sigma[0], (x.p[1] - q.c[1]) / q.sigma[1]) > 3) continue;
+          lit++;
+          for (const edge of q.z) expect(lo < edge && hi > edge, `${r.who} f${f}: ${lo.toFixed(1)}..${hi.toFixed(1)} across ${edge}`).toBe(false);
+        }
+      }
+    expect(lit).toBeGreaterThan(12);
+  });
+  it('hops clear of the throat’s cheeks and floor: the arrivals at quarter frames, the request on every frame', () => {
+    const CHEEKS = [
+      { x0: THROAT.box.x0 - 6, x1: THROAT.box.x1, y0: THROAT.box.y0 - 4, y1: THROAT.box.y0 + 6, z0: THROAT.z[0] + 4, z1: THROAT.z[1] + 4 },
+      { x0: THROAT.box.x0 - 6, x1: THROAT.box.x1, y0: THROAT.box.y1 - 6, y1: THROAT.box.y1 + 4, z0: THROAT.z[0] + 4, z1: THROAT.z[1] + 4 },
+      { ...THROAT.box, z0: THROAT.z[0], z1: THROAT.z[1] - 8 },
+    ];
+    for (const r of rides)
+      for (let t = r.from; t <= r.to; t += r.who === 'the request' ? 1 : 0.25) {
+        const x = r.at(t);
+        if (!x) continue;
+        const [ch, sh, cs, ss] = [Math.cos(x.heading), Math.sin(x.heading), Math.cos(x.slope), Math.sin(x.slope)];
+        for (let i = 0; i <= 12; i++)
+          for (let j = 0; j <= 4; j++)
+            for (const z of [-0.4, 0.4]) {
+              const [lx, ly] = [-r.l / 2 + (r.l * i) / 12, -r.w / 2 + (r.w * j) / 4];
+              const [ax, az] = [lx * cs - z * ss, lx * ss + z * cs];
+              const p: P3 = [x.p[0] + ax * ch - ly * sh, x.p[1] + ax * sh + ly * ch, x.p[2] + az];
+              for (const b of CHEEKS) expect(p[0] > b.x0 && p[0] < b.x1 && p[1] > b.y0 && p[1] < b.y1 && p[2] > b.z0 && p[2] < b.z1, `${r.who} t${t}`).toBe(false);
+            }
+      }
+  });
+  it('brings the beetle’s light up and down as an even ramp of its shown value (RV-M7: a quarter of its level had shown 75% of it)', () => {
+    const [dark, lit] = [beetleLuma(0), beetleLuma(1)];
+    expect(lit - dark).toBeGreaterThan(150);
+    // its first lit frame shows about a quarter of the step (it had shown 191 of 249 at once)
+    const first = requestAt(REQUEST_RIDE.post + 1).pose!.transit;
+    expect((beetleLuma(beetleMix(first)) - dark) / (lit - dark)).toBeCloseTo(0.25, 2);
+    for (const [a, b] of [
+      [REQUEST_RIDE.post, REQUEST_RIDE.feed + 3],
+      [RIDE.out - 2, RIDE.dock + 1],
+    ] as const)
+      for (let f = a + 1; f <= b; f++) {
+        const shown = (g: number) => {
+          const t = requestAt(g).pose?.transit ?? 0;
+          return t > 0 ? beetleLuma(beetleMix(t)) : dark;
+        };
+        // (over 3 f at least each way: no step over a third of it)
+        expect(Math.abs(shown(f) - shown(f - 1)) / (lit - dark), `f${f}`).toBeLessThan(1 / 3);
+      }
+    expect(beetleMix(0)).toBe(0);
+    expect(beetleMix(1)).toBe(1);
   });
 });

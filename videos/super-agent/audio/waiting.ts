@@ -84,7 +84,11 @@ export function waiting(d: Desk): void {
     music(d.f(r.clipOn), brightPluck(A3, { seed, k: 330 + i, vel: 0.65, t60: 0.4, bright: 0.5 }), { part: 'cord-pluck', db: LV.cordPluck - 3 * i, pan: panAt(X.spool, r.clipOn), sends: { hall: 0.2 } });
   });
   const guide = d.f(B.riders[0].guide);
-  d.motif(guide - T.beats(0.25), { pan: panAt(X.mast, B.riders[0].guide), db: LV.motif - 2, notes: [A5, D6], step: 0.25, tau: 0.35 });
+  // the A5 is a pickup, 2 dB under the D6 on the guide: with the limiter at -3.5 dBTP (index.ts AAC_MARGIN_DB 2.0) an
+  // equal A5 still rang loud enough that the D6's attack was no onset (`flyover` heard by no onset finder, session 6)
+  const flyover = { pan: panAt(X.mast, B.riders[0].guide), tau: 0.35 };
+  d.motif(guide - T.beats(0.25), { ...flyover, db: LV.motif - 4, notes: [A5] });
+  d.motif(guide, { ...flyover, db: LV.motif - 2, notes: [D6] });
 
   // ===== 7.2: the decision tally, and its ghost struck ===================================================
   const reel = (f: number) => panAt(X.reel, f);

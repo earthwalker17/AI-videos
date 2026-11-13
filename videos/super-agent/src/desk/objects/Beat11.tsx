@@ -19,7 +19,7 @@ import { GREY_TEXT, Label } from '../../kit/text.tsx';
 import { useFilmFonts } from '../../look/fonts.ts';
 import { cardPose, cardSize, cardIn } from '../beat4.ts';
 import { youPoseAt } from '../actOne.ts';
-import { CARD_SPOT_11, KEY_BOX, KEY_MOVE, KEY_PLATE, KEY_SAMPLES, KEY_SCREEN, KEY_WORDS, MINI, WORDED, collarAt, keyStepAt, keyWordsAt, type CollarPose, type PlateId, type PlatePose } from '../beat11.ts';
+import { CARD_SPOT_11, KEY_BOX, KEY_LINES, KEY_MOVE, KEY_PLATE, KEY_SAMPLES, KEY_SCREEN, MINI, WORDED, collarAt, keyStepAt, keyWordsAt, type CollarPose, type PlateId, type PlatePose } from '../beat11.ts';
 import { disc, dome, extrude, merge, plane, planeOn, slab } from '../geom.ts';
 import { HEX, enamel, graphite, matte, vellum } from '../gl/materials.ts';
 import { PRODUCTIVE_FACE, SANS_CSS } from '../gl/print7.ts';
@@ -533,7 +533,7 @@ function ActOneCard({ card }: { card: NonNullable<DeskState['e11']>['card'] & ob
 // ------------------------------------------------------------------------------------------------
 // The DOM text: the map key's words (11.2), beside their samples, dead still while they are read
 
-/** The key's words: 36 px (a legend, quieter than the labels), EN in one column and zh in the next, each row on its sample. */
+/** The key's words: 36 px (a legend, quieter than the labels), one column beside the samples, each row on its sample (its EN alone: look/zhInPicture.ts). */
 export const KEY_TYPE = { size: 36, weight: 500, cjkWeight: 500 } as const;
 
 /**
@@ -547,7 +547,7 @@ export function Beat11Text({ f }: { f: number; pose: CamPose }) {
   const opacity = Math.min(r.opacity, keyWordsAt(f)) * keyStepAt(f);
   if (!ready || !r.visible || opacity <= 0 || f >= KEY_MOVE.out) return null;
   const x0 = KEY_SCREEN.en - 8;
-  const w = 1824 - x0 + 12;
+  const w = KEY_SCREEN.end - x0 + 12;
   return (
     <svg width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity }}>
       <defs>
@@ -556,15 +556,9 @@ export function Beat11Text({ f }: { f: number; pose: CamPose }) {
         </clipPath>
       </defs>
       <g clipPath="url(#wipe-key-map)">
-        {KEY_WORDS.map((wd, i) => {
-          const y = KEY_SCREEN.ys[i]! + 13;
-          return (
-            <g key={i}>
-              <Label x={KEY_SCREEN.en} y={y} text={wd.en} family={fonts.sans} size={KEY_TYPE.size} weight={KEY_TYPE.weight} cjkWeight={KEY_TYPE.cjkWeight} color={TEXT_HEX.en} />
-              <Label x={KEY_SCREEN.zh} y={y} text={wd['zh-Hans']} family={fonts.sans} size={KEY_TYPE.size} weight={KEY_TYPE.cjkWeight} cjkWeight={KEY_TYPE.cjkWeight} color={TEXT_HEX.zh} />
-            </g>
-          );
-        })}
+        {KEY_LINES.map((text, i) => (
+          <Label key={i} x={KEY_SCREEN.en} y={KEY_SCREEN.ys[i]! + 13} text={text} family={fonts.sans} size={KEY_TYPE.size} weight={KEY_TYPE.weight} cjkWeight={KEY_TYPE.cjkWeight} color={TEXT_HEX.en} />
+        ))}
       </g>
     </svg>
   );

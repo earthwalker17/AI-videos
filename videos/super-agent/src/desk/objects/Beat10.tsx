@@ -273,10 +273,10 @@ function useShardMat() {
   );
   return mat;
 }
-/** The shard's window: fed out of the print head's east face (only what is out of it drawn: its plane and UVs cut there), lying over the real window, slid south beside it. Vellum: no shadow. */
+/** The shard's window: fed out of the print head's east face (only what is out of it drawn: its plane and UVs cut there), lying over the real window, slid south beside it, fading where it lies. Vellum: no shadow. */
 function ShardWindowSheet({ w, s }: { w: ShardWindow; s: DeskState }) {
   const mat = useShardMat();
-  useVellumStep([mat], useVellumOpacity(s.step, s.testsStep));
+  useVellumStep([mat], useVellumOpacity(s.step, s.testsStep) * w.fade);
   const out = Math.round(w.out * 1000) / 1000;
   const g = useMemo(() => {
     const k = Math.max(0.001, out);

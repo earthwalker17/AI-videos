@@ -2,7 +2,8 @@
  * Beat 8's printed sheet (STORYBOARD 8.1-8.5; desk/beat8.ts): every mark and word on the test sheet, drawn once into CPU
  * canvases (the kit's textCanvas, fillTextChecked) by objects/Evidence.tsx when the sheet first comes into the world.
  * Every word is a cues.ts WORDS string set as it reads (never re-worded, never broken), in the film's sans (IBM Plex Sans
- * SemiBold, its Han in Noto Sans SC a step lighter, as the labels set it), at least 36 px on screen at FRAMING_SHEET
+ * SemiBold), its EN alone: the zh policy (look/zhInPicture.ts, the user, 2026-11-14) keeps no zh on the sheet; a string
+ * whose zh it kept would be set "EN · zh" on its one line, its Han a step lighter, at least 36 px on screen at FRAMING_SHEET
  * (beat8.test holds every em). The hero stamps are the film's numbers face (the print stack's IBM Plex Mono, bold),
  * 160-220 px; "~½" is set as a tilde and a built fraction (a raised 1, a continuous solidus, a lowered 2), since the
  * face's ½ glyph splits its slash. Ink is never an alpha fade: each print inks in over 3 f (gl/text.ts stagedInk: the
@@ -27,6 +28,7 @@ import { fillTextChecked } from '@aiv/remotion-kit';
 import type { Texture } from 'three';
 import { BEAT_8, WORDS } from '../../cues.ts';
 import { NOTO_SC, PLEX } from '../../look/fonts.ts';
+import { zhInPicture } from '../../look/zhInPicture.ts';
 import { BAND, BRACKET, CAVEAT, CLAMP, HOLE_R, LANE_EM, LANES8, LEGEND, NAME_U, NOTCH, ORIGIN_U, STAMPS8, STRIP_W, TICKS, TOKENS, holeAt, stripLength, tickFrac, tickU } from '../beat8.ts';
 import { INK, PRINT_FONT, rule, stagedInk, texture, tooth, toothUnder, type Draw } from './text.ts';
 
@@ -58,15 +60,26 @@ export interface Box8 {
   v1: number;
 }
 
-/** Each lane's name lines: one line EN · zh, or (the told-to-delegate lane's) EN over zh. */
-export const NAME_LINES: readonly { en?: string; zh?: string }[][] = [
-  [{ en: WORDS.laneOne.en, zh: WORDS.laneOne['zh-Hans'] }],
-  [{ en: WORDS.laneTold.en }, { zh: WORDS.laneTold['zh-Hans'] }],
-  [{ en: WORDS.laneTwo.en, zh: WORDS.laneTwo['zh-Hans'] }],
-];
+/** One line of the sheet's words: a WORDS string's EN, and its zh only where the zh policy keeps it (it keeps none here). */
+interface SheetLine {
+  en: string;
+  zh?: string;
+}
+const sheetLine = (w: { en: string; 'zh-Hans': string }): SheetLine => {
+  const zh = zhInPicture(w);
+  return zh === null ? { en: w.en } : { en: w.en, zh };
+};
+/** Each lane's name: one line (LANES8's names). */
+export const NAME_LINES: readonly SheetLine[][] = [[sheetLine(WORDS.laneOne)], [sheetLine(WORDS.laneTold)], [sheetLine(WORDS.laneTwo)]];
+/** The caveat stamp's line, the legend's two entries, the token header's line. */
+export const CAVEAT_LINE = sheetLine(WORDS.tagChart);
+export const LEGEND_LINES = [sheetLine(WORDS.legendTypical), sheetLine(WORDS.legendSlowest)] as const;
+export const HEAD_LINE = sheetLine(WORDS.tokenHead);
+/** Every line of words the sheet sets (the hero stamps are numbers), as it reads: the tests hold it to the zh policy. */
+export const SHEET_TEXT: readonly string[] = [CAVEAT_LINE, ...NAME_LINES.flat(), ...LEGEND_LINES, HEAD_LINE].map((l) => (l.zh ? `${l.en} · ${l.zh}` : l.en));
 
-/** Set a line of words at an em: EN (and the dot) at 600, the zh at 500 (the labels' weights), left-aligned from x; returns its width. */
-function setLine(g: CanvasRenderingContext2D, line: { en?: string; zh?: string }, x: number, y: number, em: number, colour: string, measureOnly = false): number {
+/** Set a line of words at an em: EN (and the dot) at 600, a kept zh at 500 (the labels' weights), left-aligned from x; returns its width. */
+function setLine(g: CanvasRenderingContext2D, line: SheetLine, x: number, y: number, em: number, colour: string, measureOnly = false): number {
   g.textBaseline = 'alphabetic';
   g.textAlign = 'left';
   g.fillStyle = colour;
@@ -76,11 +89,10 @@ function setLine(g: CanvasRenderingContext2D, line: { en?: string; zh?: string }
     if (!measureOnly) fillTextChecked(g, text, x + w, y);
     w += g.measureText(text).width;
   };
-  if (line.en && line.zh) {
+  if (line.zh) {
     run(`${line.en} · `, 600);
     run(line.zh, 500);
-  } else if (line.en) run(line.en, 600);
-  else if (line.zh) run(line.zh, 500);
+  } else run(line.en, 600);
   return w;
 }
 
@@ -121,7 +133,7 @@ const REACH = ORIGIN_U + stripLength(0);
 export const TRACKS_BOX: Box8 = { u0: ORIGIN_U - 6, u1: REACH + 8, v0: CLAMP.v0, v1: CLAMP.v1 };
 export const TICKS_BOX: Box8 = { u0: TICKS.u0 - 4, u1: tickU(BEAT_8.ticks.n - 1) + 4, v0: TICKS.inked[0] - 2, v1: TICKS.inked[1] + 2 };
 export const CAVEAT_BOX: Box8 = { u0: CAVEAT.u0, u1: CAVEAT.u1, v0: CAVEAT.v0, v1: CAVEAT.v1 };
-/** Each lane name's box: from NAME_U to where its longest line may run (the stamps' column starts east of it). */
+/** Each lane name's box: from NAME_U to where its line may run (the stamps' column starts east of it). */
 export const NAME_BOX: readonly Box8[] = LANES8.map((l, i) => {
   const vs = l.names.map((n) => n.v);
   return { u0: NAME_U - 2, u1: i === 1 ? NAME_U + 760 : NAME_U + 640, v0: Math.min(...vs) - LANE_EM, v1: Math.max(...vs) + 0.3 * LANE_EM };
@@ -130,7 +142,7 @@ export const LEGEND_BOX: Box8 = { u0: LEGEND.u - 4, u1: LEGEND.u + 860, v0: LEGE
 /** The bracket's rings round both holes and their leaders down (and up) to its serifs (the serifs and bar are Evidence.tsx's, on a spring). */
 const RING_R = HOLE_R + 4.6;
 export const RINGS_BOX: Box8 = { u0: BRACKET.b[0] - RING_R - 6, u1: BRACKET.a[0] + RING_R + 6, v0: BRACKET.a[1] - RING_R - 6, v1: BRACKET.b[1] + RING_R + 6 };
-export const HEAD_BOX: Box8 = { u0: TOKENS.head.u - 2, u1: TOKENS.head.u + 720, v0: TOKENS.head.v[0] - TOKENS.head.em, v1: TOKENS.head.v[1] + 0.3 * TOKENS.head.em };
+export const HEAD_BOX: Box8 = { u0: TOKENS.head.u - 2, u1: TOKENS.head.u + 720, v0: TOKENS.head.v - TOKENS.head.em, v1: TOKENS.head.v + 0.3 * TOKENS.head.em };
 /** A hero stamp's box: its glyphs' advance (its `adv` ems) and its height above the baseline, a margin round them. */
 export const stampBox = (id: keyof typeof STAMPS8): Box8 => {
   const s = STAMPS8[id];
@@ -315,7 +327,7 @@ export function beat8Textures(aniso: number): Beat8Textures {
     TEX_FINE,
   );
 
-  // ---- the caveat stamp: a rubber stamp's frame across the sheet, its two lines
+  // ---- the caveat stamp: a rubber stamp's frame across the sheet, its line
   const cb = CAVEAT_BOX;
   const caveat = inked(cb, (g) => {
     const w = cb.u1 - cb.u0;
@@ -330,12 +342,8 @@ export function beat8Textures(aniso: number): Beat8Textures {
     g.roundRect(9, 9, w - 18, h - 18, 8);
     g.stroke();
     const pad = 22;
-    const en = { en: WORDS.tagChart.en };
-    const zh = { zh: WORDS.tagChart['zh-Hans'] };
-    fits(WORDS.tagChart.en, setLine(g, en, 0, 0, CAVEAT.em, INK, true), w - 2 * pad);
-    fits(WORDS.tagChart['zh-Hans'], setLine(g, zh, 0, 0, CAVEAT.em, INK, true), w - 2 * pad);
-    setLine(g, en, pad, CAVEAT.en - cb.v0, CAVEAT.em, INK);
-    setLine(g, zh, pad, CAVEAT.zh - cb.v0, CAVEAT.em, INK);
+    fits(WORDS.tagChart.en, setLine(g, CAVEAT_LINE, 0, 0, CAVEAT.em, INK, true), w - 2 * pad);
+    setLine(g, CAVEAT_LINE, pad, CAVEAT.en - cb.v0, CAVEAT.em, INK);
     wear(g, w, h, 81, 0.01);
   });
 
@@ -346,7 +354,7 @@ export function beat8Textures(aniso: number): Beat8Textures {
       lane.names.forEach((n, k) => {
         const line = NAME_LINES[i]![k]!;
         const colour = i === 2 ? INK : INK_LIGHT;
-        fits(`${line.en ?? ''}${line.zh ?? ''}`, setLine(g, line, 0, 0, LANE_EM, colour, true), b.u1 - b.u0 - 4);
+        fits(line.en, setLine(g, line, 0, 0, LANE_EM, colour, true), b.u1 - b.u0 - 4);
         setLine(g, line, 2, n.v - b.v0, LANE_EM, colour);
       });
     });
@@ -380,10 +388,10 @@ export function beat8Textures(aniso: number): Beat8Textures {
       }
     };
     stub(4, false);
-    const a = setLine(g, { en: WORDS.legendTypical.en, zh: WORDS.legendTypical['zh-Hans'] }, 76, y, LEGEND.em, INK);
+    const a = setLine(g, LEGEND_LINES[0], 76, y, LEGEND.em, INK);
     const x2 = 76 + a + 56;
     stub(x2, true);
-    const b2 = setLine(g, { en: WORDS.legendSlowest.en, zh: WORDS.legendSlowest['zh-Hans'] }, x2 + 72, y, LEGEND.em, INK);
+    const b2 = setLine(g, LEGEND_LINES[1], x2 + 72, y, LEGEND.em, INK);
     fits('legend', x2 + 72 + b2, lb.u1 - lb.u0);
   });
 
@@ -407,14 +415,11 @@ export function beat8Textures(aniso: number): Beat8Textures {
     rule(g, bx, by - RING_R, bx, bar + BRACKET.serif - 1, 4.6, INK);
   });
 
-  // ---- the token header: two lines over the stacks
+  // ---- the token header: one line over the stacks
   const hb = HEAD_BOX;
   const head = inked(hb, (g) => {
-    const lines = [{ en: WORDS.tokenHead.en }, { zh: WORDS.tokenHead['zh-Hans'] }];
-    lines.forEach((line, k) => {
-      fits(line.en ?? line.zh ?? '', setLine(g, line, 0, 0, TOKENS.head.em, INK, true), hb.u1 - hb.u0 - 4);
-      setLine(g, line, 2, TOKENS.head.v[k]! - hb.v0, TOKENS.head.em, INK);
-    });
+    fits(HEAD_LINE.en, setLine(g, HEAD_LINE, 0, 0, TOKENS.head.em, INK, true), hb.u1 - hb.u0 - 4);
+    setLine(g, HEAD_LINE, 2, TOKENS.head.v - hb.v0, TOKENS.head.em, INK);
   });
 
   // ---- the hero stamps: the numbers face, bold, in white (the material's colour is the ink), a little of the rubber's wear

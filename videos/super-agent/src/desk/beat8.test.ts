@@ -24,6 +24,7 @@ import {
   NOTCH,
   ORIGIN_U,
   RAIL,
+  SECTION_RULE,
   SHEET8,
   SHEET_H,
   SHEET_W,
@@ -58,6 +59,10 @@ import {
 import { deskStateAt, stepAt } from './state.ts';
 import { PROACTIVE_PLATE, rectC } from './layout.ts';
 import { SAFE } from '../look/tokens.ts';
+import { hasHan } from '../look/zhInPicture.ts';
+import { SHEET_TEXT } from './gl/print8.ts';
+import { INK } from './gl/text.ts';
+import { TAG_MID, TEXT_HEX, leaderOnPaper, tagLayout } from './Overlay.tsx';
 
 const L = BEAT_8.lanes;
 const sheet = cameraAt(at(52), 15);
@@ -148,6 +153,24 @@ describe('beat 8: the lanes', () => {
     });
     expect(NAME_U - CLAMP.u1).toBeGreaterThanOrEqual(26);
   });
+  it('prints its words in EN alone (the zh policy) and leaves no hole where a zh line was: each line boxed tight, the air shared out', () => {
+    for (const t of SHEET_TEXT) expect(hasHan(t), t).toBe(false);
+    expect(SHEET_TEXT).toEqual([WORDS.tagChart.en, WORDS.laneOne.en, WORDS.laneTold.en, WORDS.laneTwo.en, WORDS.legendTypical.en, WORDS.legendSlowest.en, WORDS.tokenHead.en]);
+    LANES8.forEach((l) => expect(l.names).toHaveLength(1));
+    // the caveat stamp's box round its one line: the same air over its caps (0.7 em) as under its descenders (0.22 em)
+    const over = CAVEAT.en - 0.7 * CAVEAT.em - CAVEAT.v0;
+    const under = CAVEAT.v1 - (CAVEAT.en + 0.22 * CAVEAT.em);
+    expect(Math.abs(over - under)).toBeLessThanOrEqual(4);
+    // the gaps down the head of the sheet (the load line, the caveat, the legend, the first lane's name) grow evenly: none
+    // twice another, and none is a hole of a line (an em) or more
+    const gaps = [CAVEAT.v0 - TICKS.inked[1], LEGEND.v - 0.72 * LEGEND.em - CAVEAT.v1, LANES8[0].names[0]!.v - 0.72 * LANE_EM - (LEGEND.v + 0.22 * LEGEND.em)];
+    for (const g of gaps) expect(g).toBeLessThan(LANE_EM);
+    expect(Math.max(...gaps) / Math.min(...gaps)).toBeLessThanOrEqual(2);
+    // the token header midway between the section rule and its stacks (within 6 u)
+    const above = TOKENS.head.v - 0.72 * TOKENS.head.em - SECTION_RULE.v;
+    const below = TOKENS.clamp.v0 - (TOKENS.head.v + 0.22 * TOKENS.head.em);
+    expect(Math.abs(above - below)).toBeLessThanOrEqual(6);
+  });
 });
 
 describe('beat 8: the notches, the die and the long run', () => {
@@ -228,7 +251,7 @@ describe('beat 8: the notches, the die and the long run', () => {
     expect(ONE_PASS.v - DIE.d / 2).toBeGreaterThan(LANES8[0].names[0]!.v + 20);
     expect(ONE_PASS.v + DIE.d / 2).toBeLessThan(LANES8[1].names[0]!.v - 0.75 * LANE_EM);
     // it never passes over the told-to-delegate lane's name (between the strips it keeps to the clamp bar, west of the names)
-    const names = { v0: LANES8[1].names[0]!.v - 0.75 * LANE_EM, v1: LANES8[1].names[1]!.v + 0.25 * LANE_EM };
+    const names = { v0: LANES8[1].names[0]!.v - 0.75 * LANE_EM, v1: LANES8[1].names[LANES8[1].names.length - 1]!.v + 0.25 * LANE_EM };
     for (let f = BEAT_8.notches[0].f - 14; f <= DIE_REST; f++) {
       const d = dieAt(f);
       if (d.v + DIE.d / 2 > names.v0 && d.v - DIE.d / 2 < names.v1) expect(d.u + DIE.w / 2, `f${f}`).toBeLessThan(NAME_U);
@@ -252,7 +275,7 @@ describe('beat 8: the notches, the die and the long run', () => {
     expect(chadsAt(4400)).toHaveLength(4);
     for (const x of chadsAt(4400)) {
       expect(x.v + 13).toBeLessThan(BAND.v1);
-      expect(x.v - 13).toBeGreaterThan(LANES8[1].names[1]!.v + 6);
+      expect(x.v - 13).toBeGreaterThan(LANES8[1].names[LANES8[1].names.length - 1]!.v + 6);
     }
   });
   it('slides the long run’s band out of its uncut place over longRun.frames, at least 18 px thick, ending flush with the strip’s cut', () => {
@@ -341,10 +364,9 @@ describe('beat 8: the print and its contact frames', () => {
   it('sets every word at 36 px or more and every hero stamp at 160-220 px on screen at the sheet’s framing', () => {
     const words: [string, number, number, number][] = [
       ['caveat', CAVEAT.u0, CAVEAT.en, CAVEAT.em],
-      ['caveat zh', CAVEAT.u0, CAVEAT.zh, CAVEAT.em],
       ...LANES8.flatMap((l, i) => l.names.map((n) => [`lane ${i}`, NAME_U, n.v, LANE_EM] as [string, number, number, number])),
       ['legend', LEGEND.u, LEGEND.v, LEGEND.em],
-      ...TOKENS.head.v.map((v, k) => [`token head ${k}`, TOKENS.head.u, v, TOKENS.head.em] as [string, number, number, number]),
+      ['token head', TOKENS.head.u, TOKENS.head.v, TOKENS.head.em],
     ];
     for (const [id, u, v, em] of words) expect(em * pxPerU(u, v - em), id).toBeGreaterThanOrEqual(36);
     for (const [id, s] of Object.entries(STAMPS8)) {
@@ -376,11 +398,43 @@ describe('beat 8: the print and its contact frames', () => {
     const [t] = TAGS_8;
     expect(t!.cue).toBe('tag-load');
     expect(t!.words).toBe(WORDS.tagLoad);
-    expect(t!.at[0] - 0.52 * 40 * WORDS.tagLoad.en.length).toBeGreaterThanOrEqual(SAFE.x);
+    // (about 20 px a character at 40 px, as film.test.ts measures tags: its 42 characters measure 824 px on the render)
+    expect(t!.at[0] - 20 * WORDS.tagLoad.en.length).toBeGreaterThanOrEqual(SAFE.x);
     expect(t!.at[1] - 32).toBeGreaterThanOrEqual(SAFE.y);
     const foot = project(sheet, t!.foot);
     expect(foot[0]).toBeGreaterThan(t!.at[0]);
     expect(foot[0]).toBeLessThan(t!.at[0] + 120);
+  });
+  it('drops the load tag’s leader at a plain angle from its line onto the load line, its run on the sheet and its dot in ink (T-rv-01: level with its one line it read as a dash)', () => {
+    const [t] = TAGS_8;
+    expect(t!.paperEdge).toEqual([
+      [SHEET8.x0, SHEET8.y0, SHEET8.z],
+      [SHEET8.x0, SHEET8.y1, SHEET8.z],
+    ]);
+    // every frame of its window the sheet lies still (its slide is before the tag's wipe and after its fade)
+    const [w0, w1] = textWindow(cue('tag-load'));
+    for (let f = Math.max(w0, t!.from!); f <= w1; f += 5) expect(sheetDx(f), `f${f}`).toBe(0);
+    const foot = project(sheet, t!.foot);
+    // (about 19.6 px a character at 40 px, as measured on the render)
+    const L = tagLayout(t!, foot, (x) => 19.6 * x.length);
+    const [lx, ly] = L.l;
+    // the leader leaves the line's side at its middle and drops to the foot at 18 degrees or more, never level with the text
+    expect(lx).toBeGreaterThan(t!.at[0]);
+    expect(ly).toBe(t!.at[1] - TAG_MID);
+    expect((Math.atan2(foot[1] - ly, foot[0] - lx) * 180) / Math.PI).toBeGreaterThanOrEqual(18);
+    // the foot on the paper, east of its edge, and a run of 60 px or more of the leader over the dark desk before the edge
+    const e0 = project(sheet, t!.paperEdge![0]);
+    const e1 = project(sheet, t!.paperEdge![1]);
+    const k = leaderOnPaper(foot, [lx, ly], e0, e1);
+    expect(k).toBeGreaterThan(0);
+    expect(k).toBeLessThan(1);
+    expect(foot[0]).toBeGreaterThan(Math.max(e0[0], e1[0]));
+    expect((1 - k) * Math.hypot(lx - foot[0], ly - foot[1])).toBeGreaterThanOrEqual(60);
+    // the crossing on the sheet's west edge, under its north-west corner
+    const cross = [foot[0] + (lx - foot[0]) * k, foot[1] + (ly - foot[1]) * k];
+    expect(cross[1]).toBeGreaterThan(project(sheet, [SHEET8.x0, SHEET8.y1, SHEET8.z])[1]);
+    expect(Math.abs(cross[0] - project(sheet, [SHEET8.x0, SHEET8.y1, SHEET8.z])[0])).toBeLessThan(3);
+    expect(TEXT_HEX.ink).toBe(INK);
   });
 });
 

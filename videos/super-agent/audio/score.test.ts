@@ -188,9 +188,9 @@ describe('part two pans by the picture’s layout and camera (audio/places.ts)',
     // the act-one card at rest (its whole beat), west of the Register
     const rest = BEAT_11.actOneCard.rise + 20;
     expect(Math.abs(project(cameraAt(rest, 15), CARD_SPOT_11.at)[0] - SCREEN.actOneCard)).toBeLessThan(2);
-    // the key's block: from its samples' plate to its zh column (measured on the built frame f5730: x 1202-1823)
+    // the key's block: from its samples' column to its east end (one column since 2026-11-14, its middle kept at x 1512)
     expect(SCREEN.keyMap).toBeGreaterThan(KEY_SCREEN.x);
-    expect(SCREEN.keyMap).toBeLessThan(KEY_SCREEN.zh);
+    expect(SCREEN.keyMap).toBeLessThan(KEY_SCREEN.end);
   });
 
   it('moves the camera as the picture does: its framings, and every move from bar 44 on (src/desk/camera.ts)', () => {

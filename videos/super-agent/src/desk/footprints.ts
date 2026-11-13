@@ -10,9 +10,9 @@
  * packed as three vec4 each (`packFootprints`).
  */
 import { carrierSpan, circleFp, polySegs, rectFp, segFp, shiftFootprints, tiltedFp, type Footprint } from './fpKit.ts';
-import { SHADOW_K, shadowOffset, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, TAPE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
+import { SHADOW_DIR, SHADOW_K, shadowOffset, BAYS, BAY_FLOOR, BELT, BENCH, CARD, CHUTE, CHUTE_POSTS, CROSS, DECK, DECK_PLATE, DRAWER, FANFOLD, FEEDERS, FEEDER_H, FOLDER, GALLEY_TRAY, GATE, LAMP, LEG_R, LEG_STRUTS, LOCK, MOUTH, PRINT_HEAD, RAMP, READ_LAMP, REEL, REEL_FRAME, REEL_FRAME_Z, SHEET, PINS, SLIP, SPOOL, THROAT, TOWER, TRAIT_PLATE, TAPE, towerTop, WINDOW, YOU, penumbra, rectC, type BayLayout, type P2, type P3, type Rect } from './layout.ts';
 import { CARD_C, CARD_FILE, DISPATCH, DISPATCH_HOUSING, FRESH, HATCH_DEPTH, NEXT_SLIP, REQUEST, SINK, type BayId } from './layout.ts';
-import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, DOCK_B, HEAD_DIP, hammerOffset, headDipAt, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
+import { CAP_SLOT, CARD_DOCK_TILT, CARD_STAND, DOCK_B, EVENTS_D, HEAD_DIP, hammerOffset, headDipAt, TAB_B, TAB_LEAN_B, TAB_REST_B, TAB_REST_C, cardRise, cardTilt, replyPose, tabArc, type DeskState } from './state.ts';
 import { CHORES, TRAY_Z, YOU_POSE_B, strutEnds, type YouPose } from './you.ts';
 import { HEAP, PIECE, ciHopperFootprints, youPoseAt } from './actOne.ts';
 import { BAND_RAMP, REQUEST_HEAP, RIDE, WORK_DEPTH as WORK_DEPTH_FP, cardPose, cardShadeShift, cardSize, heapFloor, heapPieceAt, liftOf, ON_REQUEST, type Beat4State, type CardSpot, type CardState, type CardUp, type Carry, type HeapState } from './beat4.ts';
@@ -123,6 +123,48 @@ const BAND_REACH = 1.51;
 /** An open hatch's pit: the slate round it shades and roofs what is below it (a bay rising out of the dark into the light). */
 export function pitFootprints(B: Rect): Footprint[] {
   return [rectFp({ x0: B.x0 - 80, x1: B.x1 + 80, y0: B.y0 - 80, y1: B.y1 + 80 }, -1, 0, 0, 6), { kind: 'canopy', c: rectC(B), h: [(B.x1 - B.x0) / 2 + 30, (B.y1 - B.y0) / 2 + 30], z: 0, strength: 0.92 }];
+}
+/**
+ * The light reaching into the fresh bay's pit as it rises (MT1, R2-L2-16): its front is the north rim's shade, an edge
+ * along the pit's walls, drawn back north frame by frame from the rise's cue (EVENTS_D.rise): across the nameplate band
+ * on the south wall's top over the `band` frames (each the share of the band lit), then across the floor plate over the
+ * `floor` frames, wherever the bay then is. The rim's real shade on a face d under the slate ends 0.53·d south of the north
+ * wall, which would light most of the pit: the pit stays dark until the light reaches in (pitFootprints), and the north rim
+ * is reached out over the opening by as far as the light has not. One roof at the slate's level had turned each face lit
+ * in the one frame it crossed the slate (the band c2307-2308, the floor plate c2310-2311); strips across the key had
+ * swept a hard diagonal edge through the band's print (RV-M4-WIPE).
+ */
+export const PIT_LIGHT = { band: [0.3, 0.65, 1.08], floor: [0.15, 0.45, 0.76, 1.03] } as const;
+/** How far (u) the north rim's shade reaches south over the opening k frames from the rise's cue, the bay lifted by `lift` (beat4.ts liftOf: negative under the slate); 0 once the light is all the way in. */
+export function pitLightReach(B: BayLayout, k: number, lift: number): number {
+  const L = PIT_LIGHT;
+  const { y0, y1 } = B.box;
+  // the plane the front lies across that frame and the y it lies at: the band on the south wall's top, then the floor
+  // plate between the walls
+  const at =
+    k < 0 ? null
+    : k < L.band.length ? { z: bandTop(B) + lift, y: y0 + B.southWall * L.band[k]! }
+    : k < L.band.length + L.floor.length ? { z: BAY_FLOOR + lift, y: y0 + B.southWall + (y1 - B.wall - y0 - B.southWall) * L.floor[k - L.band.length]! }
+    : null;
+  if (!at) return 0;
+  // a surface at z is shaded by a footprint up to the slate (z1 0) swept down the key from the slate to it, 0.5 - z (gl/light.ts,
+  // gl/materials.ts: its receiver height is z - 0.5); the shade's south edge lands SHADOW_K·|dy| per unit of that south of the rim
+  return Math.max(0, y1 - at.y - SHADOW_K * Math.abs(SHADOW_DIR[1]) * (0.5 - at.z));
+}
+/**
+ * An open pit while its bay rises out of it (MT1's fresh bay): the slate round the opening shades and roofs what is below
+ * it, its north rim reaching `reach` out over the opening (pitLightReach), so the light comes in from the south wall as a
+ * soft edge along the walls (its penumbra 4 + 0.22·d); the west rim's own shade (a strip 0.65·d wide down the west wall,
+ * which would cross the band's print) is left out, so the one edge is the light's front. Nothing above the slate is touched.
+ */
+export function pitRisingFootprints(B: Rect, reach: number): Footprint[] {
+  const M = 80;
+  const rim: Rect[] = [
+    { x0: B.x0 - M, x1: B.x1 + M, y0: B.y0 - M, y1: B.y0 },
+    { x0: B.x0 - M, x1: B.x1 + M, y0: B.y1 - reach, y1: B.y1 + M },
+    { x0: B.x1, x1: B.x1 + M, y0: B.y0, y1: B.y1 },
+  ];
+  return [...rim.map((r) => rectFp(r, -1, 0, 0, 0.5)), { kind: 'canopy', c: rectC(B), h: [(B.x1 - B.x0) / 2 + 30, (B.y1 - B.y0) / 2 + 30], z: 0, strength: 0.92 }];
 }
 
 /** The lid strut's hop (you.ts strutEnds): from this far along it the recess's footprint closes in round it (contact and shade by amount). */
@@ -322,16 +364,24 @@ export function movingFootprints(s: DeskState): Footprint[] {
   // (the Thread cord and its guide, from 7.1 on: beat7.ts footprints7)
   // MT1's next dispatch: the chat slip in flight or in the throat, the folder, the fresh bay rising out of its hatch
   const n = s.next;
-  // (its top a receiver, TOP_CLEAR: at its own top, the 3% landing squash in the throat put it under for 3 f, c2262–2264)
-  if (n.slip) fp.push({ kind: 'rect', c: [n.slip.p[0], n.slip.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 3, rot: n.slip.heading, z0: n.slip.p[2] - 0.4, z1: n.slip.p[2] + 0.4 - TOP_CLEAR, contact: 0 });
+  // (its top a receiver, TOP_CLEAR: at its own top, the 3% landing squash in the throat put it under for 3 f, c2262–2264;
+  // carrierSpan: flat, the same span; on the belt's slope its lower half had sat under its own footprint, shaded, until
+  // the hop laid it flat, one value in one frame: R2-L2-05, c2251–2260)
+  if (n.slip) fp.push({ kind: 'rect', c: [n.slip.p[0], n.slip.p[1]], h: [(NEXT_SLIP.l / 2) * Math.cos(n.slip.slope), NEXT_SLIP.w / 2], r: 3, rot: n.slip.heading, ...carrierSpan(n.slip, NEXT_SLIP.l / 2, 0.4), contact: 0 });
   if (n.folder) fp.push({ kind: 'rect', c: [n.folder.p[0], n.folder.p[1]], h: [DISPATCH.w / 2, DISPATCH.d / 2], r: 3, rot: n.folder.heading, z0: n.folder.p[2] - 1.5, z1: n.folder.p[2] + 1.5, contact: 0.6 });
   if (n.hole || n.rise > 0) {
     // the pit under the open hatch is dark: the desk round it shades and roofs whatever is below the desk (the bay
     // rises out of the dark into the light; nothing above the desk is touched); its contact closes in as it settles
-    if (n.hole) fp.push(...pitFootprints(FRESH.box));
+    // (from the rise's cue while it is under the slate, the light reaches in from the south wall: pitRisingFootprints)
+    const lift = liftOf(n.rise, HATCH_DEPTH);
+    const rising = n.hole && s.f >= EVENTS_D.rise && lift < 0;
+    if (n.hole) fp.push(...(rising ? pitRisingFootprints(FRESH.box, pitLightReach(FRESH, s.f - EVENTS_D.rise, lift)) : pitFootprints(FRESH.box)));
     const F = CARD_FILE;
     const fresh = [...bayFootprints(FRESH), rectFp({ x0: F.x0 - F.cheek, x1: F.x1 + F.cheek, y0: F.y - F.r, y1: F.y + F.r }, BAY_FLOOR, F.z + F.cheekR, 1, 6)].map((x) => (x.kind === 'rect' || x.kind === 'circle' ? { ...x, contact: x.contact * n.contact } : x));
-    fp.push(...shiftFootprints(fresh, liftOf(n.rise, HATCH_DEPTH)));
+    // and its parts keep their own shade under the slate while that light reaches them (shiftFootprints drops what is under
+    // the desk and floors the rest at it: the drum's cards had lit for a frame, c2305, and gone dark again as its own
+    // footprint came up past the slate)
+    fp.push(...(rising ? fresh.map((x) => (x.kind === 'rect' || x.kind === 'circle' ? { ...x, z0: x.z0 + lift, z1: x.z1 + lift } : x)) : shiftFootprints(fresh, lift)));
   }
   // beat 4: the request on its ride, the arrivals on the intake, the counterfactual cards over the slate, the heap's pit
   const b4 = s.b4;

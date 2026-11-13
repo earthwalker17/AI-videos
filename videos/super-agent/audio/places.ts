@@ -156,7 +156,7 @@ export const SCREEN = {
    * sounds when the foot touches
    */
   ideas: [697, 657, 816, 1185, 1546, 1363] as readonly number[],
-  /** the map key's block, its plate's west edge (about x 1202) to the end of its zh column (about 1823): its middle (beat11.ts KEY_SCREEN; measured on the built frame f5730) */
+  /** the map key's block, its plate's west edge to its east end: its middle (beat11.ts KEY_SCREEN; measured on the built frame f5730, and kept when the zh column went, 2026-11-14) */
   keyMap: 1512,
   /** the act-one card at rest, west of the Register over the feeders (beat11.ts CARD_SCREEN): it comes in from and leaves by the frame's west edge */
   actOneCard: 300,

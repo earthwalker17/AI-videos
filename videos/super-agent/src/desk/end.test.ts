@@ -4,9 +4,10 @@ import { SAFE } from '../look/tokens.ts';
 import { KEEP_LAND, UNDER_HEAD } from './beat5.ts';
 import { cameraAt, project } from './camera.ts';
 import { BUILT, CI_TICK, E_END, HEAP_GONE, LAMP_END, QUEUE, STEP_UP, TAGS_END, TICKS, bookendSlipAt, cardsEnd, ciFeedAt, endAt, endDesk, footprintsEnd, heapGoneAt, nextSlipAt, poolsEnd, stepEnd, veilAt, youEnd } from './end.ts';
-import { END_CARD, END_KEY, END_KEY_MOVE, END_KEY_OFF, END_KEY_SCREEN, END_TYPE, LEAVE, endCardAt, endKeyAt, endPools, endWorldFootprints } from './endCard.ts';
+import { END_CARD, END_GROUND_POOL, END_KEY, END_KEY_MOVE, END_KEY_OFF, END_KEY_SCREEN, END_TYPE, LEAVE, endCardAt, endKeyAt, endPools, endWorldFootprints } from './endCard.ts';
 import { END_FROM, SEGMENTS, segmentAt, segmentSpan } from './film.ts';
-import { KEY_BOX, KEY_SAMPLES } from './beat11.ts';
+import { KEY_BOX, KEY_LINES as END_KEY_LINES, KEY_SAMPLES } from './beat11.ts';
+import { hasHan } from '../look/zhInPicture.ts';
 import { footprintsAt } from './footprints.ts';
 import { FEEDERS, GATE } from './layout.ts';
 import { CARD_T, cardCentre, cardCorners } from './objects/TitleCard.tsx';
@@ -220,7 +221,8 @@ describe('beats 12-13: the bookend (end.ts)', () => {
       expect(footprintsAt(s).length, `f${f}`).toBeLessThanOrEqual(152);
       expect(poolsAt(s).length, `f${f}`).toBeLessThanOrEqual(10);
       expect(endWorldFootprints(f).length, `f${f}`).toBeLessThanOrEqual(3);
-      expect(endPools(f).length, `f${f}`).toBeLessThanOrEqual(1);
+      // the end's one pool: its two terms, the card's and the slate's
+      expect(endPools(f).length, `f${f}`).toBeLessThanOrEqual(2);
     }
   });
 });
@@ -374,29 +376,54 @@ describe('beat 13: the end card and the end key (endCard.ts)', () => {
       for (let f = a; f <= b; f++) box(f).forEach((q, i) => expect(Math.hypot(q[0] - box(f - 1)[i]![0], q[1] - box(f - 1)[i]![1]), `f${f}`).toBeLessThanOrEqual(CAP));
     expect(END_KEY_OFF).toBeGreaterThan(0);
     expect(KEY_BOX.x1).toBeGreaterThan(KEY_BOX.x0);
-    // the zh column's longest entry (6 glyphs at 36 px) ends inside title-safe
-    expect(END_KEY_SCREEN.zh + 6 * 36).toBeLessThanOrEqual(SAFE.right);
+    // its words, EN alone (the zh policy), end inside title-safe; the block (its plate's west edge to its words' end) has its
+    // middle where the two-column block's was (x 1425, measured at 8bfa0f0), so no empty column is left beside it
+    expect(END_KEY_LINES.every((l) => !hasHan(l))).toBe(true);
+    expect(END_KEY_SCREEN.end).toBeLessThanOrEqual(SAFE.right);
+    expect(END_KEY_SCREEN.en - END_KEY_SCREEN.x).toBe(48);
+    expect(Math.abs((END_KEY_SCREEN.x - 38 + END_KEY_SCREEN.end) / 2 - 1425)).toBeLessThanOrEqual(3);
     // the key's words never reach the card
     expect(END_KEY_SCREEN.ys[2] + 13 + 10).toBeLessThan(Math.min(...corners(6400).map((p) => p[1])));
   });
 });
 
 describe('beat 13: the end’s light (endCard.ts endPools)', () => {
-  it('lights the end with one soft warm pool over the card’s north-west quarter, from the dissolve to the card’s leave, and none once the card is gone', () => {
-    for (const f of [6160, 6200, 6400, END.card.leave - 1]) {
+  it('lights the end with one soft warm pool from the lamp’s side: over the card’s north-west quarter and on the slate by that corner, both from the dissolve (R2-L4-09), none once the card is gone', () => {
+    for (const f of [END.dissolve[0], END.dissolve[0] + 20, END_CARD.frames.land, 6400, END.card.leave - 1]) {
       const p = endPools(f);
-      expect(p, `f${f}`).toHaveLength(1);
-      expect(p[0]!.rgb[0], `f${f}`).toBeGreaterThan(p[0]!.rgb[2]);
-      expect(p[0]!.rgb[0], `f${f}`).toBeLessThan(0.2);
+      expect(p.length, `f${f}`).toBe(2);
+      for (const q of p) {
+        expect(q.rgb[0], `f${f}`).toBeGreaterThan(q.rgb[2]);
+        expect(q.rgb[0], `f${f}`).toBeLessThan(1);
+      }
+      // the card's term on everything up to the card's top; the slate's on the desk's face only, under the card's top
+      expect(p[0]!.z[1]).toBeGreaterThan(CARD_T);
+      expect(p[1]!.z[1]).toBeLessThan(CARD_T);
+      expect(p[1]!.z[0]).toBeLessThan(0);
     }
+    // both come up with the bare desk (the veil, then the end's world: one light from the dissolve on), never as a step of
+    // their own after the landing: held still from the dissolve's first frame to the leave
+    for (let f = END.dissolve[0]; f < END.card.leave; f += 7) expect(endPools(f), `f${f}`).toEqual(endPools(END.card.leave - 1));
     expect(endPools(END.card.leave + 3)[0]!.rgb[0]).toBeLessThan(endPools(END.card.leave)[0]!.rgb[0]);
+    expect(endPools(END.card.leave + 3)[1]!.rgb[0]).toBeLessThan(endPools(END.card.leave)[1]!.rgb[0]);
     expect(endPools(END_CARD.frames.gone)).toEqual([]);
     expect(endPools(6719)).toEqual([]);
-    const [p] = endPools(6400);
+    const [p, q] = endPools(6400);
     const { x0, y1, w, d } = END_CARD.place;
     expect(p!.c[0]).toBeGreaterThan(x0);
     expect(p!.c[0]).toBeLessThan(x0 + w / 2);
     expect(p!.c[1]).toBeLessThan(y1);
     expect(p!.c[1]).toBeGreaterThan(y1 - d / 2);
+    // the slate's pool: just off the card's north-west corner (the lamp's side), round on the desk, about a third of the
+    // card's width (sigma), so it falls off across the slate rather than lifting it evenly
+    expect(Math.hypot(q!.c[0] - x0, q!.c[1] - y1)).toBeLessThan(0.1 * w);
+    expect(q!.c[0]).toBeLessThanOrEqual(x0);
+    expect(q!.c[1]).toBeGreaterThanOrEqual(y1);
+    expect(q!.sigma[0] / w).toBeGreaterThanOrEqual(0.3);
+    expect(q!.sigma[0] / w).toBeLessThanOrEqual(0.35);
+    expect(Math.abs(q!.sigma[1] - q!.sigma[0])).toBeLessThan(0.02 * w);
+    // warm: its red well over its blue (the slate's own tint is faintly green), the card's term the lamp's own tint
+    expect(q!.rgb[2] / q!.rgb[0]).toBeLessThan(0.5);
+    expect(END_GROUND_POOL.tint[0]).toBe(1);
   });
 });

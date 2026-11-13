@@ -21,7 +21,7 @@ import { HEX, paper, whiteTexture } from '../gl/materials.ts';
 import { texture } from '../gl/text.ts';
 import { END_LIGHT, VEIL_PASS, makeDepthReset, makeVeilMaterial, setEndLight, veilAlpha, veilBlend } from '../gl/veil.ts';
 import { isStepped } from '../kit.tsx';
-import { KEY_WORDS } from '../beat11.ts';
+import { KEY_LINES } from '../beat11.ts';
 import { cueReveal } from '../onScreen.ts';
 import { TEXT_HEX } from '../Overlay.tsx';
 import { TEXT_OUT } from '../../cues.ts';
@@ -237,14 +237,14 @@ export function EndCardText({ f, family, pose, state }: { f: number; family: str
 // ------------------------------------------------------------------------------------------------
 // The DOM text: the end key's words (13.2), beside their samples, dead still while they are read
 
-/** The key's words (the map key's look: beat 11's KEY_TYPE, EN in one column and zh in the next, each row on its sample): they wipe in on the end-key cue, the plate settled under them, and fade before it leaves. */
+/** The key's words (the map key's look: beat 11's KEY_TYPE, one column of EN, each row on its sample: beat11.ts KEY_LINES): they wipe in on the end-key cue, the plate settled under them, and fade before it leaves. */
 export function EndText({ f }: { f: number }) {
   const { fonts, ready } = useFilmFonts();
   const r = cueReveal('end-key', f);
   if (!ready || !r.visible || f < E_END.from) return null;
   const K = END_KEY_SCREEN;
   const x0 = K.en - 8;
-  const w = 1824 - x0 + 12;
+  const w = K.end - x0 + 12;
   return (
     <svg width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity }}>
       <defs>
@@ -253,15 +253,9 @@ export function EndText({ f }: { f: number }) {
         </clipPath>
       </defs>
       <g clipPath="url(#wipe-end-key)">
-        {KEY_WORDS.map((wd, i) => {
-          const y = K.ys[i]! + 13;
-          return (
-            <g key={i}>
-              <Label x={K.en} y={y} text={wd.en} family={fonts.sans} size={KEY_TYPE.size} weight={KEY_TYPE.weight} cjkWeight={KEY_TYPE.cjkWeight} color={TEXT_HEX.en} />
-              <Label x={K.zh} y={y} text={wd['zh-Hans']} family={fonts.sans} size={KEY_TYPE.size} weight={KEY_TYPE.cjkWeight} cjkWeight={KEY_TYPE.cjkWeight} color={TEXT_HEX.zh} />
-            </g>
-          );
-        })}
+        {KEY_LINES.map((text, i) => (
+          <Label key={i} x={K.en} y={K.ys[i]! + 13} text={text} family={fonts.sans} size={KEY_TYPE.size} weight={KEY_TYPE.weight} cjkWeight={KEY_TYPE.cjkWeight} color={TEXT_HEX.en} />
+        ))}
       </g>
     </svg>
   );

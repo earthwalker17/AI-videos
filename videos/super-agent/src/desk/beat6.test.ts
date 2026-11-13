@@ -42,7 +42,7 @@ import {
 } from './beat6.ts';
 import { cameraAt, deskCamera, FRAMING_C, project } from './camera.ts';
 import { footprintsAt, MAX_FOOTPRINTS, registerFootprints, THROAT_FLOOR_FP } from './footprints.ts';
-import { DECK, GATE, INDEX, PRINT_HEAD, TAPE_FLAT_X1, THROAT, type P3 } from './layout.ts';
+import { BENCH, DECK, GATE, INDEX, PINS, PRINT_HEAD, TAPE_FLAT_X1, THROAT, type P3 } from './layout.ts';
 import { poolsAt } from './pools.ts';
 import { DETENT, EVENTS_C, EVENTS_D, MT1_BELT, N6_GONE, SPRING, STEP_FRAMES, STRESS_LATE, TAB_LEAN_C, cacheAt, cardArcC, closeAt, deskStateAt, headDipAt, nextAt, springAt } from './state.ts';
 import { isStepped } from './kit.tsx';
@@ -472,15 +472,22 @@ describe('the hop into the throat: it turns flat and settles over frames, never 
     expect(nextAt(th).slip!.p).toEqual(CARRIERS.chat.throat);
     expect(st[st.length - 1]!.drop).toBeLessThan(4);
   });
-  it('never shades MT1’s next slip by its own footprint (its 3% landing squash put its top under it for 3 f)', () => {
+  it('never shades MT1’s next slip by its own footprint (its 3% landing squash put its top under it for 3 f; on the belt’s slope its lower half, R2-L2-05)', () => {
     for (let f = EVENTS_D.post; f < EVENTS_D.belt + EVENTS_D.beltFrames + 8; f++) {
       const sl = nextAt(f).slip;
       if (!sl) continue;
-      const own = footprintsAt(deskStateAt(f)).find((fp) => fp.kind === 'rect' && fp.c[0] === sl.p[0] && fp.c[1] === sl.p[1] && fp.h[0] === 48);
+      const own = footprintsAt(deskStateAt(f)).find((fp) => fp.kind === 'rect' && fp.c[0] === sl.p[0] && fp.c[1] === sl.p[1] && fp.rot === sl.heading && fp.h[1] === 20);
       expect(own, `f${f}`).toBeDefined();
-      // its top face (objects/Dispatch.tsx slipGeometry: ±0.4, squashed 3% at most) at or over its footprint's top
-      if (own?.kind === 'rect') expect(sl.p[2] + 0.4 * (1 - 0.03 * sl.squash), `f${f}`).toBeGreaterThanOrEqual(own.z1 + 0.1);
+      // the lowest point of its top face (objects/Dispatch.tsx slipGeometry: ±0.4, squashed 3% at most, tilted by its slope)
+      // at or over its footprint's top: the whole face lit alike (its west half had sat 20 u under it on the belt for 9 f)
+      const low = sl.p[2] + 0.4 * (1 - 0.03 * sl.squash) * Math.cos(sl.slope) - 48 * Math.abs(Math.sin(sl.slope));
+      if (own?.kind === 'rect') expect(low, `f${f}`).toBeGreaterThanOrEqual(own.z1 + 0.1);
     }
+    // flat, its footprint exactly as before (the keys keep their hashes)
+    const flat = nextAt(EVENTS_D.belt + EVENTS_D.beltFrames + 4).slip!;
+    expect(flat.slope).toBe(0);
+    const fpFlat = footprintsAt(deskStateAt(EVENTS_D.belt + EVENTS_D.beltFrames + 4)).find((fp) => fp.kind === 'rect' && fp.c[0] === flat.p[0] && fp.c[1] === flat.p[1] && fp.h[1] === 20);
+    expect(fpFlat?.kind === 'rect' && [fpFlat.h[0], fpFlat.z0, fpFlat.z1]).toEqual([48, flat.p[2] - 0.4, flat.p[2] + 0.4 - 0.25]);
   });
   it('shades a carrier settling into the throat only by the cheeks’ cast shade: nothing over the slot stands above it (R-A4)', () => {
     // (one footprint over the whole throat up to 126 shaded a carrier the frame it went under 126, on a hard edge at the
@@ -501,6 +508,31 @@ describe('the hop into the throat: it turns flat and settles over frames, never 
     expect(THROAT_FLOOR_FP).toBeGreaterThan(floor + 0.5);
     // the cheeks cast: standing over the carrier's height, either side of the slot
     for (const y of [THROAT.box.y0 + 1, THROAT.box.y1 - 1]) expect(over(THROAT.box.x0 + 10, y).some((fp) => fp.kind === 'rect' && fp.z1 >= THROAT.z[1] + 2)).toBe(true);
+  });
+});
+
+describe('a carrier rises into the reading lamp’s light whole, never half lit across its face (R2-L2-05)', () => {
+  it('never lies across a lit pool’s floor as it hops into the throat: beat 6’s carriers, the review card, MT1’s slip', () => {
+    // (a pool lights only between its heights: on an out-eased rise a carrier's nose was over the reading pool's floor, 118,
+    // and its tail under it on its first frame off the crest, a hard edge across its face for a frame)
+    const rides: { who: string; th: number; hl: number; at: (f: number) => PathPose | null }[] = [];
+    for (const b of BATCHES)
+      for (let i = 0; i < b.n; i++) rides.push({ who: `slip ${b.k}.${i}`, th: stripFrames(b, i).th, hl: CARRIERS[b.kinds[i]!.kind].l / 2, at: (f) => stripSlipAt(f, b, i)?.pose ?? null });
+    rides.push({ who: 'review card', th: BEAT_6.recall.card, hl: CARRIERS.ci.l / 2, at: (f) => reviewAt(f) });
+    rides.push({ who: 'MT1', th: EVENTS_D.belt + EVENTS_D.beltFrames, hl: CARRIERS.chat.l / 2, at: (f) => nextAt(f).slip });
+    let lit = 0;
+    for (const r of rides)
+      for (let f = r.th - 8; f <= r.th; f++) {
+        const x = r.at(f)!;
+        const lo = x.p[2] + 0.4 * Math.cos(x.slope) - r.hl * Math.abs(Math.sin(x.slope));
+        const hi = x.p[2] + 0.4 * Math.cos(x.slope) + r.hl * Math.abs(Math.sin(x.slope));
+        for (const q of poolsAt(deskStateAt(f))) {
+          if (q.rgb[1] < 0.02 || Math.hypot((x.p[0] - q.c[0]) / q.sigma[0], (x.p[1] - q.c[1]) / q.sigma[1]) > 3) continue;
+          lit++;
+          for (const edge of q.z) expect(lo < edge && hi > edge, `${r.who} f${f}: ${lo.toFixed(1)}..${hi.toFixed(1)} across ${edge}`).toBe(false);
+        }
+      }
+    expect(lit).toBeGreaterThan(rides.length * 4);
   });
 });
 
@@ -593,6 +625,28 @@ describe('flights in the 2.4x close timed by screen distance (L2-03)', () => {
     }
     expect(E6.plateOut - E6.plateUnhook).toBeGreaterThanOrEqual(8);
   });
+  it('brings the stress plate in from just beyond the east edge, slowing over its seat, never over 80 px a frame (R2-L2-01)', () => {
+    // (on a sine of the world clock it came in from far off at up to 138 px a frame, c2884-2887)
+    const c: P3 = [(STRESS_PLATE.box.x0 + STRESS_PLATE.box.x1) / 2, (STRESS_PLATE.box.y0 + STRESS_PLATE.box.y1) / 2, STRESS_PLATE.z[1]];
+    const at = (f: number): P3 => {
+      const p = plateAt(f)!;
+      return [c[0] + p.d[0], c[1] + p.d[1], c[2] + p.d[2]];
+    };
+    const start = E6.plateDetent - E6.plateFly;
+    let prev = Infinity;
+    for (let f = start + 1; f <= E6.plateDetent - E6.platePress; f++) {
+      const step = stepPx(f, at(f), at(f - 1));
+      expect(step, `f${f}`).toBeLessThan(80);
+      expect(step, `f${f}`).toBeLessThanOrEqual(prev + 1e-6);
+      prev = step;
+    }
+    // its first pose is wholly off the frame's east edge: it enters, never appears
+    const B = STRESS_PLATE.box;
+    const p = plateAt(start)!;
+    const xs = [B.x0, B.x1].map((x) => project(cameraAt(start, 15), [x + p.d[0], (B.y0 + B.y1) / 2 + p.d[1], STRESS_PLATE.z[1] + p.d[2]])[0]);
+    expect(Math.min(...xs)).toBeGreaterThan(1920);
+    expect(plateAt(E6.plateDetent - E6.platePress)!.d).toEqual([0, 0, 12]);
+  });
 });
 
 describe('beat 6: the window, the light and the focus', () => {
@@ -679,3 +733,31 @@ describe('#0408’s ID buried as it is filed (A1)', () => {
   });
 });
 
+describe('the bug bay’s pins in the close (R2-L2-13)', () => {
+  it('never flips a pin whose flag the frame’s edge cuts: each flip wholly in frame or wholly out of it; never a step', () => {
+    // (pin 0 stands at the east edge through the close: its flips came and went there as a sliver, a wedge and a line)
+    let flips = 0;
+    for (let f = 2600; f <= 3460; f++) {
+      const a = deskStateAt(f - 1).pins;
+      const b = deskStateAt(f).pins;
+      const pose = cameraAt(f, 15);
+      for (let i = 0; i < PINS.n; i++) {
+        expect(Math.abs(b[i]! - a[i]!), `pin ${i} f${f}`).toBeLessThanOrEqual(0.25 + 1e-9);
+        if (a[i] === b[i]) continue;
+        flips++;
+        // the flag (objects/Bay.tsx: 22 x 20 u south of its pin's top) swings up to 22 u over it as it turns
+        const x = PINS.x0 + i * PINS.dx;
+        const z = BENCH.z[1] + PINS.h;
+        const pts: P3[] = [];
+        for (const dx of [-11, 11]) for (const dy of [-22, -2, 0]) for (const dz of [0, 22]) pts.push([x + dx, PINS.y + dy, z + dz]);
+        const xs = pts.map((p) => project(pose, p)[0]);
+        const inside = xs.every((v) => v >= 0 && v <= 1920);
+        const outside = xs.every((v) => v > 1920);
+        expect(inside || outside, `pin ${i} flips at f${f} across the frame's edge (${Math.min(...xs).toFixed(0)}..${Math.max(...xs).toFixed(0)})`).toBe(true);
+      }
+    }
+    expect(flips).toBeGreaterThan(100);
+    // still (c) and the close's ends as before: pin 0 passed
+    for (const f of [3150, 2719, 3361, 3439]) expect(deskStateAt(f).pins[0], `f${f}`).toBe(1);
+  });
+});

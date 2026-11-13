@@ -1,10 +1,10 @@
 /**
  * The Register Desk's DOM text layer: every line meant to be read, over the WebGL world
  * (docs/ARCHITECTURE.md decision 30). The notes come from the cue sheet (desk/onScreen.ts
- * narrationAt), set in the kit's NotesBlock lower left as the EN line alone: the film is published
- * on YouTube only, so its zh captions were dropped on 2026-11-13 (the user: "remove the Chinese
- * captions"). The signed-off zh lines stay in the cue sheet (WORDS), where the reading-time checks
- * and the score read them; tags, plates, labels, the title card and the end card keep their zh; the role labels ("Router", "Worker",
+ * narrationAt), set in the kit's NotesBlock lower left as the EN line alone. What zh is drawn is one
+ * policy (look/zhInPicture.ts, the user's decisions of 2026-11-13 and 2026-11-14): no notes line and
+ * no tag draws its zh, the role label "you · 你" does. The signed-off zh lines stay in the cue sheet
+ * (WORDS), where the reading-time checks and the score read them. The role labels ("Router", "Worker",
  * "you · 你") sit on hairline leaders whose feet are projected through the same camera pose as the
  * world (camera.ts `project`), so they land on their objects at either pitch. All text in
  * `GREY_TEXT` layers (no LCD fringes), ≤ 136 px, fonts gated by useFont; nothing moves while read.
@@ -17,12 +17,17 @@ import { cueReveal, narrationAt } from './onScreen.ts';
 import { AS_TYPED, GREY_TEXT, Label, NotesBlock, lineWidth, revealState, type RevealState, type TextLook } from '../kit/text.tsx';
 import type { FilmFonts } from '../look/fonts.ts';
 import { NOTES, TYPE } from '../look/tokens.ts';
+import { pictureLine, zhInPicture } from '../look/zhInPicture.ts';
 import { project } from './camera.ts';
 import { DESK_HEX } from './gl/desk.ts';
 import { BAYS, DISPATCH_HOUSING, YOU, rectC, type P3 } from './layout.ts';
 
-/** Text colours of the Register Desk (synthesis §2, Palette): EN and zh. */
-export const TEXT_HEX = { en: '#ECE9E2', zh: '#BAB7AF', leader: '#C9C6BE' } as const;
+/**
+ * Text colours of the Register Desk (synthesis §2, Palette): EN and zh; `secondary`, the tags' secondary tone (the zh
+ * lines' grey), for a tag that must not outshine the print it stands beside (beat 8's load tag, R2-L3-08); `ink`, the
+ * print's ink (gl/text.ts INK), for a leader's run and dot on light paper (TagSpec.paperEdge).
+ */
+export const TEXT_HEX = { en: '#ECE9E2', zh: '#BAB7AF', secondary: '#BAB7AF', leader: '#C9C6BE', ink: '#2A2B2A' } as const;
 
 export function notesLookDesk(fonts: FilmFonts): { en: TextLook; zh: TextLook; tick: string } {
   return {
@@ -55,7 +60,7 @@ export const ROLE_LABELS: readonly RoleLabel[] = [
   // the reporting Worker: the leader ends on the test bay's south wall, below its nameplate
   { text: WORDS.worker.en, foot: [rectC(BAYS.tests.box)[0] + 70, BAYS.tests.box.y0 + 3, 20], dx: 52, dy: 58, anchor: 'start' },
   // beside your desk: a clear hairline from the slab's west edge out to the label (design D3)
-  { text: `${WORDS.you.en} · ${WORDS.you['zh-Hans']}`, foot: [YOU.slab.x0 + 14, rectC(YOU.slab)[1] - 30, YOU.top], dx: -84, dy: 30, anchor: 'end' },
+  { text: pictureLine(WORDS.you), foot: [YOU.slab.x0 + 14, rectC(YOU.slab)[1] - 30, YOU.top], dx: -84, dy: 30, anchor: 'end' },
 ];
 
 /** The leader's ends (screen px): from the foot to the label's nearest corner, stopping short of the text. */
@@ -70,10 +75,10 @@ export function leaderOf(foot: [number, number], l: RoleLabel, width: number, si
 }
 
 /**
- * A tag (the cache tag in still (c)): EN over zh, 40 px, shown on its cue's window (a 6 f wipe in,
- * a 6 f fade out), on a hairline leader that ends on the body it qualifies (design D3). `at` is the
- * screen point the EN line's baseline starts (anchor start) or ends (anchor end) on; the zh line sits
- * under it.
+ * A tag (the cache tag in still (c)): its EN, 40 px, shown on its cue's window (a 6 f wipe in, a 6 f
+ * fade out), on a hairline leader that ends on the body it qualifies (design D3). `at` is the screen
+ * point the EN line's baseline starts (anchor start) or ends (anchor end) on. Its zh is drawn under
+ * the EN only where the zh policy keeps it (look/zhInPicture.ts): since 2026-11-14 no tag's is.
  */
 export interface TagSpec {
   cue: string;
@@ -88,16 +93,25 @@ export interface TagSpec {
   anchor: 'start' | 'end';
   foot: P3;
   /**
-   * A camera move inside the tag's window (the cache tag over bar 42's ease-out): the text stays dead still where it
-   * is, and from this film frame its leader retracts into the text over 6 f, so no hairline is dragged by the move.
+   * Something must pass the leader's foot inside the tag's window (the cache tag's: beat 6.4's reading thread leaves
+   * from it): from this film frame the leader, whole, fades out with its foot's dot over 6 f (TAG_LEADER_FADE), never
+   * cut short (a hairline ending in mid-air: R2-L2-09); the text stays.
    */
   leaderUntil?: number;
-  /** with `leaderUntil`: from this film frame the leader draws back out of the text to its foot over 6 f (the cache tag's, once the reading thread's last hop has left its foot and landed) */
+  /** with `leaderUntil`: from this film frame the whole leader fades back in over 6 f (the cache tag's, once the reading thread's last hop has left its foot and landed) */
   leaderBack?: number;
-  /** a long tag set on more than one line (its words broken where the copy breaks, never re-worded): EN lines, then zh lines */
-  lines?: { en: readonly string[]; zh: readonly string[] };
-  /** its lines' leading, if tighter than TAG_GAP (the gate tag, so its zh line clears the conversation spool's flange under it) */
+  /** a long tag set on more than one line (its words broken where the copy breaks, never re-worded): EN lines, then the zh lines drawn if the zh policy keeps its zh */
+  lines?: { en: readonly string[]; zh?: readonly string[] };
+  /** its lines' leading, if not TAG_GAP */
   gap?: number;
+  /** Opt-in: its words in the tags' secondary tone (TEXT_HEX.secondary), so print it stands beside leads (beat 8's load tag); absent: TEXT_HEX.en. */
+  tone?: 'secondary';
+  /**
+   * Opt-in: its foot lies on light paper (beat 8's load tag, on the sheet), where the leader's light tone and its dot
+   * vanish: the paper's edge the leader crosses, as two world points on it. The leader's run on the paper and its foot's
+   * dot are drawn in the print's ink (TEXT_HEX.ink), its run over the dark desk in the leader's tone (`leaderOnPaper`).
+   */
+  paperEdge?: readonly [P3, P3];
   /**
    * Opt-in (the idea labels, beat11.ts TAGS_11): the storyboard's reveal from its own `from` (its contact frame), as a role
    * label enters: its hairline leader draws out of its foot over 6 f (the foot's dot on the contact frame itself), then its
@@ -107,8 +121,81 @@ export interface TagSpec {
   /** Opt-in: a factor on its opacity at film frame f (a focus hold fading it toward the stepped world's value, beat9.ts domDimAt); absent: 1. */
   dim?: (f: number) => number;
 }
-/** The zh line's baseline under the EN line's (and one line's under the one before it), and where the leader leaves the text block. */
+/** One line's baseline under the one before it (a zh line's under its EN), and where the leader leaves the text block. */
 export const TAG_GAP = 50;
+
+/** The lines a tag draws: its EN lines, and its zh lines only where the zh policy keeps its words' zh (look/zhInPicture.ts). */
+export function tagText(t: Pick<TagSpec, 'words' | 'lines'>): { en: readonly string[]; zh: readonly string[] } {
+  const zh = zhInPicture(t.words);
+  return { en: t.lines?.en ?? [t.words.en], zh: zh === null ? [] : (t.lines?.zh ?? [zh]) };
+}
+
+/** A tag's block on screen: each line's baseline and width, the block's box, and where its leader leaves it (px). */
+export interface TagLayout {
+  en: readonly { text: string; y: number; w: number }[];
+  zh: readonly { text: string; y: number; w: number }[];
+  /** the block's west edge, its width, its top and bottom (the wipe's clip is built round them) */
+  x0: number;
+  w: number;
+  top: number;
+  bottom: number;
+  /** where the leader leaves the block (its end at the text) */
+  l: readonly [number, number];
+}
+
+/**
+ * A tag's block for its foot's screen point and a measure of its lines (px; `zh` true for a zh line). The leader leaves
+ * the block's edge nearest the foot: a foot under or over the block meets its bottom (the lowest line running over the
+ * foot) or top edge straight above or below it; a foot to its side meets the side, one line's middle (a one-line tag),
+ * between the lines (two) or level with the foot inside the block (more).
+ */
+export function tagLayout(t: TagSpec, foot: readonly [number, number], measure: (text: string, zh: boolean) => number): TagLayout {
+  const { en, zh } = tagText(t);
+  const gap = t.gap ?? TAG_GAP;
+  const enL = en.map((text, i) => ({ text, y: t.at[1] + i * gap, w: measure(text, false) }));
+  const zhL = zh.map((text, i) => ({ text, y: t.at[1] + (en.length + i) * gap, w: measure(text, true) }));
+  const all = [...enL, ...zhL];
+  const w = Math.max(...all.map((x) => x.w)) + 8;
+  const x0 = t.anchor === 'start' ? t.at[0] - 4 : t.at[0] - w + 4;
+  const top = t.at[1] - 40;
+  const bottom = all[all.length - 1]!.y + 20;
+  const over = foot[0] > x0 - 8 && foot[0] < x0 + w + 8;
+  const lx = over ? foot[0] : foot[0] < x0 ? x0 - 8 : x0 + w + 8;
+  // a foot under the block meets the lowest line that runs over it (a shorter line under a longer one leaves it the longer's)
+  const under = all.filter((x) => {
+    const [a, b] = t.anchor === 'start' ? [t.at[0] - 4, t.at[0] + x.w + 4] : [t.at[0] - x.w - 4, t.at[0] + 4];
+    return foot[0] >= a && foot[0] <= b;
+  });
+  const floor = under.length ? Math.max(...under.map((x) => x.y)) + 20 : bottom;
+  const n = all.length;
+  const side = n > 2 ? Math.min(Math.max(foot[1], top + 12), bottom - 12) : n === 2 ? t.at[1] + gap / 2 - 12 : t.at[1] - TAG_MID;
+  const ly = over ? (foot[1] > t.at[1] ? floor : top) : side;
+  return { en: enL, zh: zhL, x0, w, top, bottom, l: [lx, ly] };
+}
+/** A one-line tag's middle over its baseline (px): its caps' and x-height's middles straddle it at 40 px. */
+export const TAG_MID = 12;
+
+/**
+ * How much of a leader from its foot `a` (on the paper) to its end `b` lies on paper whose edge runs through screen
+ * points p and q: the fraction along a→b where it crosses the edge's line, 1 if it never does (TagSpec.paperEdge).
+ */
+export function leaderOnPaper(a: readonly [number, number], b: readonly [number, number], p: readonly [number, number], q: readonly [number, number]): number {
+  const cross = (u: readonly [number, number], v: readonly [number, number]) => u[0] * v[1] - u[1] * v[0];
+  const e: [number, number] = [q[0] - p[0], q[1] - p[1]];
+  const den = cross(e, [b[0] - a[0], b[1] - a[1]]);
+  const t = den === 0 ? 1 : cross(e, [p[0] - a[0], p[1] - a[1]]) / den;
+  return t > 0 && t < 1 ? t : 1;
+}
+
+/** How long the leader takes to fade out (from `leaderUntil`) and back in (from `leaderBack`), frames. */
+export const TAG_LEADER_FADE = 6;
+/** The leader's opacity at film frame f under `leaderUntil` and `leaderBack` (1 without them): the whole hairline fades, its length never changes. */
+export function tagLeaderOpacity(t: Pick<TagSpec, 'leaderUntil' | 'leaderBack'>, f: number): number {
+  if (t.leaderUntil === undefined) return 1;
+  const out = Math.min(1, Math.max(0, (f - t.leaderUntil) / TAG_LEADER_FADE));
+  const back = t.leaderBack === undefined ? 0 : Math.min(1, Math.max(0, (f - t.leaderBack) / TAG_LEADER_FADE));
+  return Math.min(1, Math.max(0, 1 - out + back));
+}
 
 /** A tag's reveal at film frame f: its cue's window (the cue sheet's 6 f wipe in and fade out), its wipe from its own `from` if it has one. */
 export function tagReveal(t: Pick<TagSpec, 'cue' | 'from'>, f: number): RevealState {
@@ -229,6 +316,12 @@ export function SoftGround({ id, boxes, feather, color, alpha, edge, edgeFeather
  * there (at least 4.5:1), where a camera move or a moved world would break the rhyme.
  */
 export const NOTES_GROUND: Readonly<Partial<Record<string, NotesGroundSpec>>> = {
+  // C15 and N4-N6 in the 2.4x close: their tails run over the deck's parts and across the light notes card, whose edges
+  // cut through them (R2-L2-10); the halo keeps every glyph on the slate there
+  c15: { dilate: 10, blur: 6, alpha: 0.85 },
+  n4: { dilate: 10, blur: 6, alpha: 0.85 },
+  n5: { dilate: 10, blur: 6, alpha: 0.85 },
+  n6: { dilate: 10, blur: 6, alpha: 0.85 },
   c28: { dilate: 10, blur: 6, alpha: 0.85 },
   // the credit (desk/ActOneFrame.tsx CreditLine draws it): your loop's tape comes up under it as bar 3 eases out (L1-04:
   // its box knockout cut the tape on a hard edge right of "team"); its halo stops just over the ascenders (`top`: the
@@ -370,58 +463,51 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         const id = t.id ?? t.cue;
         const foot = project(pose, t.foot);
         const tsize = TYPE.label.size;
-        const en = t.lines?.en ?? [t.words.en];
-        const zh = t.lines?.zh ?? [t.words['zh-Hans']];
-        const gap = t.gap ?? TAG_GAP;
-        const enY = en.map((_, i) => t.at[1] + i * gap);
-        const zhY = zh.map((_, i) => t.at[1] + (en.length + i) * gap);
-        const wEns = en.map((x) => lineWidth(x, { family: fonts.sans, weight: TYPE.label.weight, size: tsize }));
-        const wZhs = zh.map((x) => lineWidth(x, { family: fonts.sans, weight: TYPE.label.cjkWeight, size: tsize }));
-        const wEn = Math.max(...wEns);
-        const wZh = Math.max(...wZhs);
-        const w = Math.max(wEn, wZh) + 8;
-        const x0 = t.anchor === 'start' ? t.at[0] - 4 : t.at[0] - w + 4;
-        const top = t.at[1] - 40;
-        const bottom = zhY[zhY.length - 1] + 20;
-        // the leader leaves the block's edge nearest the foot: a side, between its lines, or (a foot under or over the
-        // block) its bottom or top edge straight above or below the foot
-        const over = foot[0] > x0 - 8 && foot[0] < x0 + w + 8;
-        const lx = over ? foot[0] : foot[0] < x0 ? x0 - 8 : x0 + w + 8;
-        // a foot under the block meets the lowest line that runs over it (a shorter line under a longer one leaves it the longer's)
-        const spans = [...wEns, ...wZhs].map((lw) => (t.anchor === 'start' ? [t.at[0] - 4, t.at[0] + lw + 4] : [t.at[0] - lw - 4, t.at[0] + 4]));
-        const ys = [...enY, ...zhY];
-        const under = ys.filter((_, i) => foot[0] >= spans[i]![0]! && foot[0] <= spans[i]![1]!);
-        const floor = under.length ? Math.max(...under) + 20 : bottom;
-        const ly = over ? (foot[1] > t.at[1] ? floor : top) : en.length + zh.length > 2 ? Math.min(Math.max(foot[1], top + 12), bottom - 12) : t.at[1] + gap / 2 - 12;
-        // the leader grows out of its foot with the wipe (or, opted in, before it: TagSpec.reveal); under a camera move it
-        // retracts into the text (leaderUntil), and may draw back out to its foot later (leaderBack)
+        const L = tagLayout(t, foot, (x, zh) => lineWidth(x, { family: fonts.sans, weight: zh ? TYPE.label.cjkWeight : TYPE.label.weight, size: tsize }));
+        const [lx, ly] = L.l;
+        // the leader grows out of its foot with the wipe (or, opted in, before it: TagSpec.reveal); whole, it may fade out
+        // and back in while something passes its foot (leaderUntil, leaderBack)
         const grow = lr ? lr.leader : Math.min(1, r.wipe * 1.6);
-        const keep = t.leaderUntil === undefined ? 1 : 1 - Math.min(1, Math.max(0, (f - t.leaderUntil) / 6)) + (t.leaderBack === undefined ? 0 : Math.min(1, Math.max(0, (f - t.leaderBack) / 6)));
-        const from: readonly [number, number] = keep < 1 ? [lx + (foot[0] - lx) * keep, ly + (foot[1] - ly) * keep] : foot;
+        const lo = tagLeaderOpacity(t, f);
+        const colour = t.tone === 'secondary' ? TEXT_HEX.secondary : TEXT_HEX.en;
+        // a foot on light paper (paperEdge): the leader's run on the paper, to where it crosses the edge, and the dot in ink
+        const onPaper = t.paperEdge ? leaderOnPaper(foot, [lx, ly], project(pose, t.paperEdge[0]), project(pose, t.paperEdge[1])) : 0;
+        const along = (k: number) => [foot[0] + (lx - foot[0]) * k, foot[1] + (ly - foot[1]) * k] as const;
         return (
           <svg key={id} width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible', opacity: r.opacity * (t.dim?.(f) ?? 1) }}>
             <defs>
               <clipPath id={`wipe-${id}`}>
-                <rect x={x0 - 4} y={t.at[1] - 60} width={(w + 8) * r.wipe} height={bottom - t.at[1] + 90} />
+                <rect x={L.x0 - 4} y={t.at[1] - 60} width={(L.w + 8) * r.wipe} height={L.bottom - t.at[1] + 90} />
               </clipPath>
             </defs>
-            {keep > 0 && <line x1={from[0]} y1={from[1]} x2={foot[0] + (lx - foot[0]) * grow} y2={foot[1] + (ly - foot[1]) * grow} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />}
-            {/* the foot's dot rides the retracting leader's end, shrinking with it (never gone in one frame) */}
-            {keep > 0 && <circle cx={from[0]} cy={from[1]} r={(lr ? 4 * Math.min(1, 3 * lr.leader) : 4) * keep} fill={TEXT_HEX.en} />}
+            {lo > 0 && onPaper === 0 && (
+              <g opacity={lo < 1 ? lo : undefined}>
+                <line x1={foot[0]} y1={foot[1]} x2={foot[0] + (lx - foot[0]) * grow} y2={foot[1] + (ly - foot[1]) * grow} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />
+                <circle cx={foot[0]} cy={foot[1]} r={lr ? 4 * Math.min(1, 3 * lr.leader) : 4} fill={TEXT_HEX.en} />
+              </g>
+            )}
+            {lo > 0 && onPaper > 0 && (
+              <g opacity={lo < 1 ? lo : undefined}>
+                {grow > onPaper && <line x1={along(onPaper)[0]} y1={along(onPaper)[1]} x2={along(grow)[0]} y2={along(grow)[1]} stroke={TEXT_HEX.leader} strokeWidth={2.5} strokeLinecap="round" />}
+                <line x1={foot[0]} y1={foot[1]} x2={along(Math.min(grow, onPaper))[0]} y2={along(Math.min(grow, onPaper))[1]} stroke={TEXT_HEX.ink} strokeWidth={2.5} strokeLinecap="round" />
+                <circle cx={foot[0]} cy={foot[1]} r={lr ? 4 * Math.min(1, 3 * lr.leader) : 4} fill={TEXT_HEX.ink} />
+              </g>
+            )}
             <g clipPath={`url(#wipe-${id})`}>
-              {en.map((x, i) => (
-                <Label key={`en${i}`} x={t.at[0]} y={enY[i]} text={x} family={fonts.sans} size={tsize} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.en} anchor={t.anchor} />
+              {L.en.map((x, i) => (
+                <Label key={`en${i}`} x={t.at[0]} y={x.y} text={x.text} family={fonts.sans} size={tsize} weight={TYPE.label.weight} cjkWeight={TYPE.label.cjkWeight} color={colour} anchor={t.anchor} />
               ))}
-              {zh.map((x, i) => (
-                <Label key={`zh${i}`} x={t.at[0]} y={zhY[i]} text={x} family={fonts.sans} size={tsize} weight={TYPE.label.cjkWeight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.zh} anchor={t.anchor} />
+              {L.zh.map((x, i) => (
+                <Label key={`zh${i}`} x={t.at[0]} y={x.y} text={x.text} family={fonts.sans} size={tsize} weight={TYPE.label.cjkWeight} cjkWeight={TYPE.label.cjkWeight} color={TEXT_HEX.zh} anchor={t.anchor} />
               ))}
             </g>
           </svg>
         );
       })}
       {narrationAt(f).map((id) => {
-        // EN only (the header): no zh caption under it
-        return <NotesBlock key={id} f={f} span={cue(id)} en={WORDS[id].en} layout={NOTES} look={look} ready={ready} />;
+        // the EN line, and its zh under it only if the zh policy kept it (it keeps no narration line's: look/zhInPicture.ts)
+        const zh = zhInPicture(WORDS[id]);
+        return <NotesBlock key={id} f={f} span={cue(id)} en={WORDS[id].en} zh={zh ?? undefined} layout={NOTES} look={look} ready={ready} />;
       })}
     </AbsoluteFill>
   );

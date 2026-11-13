@@ -36,6 +36,7 @@ import { BAYS, REEL, type P2, type Rect } from '../layout.ts';
 import { LIGHT_HEX } from '../pools.ts';
 import type { DeskState } from '../state.ts';
 import { FLAG, FLAG_SHAPE, HANDLE, MACHINES, QUERIES, TETHER_W, VELLUM, WATCHDOG, clipC } from '../summary.ts';
+import { zhInPicture } from '../../look/zhInPicture.ts';
 
 /**
  * The step on vellum and pencil (a drawing on the desk has no surface to darken): it fades with its set's step amount, as the
@@ -800,8 +801,9 @@ export function persistWordsSheet(g: G, w: number, h: number, sans: string, word
   g.setLineDash([16, 11]);
   g.strokeRect(3, 3, w - 6, h - 6);
   g.setLineDash([]);
-  const en = `${words.en} · `;
-  const zh = words['zh-Hans'];
+  // (the zh policy keeps Persistent's zh, as the trait plates': look/zhInPicture.ts)
+  const zh = zhInPicture(words) ?? '';
+  const en = zh ? `${words.en} · ` : words.en;
   const fit = (em: number) => {
     g.font = `600 ${em}px ${sans}`;
     const a = g.measureText(en).width;
@@ -819,7 +821,7 @@ export function persistWordsSheet(g: G, w: number, h: number, sans: string, word
   fillTextChecked(g, en, x0, base);
   const enW = g.measureText(en).width;
   g.font = `500 ${em}px ${sans}`;
-  fillTextChecked(g, zh, x0 + enW, base);
+  if (zh) fillTextChecked(g, zh, x0 + enW, base);
 }
 
 /** A "?"'s hook as a polyline (its points for a glyph of size s at (ox, oy)). */

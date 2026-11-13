@@ -10,8 +10,8 @@
  * - 10.2 (N9, bar 65's dolly onto the Register): in pencil the Register splits (the crack across the reel, a "?" on its
  *   west half), its tape tears, and a second reading window (vellum, the shard's) is fed out of the print head over the
  *   real one and slides south beside it, its record cell a № behind the real one's: the two disagree; Fix A's and Fix B's grey-stock cards rise either side,
- *   hold about 20 f and slide away from `cards.exit` (no strike); the shard's window slides back into the head; the reel's outer windings go
- *   to pencil with a "?".
+ *   hold about 20 f and slide away from `cards.exit` (no strike); the reel's outer windings go to pencil with a "?"; then
+ *   the shard's window fades where it lies (SHARD_WINDOW).
  * - 10.3 (N10): your lamp reaches for the docs bay (a running bay just beyond it) and falls short; a pencil handle
  *   outline and "?" are drawn where its handle would be; the lamp comes home. Bar 68: the request's bay finishes (MT1's
  *   handshake, compressed): its pins stop and drop, then pass one by one; its report card #0405 rises out of the work
@@ -223,22 +223,24 @@ export function proposed10(f: number): Proposed10 {
 /**
  * The shard's window (vellum): fed out of the print head east over the real window (6 f) once the tape has torn, slid south
  * beside it (6 f), settling on `windows`: the same record cell, its № one behind the real one's, right under it (the two
- * disagree); it stays through the cards and the windings, and slides back over the window (6 f) only once the windings'
- * "?" is drawn and the labels have landed (one thing at a time), then is fed back into the head (6 f). It lies 1.5 u over
- * the window's frame (its top at z 133).
+ * disagree); it stays through the cards and the windings and fades where it lies (`fade` frames) only once the windings'
+ * "?" is drawn and the labels have landed (one thing at a time). It lies 1.5 u over the window's frame (its top at z 133).
+ * (It had slid back north over the window and been fed into the head: its "#0404" printed over the teaching ID #0405 as a
+ * smeared double and its dashed edge swept the record's print, R2-L4-04.)
  */
-export const SHARD_WINDOW = { out: BEAT_10.tear + 2, beside: BEAT_10.windows - 6, back: BEAT_10.windings + 22, home: BEAT_10.windings + 29, frames: 6, dy: -100, z: 134.5 } as const;
+export const SHARD_WINDOW = { out: BEAT_10.tear + 2, beside: BEAT_10.windows - 6, back: BEAT_10.windings + 22, frames: 6, fade: 8, dy: -100, z: 134.5 } as const;
 export interface ShardWindow {
-  /** how far it is out of the head (0 inside .. 1 its whole length out) and north of the window (u) */
+  /** how far it is out of the head (0 inside .. 1 its whole length out) and north of the window (u); how much of it is left (1 .. 0 as it fades) */
   out: number;
   dy: number;
+  fade: number;
 }
 export function shardWindowAt(f: number): ShardWindow | null {
   const W = SHARD_WINDOW;
-  if (f <= W.out || f >= W.home + W.frames) return null;
-  const out = Math.min(trapezoid((f - W.out) / W.frames, 0.3, 0.4), 1 - trapezoid((f - W.home) / W.frames, 0.4, 0.3));
-  const dy = W.dy * Math.min(sine((f - W.beside) / W.frames), 1 - sine((f - W.back) / W.frames));
-  return { out, dy };
+  if (f <= W.out || f >= W.back + W.fade) return null;
+  const out = trapezoid((f - W.out) / W.frames, 0.3, 0.4);
+  const dy = W.dy * sine((f - W.beside) / W.frames);
+  return { out, dy, fade: 1 - sine((f - W.back) / W.fade) };
 }
 
 /**

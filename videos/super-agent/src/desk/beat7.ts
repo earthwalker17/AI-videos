@@ -50,6 +50,7 @@ import { FRAMING_B, deskCamera, project, screenToDesk } from './camera.ts';
 import type { CardUp, CardSpot } from './beat4.ts';
 import { CARD_RISE, cardAt, cardSize } from './beat4.ts';
 import { LIGHT_HEX, carrierSpan, circleFp, polySegs, rectFp, segFp, tint, type Footprint } from './fpKit.ts';
+import { SPOUT_INSIDE } from './beat6.ts';
 import { BAYS, CORDS, DECK, FEEDERS, MAST, NEXT_SLIP, REEL_FRAME, REEL_FRAME_Z, SPOOL, TAPE, YOU, rectC, type P3, type Pool, type Rect } from './layout.ts';
 import type { TagSpec } from './Overlay.tsx';
 import { SPRING, STEP_FRAMES, springAt } from './springs.ts';
@@ -239,8 +240,12 @@ export function spoolAt(f: number): { colour: number } {
 export const RIDER = { l: NEXT_SLIP.l, w: NEXT_SLIP.w, hook: [42, 24] as const, hang: 18 } as const;
 /** It clips on this far along the cord from the spool: the slip trails its hook by 80 u, so its trailing end is well clear of the spool's flange (r 30). */
 export const CLIP_S = 136;
-/** The post from the spout: a curve round the spool's south side (its control point), up under the cord. */
-const POST = { out: 5, via: [SPOOL.x - 4, SPOOL.y - 96] as const, hump: 26 } as const;
+/**
+ * The post from the spout: a curve round the spool's south side (its control point), up under the cord. Wide of it: from
+ * 96 u south the slip's corner passed within the flange's reach while still under its top, drawn over the winding and then
+ * under the spool's foot (R2-L3-04, c3496-3498); now it stays over 50 u off the spool's axis until it is above its top.
+ */
+export const POST = { out: 5, via: [SPOOL.x + 16, SPOOL.y - 150] as const, hump: 26 } as const;
 /** The ride: up to speed over this many frames from the clip's closing; the swing round level on the cord's descent (frames before arrival). */
 const RIDE_ACCEL = 4;
 const LEVEL = 12;
@@ -338,7 +343,7 @@ export function riderAt(i: number, f: number): RiderPose | null {
   const clip = clipPose(r.clipOn - 2);
   if (f < r.clipOn - 2) {
     // out of the chat drum's spout (5 f), then posted round the spool's south side and up under the cord, turning to its way
-    const inDrum: P3 = [NEXT_SLIP.spout[0] - 70, NEXT_SLIP.spout[1], NEXT_SLIP.spout[2]];
+    const inDrum = SPOUT_INSIDE;
     if (f < r.spout + POST.out) return { i, p: lerp3(inDrum, NEXT_SLIP.spout, easings.outCubic((f - r.spout) / POST.out)), heading: 0, slope: 0, roll: 0, close: 0, fold: 0, squash: 0 };
     const u = (f - r.spout - POST.out) / (r.clipOn - 2 - r.spout - POST.out);
     const w = sine(u);
@@ -898,6 +903,13 @@ export const DOSSIER = { w: 62, l: 108, t: 16, tabs: 3, fly: 24, apex: 44, outFr
 /** The card feeder's mouth (beat6.ts CI_MOUTH: beat7.test holds them equal): where the dossier lands; how far in it goes (its east end under the roller, inside the feeder's face). */
 export const PORT = { to: [-860, 261, 5.2] as P3, from: [-920, 261, 5.2] as P3 } as const;
 export const DOSSIER_IN_X = FEEDERS.ci.x1 - 1 - DOSSIER.l / 2;
+/**
+ * Where it lands on the mouth's plate: its west end 4 u east of the roller (objects/Intake.tsx: its axis at x1 - 2, radius 6;
+ * still clear at the thud's 4% stretch) and so of the shingled cards' east edges, so it is pushed in under them after the thud. Landing on the mouth's centre, its
+ * west end had come down through the cards' east edges in the landing frame: over them on the frame before, under them on
+ * the thud (RV-M3-LIP, c3894-3895).
+ */
+export const DOSSIER_LAND_X = FEEDERS.ci.x1 - 2 + 6 + 4 + DOSSIER.l / 2;
 /** Where it comes out from under the deck (its centre, hidden under the plate) and where it is fully out (its east end past the deck's west rail). */
 const DOSSIER_OUT = { from: [DECK.x0 + 70, 172, 62] as P3, to: [DECK.x0 - 2 - DOSSIER.l / 2 - 30, 172, 64] as P3 } as const;
 export interface DossierPose {
@@ -906,6 +918,17 @@ export interface DossierPose {
   slope: number;
   squash: number;
   flying: boolean;
+}
+/**
+ * The dossier's footprint heights: its top a receiver, so the footprint ends TOP_CLEAR under the lowest point of its top face,
+ * squashed and tilted as it is drawn (objects/Beat7.tsx: scaled 1 - squash about its centre, its length 1 + squash / 2).
+ * A receiver under a footprint's top is in its shade: tilted in flight, its lower end had been (the cover half lit), and
+ * the landing's 8% squash put its whole top under it for 4 f (c3895-3898: the R2-L3-03 blink).
+ */
+export function dossierSpan(d: DossierPose): { z0: number; z1: number } {
+  const top = (DOSSIER.t / 2) * (1 - d.squash) * Math.cos(d.slope) - (DOSSIER.l / 2) * (1 + d.squash / 2) * Math.abs(Math.sin(d.slope));
+  const z1 = d.p[2] + top - TOP_CLEAR;
+  return { z0: Math.min(Math.max(0, d.p[2] - DOSSIER.t / 2), z1 - 0.5), z1 };
 }
 export function dossierAt(f: number): DossierPose | null {
   const D = BEAT_7.dossier;
@@ -919,7 +942,7 @@ export function dossierAt(f: number): DossierPose | null {
     return { p: lerp3(O.from, O.to, u * u * 0.7 + u * 0.3), heading: Math.PI, slope: 0, squash: 0, flying: false };
   }
   // on the mouth's plate (its top at 6), then in under the deck of cards
-  const land: P3 = [PORT.to[0], PORT.to[1], 6.4 + DOSSIER.t / 2];
+  const land: P3 = [DOSSIER_LAND_X, PORT.to[1], 6.4 + DOSSIER.t / 2];
   if (f < D.lands) {
     // heavy: a low arc, gathering speed as it falls, its tabs trailing
     const u = (f - D.leave) / (D.lands - D.leave);
@@ -1099,7 +1122,7 @@ export function footprints7(s: DeskState): Footprint[] {
   const plateTop = PRODUCTIVE_PLATE.z[1] + (e.plate?.dz ?? 0) - TOP_CLEAR;
   if (e.plate && plateTop > 0.5) fp.push(rectFp(PRODUCTIVE_PLATE.box, 0, plateTop, clamp((plateTop - 0.5) / (PRODUCTIVE_PLATE.z[1] - TOP_CLEAR - 0.5)), 3));
   const d = e.dossier;
-  if (d) fp.push({ kind: 'rect', c: [d.p[0], d.p[1]], h: [DOSSIER.l / 2, DOSSIER.w / 2], r: 3, rot: d.heading, z0: Math.max(0, d.p[2] - DOSSIER.t / 2), z1: d.p[2] + DOSSIER.t / 2 - TOP_CLEAR, contact: d.flying ? 0 : 0.7 });
+  if (d) fp.push({ kind: 'rect', c: [d.p[0], d.p[1]], h: [Math.max(1, (DOSSIER.l / 2) * Math.cos(d.slope)), DOSSIER.w / 2], r: 3, rot: d.heading, ...dossierSpan(d), contact: d.flying ? 0 : 0.7 });
   // the counterfactual cards' shadows (in place: cardFootprint7)
   for (const { k, c: card } of cardsUp7(s.f)) {
     const cf = cardFootprint7(card, k);
@@ -1119,14 +1142,16 @@ export function pools7(s: DeskState): Pool[] {
 }
 /**
  * Beat 7's tags, in the clear ground east of your desk and under the docs bays (inside title-safe and the action band, clear
- * of the notes; the Productive plate docks under them). The jobs tag qualifies the job rail (its leader to the shelf's west
- * end); the 100-word tag the chat reply's stop tab, where the reply comes to lie in your in-tray.
+ * of the notes; the Productive plate docks under them), their EN alone (look/zhInPicture.ts). The jobs tag qualifies the job
+ * rail (its leader to the shelf's west end); the 100-word tag the chat reply's stop tab, where the reply comes to lie in your
+ * in-tray. Their first line sits at least 24 px under W-08's nameplate and the jobs tag's last at least 24 px over the
+ * Productive plate it overlaps in x (R2-L3-06, measured at 0.85x: the nameplate's foot at y 679, the plate's rim at 814).
  */
-export const TAG_AT = [772, 718] as const;
+export const TAG_AT = [772, 736] as const;
 /** The jobs tag a little east of the 100-word tag's place, so the sand-glass's flight clears its first letters (G7). */
 export const TAG_JOBS_AT = [TAG_AT[0] + 28, TAG_AT[1]] as const;
 export const TAG_GAP_7 = 42;
-export const TAG_JOBS_LINES = { en: ['prototype: background', 'after 5 s'], zh: ['原型：5 秒后转入后台'] } as const;
+export const TAG_JOBS_LINES = { en: ['prototype: background', 'after 5 s'] } as const;
 /** The chat reply's stop tab at rest: its east end (the leader's dot clear of its glyphs; the slip lying at heading 0.05). */
 export const TAB_REST: P3 = [REPLY_REST[0] + (50 + STOP_TAB.over - 5) * Math.cos(0.05), REPLY_REST[1] + (50 + STOP_TAB.over - 5) * Math.sin(0.05), REPLY_REST[2] + 2.5];
 export const TAGS_7: readonly TagSpec[] = [

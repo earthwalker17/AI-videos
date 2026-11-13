@@ -45,7 +45,8 @@ import { Easing, spring } from 'remotion';
 import { FPS, cue } from '../cues.ts';
 import { ACT_ONE_END, BULB_A, FOLDERS, LOOP_A, YOU_C_A, YOU_SHIFT_A, actOneAt, actOnePools, feederFootprints, folderFootprints, heapFootprints, youPoseA, type ActOneState, type LoopPose } from './actOne.ts';
 import { A_CHUTES, A_FOLDER_IN, A_PITCH, A_QUEUE, A_STACK_END, A_TAPE, A_TAPE_W, BAY_TRAYS, FIX_A_FOLDER, IN_TRAY_A_C, IN_TRAY_PILE, RETIRE_TRAYS, TRAYS, TRAY_STUFF, TRAY_Z, aPathAt, fixAFootprints, replySlipFootprint, trayRestB, type FixAView } from './beat3.ts';
-import { bayShellFootprints, circleFp, heapFootprintsAt, pitFootprints, rectFp, registerFootprints, segFp, youFootprints, type Footprint } from './footprints.ts';
+import { BELT_HEADING, BELT_SLOPE, CARRIERS, RIDE6, SPOUT_INSIDE, hopInto } from './beat6.ts';
+import { bayShellFootprints, carrierSpan, circleFp, heapFootprintsAt, pitFootprints, rectFp, registerFootprints, segFp, youFootprints, type Footprint } from './footprints.ts';
 import { BAYS, BELT, CELLS_X, CHUTE, CHUTE_POSTS, DECK, DISPATCH_HOUSING, FANFOLD, FEEDERS, GATE, LAMP, LEG_R, LEG_STRUTS, NEXT_SLIP, PRINT_HEAD, REEL, REQUEST, SHEET, SPOOL, TAPE, YOU, shadowOffset, type BayId, type BayLayout, type P2, type P3, type Pool, type Rect } from './layout.ts';
 import { REEL_LOCK, REQUEST_FROM, cellLitAt, heapAt, requestAt } from './beat4.ts';
 import { EMIT, LIGHT_HEX, linearOf, tint } from './pools.ts';
@@ -1000,20 +1001,39 @@ export interface SlipTurn {
   heading: number;
   slope: number;
 }
-/** The first chat slip: out of the spout over the gate (3 f anticipation, a 12 f arc), up the belt, into the throat, fed to the head. */
+/** The first slip's hop over the throat's cheeks: its last RIDE6.hop frames before it lies in the throat (beat6.ts, as beat 6's carriers). */
+export const FIRST_HOP = TURN.throat - RIDE6.hop;
+/** The frames the first slip takes to come out of the spout from inside the chat drum, before its post (as beat6.ts rideAt's E6.outFrames). */
+export const FIRST_OUT = 4;
+/**
+ * The first chat slip: out of the spout from inside the chat drum (FIRST_OUT frames, out-cubic, as every chat slip: it
+ * had appeared on TURN.post with 42 u of it already out of the spout, RV-TURN-SPOUT-POP), then over the gate (3 f
+ * anticipation, turning to aim at the gate, a 12 f arc, nosing into the belt's pose for its landing on the gate), up the
+ * belt to its crest, then the hop into the throat (beat6.ts hopInto, as beat 6's carriers and MT1's slip: it turns flat
+ * and settles between the cheeks over its frames, lying in the throat on TURN.throat; it had ridden straight into the
+ * jaw and turned flat in one frame: the R2-L1-02 snap), fed to the head.
+ */
 export function firstSlipAt(f: number): SlipTurn | null {
   const S = NEXT_SLIP;
-  if (f < TURN.post || f >= TURN.throat + TURN.feedFrames) return null;
-  const beltHeading = Math.atan2(S.throat[1] - S.gate[1], S.throat[0] - S.gate[0]);
-  const beltSlope = Math.atan2(S.throat[2] - S.gate[2], Math.hypot(S.throat[0] - S.gate[0], S.throat[1] - S.gate[1]));
-  if (f < TURN.post + 3) return { p: [S.spout[0] - 3 * clamp((f - TURN.post) / 3), S.spout[1], S.spout[2]], heading: Math.atan2(S.gate[1] - S.spout[1], S.gate[0] - S.spout[0]), slope: 0 };
+  if (f < TURN.post - FIRST_OUT || f >= TURN.throat + TURN.feedFrames) return null;
+  if (f < TURN.post) return { p: lerp3(SPOUT_INSIDE, S.spout, easings.outCubic(clamp((f - (TURN.post - FIRST_OUT)) / FIRST_OUT))), heading: 0, slope: 0 };
+  const h0 = Math.atan2(S.gate[1] - S.spout[1], S.gate[0] - S.spout[0]);
+  if (f < TURN.post + 3) return { p: [S.spout[0] - 3 * clamp((f - TURN.post) / 3), S.spout[1], S.spout[2]], heading: h0 * easings.inOutSine(clamp((f - TURN.post + 1) / 4)), slope: 0 };
   if (f < TURN.ride) {
     const u = clamp((f - TURN.post - 3) / TURN.postArc);
     const e = Math.sin((u * Math.PI) / 2) ** 2;
     const p = lerp3(S.spout, S.gate, e);
-    return { p: [p[0], p[1], p[2] + 4 * S.apex * u * (1 - u)], heading: Math.atan2(S.gate[1] - S.spout[1], S.gate[0] - S.spout[0]), slope: 0.3 * Math.cos(u * Math.PI) };
+    // nose up off the spout over its first 3 f, then nosing into the belt's pose, in it on the landing (never turned in a frame)
+    const k = easings.inOutSine(clamp((u - 0.3) / 0.7));
+    const up = clamp((u * TURN.postArc) / 3);
+    return { p: [p[0], p[1], p[2] + 4 * S.apex * u * (1 - u)], heading: h0 + (BELT_HEADING - h0) * easings.inOutSine(u), slope: 0.3 * up * Math.cos(u * Math.PI) * (1 - k) + BELT_SLOPE * k };
   }
-  if (f < TURN.throat) return { p: lerp3(S.gate, S.throat, (f - TURN.ride) / (TURN.throat - TURN.ride)), heading: beltHeading, slope: beltSlope };
+  const crest = CARRIERS.chat.crest;
+  if (f < FIRST_HOP) return { p: lerp3(S.gate, crest, (f - TURN.ride) / (FIRST_HOP - TURN.ride)), heading: BELT_HEADING, slope: BELT_SLOPE };
+  if (f < TURN.throat) {
+    const h = hopInto(crest, S.throat, (f - FIRST_HOP) / RIDE6.hop);
+    return { p: h.p, heading: BELT_HEADING * h.k, slope: BELT_SLOPE * h.k };
+  }
   return { p: lerp3(S.throat, S.head, MOVE((f - TURN.throat) / TURN.feedFrames)), heading: 0, slope: 0 };
 }
 
@@ -1386,7 +1406,8 @@ export function turnFootprints(t: TurnState): Footprint[] {
   }
   // its posts as they telescope down to the desk
   if (t.parts.posts > 0) for (const [x, y] of CHUTE_POSTS) fp.push(circleFp([x, y], 6, 90 * (1 - t.parts.posts), 90, t.parts.posts > 0.99 ? 1 : 0));
-  if (t.slip) fp.push({ kind: 'rect', c: [t.slip.p[0], t.slip.p[1]], h: [NEXT_SLIP.l / 2, NEXT_SLIP.w / 2], r: 2, rot: t.slip.heading, z0: t.slip.p[2] - 0.4, z1: t.slip.p[2] + 0.4, contact: 0 });
+  // the first slip: its footprint's top under its own top face (carrierSpan), so on the belt's slope it never shades its own lower half
+  if (t.slip) fp.push({ kind: 'rect', c: [t.slip.p[0], t.slip.p[1]], h: [(NEXT_SLIP.l / 2) * Math.cos(t.slip.slope), NEXT_SLIP.w / 2], r: 2, rot: t.slip.heading, ...carrierSpan(t.slip, NEXT_SLIP.l / 2, 0.4), contact: 0 });
   // the older reply in the air (lying in the in-tray it casts nothing of its own, as act two's)
   if (t.reply) fp.push({ kind: 'rect', c: [t.reply.p[0], t.reply.p[1]], h: [OLDER_REPLY_REST.size[0] / 2, OLDER_REPLY_REST.size[1] / 2], r: 2, rot: t.reply.heading, z0: t.reply.p[2] - 0.4, z1: t.reply.p[2] + 0.4, contact: 0 });
   return fp;

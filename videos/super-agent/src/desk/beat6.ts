@@ -187,6 +187,13 @@ const THROAT_Y = NEXT_SLIP.throat[1];
 const THROAT_Z = NEXT_SLIP.throat[2];
 const throatFor = (hl: number): P3 => [PRINT_HEAD.box.x0 - 2 - hl, THROAT_Y, THROAT_Z];
 const underFor = (hl: number): P3 => [PRINT_HEAD.box.x0 + 2 + hl, THROAT_Y, THROAT_Z];
+/**
+ * Where a chat slip waits inside the chat drum before it comes out of the spout (beat 4's arrivals, beat 5's, MT1's, beat 6's,
+ * 7.1's follow-ups): wholly inside the drum, its west corners 4 u inside its back wall (radius 49 round FEEDERS.chat's
+ * centre). From 60 u back its tail had shown past the wall's outside for its first frame, from 70 u the follow-up's
+ * pink-rimmed tail (R2-L3-04, c3485); its nose is at the spout's mouth, so it comes out of it and from nowhere else.
+ */
+export const SPOUT_INSIDE: P3 = [NEXT_SLIP.spout[0] - 42, NEXT_SLIP.spout[1], NEXT_SLIP.spout[2] + 2];
 /** The card feeder's mouth (beat4.ts CI_OUT): a card is pushed out from under the one lying in it. */
 export const CI_MOUTH = { from: [FEEDERS.ci.x1 - 30, rectC(FEEDERS.ci)[1] - 2, 5.2] as P3, to: [FEEDERS.ci.x1 + 30, rectC(FEEDERS.ci)[1] - 2, 5.2] as P3 } as const;
 /** The review card and a CI event (the card feeder's punched card, layout as Intake's ciCard, 84 x 50). */
@@ -195,7 +202,7 @@ export const CARRIERS: Record<StripKind['kind'], Carrier> = {
   chat: {
     l: NEXT_SLIP.l,
     w: NEXT_SLIP.w,
-    inside: [NEXT_SLIP.spout[0] - 60, NEXT_SLIP.spout[1], NEXT_SLIP.spout[2] + 2],
+    inside: SPOUT_INSIDE,
     mouth: NEXT_SLIP.spout,
     apex: NEXT_SLIP.apex,
     crest: crestFor(NEXT_SLIP.l / 2, NEXT_SLIP.w / 2),
@@ -230,8 +237,11 @@ export function hopInto(from: P3, to: P3, u: number): { p: P3; k: number } {
   // face over the settle's frames, never in one
   const y = sine((u - HOP.across[0]) / (HOP.across[1] - HOP.across[0]));
   const x = sine((u - HOP.along[0]) / (HOP.along[1] - HOP.along[0]));
+  // up on an in-out ease, so on its first frame off the crest it lies wholly under the reading pool's floor (pools.ts: z
+  // from 118) and on its second wholly over it, never across it: on an out-ease, its nose had been in the pool and its
+  // tail out of it, half lit with a hard edge across its face for a frame (R2-L2-05: MT1's slip, every beat-6 carrier)
   const top = to[2] + HOP.peak;
-  const z = u < HOP.rise ? from[2] + (top - from[2]) * easings.outQuad(clamp(u / HOP.rise)) : top - HOP.peak * easings.outQuad(clamp((u - HOP.rise) / (1 - HOP.rise)));
+  const z = u < HOP.rise ? from[2] + (top - from[2]) * easings.inOutCubic(clamp(u / HOP.rise)) : top - HOP.peak * easings.outQuad(clamp((u - HOP.rise) / (1 - HOP.rise)));
   return { p: [from[0] + (to[0] - from[0]) * x, from[1] + (to[1] - from[1]) * y, z], k: 1 - clamp(u / HOP.turn) };
 }
 
@@ -608,9 +618,7 @@ export function plateAt(f: number): PlatePose | null {
   const at = E6.plateDetent;
   const start = at - E6.plateFly;
   if (f < start || f >= E6.plateExit + E6.plateOut || f >= E6.until) return null;
-  const c: P3 = [(STRESS_PLATE.box.x0 + STRESS_PLATE.box.x1) / 2, (STRESS_PLATE.box.y0 + STRESS_PLATE.box.y1) / 2, 0];
-  const HOVER = 12;
-  const from: P3 = [PLATE_FROM[0] - c[0], PLATE_FROM[1] - c[1], PLATE_FROM[2]];
+  const HOVER = PLATE_HOVER;
   if (f >= E6.plateExit) {
     // the exit (on the downbeat, its first frame already off the hooks): up off them to its hover over the seat, then
     // back the way it came, its flight in reverse (tilting and turning as it climbs away east), gathering speed
@@ -625,11 +633,12 @@ export function plateAt(f: number): PlatePose | null {
   if (f >= at) return { d: [0, 0, 0], tilt: 0, turn: 0, squash: 0.03 * Math.max(0, 1 - (f - at) / 4), flying: false };
   const pressFrom = at - E6.platePress;
   if (f < pressFrom) {
-    // the flight: in from the east in an arc, levelling and squaring up over its seat
+    // the flight: in from the east in an arc, levelling and squaring up over its seat: the exit's path and screen-distance
+    // timing in reverse (plateExitU), so it comes in from just beyond the east edge at about the exit's last speed and
+    // slows over its seat (on a sine of the world clock it had come in at about 4100 px/s, R2-L2-01)
     const t = (f - start) / (pressFrom - start);
-    const u = sine(t);
-    const d: P3 = [from[0] * (1 - u), from[1] * (1 - u), HOVER + (from[2] - HOVER) * (1 - u) + 30 * Math.sin(Math.PI * u) * (1 - u)];
-    return { d, tilt: 0.35 * (1 - u), turn: 0.22 * (1 - u), squash: 0, flying: true };
+    const v = plateExitU((E6.plateOut - E6.plateUnhook) * (1 - t));
+    return { d: plateExitD(v), tilt: 0.35 * v, turn: 0.22 * v, squash: 0, flying: true };
   }
   // the press: a hair up (anticipation), then down onto the rail, seating on the detent
   const t = (f - pressFrom) / E6.platePress;

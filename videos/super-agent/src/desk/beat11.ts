@@ -9,8 +9,9 @@
  *   wound back in by its shuttle, its "№" tabs folding down flat as it passes them (`SETTLE`); as the route's red passes
  *   the gate the worded Proactive plate lifts, turns over in flight to its pictogram face and docks beside the key
  *   (`SETTLE.proactive`), and once the red is in the request's bay the worded Productive plate does the same onto the job
- *   rail (`SETTLE.productive`). What act two built and left lasts (the Thread's gate open on the bay's north wall: the
- *   full-duplex door the 11.2 label names; the job rail and its glass, the window's log, the spike's pile, the 7.4 reply).
+ *   rail (`SETTLE.productive`). What act two built and left lasts (the Thread's gate open on the bay's north wall; the
+ *   job rail and its glass, the side rail the 11.2 full-duplex label names; the window's log, the spike's pile, the 7.4
+ *   reply).
  * - 11.1: your lamp brightens a step on the stamp (LAMP_11). From f5530 the three built trait plates retire into the
  *   emptied chore tray, landing on `BEAT_11.plates.lands`, each flying east of your in-tray and your lamp (never over the
  *   stamped reply) and in over the tray from its east end: the Proactive pictogram plate (the starter key) turns north-south
@@ -19,8 +20,8 @@
  *   tape it became), shrinking to the tray's plate size, and lies across the tray's head on the two. The strut's recess
  *   stays empty: Persistent is printed in the vellum loop's sheet, proposed, so its chore is not off your desk yet (no
  *   fourth flight; its land, 5566, is unused).
- * - 11.2: six idea labels settle one per beat on their parts (`TAGS_11`: TagSpecs on the 'ideas' cue, EN over zh as beat
- *   7's tags are, Fast / Slow Path drawn once; film.ts SUMMARY_TAGS); the map key after them: a dark legend plate slides
+ * - 11.2: six idea labels settle one per beat on their parts (`TAGS_11`: TagSpecs on the 'ideas' cue, their EN alone as
+ *   every tag's is: look/zhInPicture.ts; film.ts SUMMARY_TAGS); the map key after them: a dark legend plate slides
  *   in over the slate from beyond the frame's top edge carrying its three samples (an enamel block, a vellum swatch with
  *   the proposed parts' dashed edge, a grained pencil "?"), settled before the key's words wipe in beside them (objects/
  *   Beat11.tsx Beat11Text: dead still while they are read); the words fade out, then the bare plate slides back out
@@ -37,13 +38,13 @@
  * tables from leaf modules only (cues.ts, layout.ts, springs.ts, fpKit.ts, you.ts, camera.ts).
  */
 import { clamp, easings } from '@aiv/core';
-import { Easing } from 'remotion';
 import { BEAT_11, WORDS } from '../cues.ts';
 import type { CardState, CardSpot, CardUp } from './beat4.ts';
 import { FRAMING_D, deskCamera, project, screenToDesk } from './camera.ts';
 import { carrierSpan, rectFp, type Footprint } from './fpKit.ts';
-import { BAYS, CHUTE, CORDS, DECK, GATE, PROACTIVE_PLATE, THROAT, TRAIT_PLATE, WINDOW, YOU, rectC, type P2, type P3, type Pool, type Rect } from './layout.ts';
+import { BAYS, CHUTE, DECK, GATE, PROACTIVE_PLATE, THROAT, TRAIT_PLATE, WINDOW, YOU, rectC, type P2, type P3, type Pool, type Rect } from './layout.ts';
 import type { TagSpec } from './Overlay.tsx';
+import { pictureLine } from '../look/zhInPicture.ts';
 import { SPRING, STEP_FRAMES, springAt } from './springs.ts';
 import { REPLY_LEAD, replyPose, type DeskState, type FocusId, type LampStep, type ReplyState, type SlipRide } from './state.ts';
 import { CHORES, YOU_POSE_B, type YouPose } from './you.ts';
@@ -276,45 +277,60 @@ export const plateLifts = (id: PlateId): number[] => LEGS[id].map((l) => l.lift)
 // ------------------------------------------------------------------------------------------------
 // 11.2: the idea labels and the map key
 
-/** A tag's lines: EN over zh, as beat 7's tags are (a name the same in both languages, Fast / Slow Path, drawn once). */
-const twoLines = (w: { en: string; 'zh-Hans': string }): TagSpec['lines'] => ({ en: [w.en], zh: [w.en === w['zh-Hans'] ? '' : w['zh-Hans']] });
 /** The Watchdog's station's east edge at its middle (summary.ts WATCHDOG, restated: the import rule; beat11.test holds it). */
 export const WATCH_EAST: P3 = [605 + 190 / 2, -356, 1];
-/** The Thread's gate's east post, on the request's bay's north wall where the cord comes in (beat7.ts GATE: its post's top). */
-const GATE_POST: P3 = [CORDS.vermilion[CORDS.vermilion.length - 1]![0] - 5, BAYS.bug.box.y1 - BAYS.bug.wall / 2, BAYS.bug.wallH + 20];
+/**
+ * The request's bay's side rail at rest: the job rail's shelf (beat7.ts SHELF, restated: the import rule; beat11.test holds
+ * it), its top by its south edge, under the Thread's gate on screen (x 430: the click's pan, audio/places.ts SCREEN.ideas,
+ * stays where the gate's post put it).
+ */
+export const RAIL_SOUTH: P3 = [430, -284, 5];
+/** The compute–state split label's first baseline: its leader leaves between its two lines level with its foot (beat11.test). */
+export const SPLIT_Y = 718;
 /**
  * The six idea labels (STORYBOARD 11.2), one per beat on BEAT_11.ideas: TagSpecs on the 'ideas' cue, each its own id and
  * its own reveal from its beat (Overlay.tsx TagSpec.reveal 'leader': its leader's foot on the beat, the leader drawn over
- * 6 f, then its text wiped in over 8 f), all fading with the cue (down before the collar flies); EN over zh (Fast / Slow Path, the same in both, drawn once), placed
+ * 6 f, then its text wiped in over 8 f), all fading with the cue (down before the collar flies); their EN alone (the zh
+ * policy, look/zhInPicture.ts: the user, 2026-11-14), placed
  * for still (d)'s framing (0.64x), every line inside title-safe and the diagram band, each leader short and onto a named
  * part, no two feet in one place: Fast / Slow Path on the loupe over the Slow Path's card, its label north in the clear
  * band over the Register; cache on the window's north bar (never across its log or the record's print), north beside it;
  * batching on the throat, set south in the clear slate between your desk and the first bay (its leader the gap between
- * them); full-duplex on the Thread's gate standing open on the request's bay's north wall (the bay's open door), set in
- * the clear slate north-east of it between the cord and the vellum; the compute–state split on the vellum state
- * cabinet, set right of it (EN broken after its dash, so no word stands alone and the block stands clear of the cabinet
- * on a real hairline: session 6's L4-09, zh under it); the control loop on the Watchdog's station, set
- * east of it in the clear slate under the cabinet (its leader short and level onto the station's east edge).
+ * them); full-duplex on the request's bay's side rail (the job rail's shelf, where its long job ran while its door stayed
+ * open), set south-west of it in the clear slate under the bays, its east end well west of the Watchdog's station (a
+ * clear gap, so the row never reads "full-duplex [station] control loop": the review's T-rv-03), its short leader rising
+ * from the line's east end to the shelf's south edge (on the Thread's gate its leader ran beside the cord and ended on
+ * the cord's clip: R2-L4-05); the compute–state split on
+ * the vellum state cabinet, set right of it (EN broken after its dash, so no word stands alone and the block stands clear
+ * of the cabinet on a real hairline: session 6's L4-09; its two lines straddle the cabinet's east edge, so the leader runs
+ * level between them); the control loop on the Watchdog's station, set east of it in the clear slate under the cabinet (its leader short
+ * onto the station's east edge).
  */
 export const TAGS_11: readonly TagSpec[] = [
-  { cue: 'ideas', reveal: 'leader', id: 'idea-fastslow', from: BEAT_11.ideas[0]!, words: WORDS.ideaFastSlow, lines: twoLines(WORDS.ideaFastSlow), at: [705, 166], anchor: 'end', foot: [-319, 341, 157] },
-  { cue: 'ideas', reveal: 'leader', id: 'idea-batching', from: BEAT_11.ideas[1]!, words: WORDS.ideaBatching, lines: twoLines(WORDS.ideaBatching), gap: 48, at: [650, 750], anchor: 'start', foot: [THROAT.box.x0 + 14, THROAT.box.y0 + 2, THROAT.z[1]] },
-  { cue: 'ideas', reveal: 'leader', id: 'idea-cache', from: BEAT_11.ideas[2]!, words: WORDS.ideaCache, lines: twoLines(WORDS.ideaCache), gap: 46, at: [790, 124], anchor: 'start', foot: [-137, WINDOW.frame.y1 - WINDOW.bar / 2, WINDOW.z[1] + 1] },
-  { cue: 'ideas', reveal: 'leader', id: 'idea-duplex', from: BEAT_11.ideas[3]!, words: WORDS.ideaDuplex, lines: twoLines(WORDS.ideaDuplex), gap: 46, at: [1216, 392], anchor: 'start', foot: GATE_POST },
-  { cue: 'ideas', reveal: 'leader', id: 'idea-split', from: BEAT_11.ideas[4]!, words: WORDS.ideaSplit, lines: { en: ['compute–', 'state split'], zh: [WORDS.ideaSplit['zh-Hans']] }, gap: 42, at: [1824, 676], anchor: 'end', foot: [986, -230, 1] },
-  { cue: 'ideas', reveal: 'leader', id: 'idea-control', from: BEAT_11.ideas[5]!, words: WORDS.ideaControl, lines: twoLines(WORDS.ideaControl), gap: 42, at: [1416, 818], anchor: 'start', foot: WATCH_EAST },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-fastslow', from: BEAT_11.ideas[0]!, words: WORDS.ideaFastSlow, at: [705, 166], anchor: 'end', foot: [-319, 341, 157] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-batching', from: BEAT_11.ideas[1]!, words: WORDS.ideaBatching, at: [650, 750], anchor: 'start', foot: [THROAT.box.x0 + 14, THROAT.box.y0 + 2, THROAT.z[1]] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-cache', from: BEAT_11.ideas[2]!, words: WORDS.ideaCache, at: [790, 124], anchor: 'start', foot: [-137, WINDOW.frame.y1 - WINDOW.bar / 2, WINDOW.z[1] + 1] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-duplex', from: BEAT_11.ideas[3]!, words: WORDS.ideaDuplex, at: [1124, 838], anchor: 'end', foot: RAIL_SOUTH },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-split', from: BEAT_11.ideas[4]!, words: WORDS.ideaSplit, lines: { en: ['compute–', 'state split'] }, gap: 42, at: [1824, SPLIT_Y], anchor: 'end', foot: [986, -230, 1] },
+  { cue: 'ideas', reveal: 'leader', id: 'idea-control', from: BEAT_11.ideas[5]!, words: WORDS.ideaControl, at: [1416, 818], anchor: 'start', foot: WATCH_EAST },
 ];
 
 /**
  * The map key (11.2): a dark legend plate slides in over the slate from beyond the frame's top edge in the upper right of
  * still (d)'s frame once the six labels have landed, its three samples on it north to south (an enamel block, a vellum
  * swatch with the proposed parts' dashed edge, a grained pencil "?", drawn as objects/Proposed.tsx draws them), settled
- * before the key's words wipe in beside them on the cue (objects/Beat11.tsx Beat11Text, a column of EN and one of zh,
- * dead still while they are read); the words fade out (6 f), then the bare plate slides back out before bar 76's move.
+ * before the key's words wipe in beside them on the cue (objects/Beat11.tsx Beat11Text, a column of EN: the zh policy,
+ * look/zhInPicture.ts, keeps no zh in the key; dead still while they are read); the words fade out (6 f), then the bare
+ * plate slides back out before bar 76's move.
  */
 const POSE_D = deskCamera(FRAMING_D, 15);
-/** Where the samples sit on screen (their column's x, each row's y) and the words' columns (left aligned) at still (d): the zh column ends inside title-safe. */
-export const KEY_SCREEN = { x: 1233, ys: [104, 160, 216] as const, en: 1281, zh: 1608 } as const;
+/**
+ * Where the samples sit on screen (their column's x, each row's y), the words' column (left aligned) and the block's east
+ * end (its longest entry, "dashed: proposed", 293 px at 36 px: measured on the render) at still (d). Its zh column gone
+ * (2026-11-14), the block (plate and words, about x 1324-1699) is set 124 px further east so its middle stays where the
+ * two-column block's was (x 1512: the score's pan, audio/places.ts SCREEN.keyMap), clear west of the vellum plan.
+ */
+export const KEY_SCREEN = { x: 1357, ys: [104, 160, 216] as const, en: 1405, end: 1699 } as const;
 /** The plate's top over the slate (u) and its margin round the samples (a narrow legend board under the samples' column). */
 export const KEY_PLATE = { top: 6, margin: { x: 48, y: 40 } } as const;
 export const KEY_SAMPLES: readonly P3[] = KEY_SCREEN.ys.map((y) => screenToDesk(POSE_D, [KEY_SCREEN.x, y], KEY_PLATE.top));
@@ -326,6 +342,8 @@ export const KEY_BOX: Rect = (() => {
   return { x0: Math.min(...xs) - m.x, x1: Math.max(...xs) + m.x, y0: Math.min(...ys) - m.y, y1: Math.max(...ys) + m.y };
 })();
 export const KEY_WORDS = [WORDS.keySolid, WORDS.keyDashed, WORDS.keySketch] as const;
+/** The key's rows as drawn (the map key's and the end key's): each entry's EN, its zh only where the zh policy keeps it (it keeps none). */
+export const KEY_LINES: readonly string[] = KEY_WORDS.map((w) => pictureLine(w));
 /** How far north of its place the plate starts and ends (beyond the frame's top edge at 0.64x, its shadow with it). */
 export const KEY_OFF = 500;
 /**
@@ -348,9 +366,20 @@ export const keyWordsAt = (f: number): number => 1 - clamp((f - (KEY_MOVE.out - 
 // ------------------------------------------------------------------------------------------------
 // 11.3: the act-one card and the collar
 
-/** The card's curves: in on an even sine over 12 f (beat 4's move curve would carry it in from beyond the top edge faster than 2410 px/s), out on TREATMENT's exit curve over 8 f. */
+/**
+ * The card's curves: in on an even sine over 12 f (beat 4's move curve would carry it in from beyond the top edge faster
+ * than 2410 px/s); out over 8 f as an exit (gathering speed, never easing to a stop) whose pace is capped: an even
+ * acceleration over its first `EXIT_RAMP` of the way's time, then a held pace, so its fastest in-frame step (about 76 px at
+ * 1080, the last ones) stays under the object cap. TREATMENT's exit curve (.3, 0, .8, .15) put its last two frames at
+ * about 3200 and 5000 px/s (R2-L4-02).
+ */
 const RISE = (t: number): number => sine(t);
-const EXIT = Easing.bezier(0.3, 0, 0.8, 0.15);
+export const EXIT_RAMP = 0.4;
+export const EXIT = (t: number): number => {
+  const x = clamp(t);
+  const r = EXIT_RAMP;
+  return x < r ? (x * x) / (r * (2 - r)) : (2 * x - r) / (2 - r);
+};
 /** The act-one card: grey stock (beat4.ts's counterfactual card, larger), up once C26 has settled, at rest a full beat; no strike. */
 export const CARD_11 = { rise: BEAT_11.actOneCard.rise, exit: BEAT_11.actOneCard.exit, riseFrames: 12, exitFrames: 8 } as const;
 /** Its size (u: about 354 x 217 px at 0.64x) and where its centre sits on still (d)'s screen: west of the Register, north of your desk, over the feeders and the noise act one was. */

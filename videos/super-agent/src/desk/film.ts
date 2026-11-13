@@ -27,7 +27,7 @@ import { DOLLY_IN, EASE_OUT, EASE_OUT_D, TO_BOOKEND, TO_REGISTER, TO_SHEET, TO_V
 import { BAYS, DECK, GATE, REEL_FRAME, REEL_FRAME_Z } from './layout.ts';
 import { REPORT_C } from '../print.ts';
 import type { PrintMode } from './marks.ts';
-import { ROLE_LABELS, TAG_GAP, type RoleLabel, type TagSpec } from './Overlay.tsx';
+import { ROLE_LABELS, type RoleLabel, type TagSpec } from './Overlay.tsx';
 import { SAFE } from '../look/tokens.ts';
 import { SEAM_D, summaryLabelAt } from './summary.ts';
 import { TURN_SPAN } from './turn.ts';
@@ -214,36 +214,47 @@ export const labelsDAt = (f: number): RoleLabel[] =>
 // ------------------------------------------------------------------------------------------------
 // The tags
 
-/** The built tag's lines: its EN and zh broken where their own phrases break (film.test.ts holds them equal to the cue's words). */
-export const TAG_BUILT_LINES = { en: ['two levels: built', 'in the public', 'research prototype'], zh: ['双层架构：', '公开研究原型已实现'] } as const;
+/** The built tag's lines: its EN broken where its phrases break (film.test.ts holds them equal to the cue's words); its zh is not drawn (look/zhInPicture.ts). */
+export const TAG_BUILT_LINES = { en: ['two levels: built', 'in the public', 'research prototype'] } as const;
 
 /**
- * Act two's tags, each on its cue's window, its leader ending on the body it qualifies (design D3). Placements are
- * set against the act-two framings and checked on renders (session 4):
- * - the built tag (C11) on the clear ground north-east of the deck, inside title-safe, set on three short lines and two
- *   (its 50-character EN line would run off the frame there; every line ends clear of the lock and its key on the frame's
- *   corner), its short leader level from the block to the reel frame's east post under the lock (the upper level's own
- *   body, never along the key; the lower level is in plain view under it), clear of the notes band, so the frame's foot
- *   never becomes a wall of text (the C11 critic);
+ * Act two's tags, each on its cue's window, its leader ending on the body it qualifies (design D3), its EN alone (the zh
+ * policy, look/zhInPicture.ts: the user, 2026-11-14). Placements are set against the act-two framings and checked on
+ * renders (sessions 4 and 6):
+ * - the built tag (C11) on the clear ground north-east of the deck, inside title-safe, set on three short lines (its
+ *   50-character EN line would run off the frame there; every line ends clear of the lock and its key on the frame's
+ *   corner), its short leader level from the middle of the block's last line to the reel frame's east post under the
+ *   lock (the upper level's own body, never along the key; the lower level is in plain view under it), clear of the
+ *   notes band and well apart from the Router label under it (three times its own lines' air: the two never read as one
+ *   four-line block, the review's T-rv-02), so the frame's foot never becomes a wall of text (the C11 critic);
  * - the gate tag (N3, C14) over the intake, its text inside title-safe (its ascenders 54 px from the top, its left edge on
- *   SAFE.x), its zh line set 8 px closer under its EN line than a tag's usual leading so its strokes clear the
- *   conversation spool's flange under them, its leader down from under its EN line (the line that runs over the gate) to
- *   the north end of the gate's bar along its west edge: clear west of the starter key docked beside it, east of the
- *   spike and its pile (desk/beat5.ts);
- * - the cache tag (N5, N6) in the close as in still (c); its window ends on bar 43's downbeat, before the
- *   ease-out, so nothing of it rides the move.
+ *   SAFE.x), its leader down from under its line (it runs over the gate) to the north end of the gate's bar along its
+ *   west edge: clear west of the starter key docked beside it, east of the spike and its pile (desk/beat5.ts);
+ * - the cache tag (N5, N6) in the close as in still (c), on the deck's dark rail; its window ends on bar 43's downbeat,
+ *   before the ease-out, so nothing of it rides the move.
  * Then part 2's, each beat module's own (beat7.ts TAGS_7 ... beat10.ts TAGS_10).
  */
-/** The cache tag's leader retracts from here (6 f), gone as the reading thread's last hop leaves (beat6.ts E6.hops, E6.hopFrames a hop). */
+/**
+ * The cache tag's leader, whole, fades out from here (6 f, Overlay.tsx TAG_LEADER_FADE), gone as the reading thread's last hop
+ * leaves its foot (beat6.ts E6.hops, E6.hopFrames a hop), so the thread never starts on the tag's dot (A17); it is never cut
+ * short into a hairline ending in mid-air (R2-L2-09).
+ */
 export const CACHE_LEADER_UNTIL = BEAT_6.recall.hops[2] - E6.hopFrames - 6;
-/** ... and draws back out to its foot from here (6 f), the hop landed 2 f before: the tag never stands unattached for its last 38 f (wave 4's critic P2-e). */
+/** ... and fades back in from here (6 f), the hop landed 2 f before, so the tag ends its window attached (wave 4's critic P2-e). */
 export const CACHE_LEADER_BACK = BEAT_6.recall.hops[2] + 2;
+/**
+ * The built tag's first baseline: high enough for 75 px of air from its last baseline to the Router label's caps
+ * (film.test.ts), its leader's foot up the reel frame's east post (`BUILT_FOOT_Y`, world y: still under the lock, by the
+ * reel's east edge) so the leader runs level from its last line's middle.
+ */
+export const BUILT_TAG_Y = 150;
+export const BUILT_FOOT_Y = 363;
 export const ACT2_TAGS: readonly TagSpec[] = [
-  { cue: 'tag-built', words: WORDS.tagBuilt, at: [1800, 96], anchor: 'end', foot: [REEL_FRAME[2].x0 + 8, 330, REEL_FRAME_Z[1] + 4], lines: TAG_BUILT_LINES },
-  { cue: 'tag-gate', words: WORDS.tagGate, at: [SAFE.x, 84], anchor: 'start', foot: [GATE.bar.x0 + 2, GATE.bar.y1 - 8, GATE.h], gap: TAG_GAP - 8 },
+  { cue: 'tag-built', words: WORDS.tagBuilt, at: [1800, BUILT_TAG_Y], anchor: 'end', foot: [REEL_FRAME[2].x0 + 8, BUILT_FOOT_Y, REEL_FRAME_Z[1] + 4], lines: TAG_BUILT_LINES },
+  { cue: 'tag-gate', words: WORDS.tagGate, at: [SAFE.x, 84], anchor: 'start', foot: [GATE.bar.x0 + 2, GATE.bar.y1 - 8, GATE.h] },
   // its foot is on the inline record's printed pointer, which beat 6.4's reading thread follows on its last hop (beat6.ts
-  // HOP3_VIA): the leader retracts into the words over the 6 f before that hop leaves, so the thread never starts on the
-  // tag's dot (A17), and draws back out to it once the hop has landed; still (c) is long before it
+  // HOP3_VIA): the leader, whole, fades out over the 6 f before that hop leaves, so the thread never starts on the tag's
+  // dot (A17), and fades back in once the hop has landed; still (c) is long before it
   { cue: 'tag-cache', words: WORDS.tagCache, at: [1050, 432], anchor: 'start', foot: [-112, 196, 123], leaderUntil: CACHE_LEADER_UNTIL, leaderBack: CACHE_LEADER_BACK },
   ...TAGS_7,
   ...TAGS_8,

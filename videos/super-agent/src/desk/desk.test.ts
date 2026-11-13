@@ -3,9 +3,9 @@ import { CELLS, NAMEPLATE, PRINT_STRINGS, REPLY, REPORT, REPORT_C } from '../pri
 import { CAMERA_EASE, CAMERA_MOVES, D1, EASE_OUT_D, FRAMING_B, FRAMING_BOOKEND, FRAMING_C, FRAMING_D, FRAMING_HOOK, FRAMING_SHEET, TO_BOOKEND, TO_REGISTER, TO_SHEET, TO_VELLUM, cameraAt, deskCamera, moveFraming, project, projectBox } from './camera.ts';
 import { poseD, summaryDeskState } from './summary.ts';
 import { SEAM_D } from './film.ts';
-import { footprintsAt, KIND, MAX_FOOTPRINTS, cullRadius, packFootprints, staticFootprints, type Footprint } from './footprints.ts';
+import { footprintsAt, KIND, MAX_FOOTPRINTS, PIT_LIGHT, cullRadius, packFootprints, pitFootprints, pitLightReach, pitRisingFootprints, staticFootprints, type Footprint } from './footprints.ts';
 import { neutral, preToe } from './gl/post.ts';
-import { BAYS, BENCH, CARD, CELLS_X, CORDS, DECK, DISPATCH, FRESH, HATCH_DEPTH, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, SLIP, TAPE, TOWER, WINDOW, penumbra, PENUMBRA_K, shadowOffset, towerTop, type BayId, type P3 } from './layout.ts';
+import { BAYS, BENCH, CARD, CARD_FILE, CELLS_X, CORDS, DECK, DISPATCH, FRESH, HATCH_DEPTH, KEY, PINS, REEL, SHADOW_DIR, SHADOW_K, SLIP, TAPE, TOWER, WINDOW, penumbra, PENUMBRA_K, shadowOffset, towerTop, type BayId, type P3 } from './layout.ts';
 import { MAX_POOLS, linearOf, packPools, poolsAt } from './pools.ts';
 import { ROUND2, MOTION_TESTS } from '../lookdev/frames.ts';
 import { BEAT_6, BEAT_7, BEAT_9, MT1, at } from '../cues.ts';
@@ -748,5 +748,116 @@ describe('focus hand-overs (state.ts FocusEntry.handFrom, stepOf)', () => {
     expect(at([{ ...X, from: 2400, to: 2700 }, { ...Y, from: 2600, to: 2800 }], 2600)).toThrow(/part 2/);
     // an idle own set of parts of neither set is fine
     expect(at([X, { ...Y, own: { from: 3713, to: 3800, step: ['plate'] } }])).not.toThrow();
+  });
+});
+
+describe('the light reaches into W-10’s pit as it rises (R2-L2-16, RV-M4-WIPE)', () => {
+  // a JS port of gl/light.ts dskShade's cast coverage for the rect footprints (no cull radius), for a surface at z
+  const ss = (a: number, b: number, x: number) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  const cover = (fps: readonly Footprint[], p: readonly [number, number], z: number): number => {
+    const zr = z - 0.5;
+    let cov = 0;
+    for (const fp of fps) {
+      if (fp.kind !== 'rect' || fp.z1 <= zr + 0.5) continue;
+      const [lo, hi] = [Math.max(fp.z0, zr) - zr, fp.z1 - zr];
+      const g = (h: number) => {
+        const qx = p[0] - SHADOW_DIR[0] * SHADOW_K * h - fp.c[0];
+        const qy = p[1] - SHADOW_DIR[1] * SHADOW_K * h - fp.c[1];
+        const [c, sn] = [Math.cos(fp.rot), Math.sin(fp.rot)];
+        const dx = Math.abs(c * qx + sn * qy) - (fp.h[0] - fp.r);
+        const dy = Math.abs(-sn * qx + c * qy) - (fp.h[1] - fp.r);
+        return (Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0) - fp.r) / penumbra(h);
+      };
+      let best = Infinity;
+      for (let i = 0; i <= 40; i++) best = Math.min(best, g(lo + ((hi - lo) * i) / 40));
+      cov = Math.max(cov, 1 - ss(-0.5, 0.5, best));
+    }
+    return cov;
+  };
+  const BOX = FRESH.box;
+  const pit = (f: number) => {
+    const s = deskStateAt(f);
+    const lift = -HATCH_DEPTH * (1 - s.next.rise);
+    return { lift, fps: footprintsAt(s).filter((x) => x.kind === 'rect' && x.z1 <= 0 && x.z0 === -1) };
+  };
+  // the band's share lit (its print across the middle of the south wall's top) and a column of the floor plate's
+  const bandLit = (f: number) => {
+    const { lift, fps } = pit(f);
+    let n = 0;
+    let lit = 0;
+    for (let x = BOX.x0 + 40; x <= BOX.x1 - 30; x += 10)
+      for (let y = BOX.y0 + 2; y <= BOX.y0 + FRESH.southWall - 2; y += 3) {
+        n++;
+        lit += 1 - cover(fps, [x, y], FRESH.wallH + 0.25 + lift);
+      }
+    return lit / n;
+  };
+  const floorLit = (f: number) => {
+    const { lift, fps } = pit(f);
+    let n = 0;
+    let lit = 0;
+    for (let y = BOX.y0 + FRESH.southWall + 2; y <= BOX.y1 - FRESH.wall - 2; y += 4) {
+      n++;
+      lit += lift >= -0.5 ? 1 : 1 - cover(fps, [560, y], 6 + lift);
+    }
+    return lit / n;
+  };
+  it('brings the light in from the south wall as one soft edge along the walls: the band over 3 frames, then the floor plate over 4', () => {
+    const R = EVENTS_D.rise;
+    expect(bandLit(R - 1)).toBe(0);
+    const band = [0, 1, 2, 3].map((k) => bandLit(R + k));
+    const floor = [2, 3, 4, 5, 6, 7].map((k) => floorLit(R + k));
+    // (each frame lights a share of it, no frame more than half: it had lit the band in one or two frames, a hard edge across its print)
+    expect(band[0]).toBeGreaterThan(0.12);
+    for (let k = 1; k < band.length; k++) {
+      expect(band[k]! - band[k - 1]!, `band k${k}`).toBeGreaterThanOrEqual(0);
+      expect(band[k]! - band[k - 1]!, `band k${k}`).toBeLessThan(0.5);
+    }
+    expect(band[3]).toBeGreaterThan(0.99);
+    expect(floor[0]).toBeLessThan(0.05);
+    for (let k = 1; k < floor.length; k++) {
+      expect(floor[k]! - floor[k - 1]!, `floor k${k + 2}`).toBeGreaterThanOrEqual(0);
+      expect(floor[k]! - floor[k - 1]!, `floor k${k + 2}`).toBeLessThan(0.45);
+    }
+    expect(floor[floor.length - 1]).toBeGreaterThan(0.99);
+    // the front is one edge along the walls: across the band, every point at one y is lit alike (no edge through its print)
+    for (let k = 0; k < 3; k++) {
+      const { lift, fps } = pit(R + k);
+      for (let y = BOX.y0 + 2; y <= BOX.y0 + FRESH.southWall - 2; y += 4) {
+        const row = Array.from({ length: 11 }, (_, i) => cover(fps, [BOX.x0 + 40 + i * 10, y], FRESH.wallH + 0.25 + lift));
+        expect(Math.max(...row) - Math.min(...row), `k${k} y${y}`).toBeLessThan(0.02);
+      }
+    }
+  });
+  it('reaches the north rim out over the opening only from the rise’s cue while the bay is under the slate; the pit is as it was before and after', () => {
+    expect(PIT_LIGHT.band.length + PIT_LIGHT.floor.length).toBe(7);
+    // (the rim's reach shrinks frame by frame to nothing)
+    let last = Infinity;
+    for (let k = 0; k < 8; k++) {
+      const s = deskStateAt(EVENTS_D.rise + k);
+      const reach = pitLightReach(FRESH, k, -HATCH_DEPTH * (1 - s.next.rise));
+      expect(reach, `k${k}`).toBeLessThanOrEqual(last);
+      last = reach;
+    }
+    expect(last).toBe(0);
+    expect(pitRisingFootprints(BOX, 0).find((x) => x.kind === 'canopy')).toEqual(pitFootprints(BOX).find((x) => x.kind === 'canopy'));
+    const roofed = (f: number) => footprintsAt(deskStateAt(f)).some((x) => x.kind === 'rect' && x.z0 === -1 && x.z1 === 0 && x.c[0] === (BOX.x0 + BOX.x1) / 2 && x.c[1] === (BOX.y0 + BOX.y1) / 2);
+    expect(roofed(EVENTS_D.rise - 1)).toBe(true);
+    expect(roofed(EVENTS_D.rise)).toBe(false);
+    let s = EVENTS_D.rise;
+    while (-HATCH_DEPTH * (1 - deskStateAt(s).next.rise) < 0) s++;
+    expect(s - EVENTS_D.rise).toBeLessThanOrEqual(10);
+    expect(roofed(s)).toBe(true);
+    // and while it does, the bay's own parts keep their own shade under the slate (its card file's footprint at its lifted
+    // heights, never dropped: the drum's cards had lit for a frame and gone dark again, c2305)
+    for (let f = EVENTS_D.rise; f < s; f++) {
+      const st = deskStateAt(f);
+      const lift = -HATCH_DEPTH * (1 - st.next.rise);
+      const file = footprintsAt(st).find((x) => x.kind === 'rect' && Math.abs(x.z1 - (CARD_FILE.z + CARD_FILE.cheekR + lift)) < 1e-6);
+      expect(file, `f${f}`).toBeDefined();
+    }
   });
 });

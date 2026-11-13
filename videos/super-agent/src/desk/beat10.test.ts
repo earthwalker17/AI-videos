@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 // actOne.ts first: it is the module the film's frame code reaches the beat modules through (its tables read state.ts's)
 import { youPoseAt } from './actOne.ts';
 import { BEAT_10 } from '../cues.ts';
-import { ALL_BUT_CARDS, ARM_10, CAP_LANDS, CARDS_10, CRAWL_PATH, FOCUS_10, HIJACK, HIJACK_CUT, HIJACK_GONE, HIJACK_SLIP, PINS_10, POLE_B, REACH, REPLY_0405, REPORT_10, SPOT_10, beat10At, capAt, capLanded, crawlAt, etchAt, hijackAt, pins10, pose0405, reportAt, ride0405, you10 } from './beat10.ts';
+import { ALL_BUT_CARDS, ARM_10, CAP_LANDS, CARDS_10, CRAWL_PATH, FOCUS_10, HIJACK, HIJACK_CUT, HIJACK_GONE, HIJACK_SLIP, PINS_10, POLE_B, REACH, REPLY_0405, REPORT_10, SHARD_WINDOW, SPOT_10, beat10At, capAt, capLanded, crawlAt, etchAt, hijackAt, pins10, pose0405, reportAt, ride0405, shardWindowAt, you10 } from './beat10.ts';
 import { FOCUS_9, SLIP_IN, SLIP_PATH_UP } from './beat9.ts';
 import { REPLY_REST } from './beat7.ts';
 import { CARD_SPOT, cardAt, cardPose } from './beat4.ts';
@@ -276,3 +276,26 @@ describe('beat 10: still open, and bar 68', () => {
 
 /** Bar 65's downbeat (camera.ts TO_REGISTER). */
 const at65 = (): number => 5120;
+
+describe('the shard’s window leaves without crossing the record (R2-L4-04)', () => {
+  it('fades where it lies beside the window, never sliding back over #0405’s cell, evenly, gone before 10.3’s reply', () => {
+    // (it slid back north over the window and into the head: its "#0404" printed over #0405 as a smeared double, c5303-5305)
+    const W = SHARD_WINDOW;
+    const settled = W.beside + W.frames;
+    let prev = 1;
+    for (let f = settled; f < W.back + W.fade + 2; f++) {
+      const w = shardWindowAt(f);
+      if (f >= W.back + W.fade) {
+        expect(w, `f${f}`).toBeNull();
+        continue;
+      }
+      expect(w!.dy, `f${f}`).toBe(W.dy);
+      expect(w!.out, `f${f}`).toBe(1);
+      expect(prev - w!.fade, `f${f}`).toBeLessThanOrEqual(0.21);
+      expect(w!.fade, `f${f}`).toBeLessThanOrEqual(prev);
+      prev = w!.fade;
+    }
+    expect(shardWindowAt(W.back)!.fade).toBe(1);
+    expect(W.back + W.fade).toBeLessThan(BEAT_10.replyLands);
+  });
+});

@@ -109,10 +109,16 @@ export const CARRIAGE = { w: 44, v0: 4, v1: 36, z: [SHEET8.z + 0.8, SHEET8.z + 1
 export const TICKS = { u0: 56, pitch: 3.4, rows: [[50, 63], [66, 79]] as const, inked: [47, 82] as const, w: 1.6, inkedW: 4.4 } as const;
 export const tickU = (i: number): number => TICKS.u0 + TICKS.pitch * i;
 
-/** The caveat stamp (the chart tag) across the sheet under the load line: its box, its two lines' baselines, its em (u). */
-export const CAVEAT = { u0: 28, u1: 1162, v0: 90, v1: 228, en: 150, zh: 206, em: 56 } as const;
+/**
+ * The caveat stamp (the chart tag) across the sheet under the load line: its box round its one line, the line's baseline,
+ * its em (u). The sheet's print is EN alone (look/zhInPicture.ts, the user, 2026-11-14): the caveat's zh line and the told-to-
+ * delegate lane's and the token header's second lines are gone, and the space they held is shared out as air (the caveat
+ * stamp a line shorter, set 15 u lower, the legend between it and the lanes; the told-to-delegate name on its strip; the
+ * token header midway between the section rule and its stacks), so the sheet has no hole where a zh line was.
+ */
+export const CAVEAT = { u0: 28, u1: 1162, v0: 105, v1: 199, en: 165, em: 56 } as const;
 /** The legend (the key): a hole for typical, a cut for slowest, one line under the caveat; its samples are a strip's. */
-export const LEGEND = { u: 40, v: 280, em: 53 } as const;
+export const LEGEND = { u: 40, v: 266, em: 53 } as const;
 
 /** The lanes' scale: u of strip per unit of the article's table (one unitless scale for all three; no time axis). */
 export const K = 15;
@@ -125,13 +131,13 @@ export const NAME_U = 122;
 /**
  * Each lane's paper strip (v0..v1), its typical run's hole (v from the strip's north edge), the edge its delegation
  * notches are cut in (none for the single session; the told-to-delegate strip's north edge, under the die's path; the
- * two-level strip's south edge, so both holes face the bracket between them), and its name lines: EN (and zh) baselines.
+ * two-level strip's south edge, so both holes face the bracket between them), and its name's baseline (one EN line).
  * Every name sits on its own strip and well clear of the strip above (beat8.test).
  */
 export const LANES8 = [
-  { strip: [372, 436] as const, hole: 32, notches: 'none' as const, names: [{ v: 360, text: 'line' as const }] },
-  { strip: [622, 686] as const, hole: 44, notches: 'north' as const, names: [{ v: 521, text: 'en' as const }, { v: 579, text: 'zh' as const }] },
-  { strip: [730, 794] as const, hole: 21, notches: 'south' as const, names: [{ v: 840, text: 'line' as const }] },
+  { strip: [372, 436] as const, hole: 32, notches: 'none' as const, names: [{ v: 360 }] },
+  { strip: [622, 686] as const, hole: 44, notches: 'north' as const, names: [{ v: 572 }] },
+  { strip: [730, 794] as const, hole: 21, notches: 'south' as const, names: [{ v: 840 }] },
 ] as const;
 /** The lanes' em (u): at least 36 px on screen at FRAMING_SHEET (beat8.test). */
 export const LANE_EM = 56;
@@ -174,9 +180,9 @@ export const STAMPS8 = {
 } as const;
 /** The rule between the lanes and the token chart (printed with the form: its v, its u span). */
 export const SECTION_RULE = { v: 870, u0: 34, u1: SHEET_W - 34 } as const;
-/** The token chart: its header (two lines over the stacks), its clamp, each lane's stack row (v), a sheet's width, the longest stack's reach. */
+/** The token chart: its header (one line, midway between the section rule and the stacks), its clamp, each lane's stack row (v), a sheet's width, the longest stack's reach. */
 export const TOKENS = {
-  head: { u: 40, v: [926, 980] as const, em: 53 },
+  head: { u: 40, v: 946, em: 53 },
   clamp: { u0: 34, u1: 92, v0: 994, v1: 1142, z: SHEET8.z + 7 },
   rows: [[1002, 1042], [1048, 1088], [1094, 1134]] as const,
   sheetW: 56,
@@ -587,11 +593,20 @@ export function pools8(_s: DeskState): Pool[] {
 
 /**
  * The load tag (the beat's one DOM text: light text reads only on the dark desk): on the clear desk north of the stepped
- * system, west of the sheet, its leader to the load line's west end, wiped in once the caveat and the first lane names
- * are down (E8.tag), so the form never lands as one block.
+ * system, west of the sheet, its EN alone (look/zhInPicture.ts) set a little over the load line and west of the sheet's
+ * edge, so its leader drops at a plain angle from the line's middle to the load line's west end (level with the one line,
+ * it read as a dash after the text: the review's T-rv-01); its run on the sheet and its foot's dot in the print's ink
+ * (TagSpec.paperEdge: the light leader vanished on the paper). Wiped in once the caveat and the first lane names are down
+ * (E8.tag), so the form never lands as one block. In the tags' secondary tone: in white it was the brightest text of every
+ * beat-8 frame, over the sheet's hero stamps (R2-L3-08).
  */
 export const TAG_LOAD_FOOT: P3 = [...onSheet(tickU(0) - 6, (TICKS.rows[0][0] + TICKS.rows[1][1]) / 2), Z8.print];
-export const TAGS_8: readonly TagSpec[] = [{ cue: 'tag-load', from: E8.tag, words: WORDS.tagLoad, at: [988, 104], anchor: 'end', foot: TAG_LOAD_FOOT }];
+/** The sheet's west edge (the paper the load tag's leader crosses onto). */
+export const SHEET8_WEST: readonly [P3, P3] = [
+  [SHEET8.x0, SHEET8.y0, SHEET8.z],
+  [SHEET8.x0, SHEET8.y1, SHEET8.z],
+];
+export const TAGS_8: readonly TagSpec[] = [{ cue: 'tag-load', from: E8.tag, words: WORDS.tagLoad, at: [940, 90], anchor: 'end', foot: TAG_LOAD_FOOT, tone: 'secondary', paperEdge: SHEET8_WEST }];
 export function you8(_f: number, pose: YouPose): YouPose {
   return pose;
 }

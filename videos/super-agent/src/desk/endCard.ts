@@ -14,7 +14,8 @@
  *   (the title card's settle, TitleCard.tsx cardAt); its lettering wipes in from the landing. On `END.card.leave` it lifts
  *   off (its contact going over its first frames) and slides out south at the film's object speed cap, wholly off the
  *   frame on its last frame. The end's one soft pool (`endPools`: your lamp's warm light, from beyond the frame's upper
- *   left) lifts the card's upper left and falls off across it, and goes with the card.
+ *   left) lifts the card's upper left and falls off across it, lies warm on the slate by the card's north-west corner
+ *   from the dissolve (it comes up with the bare desk), and goes with the card.
  * - The key: beat 11's map key (lane D's legend plate with its three material samples: enamel, vellum, pencil;
  *   objects/Beat11.tsx KeyLegend), scaled for the 1.6x framing and set in the frame's upper right (still (d)'s map key
  *   sat there too). The bare plate slides in from beyond the frame's top edge once the card has landed and is dead still
@@ -28,6 +29,7 @@ import { KEY_BOX, KEY_PLATE, KEY_SAMPLES } from './beat11.ts';
 import { LIGHT_HEX, rectFp, type Footprint } from './fpKit.ts';
 import type { P3, Pool, Rect } from './layout.ts';
 import { SAFE, TYPE } from '../look/tokens.ts';
+import { zhInPicture } from '../look/zhInPicture.ts';
 import { CARD_HEX, CARD_T, cardAt, cardContactFootprint, cardFootprint, type CardLine, type CardSpec, type CardState } from './objects/TitleCard.tsx';
 
 const sine = (t: number): number => easings.inOutSine(clamp(t)) + 0;
@@ -53,7 +55,8 @@ export const END_TYPE = {
   bottom: 18,
 } as const;
 const EN_LINES = WORDS.end.en.split('\n');
-const ZH_LINES = WORDS.end['zh-Hans'].split('\n');
+/** The card's zh lines: the zh policy keeps the end card's own body bilingual (look/zhInPicture.ts); its layout is built for them. */
+const ZH_LINES = (zhInPicture(WORDS.end) ?? '').split('\n').filter((l) => l !== '');
 /** Each line's baseline (u down from the card's north edge): the EN lines, then the zh lines, each line's pitch its tier's. */
 const BASELINES = (() => {
   const T = END_TYPE;
@@ -147,21 +150,38 @@ export function endCardAt(f: number): CardState {
 
 /**
  * The end's one soft pool (gl/light.ts pools: linear light relative to the albedo): your lamp's warm light from beyond the
- * frame's upper left, centred over the card's north-west quarter, so the card's upper left is lifted about 10 codes and
- * the light falls off across it (its south-east corner about 1 code); on the slate it is a faint 2-code glow. It is the
- * end world's (and the veil's) from the dissolve, and it goes with the card: it fades over the card's leave, so the bare
- * desk at the end has no pool.
+ * frame's upper left. Laid as two terms, each a share of the albedo it falls on:
+ * - on the card (`END_POOL`, every receiver up to its top): centred over its north-west quarter, so the card's upper left
+ *   is lifted about 10 codes and the light falls off across it (its south-east corner about 1 code); it is the end world's
+ *   (and the veil's) from the dissolve;
+ * - on the slate round it (`END_GROUND_POOL`, the desk's face only, under the card's top): a round pool centred just off
+ *   the card's north-west corner, on the lamp's side, about a third of the card's width across (sigma), so the bare slate
+ *   by that corner is lifted about 15 codes in red and 8 in blue and the light falls off across the slate east and south
+ *   to the bare slate by the key and the frame's east corners: one warm pool, never a flat ground (STORYBOARD 13.2 "under
+ *   one warm pool"; R2-L4-09). The slate is dark and faintly green, and the lamp's pale warmth (LIGHT_HEX.yours) lifts its
+ *   R, G and B nearly alike there (the review's +10/+10/+8, a neutral lift), so this term carries the lamp's warmth
+ *   deepened (`tint`, linear): R over B by about 7 codes by the corner (the bare slate's is -1). The card, above it, is
+ *   not touched by it, so its print keeps its contrast.
+ * Both are the end world's (and the veil's) from the dissolve, so the pool comes up with the bare desk, never as a step of
+ * its own after the landing; both fade over the card's leave, so the bare desk at the end has no pool.
  */
 export const END_POOL = { at: [0.22, 0.2] as const, sigma: [0.46, 0.56] as const, amount: 0.13, z: [-1, 40] as const } as const;
+export const END_GROUND_POOL = { at: [-0.03, -0.08] as const, sigma: [0.33, 0.645] as const, amount: 0.95, tint: [1, 0.7, 0.42] as const, z: [-1, 1] as const } as const;
 export function endPools(f: number): Pool[] {
   const c = END_CARD;
-  const P = END_POOL;
   const k = 1 - sine((f - c.frames.leave) / (c.frames.gone - c.frames.leave));
   if (k <= 0) return [];
   const hex = LIGHT_HEX.yours;
   const lin = [1, 3, 5].map((i) => (parseInt(hex.slice(i, i + 2), 16) / 255) ** 2.2);
-  const a = (P.amount * k) / lin[0]!;
-  return [{ c: [c.place.x0 + P.at[0] * c.place.w, c.place.y1 - P.at[1] * c.place.d], z: P.z, sigma: [P.sigma[0] * c.place.w, P.sigma[1] * c.place.d], rgb: [lin[0]! * a, lin[1]! * a, lin[2]! * a] }];
+  const yours = [1, lin[1]! / lin[0]!, lin[2]! / lin[0]!] as const;
+  const pool = (P: { at: readonly [number, number]; sigma: readonly [number, number]; z: readonly [number, number] }, amount: number, tint: readonly [number, number, number]): Pool => ({
+    c: [c.place.x0 + P.at[0] * c.place.w, c.place.y1 - P.at[1] * c.place.d],
+    z: P.z,
+    sigma: [P.sigma[0] * c.place.w, P.sigma[1] * c.place.d],
+    rgb: [tint[0] * amount, tint[1] * amount, tint[2] * amount],
+  });
+  const g = END_GROUND_POOL;
+  return [pool(END_POOL, END_POOL.amount * k, yours), pool(g, g.amount * k, g.tint)];
 }
 
 /** The card's shadows at f: its footprint and the contact under it (TitleCard.tsx). */
@@ -174,11 +194,13 @@ export function endCardFootprints(f: number): Footprint[] {
 // The end key
 
 /**
- * Where the key's samples sit on screen at the bookend's framing (their column's x, each row's y) and its words' columns
- * (left aligned; the zh column ends inside title-safe): still (d)'s map key's layout (beat11.ts KEY_SCREEN), its rows 68 px
- * apart at 1.6x.
+ * Where the key's samples sit on screen at the bookend's framing (their column's x, each row's y), its words' column (left
+ * aligned) and the block's east end (its longest entry: measured on the render): still (d)'s map key's layout (beat11.ts
+ * KEY_SCREEN), its rows 68 px apart at 1.6x. Its zh column gone (the zh policy, look/zhInPicture.ts: the user,
+ * 2026-11-14), the block (plate and words, about x 1236-1615) is set 124 px further east, so its middle stays where the
+ * two-column block's was, upper right over the card.
  */
-export const END_KEY_SCREEN = { x: 1150, ys: [118, 186, 254] as const, en: 1198, zh: 1525 } as const;
+export const END_KEY_SCREEN = { x: 1274, ys: [118, 186, 254] as const, en: 1322, end: 1615 } as const;
 /** Lane D's legend plate (built round beat11.ts KEY_SAMPLES at still (d)) scaled about its samples' centre and set so its samples land on END_KEY_SCREEN. */
 export const END_KEY = (() => {
   const src = KEY_SAMPLES;

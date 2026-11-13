@@ -29,7 +29,7 @@ import { Easing } from 'remotion';
 import { BEAT, BEAT_4, BEAT_5, BEAT_7, cue, textWindow } from '../cues.ts';
 import { armRest, beat4At, hammerStroke, hatchRiseAt, inkSpread, type Beat4State } from './beat4.ts';
 import { beat5At, type Beat5State } from './beat5.ts';
-import { BELT_HEADING as BELT_HEADING_6, BELT_SLOPE as BELT_SLOPE_6, CARRIERS, E6, KEEP_LAND as KEEP_LAND_6, beat6At, hopInto, type Beat6State } from './beat6.ts';
+import { BELT_HEADING as BELT_HEADING_6, BELT_SLOPE as BELT_SLOPE_6, CARRIERS, E6, KEEP_LAND as KEEP_LAND_6, SPOUT_INSIDE, beat6At, hopInto, type Beat6State } from './beat6.ts';
 import { ARM_7, FOCUS_7, LAMP_7, beat7At, replies7, type Beat7State } from './beat7.ts';
 import { ARM_8, FOCUS_8, LAMP_8, beat8At, replies8, type Beat8State } from './beat8.ts';
 import { ARM_9, FOCUS_9, LAMP_9, beat9At, replies9, stuckLightAt, type Beat9State } from './beat9.ts';
@@ -79,6 +79,8 @@ export const EVENTS_B = {
   pinsFrom: 2120,
   pinFlip: 4,
 } as const;
+/** The close's frames (camera.ts DOLLY_IN's landing to EASE_OUT's start), through which the bug bay's pin 0 holds (deskStateAt). */
+export const PIN_EDGE_HOLD = [DOLLY_IN.to, EASE_OUT.from] as const;
 /** The reply starts riding once it has emerged, and lands at the end of its ride. */
 export const SLIP_RIDE_FROM = EVENTS_B.slipLeave + EVENTS_B.emergeFrames;
 export const SLIP_LANDS = SLIP_RIDE_FROM + EVENTS_B.slipRide;
@@ -512,6 +514,10 @@ export function deskStateAt(f: number): DeskState {
   const cycling = Array.from({ length: PINS.n }, (_, i) => {
     const sinceFrom = f - E.pinsFrom - i * BEAT;
     if (sinceFrom < 0) return 0;
+    // pin 0 stands at the frame's east edge through the close (camera.ts DOLLY_IN to EASE_OUT: its flag cut by the edge), so
+    // it holds there, passed, as it is on both of the close's ends; its flips had come and gone at the edge as a sliver, a
+    // wedge and a line (R2-L2-13, c3212-3218, c3334-3345). The other pins flip wholly off the frame's edge in the close.
+    if (i === 0 && f >= PIN_EDGE_HOLD[0] && f <= PIN_EDGE_HOLD[1]) return 1;
     const cycle = PINS.n * BEAT;
     const k = sinceFrom % cycle;
     return Math.floor(sinceFrom / cycle) % 2 === 0 ? clamp(k / E.pinFlip) : 1 - clamp(k / E.pinFlip);
@@ -813,7 +819,7 @@ export function nextAt(f: number): NextState {
   if (f >= E.slipOut && f < E.feed + E.feedFrames + 1) {
     if (f < E.post) {
       // inside the drum (its west end never shows past the drum's far wall)
-      const inSpout: P3 = [NEXT_SLIP.spout[0] - 60, NEXT_SLIP.spout[1], NEXT_SLIP.spout[2] + 2];
+      const inSpout = SPOUT_INSIDE;
       slip = { p: lerp3(inSpout, NEXT_SLIP.spout, easings.outCubic(clamp((f - E.slipOut) / E.slipOutFrames))), heading: 0, slope: 0, squash: 0, notched };
     } else if (f < E.belt) {
       // it leaves the spout fast (off the slip still lying there) and comes down slower onto the belt past the gate's bar,
