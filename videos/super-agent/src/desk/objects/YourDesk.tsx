@@ -495,6 +495,9 @@ function Chore({ rest, held, flight, quaternion, children }: { rest: P3; held: n
  */
 export const YOU_MODES_FROM = at(44);
 /** Your desk: on the set its focus id rides (state.ts FocusId 'you'; kit.tsx isStepped), else the full set. */
+/** The lamp's opaque parts draw after every hatch pass (Trace.tsx draws its punch at 10, the pit and the stamp at 11-12). */
+const LAMP_ORDER = 13;
+
 export function YourDesk({ s, pose }: { s: DeskState; pose?: YouPose }) {
   const on = isStepped(s.step, 'you');
   return (
@@ -537,16 +540,18 @@ function YourDeskBody({ s, given, mode }: { s: DeskState; given?: YouPose; mode:
       <mesh geometry={g.slabEdge} material={m.enamelShade} />
       <mesh geometry={g.blotter} material={m.paperShade} />
       <mesh geometry={g.corners} material={m.enamelShade} />
-      {/* the lamp */}
-      <mesh geometry={baseG} material={m.enamel} />
-      <mesh geometry={lampG.arms} material={m.graphite} />
-      <mesh geometry={lampG.springG} material={m.steel} />
-      <mesh geometry={lampG.joints} material={m.enamelShade} />
+      {/* the lamp: its opaque parts drawn after the sign-off stamp's hatch (objects/Trace.tsx: its punch clears the depth
+          over the hole, so a part drawn before it, the arm standing over the hole, was painted over by the pit; session 6,
+          R2-L4-01); depth-tested as ever, so it still hides and is hidden as it stands */}
+      <mesh geometry={baseG} material={m.enamel} renderOrder={LAMP_ORDER} />
+      <mesh geometry={lampG.arms} material={m.graphite} renderOrder={LAMP_ORDER} />
+      <mesh geometry={lampG.springG} material={m.steel} renderOrder={LAMP_ORDER} />
+      <mesh geometry={lampG.joints} material={m.enamelShade} renderOrder={LAMP_ORDER} />
       <group position={[head[0], head[1], head[2]]} quaternion={hoodQ}>
-        <mesh geometry={g.hood} material={m.enamel} />
-        <mesh geometry={g.hoodInner} material={m.paperLit} />
+        <mesh geometry={g.hood} material={m.enamel} renderOrder={LAMP_ORDER} />
+        <mesh geometry={g.hoodInner} material={m.paperLit} renderOrder={LAMP_ORDER} />
         <mesh geometry={g.bulb} material={m.bulb} position={[0, 0, -pose.bulbOut]} />
-        <mesh geometry={g.capRing} material={m.steel} />
+        <mesh geometry={g.capRing} material={m.steel} renderOrder={LAMP_ORDER} />
       </group>
       {/* the laptop */}
       <mesh geometry={g.lapBase} material={m.graphiteDark} />
