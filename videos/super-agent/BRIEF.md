@@ -7,8 +7,11 @@ headlines, and some of those present the article as a new DeepSeek product or a 
 Claude Code. It is neither. The viewer does not need to have read the article.
 
 - **Where:** YouTube in English and Bilibili in Simplified Chinese, on laptops and phones
-  alike. On Bilibili, danmaku run across the picture.
-- **Languages:** English is the primary line and zh-Hans the second line, on screen together.
+  alike. On Bilibili, danmaku run across the picture. *Amended 2026-11-13: YouTube only. The
+  user will not publish the film on Bilibili, so the zh captions are dropped; labels, plates,
+  the title card and the end card keep their zh (README.md, Decisions).*
+- **Languages:** English is the primary line and zh-Hans the second line, on screen together
+  (the captions are English only since 2026-11-13).
 - **What Bilibili viewers bring:** they may know the Chinese coverage (IT之家, 量子位) and the
   short, text-led "Vibe知识" films (比特新语 among them). The zh line therefore uses the
   terms that coverage uses, keeping Router, Worker, Trigger, Thread and Session in Latin

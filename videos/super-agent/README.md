@@ -1,7 +1,7 @@
 # Who Routes the Agents?
 
-A text-led explainer of just under three minutes, in English with a Simplified Chinese line,
-for curious developers on YouTube and Bilibili. It covers the DeepSeek Harness team's article
+A text-led explainer of just under four minutes, captioned in English (its labels in English and
+Simplified Chinese), for curious developers on YouTube. It covers the DeepSeek Harness team's article
 *Exploring Super-agent Design: Towards a More Autonomous Agent System*. The Chinese original
 appeared on 2026-10-31 and the English machine translation on 2026-11-01. The article's
 argument: when one person runs many AI agent sessions, that person quietly becomes their

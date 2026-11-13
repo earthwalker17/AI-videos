@@ -3,10 +3,12 @@
 There is no narration voice: the film is text-led ("Text-led, no voice (Recommended)", chosen
 by the user on 2026-11-08), so the on-screen lines are the narration. This is the 3:45 cut
 ("~3:45, full depth (Recommended)", chosen by the user on 2026-11-08/09): 84 bars (6,720
-frames, 3:44.0), 13 beats and 36 narration lines. Each line is one English line over one
-Simplified Chinese line in the lower-left notes block (EN baseline y 938, zh y 992, at most
-1560 px wide). The tags, the plates, the labels and the test sheet sit in the world, beside
-what they qualify.
+frames, 3:44.0), 13 beats and 36 narration lines. Each line is one English line in the
+lower-left notes block (baseline y 938, at most 1560 px wide). It was written as an English line
+over a Simplified Chinese one (zh at y 992). On 2026-11-13 the user dropped Bilibili, and with it
+the zh captions, so the picture draws the English line alone. The zh copy below stays signed off
+and in the cue sheet, which still checks its holds. The tags, the plates, the labels and the test
+sheet sit in the world, beside what they qualify, and keep their zh.
 
 - **One source.** Every string and frame below comes from [src/cues.ts](src/cues.ts) (`WORDS`,
   `NARRATION`, `BEATS` and the cue sheet). [src/cues.test.ts](src/cues.test.ts) checks the rules

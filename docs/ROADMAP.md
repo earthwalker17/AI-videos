@@ -67,9 +67,6 @@ animatic covers the rest, and the score is laid on the 84 bars (composed for bar
   - the film's 2D motion kit (`videos/super-agent/src/kit/`), promoted with the next 2D explainer.
 - [ ] **Captions:** an SRT draft generator from cue-sheet text events and a per-language
   subtitle linter (the limits in `references/subtitles.md`), in `@aiv/pipeline` and `aiv`.
-- [ ] **Bilibili publishing:** a `references/bilibili-publishing.md` (AI-content label,
-  自制 declaration, covers, CC subtitles, 合集). Decide whether `video.json` records a
-  Bilibili release.
 
 ## Next: built when a film needs it
 Built when a film needs them, not before:
@@ -86,6 +83,10 @@ Built when a film needs them, not before:
   when the second web video exists (the Remotion side already shares them).
 - **Several formats per piece** (16:9 plus a 9:16 Short, as three series plan): decide
   between `deliverables[]` in `video.json` and linked slots, with the first such piece.
+- **Bilibili publishing**: a `references/bilibili-publishing.md` (AI-content label, 自制
+  declaration, covers, CC subtitles, 合集), and whether `video.json` records a Bilibili
+  release. Planned for #4 and dropped on 2026-11-13: the user publishes *Who Routes the
+  Agents?* on YouTube only, so its zh captions were removed (the film's README, Decisions).
 
 ## Known gaps (not blocking)
 - Post is one-shot, not chunked; the assembly decode check reads the whole mezzanine.
