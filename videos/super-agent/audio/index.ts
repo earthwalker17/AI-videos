@@ -20,8 +20,10 @@
  * and their reverb (QA wants a rest 20 dB under the mix).
  *
  * The master is the kit's (28 Hz high-pass, glue, iterated loudness, look-ahead true-peak
- * limiter): -14 LUFS integrated, the limiter at post's loudnorm ceiling (-1.5 dBTP) less the
- * kit's AAC margin (1.1 dB), so -2.6 dBTP here and the AAC delivery stays under qa's -1 dBTP. The
+ * limiter): -14 LUFS integrated, the limiter at post's loudnorm ceiling (-1.5 dBTP) less an AAC
+ * margin of 2.0 dB, so -3.5 dBTP here and the AAC delivery stays under qa's -1 dBTP. (The kit's 1.1 dB
+ * was not enough here: the half-speed motif's D5 on bar 74 beat 4, struck into the limiter, came out of
+ * the draft's 192k AAC 1.7 dB over its true peak, at -0.7 dBTP; at 320k 0.5 dB. Session 6.) The
  * last 2 s fade to nothing (`rest-tail`).
  *
  * The report (the stage's log) prints the master, the loudness of bars 1-43 and of bars 44-84 alone,
@@ -37,7 +39,7 @@ import { throughWall } from './levels.ts';
 
 export const TARGET_LUFS = -14;
 export const CEILING_DBTP = -1.5;
-export const AAC_MARGIN_DB = 1.1;
+export const AAC_MARGIN_DB = 2.0;
 /** the hall's and the echo's return levels */
 const HALL_RETURN = 0.45;
 const ECHO_RETURN = 0.4;

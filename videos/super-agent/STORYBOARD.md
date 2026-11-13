@@ -111,6 +111,63 @@ declared as a hold.
 - **The score.** Composed for all 84 bars on the final cue sheet (audio/); the user's listening
   review is still to come.
 
+**Settled in the build (session 6: the whole-film critics' fixes).**
+- **Captions in English only.** The notes block and the credit show the EN line alone (the user,
+  2026-11-13: the film is not going to Bilibili); the zh copy stays signed off in `src/cues.ts`.
+  Tags, plates, labels, the title card and the end card keep their zh.
+- **2.1.** Each event slip floats down onto its new folder's stack over its last 5 f and lies there
+  as the folder's task card; F6–F8 no longer blink dark as they land.
+- **3.1–3.2.** The request stays in the heap, vermilion, and steps down with act one. Fix A's grey
+  copy of it carries a vermilion tear-off stub on its nose and comes out of the chat spout with it;
+  in 3.2 the stub steps down as the heap's request does (a quieter brick). No vermilion passes
+  between the heap and the tape.
+- **4.1.** The press starts on the hit (f1440) and runs along the arc from Fix A to F8 over 2 f.
+  Each body squashes and spreads flat over 3 f, its imprint's rim comes in, it draws in, then takes
+  the slate's tone (its pen, flag and clip with it) and sinks: 13 f each, all gone by f1454.
+- **4.6, 6.1.** MT1's next slip lands on the belt past the gate's bar, rides 2 f and hops 5 f into
+  the throat. Beat 6's carriers lift clear, line up over the slot and settle between the cheeks over
+  their last 3 f, the nose tab sliding under the head. A slip lying in the throat (and the Thread
+  cord in still d) is lit and takes only the cheeks' shade.
+- **6.1–6.3.** The strip slips glide out from under the west hood at an even pace; the gulp takes
+  8 f at an even pace; the stress plate leaves within the frame over 14 f, lit evenly, gone on
+  f3056. The cache card glides evenly at about 2600 px/s: the one flight over the 2410 px/s cap
+  (its eject on f3080 and dock on f3098 leave 17 f in frame).
+- **7.2–7.3.** The grey-stock ghost tally slides out from under the real tally (the reel frame's
+  north member), opaque, over 12 f, is struck, and slides back over 8 f; the door ghost does the
+  same from under the deck's south rail over W-09, back in by f3720. The long test rises out of the
+  slit tilted, east end first, is as long as the slit (98 u), and laps a loop inside the oval
+  without turning; the oval has a lit lip and steps to the slate as it sinks under its hatch.
+  Productive's hatch stays shut until the sand-glass docks (f3740); the plate rises, docks on f3744
+  and its words write on from the west over 8 f. The sand-glass flies north over the south ends of
+  W-08 and W-09, clear of the jobs tag, which sits 28 px east of the 100-word tag's place.
+- **7.4.** The "≤ 100" tag's cue starts on the reply's landing (f3840).
+- **8.3–8.4.** The bracket springs open over about 9 f and is drawn as a dimension, an extension
+  line from each hole. After lane 2's last notch the die travels west and north along the clamp
+  onto lane 1, dips short of the single session's strip over its five run places (f4360–4400,
+  under C22), cuts nothing and rests on the clamp.
+- **9.1.** The lid shuts over f4588–4596, once your desk is back in frame; the strut lifts on
+  f4597 and docks on bar 59's downbeat (f4640), the Persistent plate on f4644, the proposed tag
+  from bar 59 beat 2.
+- **9.2.** Under N8 (from f4780) your desk, your lamp (two steps), the Register's reading lamp, the
+  role labels and the proposed tag step down; the Watchdog inks up; the stuck bay's work light
+  pulses on every beat and its drum's stuck card carries an ink tab that steps a twelfth of a turn
+  out and back. The pencil flag stands on the stuck bay's south-east corner, its staff up the east
+  wall, its pennant flying east; the sightline aims there. The hold ends with N8's line (f4940):
+  the vellum and the hatched slip's path come up over f4940–4954, then the Watchdog and the stuck
+  bay step down over f4954–4968. The beat-8 sheet reading and this watch are `hold` cues, so QA
+  reads them as holds.
+- **10.1–10.3.** The hatched slip is 1.35× a chat slip; the part still inside the chat drum is
+  not drawn. Its etch crawls as a travelling hatched band from under it in the throat, along the
+  deck's south rail, into the loop's north-west corner (f5000–5038); then the loop, the plan and
+  the tethers etch on f5040, 5060 and 5080. The role labels stay at 55% through the release and
+  fade with bar 65's dolly. The report card is taken in under the deck evenly over 8 f.
+- **11.1–11.4.** Your stamp is a hand-sized rubber stamp (a dark rubber face round a graphite
+  mount, a turned handle); it rests between your lamp's base and the in-tray, rises out of a hatch
+  over f5432–5435 and prints the green framed tick on f5440. "compute–" / "state split" sets over
+  存算分离 right of the state cabinet, on a hairline to its east edge. The map key's words step
+  down with the world.
+- **13.1.** The end card is posted in opaque over the dissolve, and its lettering leaves with it.
+
 **Still open for the user.**
 - **C12.** It stays as signed off, outside the built tag: in chat the prototype's Workers also
   post short acknowledgements. Open option: "Workers report up. Only the Router answers you.",
