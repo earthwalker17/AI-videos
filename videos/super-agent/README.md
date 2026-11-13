@@ -40,6 +40,7 @@ The film has been in production since 2026-11-08. Decisions with the user so far
 | 2026-11-12 | Score, bars 1–43 | "Right direction (Recommended)" |
 | 2026-11-12 | The recall in the 2.4× close, the ease-out on bar 43 (not STORYBOARD 6.4's bar 42) | "Keep the bar-43 ease-out (Recommended)" |
 | 2026-11-12 | The docs galley's mirrored cast type | "Flip to right-reading (Recommended)" |
+| 2026-11-13 | Bilibili, and the zh captions | "I'm not going to publish this film to BiliBili. So can you remove the Chinese captions if it's cheap to do? Leave other parts unchanged unless genuinely necessary." The notes block and the credit draw the EN line alone; the zh copy stays in `src/cues.ts`, and tags, plates, labels, the title card and the end card keep their zh |
 
 **What this means (session 3).** The session-3 brief named the faults:
 - basic flat geometry;

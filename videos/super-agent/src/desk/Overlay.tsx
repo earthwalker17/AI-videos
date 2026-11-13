@@ -1,7 +1,10 @@
 /**
  * The Register Desk's DOM text layer: every line meant to be read, over the WebGL world
  * (docs/ARCHITECTURE.md decision 30). The notes come from the cue sheet (desk/onScreen.ts
- * narrationAt), set in the kit's NotesBlock lower left; the role labels ("Router", "Worker",
+ * narrationAt), set in the kit's NotesBlock lower left as the EN line alone: the film is published
+ * on YouTube only, so its zh captions were dropped on 2026-11-13 (the user: "remove the Chinese
+ * captions"). The signed-off zh lines stay in the cue sheet (WORDS), where the reading-time checks
+ * and the score read them; tags, plates, labels, the title card and the end card keep their zh; the role labels ("Router", "Worker",
  * "you · 你") sit on hairline leaders whose feet are projected through the same camera pose as the
  * world (camera.ts `project`), so they land on their objects at either pitch. All text in
  * `GREY_TEXT` layers (no LCD fringes), ≤ 136 px, fonts gated by useFont; nothing moves while read.
@@ -221,7 +224,7 @@ export function SoftGround({ id, boxes, feather, color, alpha, edge, edgeFeather
  * It is the type's ground, shaped like the type: no box, so it never puts a corner or a band on a world part beside
  * the words. C28: the bookend's framing is the hook's (the end card and key are sized at it), so its line runs over
  * your lamp's arm and the in-tray's #0405 slip and its "≤ 100" tab; the halo gives every glyph a slate to read on
- * there (at least 4.5:1, EN and zh), where a camera move or a moved world would break the rhyme.
+ * there (at least 4.5:1), where a camera move or a moved world would break the rhyme.
  */
 export const NOTES_GROUND: Readonly<Partial<Record<string, { dilate: number; blur: number; alpha: number }>>> = {
   c28: { dilate: 10, blur: 6, alpha: 0.85 },
@@ -230,14 +233,14 @@ export const NOTES_GROUND: Readonly<Partial<Record<string, { dilate: number; blu
 export const notesHaloReach = (g: { dilate: number; blur: number }) => g.dilate + 3 * g.blur;
 
 /** The halo under a notes line opted in by its cue id (NOTES_GROUND), on the line's own reveal; null for every other line. */
-function NotesGround({ id, f, en, zh, look }: { id: string; f: number; en: string; zh: string; look: { en: TextLook; zh: TextLook } }) {
+function NotesGround({ id, f, en, look }: { id: string; f: number; en: string; look: { en: TextLook } }) {
   const g = NOTES_GROUND[id];
   if (!g) return null;
   const s = revealState(f, cue(id), TEXT_IN, TEXT_OUT);
   if (!s.visible) return null;
-  const W = Math.max(lineWidth(en, look.en), lineWidth(zh, look.zh));
+  const W = lineWidth(en, look.en);
   const R = notesHaloReach(g);
-  // the notes block reveals both lines to one edge, NOTES.x + W x its wipe (kit/text.tsx NotesBlock); the halo is whole
+  // the notes block reveals its line to one edge, NOTES.x + W x its wipe (kit/text.tsx NotesBlock); the halo is whole
   // to an edge that leads it by R x the wipe and fades over R past it, so when the wipe ends (edge at the halo's own
   // reach) the mask already covers all of it and is dropped with no change
   const edge = s.wipe >= 1 ? undefined : NOTES.x + (W + R) * s.wipe;
@@ -269,7 +272,6 @@ function NotesGround({ id, f, en, zh, look }: { id: string; f: number; en: strin
       <g mask={edge !== undefined ? `url(#${hid}-wipe)` : undefined}>
         <g filter={`url(#${hid}-blur)`} opacity={g.alpha}>
           {line(en, NOTES.enBaseline, look.en)}
-          {line(zh, NOTES.zhBaseline, look.zh)}
         </g>
       </g>
     </svg>
@@ -285,8 +287,7 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
     <AbsoluteFill>
       {/* the notes' grounds (opt-in, NOTES_GROUND) under every DOM line */}
       {narrationAt(f).map((id) => {
-        const w = WORDS[id] as { en: string; 'zh-Hans': string };
-        return <NotesGround key={`ground-${id}`} id={id} f={f} en={w.en} zh={w['zh-Hans']} look={look} />;
+        return <NotesGround key={`ground-${id}`} id={id} f={f} en={WORDS[id].en} look={look} />;
       })}
       <svg width={1920} height={1080} style={{ ...GREY_TEXT, position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         {labels.map((l) => {
@@ -382,8 +383,8 @@ export function Overlay({ f, pose, fonts, ready, labels = ROLE_LABELS, tags = []
         );
       })}
       {narrationAt(f).map((id) => {
-        const w = WORDS[id] as { en: string; 'zh-Hans': string };
-        return <NotesBlock key={id} f={f} span={cue(id)} en={w.en} zh={w['zh-Hans']} layout={NOTES} look={look} ready={ready} />;
+        // EN only (the header): no zh caption under it
+        return <NotesBlock key={id} f={f} span={cue(id)} en={WORDS[id].en} layout={NOTES} look={look} ready={ready} />;
       })}
     </AbsoluteFill>
   );

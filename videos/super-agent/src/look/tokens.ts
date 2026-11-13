@@ -124,13 +124,18 @@ export const DIAGRAM_BAND = { top: 72, bottom: 868 } as const;
 export const BASE_GRID = 48;
 export const THIRDS = [640, 1280] as const;
 
-/** The lower-left notes block: one EN line over one zh line, behind an ink station tick. */
+/**
+ * The lower-left notes block: one EN line behind an ink station tick. It was EN over zh until the
+ * zh captions were dropped on 2026-11-13 (desk/Overlay.tsx); the EN line kept its baseline, and the
+ * tick, which spanned both lines (96 px), now spans the EN line's ink, cap top to descender.
+ */
 export const NOTES = {
-  /** the ink tick: 4 x 96 px at x 100, spanning both lines */
-  tick: { x: 100, width: 4, top: 903, height: 96 },
-  /** where both lines start */
+  /** the ink tick: 4 x 46 px at x 100, spanning the EN line */
+  tick: { x: 100, width: 4, top: 903, height: 46 },
+  /** where the lines start */
   x: 124,
   enBaseline: 938,
+  /** the zh line's baseline in a bilingual block (the retired round-1 lookdev scenes still draw one) */
   zhBaseline: 992,
   /** the widest a line may be; a wider line fails the render */
   maxWidth: 1560,

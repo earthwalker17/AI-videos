@@ -27,12 +27,13 @@ describe('the type scale', () => {
 });
 
 describe('the notes block', () => {
-  it('sits inside title-safe, its tick spanning both lines', () => {
+  it('sits inside title-safe, its tick spanning the EN line, cap top to descender', () => {
     expect(NOTES.tick.x).toBeGreaterThanOrEqual(SAFE.x);
     expect(NOTES.x + NOTES.maxWidth).toBeLessThanOrEqual(SAFE.right);
     expect(NOTES.tick.top + NOTES.tick.height).toBeLessThanOrEqual(SAFE.bottom);
     expect(NOTES.tick.top).toBeLessThan(NOTES.enBaseline - 0.6 * TYPE.notesEn.size);
-    expect(NOTES.tick.top + NOTES.tick.height).toBeGreaterThanOrEqual(NOTES.zhBaseline);
+    expect(NOTES.tick.top + NOTES.tick.height).toBeGreaterThanOrEqual(NOTES.enBaseline + 0.2 * TYPE.notesEn.size);
+    expect(NOTES.tick.top + NOTES.tick.height).toBeLessThanOrEqual(NOTES.enBaseline + 0.3 * TYPE.notesEn.size);
     expect(NOTES.x).toBeGreaterThan(NOTES.tick.x + NOTES.tick.width);
   });
 });

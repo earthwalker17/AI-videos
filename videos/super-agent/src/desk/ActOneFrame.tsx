@@ -70,7 +70,7 @@ export const TITLE_CARD: CardSpec = {
 };
 /** The credit: a text cue, set in the notes band like every line meant to be read (screen-fixed, still while read). */
 export const CREDIT_CUE = 'credit';
-/** The credit's knockout round each line's box (px, each side). */
+/** The credit's knockout round its line's box (px, each side). */
 export const CREDIT_KO = 9;
 /** A line's ink box over and under its baseline (em): the Latin ascenders and the Han glyphs' tops, the descenders. */
 export const CREDIT_INK = { up: 0.95, down: 0.27 } as const;
@@ -88,11 +88,11 @@ export function creditBox(x: number, baseline: number, width: number, size: numb
 }
 
 /**
- * The credit in the notes band (NOTES: the tick, the EN line, the zh line; a 6 f wipe in, a 6 f fade out), each line
- * knocked out of the desk's tone as one box (its ink box and 9 px round it): as the camera eases out your loop's tape
- * comes up under the lines, and the boxes take it out under them, so every glyph sits on the desk's tone (the desk
- * renders there at its base, within a code). The two boxes overlap, so no tape shows between the lines (a knockout round
- * each glyph left scalloped tape slivers between and over them, the critic's P2). The knockout's edge is feathered
+ * The credit in the notes band (NOTES: the tick and the EN line, like every caption since the zh captions were dropped on
+ * 2026-11-13, Overlay.tsx; a 6 f wipe in, a 6 f fade out), knocked out of the desk's tone as one box (its ink box and
+ * 9 px round it): as the camera eases out your loop's tape comes up under the line, and the box takes it out under it, so
+ * every glyph sits on the desk's tone (the desk renders there at its base, within a code). One box, not a knockout round
+ * each glyph, which left scalloped tape slivers between and over them (the critic's P2). The knockout's edge is feathered
  * (CREDIT_FEATHER, Overlay.tsx SoftGround), so the tape fades into it rather than being cut square by an edge with nothing
  * there to cut it (wave 0's critic P2-3); its wipe leads the words' with the same feather.
  */
@@ -109,7 +109,7 @@ function CreditLine({ f, fonts, ready }: { f: number; fonts: FilmFonts; ready: b
   return (
     <>
       <div style={{ position: 'absolute', left: 0, top: 0, width: 1920, height: 1080, opacity: r.opacity }}>
-        <SoftGround id="credit-ko" boxes={[box(WORDS.credit.en, NOTES.enBaseline, look.en, CREDIT_TOP.up * look.en.size + CREDIT_TOP.pad), box(WORDS.credit['zh-Hans'], NOTES.zhBaseline, look.zh)]} feather={CREDIT_FEATHER} color={DESK_HEX.base} alpha={1} edge={edge} />
+        <SoftGround id="credit-ko" boxes={[box(WORDS.credit.en, NOTES.enBaseline, look.en, CREDIT_TOP.up * look.en.size + CREDIT_TOP.pad)]} feather={CREDIT_FEATHER} color={DESK_HEX.base} alpha={1} edge={edge} />
       </div>
       <CreditWords r={r} clip={clip} look={look} />
     </>
@@ -123,7 +123,6 @@ function CreditWords({ r, clip, look }: { r: { opacity: number }; clip: string |
       <svg width={1920} height={1080} style={{ display: 'block', overflow: 'visible' }}>
         <rect x={NOTES.tick.x} y={NOTES.tick.top} width={NOTES.tick.width} height={NOTES.tick.height} fill={look.tick} />
         <Label x={NOTES.x} y={NOTES.enBaseline} text={WORDS.credit.en} family={look.en.family} size={look.en.size} weight={look.en.weight} color={look.en.color} />
-        <Label x={NOTES.x} y={NOTES.zhBaseline} text={WORDS.credit['zh-Hans']} family={look.zh.family} size={look.zh.size} weight={look.zh.weight} color={look.zh.color} />
       </svg>
     </div>
   );

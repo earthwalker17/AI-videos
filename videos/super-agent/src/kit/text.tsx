@@ -7,8 +7,8 @@
  *   over the `inFrames` before it and fades over the `outFrames` after it (the cue sheet's `text`
  *   span convention).
  * - `TextReveal` wraps any DOM content in that wipe and fade.
- * - `NotesBlock` is the lower-left notes block: one EN line over one zh line, set in SVG so each
- *   baseline lands exactly where the layout puts it, behind an ink station tick. It measures the
+ * - `NotesBlock` is the lower-left notes block: one EN line, over one zh line when one is given, set
+ *   in SVG so each baseline lands exactly where the layout puts it, behind an ink station tick. It measures the
  *   lines once the fonts are ready (@remotion/layout-utils) and fails the render when a line is
  *   wider than the layout allows.
  * - `Label` is a line of SVG text with a knockout stroke under it, its Latin and Han runs in their
@@ -136,6 +136,7 @@ export interface NotesLayout {
   /** where both lines start, px */
   x: number;
   enBaseline: number;
+  /** the zh line's baseline (a block with no zh line ignores it) */
   zhBaseline: number;
   /** a wider line fails the render */
   maxWidth: number;
@@ -146,10 +147,11 @@ export interface NotesBlockProps {
   f: number;
   span: RevealSpan;
   en: string;
-  /** the zh line, with a space at each pause, or its phrases (joined by one space) */
-  zh: string | readonly string[];
+  /** the zh line, with a space at each pause, or its phrases (joined by one space); absent: the block is the EN line alone */
+  zh?: string | readonly string[];
   layout: NotesLayout;
-  look: { en: TextLook; zh: TextLook; tick: string };
+  /** `zh` is needed only with a zh line */
+  look: { en: TextLook; zh?: TextLook; tick: string };
   /** the fonts are loaded (useFont's `ready`): nothing is drawn or measured before */
   ready: boolean;
   inFrames?: number;
@@ -160,19 +162,23 @@ export interface NotesBlockProps {
 const NOTES_PAD = 32;
 
 /**
- * The notes block: the EN line over the zh line, each on its exact baseline, revealed together by
- * one wipe edge that crosses the wider line, the tick showing from the first frame of the wipe.
+ * The notes block: the EN line over the zh line (or the EN line alone), each on its exact baseline,
+ * revealed together by one wipe edge that crosses the wider line, the tick showing from the first
+ * frame of the wipe.
  */
 export function NotesBlock({ f, span, en, zh, layout, look, ready, inFrames = 6, outFrames = 6 }: NotesBlockProps) {
   const s = revealState(f, span, inFrames, outFrames);
   if (!s.visible || !ready) return null;
-  const zhText = typeof zh === 'string' ? zh : zh.join(' ');
-  const w = Math.max(lineWidth(en, look.en), lineWidth(zhText, look.zh));
-  if (w > layout.maxWidth) throw new Error(`notes block: a line is ${Math.ceil(w)} px wide, over the ${layout.maxWidth} px the layout allows: "${en}" / "${zhText}"`);
+  const zhText = zh === undefined ? undefined : typeof zh === 'string' ? zh : zh.join(' ');
+  const zhLook = zhText === undefined ? undefined : look.zh;
+  if (zhText !== undefined && !zhLook) throw new Error(`notes block: a zh line needs look.zh: "${zhText}"`);
+  const w = Math.max(lineWidth(en, look.en), zhText !== undefined && zhLook ? lineWidth(zhText, zhLook) : 0);
+  if (w > layout.maxWidth) throw new Error(`notes block: a line is ${Math.ceil(w)} px wide, over the ${layout.maxWidth} px the layout allows: "${en}"${zhText === undefined ? '' : ` / "${zhText}"`}`);
   // whole pixels: the block is its own composited layer, never resampled
   const left = Math.floor(Math.min(layout.tick.x, layout.x) - NOTES_PAD);
   const top = Math.floor(Math.min(layout.tick.top, layout.enBaseline - look.en.size * 1.2) - NOTES_PAD);
-  const bottom = Math.ceil(Math.max(layout.tick.top + layout.tick.height, layout.zhBaseline + look.zh.size * 0.4) + NOTES_PAD);
+  const lastInk = zhText !== undefined && zhLook ? layout.zhBaseline + zhLook.size * 0.4 : layout.enBaseline + look.en.size * 0.4;
+  const bottom = Math.ceil(Math.max(layout.tick.top + layout.tick.height, lastInk) + NOTES_PAD);
   const textX = layout.x - left;
   const width = Math.ceil(textX + w + NOTES_PAD);
   const height = bottom - top;
@@ -188,7 +194,7 @@ export function NotesBlock({ f, span, en, zh, layout, look, ready, inFrames = 6,
       <svg width={width} height={height} style={{ display: 'block', overflow: 'visible' }}>
         <rect x={layout.tick.x - left} y={layout.tick.top - top} width={layout.tick.width} height={layout.tick.height} fill={look.tick} />
         {line(en, layout.enBaseline, look.en)}
-        {line(zhText, layout.zhBaseline, look.zh)}
+        {zhText !== undefined && zhLook && line(zhText, layout.zhBaseline, zhLook)}
       </svg>
     </div>
   );
