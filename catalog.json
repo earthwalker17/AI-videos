@@ -122,7 +122,7 @@
       "slug": "super-agent",
       "title": "Who Routes the Agents?",
       "series": "science-explainers",
-      "status": "production",
+      "status": "locked",
       "engine": "remotion",
       "reproducibility": "full",
       "languages": [

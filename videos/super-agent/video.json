@@ -8,15 +8,20 @@
     "zh-Hans": "谁来调度智能体？"
   },
   "series": "science-explainers",
-  "status": "production",
+  "status": "locked",
   "approvals": [
     {
       "gate": "treatment",
       "date": "2026-11-08",
       "note": "The user selected \"Hybrid on B (Recommended)\" (Who Routes the Agents? / 谁来调度智能体？) from three candidates and the judged hybrid, chose the look \"Dark ink map (Recommended)\" and \"Text-led, no voice (Recommended)\", and approved the production plan (sessions 1-4 in README.md)."
+    },
+    {
+      "gate": "review",
+      "date": "2026-11-15",
+      "note": "The user approved the 1080p review cut (out/super-agent/post/review/super-agent.mp4, commit 3cef742) at the start of session 7: \"Everything till now looks OK, so proceed directly to the final render after finishing any remaining work, without asking again for approval.\""
     }
   ],
-  "next": "Session 7: the user's approval of the 1080p review cut. Session 6 applied the user's review answers of 2026-11-14 (zh only in the short text; C12 \"Only the Router answers you.\"), ran fix wave 2 and a light two-critic check (no P0 or P1), and made the review cut (README.md, Status and Handoff). Start from README.md, Handoff, \"For the user's review\": point the user at out/super-agent/post/review/super-agent.mp4, the changed stills and the bars 44-84 listening table, and ask whether the review cut is approved (record it under approvals only when the user gives it). Then the session plan, item 7: caption tooling (an SRT generator and a subtitle linter), publish/ (the YouTube description, chapters, AI disclosure), the thumbnail, the final (which drops the leader) and aiv release. The open P2s are under \"Open after fix wave 2\".",
+  "next": "Session 7 (in progress): locked; the leader removed for the final (decision 24); caption tooling, publish/, the thumbnail, the final render and its proof against the review cut (README.md, Status).",
   "languages": [
     "en",
     "zh-Hans"
@@ -39,10 +44,6 @@
     ]
   },
   "qa": {
-    "swatchFrames": [
-      0,
-      15
-    ],
     "loudness": {
       "integrated": -14,
       "tolerance": 1,

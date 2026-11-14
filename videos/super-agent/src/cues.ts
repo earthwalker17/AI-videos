@@ -23,8 +23,8 @@ export const BEAT = (FPS * 60) / BPM;
 export const BAR = BEAT * BEATS_PER_BAR;
 export const BARS = 84;
 export const FILM_FRAMES = BARS * BAR;
-/** the test card before the film (video.json qa.swatchFrames [0, 15]); 0 for the final (decision 24) */
-export const LEADER_FRAMES = 15;
+/** the test card before the film; 0 for the final (decision 24): the review cut (approved 2026-11-15) had 15, with video.json qa.swatchFrames [0, 15] */
+export const LEADER_FRAMES = 0;
 /** frames a text line takes to wipe in before its span, and to fade out after it */
 export const TEXT_IN = 6;
 export const TEXT_OUT = 6;
