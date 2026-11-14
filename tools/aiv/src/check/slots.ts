@@ -3,12 +3,14 @@
  * manifest matches its schema; slugs match folders; numbers are unique; series, styles and
  * engines named by a video exist (for a frozen video only its series: it is rebuilt from its tag,
  * so HEAD may retire the styles and engines it used); every video meets the gates of the status
- * it claims; its audio tracks have their inputs (audioIssues).
+ * it claims; its audio tracks have their inputs (audioIssues); an unfrozen video's caption files
+ * lint clean (captionIssues).
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { audioTrackName, ReleaseManifest, type AudioTrack } from '@aiv/core';
 import { LibraryManifest } from '@aiv/pipeline';
+import { captionIssues } from './captions.ts';
 import type { Issue } from './files.ts';
 import { unmetGates } from '../slot/gates.ts';
 import { isFrozen } from '../slot/schema.ts';
@@ -77,6 +79,7 @@ export function slots(m: RepoModel): Issue[] {
     if (!frozen && v.engine && v.reproducibility !== 'metadata-only' && !engines.has(v.engine)) add(l.file, `engine '${v.engine}' does not exist (engines/${v.engine}/ENGINE.md)`);
     for (const msg of unmetGates(v, { dir: join(m.root, l.dir), series: v.series ? (series.get(v.series) ?? null) : null })) add(l.dir, `status '${v.status}' needs: ${msg}`);
     for (const [file, msg] of audioIssues(m.root, l.dir, v.audio?.tracks ?? [])) add(file, msg);
+    if (!frozen) issues.push(...captionIssues(m.root, l.dir));
     const relDir = join(m.root, l.dir, 'release');
     if (existsSync(relDir))
       for (const f of readdirSync(relDir).filter((x) => /^v\d+\.json$/.test(x))) {

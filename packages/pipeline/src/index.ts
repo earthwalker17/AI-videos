@@ -186,5 +186,12 @@ export {
   type Comparison,
 } from './stills/compare.ts';
 
+// captions (aiv captions: SRT drafts from the cue sheet, the per-language subtitle linter)
+export { SUBTITLE_PROFILES, MIN_DURATION_MS, subtitleProfile, lineChars, speedChars, type SubtitleProfile } from './captions/profiles.ts';
+export { formatSrt, parseSrt, formatSrtTime, parseSrtTime, type Caption, type ParsedCaption, type ParsedSrt, type SrtSyntaxError } from './captions/srt.ts';
+export { wrapParagraph, wrapText, paginate, GOOD_BREAK_BONUS } from './captions/wrap.ts';
+export { selectCues, draftCaptions, CAPTION_KINDS, type CueSelection, type SelectedCues, type DraftCaption } from './captions/draft.ts';
+export { lintSrt, lintCaptions, zhPunctuationFaults, type LintIssue, type LintResult, type LintSeverity } from './captions/lint.ts';
+
 // test fixtures (engine tests reuse the fake adapter and temp repo)
 export { tempRepo, withAudioRuntime, fakeAdapter, syntheticFrame, type TempRepo, type FakeAdapter, type FakeAdapterOptions } from './testing.ts';

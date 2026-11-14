@@ -101,6 +101,23 @@ them and refuses to resume if they change. Render `--profile final` (chunked and
 resumable; long renders run unattended), post, qa. Prepare `publish/`:
 `description.<lang>.md`, `chapters.md`, captions `captions/<lang>.srt` (for example
 `captions/en.srt`, `captions/zh-Hans.srt`), the AI-use disclosure and the thumbnail.
+
+**Captions.** On-screen words are drafted from the cue sheet. Draft them once the leader is
+gone: their times are the delivery's, a leader included.
+```sh
+pnpm aiv captions <slug> --cues '<ids or globs>' [--lang en,zh-Hans]   # writes, then lints
+pnpm aiv captions <slug> --lint                                         # lints what is there
+```
+- **Choose the cues** a viewer should get as captions: the narration, the title and end cards.
+  Leave out in-world labels that overlap them; overlapping cues stack or the newest wins. A cue
+  that newer ones hide the whole time fails the draft, named: leave one of the two out.
+- **Read every draft** against the picture. Fix a wording problem in `src/cues.ts`, never only
+  in the file. Edit line breaks by hand if needed; `--lint` checks them.
+- **Spoken narration** is captioned from its subtitle text in `SCRIPT.md` instead (stage 3):
+  the generator only knows on-screen words.
+- **The linter's limits** are in `references/subtitles.md`. `aiv check` fails on a lint error in
+  any unfrozen video's caption files.
+
 Check `video.json` `license.film` against `CREDITS.md`: a film with class C or D material,
 or any non-commercial or share-alike part, is not CC BY ([LICENSING](LICENSING.md)).
 

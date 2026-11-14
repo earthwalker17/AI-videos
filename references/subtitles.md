@@ -44,7 +44,12 @@ punctuation a TTS engine needs.
 ## What we adopted / adapted
 - Languages per video in `video.json`; captions per language under `publish/` (English first, zh-Hans when added).
 - Narration text (punctuated, spoken form, numbers spelled out) is kept separate from subtitle text per language (Netflix-style spacing for zh-Hans, digits).
-- A subtitle linter with per-language profiles (line length, line count, characters per second, punctuation transform) next to an on-screen readcheck: planned, not yet built.
+- The subtitle linter is built (2026-11-15): `aiv captions <slug> --lint`, run on every unfrozen video's `publish/captions/*.srt` by `aiv check` (code in `packages/pipeline/src/captions/`, ARCHITECTURE decision 32). Its profiles:
+  - **en** (and en-*): at most 42 characters a line (code points, spaces included), 2 lines, 20 characters per second (spaces included, a line break counted as one).
+  - **zh-Hans**: at most 16 characters a line, 9 characters per second (white space not counted: a space is a pause), no ，or 。, no half-width ? ! : , . except inside a run of Latin letters and digits (3:44, 6.4), and no half-width quotation mark ". Two lines at most: the zh-Hans two-line rules were not read, so the en-US count stands in. Which full-width quotation pair to use is not checked (it was not recorded).
+  - Errors also for invalid SRT (indices, an end not after its start, order, overlaps, a missing blank line between captions) and empty captions.
+  - Warnings, our own choices and not reference numbers: a caption under 1 s, a BOM or CRLF, a language without a profile. In `aiv check` a caption file named by a language without a profile (zh-CN.srt, EN.srt) is an issue, because its lines would go unchecked.
+- `aiv captions <slug>` drafts the SRT from the cue sheet's on-screen words (text and card cues), wrapped to these profiles; the on-screen readcheck stays the cue sheet's hold rule (`readingSeconds`, `aiv audio`'s `text.hold`).
 
 ## What we deliberately did NOT adopt, and why
 - One shared text file for TTS, ASR and subtitles: the zh-Hans style removes punctuation the TTS needs.

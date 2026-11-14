@@ -70,8 +70,7 @@ then the review cut.
   - the caption pattern and the cue-text helpers → `@aiv/remotion-kit` / `@aiv/core`: the
     film's notes block has settled (an EN line, a second-language line optional);
   - the film's 2D motion kit (`videos/super-agent/src/kit/`), promoted with the next 2D explainer.
-- [ ] **Captions:** an SRT draft generator from cue-sheet text events and a per-language
-  subtitle linter (the limits in `references/subtitles.md`), in `@aiv/pipeline` and `aiv`.
+- [x] **Captions** (2026-11-15): `aiv captions` drafts SRT from cue text and lints it (decision 32).
 
 ## Next: built when a film needs it
 Built when a film needs them, not before:

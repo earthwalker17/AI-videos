@@ -14,7 +14,7 @@ its home here first, then write the code.
 | Library | `knowledge/` | Technique cards: method first, then "in this repo", each with the evidence that verified it. | something is learned and verified |
 | Library | `references/` | Pinned notes on external projects, platforms and licences, plus `sources.json`. Maps, not copies. | research |
 | Library | `prompts/<modality>/` | Versioned prompt templates for generated assets (created with the first one). | the first generated asset |
-| Code | `packages/` | `@aiv/core` (browser-safe: seeded rng, easing, swatches, the file contracts and the cue sheet), `@aiv/pipeline` (Node: host safety, encode, chunk runner, the audio stage, QA, release), `@aiv/remotion-kit` (React/R3F building blocks). | code is promoted (rule of two) |
+| Code | `packages/` | `@aiv/core` (browser-safe: seeded rng, easing, swatches, the file contracts and the cue sheet), `@aiv/pipeline` (Node: host safety, encode, chunk runner, the audio stage, QA, captions, release), `@aiv/remotion-kit` (React/R3F building blocks). | code is promoted (rule of two) |
 | Code | `engines/<id>/` | One adapter per renderer: produces a video's frames for the shared runner, which writes the mezzanine and `render.json`. `ENGINE.md` documents it. | a video needs another renderer |
 | Code | `templates/<engine>/` | A runnable scaffold per engine, which doubles as that engine's end-to-end fixture. `templates/_video/` holds the stage-document stubs. | an engine is added |
 | Code | `tools/aiv/` | The `aiv` CLI, including the repository model (slot and series schemas, gates, generators, checks). | a workflow becomes a command |
@@ -89,6 +89,8 @@ videos/<slug>/src ──aiv still─▶ out/<slug>/stills/<label>/f<NNNNN>.png +
                                  (lookdev; never read by post, QA or release)
                   ──aiv release▶ videos/<slug>/release/v<N>.json + out/<slug>/release/v<N>/ (uploaded to
                                  the GitHub release video/<slug>/v<N>; PRODUCTION.md, "Publish")
+videos/<slug>/src/cues.ts ─aiv captions▶ videos/<slug>/publish/captions/<lang>.srt (drafts, linted;
+                                 committed: a person reads them before they are published)
 ```
 
 - **Engines** produce frames. The runner in `@aiv/pipeline` owns everything around them:
@@ -128,6 +130,10 @@ videos/<slug>/src ──aiv still─▶ out/<slug>/stills/<label>/f<NNNNN>.png +
 - **Stills** (`aiv still`) render chosen frames through an engine adapter into
   `out/<slug>/stills/<label>/`, optionally beside a reference image with measured value and
   palette distances (decision 28).
+- **Captions** (`aiv captions`) draft a video's `publish/captions/<lang>.srt` from the on-screen
+  words of chosen text and card cues, and lint SRT files per language
+  (`packages/pipeline/src/captions/`: SRT, wrapping, the draft, the linter; decision 32).
+  `aiv check` fails on lint errors in an unfrozen video's caption files.
 - **Release** refuses dirty trees, partial renders, unpinned browsers and files without a
   passing QA report for their exact bytes, then writes a manifest with hashes and provenance.
 
@@ -395,3 +401,25 @@ new entry that supersedes it, not editing history.
       `--check` cannot compare (they have no run).
     - A look is signed off on stills **and** motion tests, after the frame-critic's craft
       criterion has been calibrated to fail the looks the user rejected.
+32. **2026-11-15 · Captions are drafted from the cue sheet.** *A Halloween Gift*'s captions were
+    written by hand. *Who Routes the Agents?* (video #4) is text-led: every word a viewer reads
+    is already a `text` or `card` cue in `src/cues.ts`, with its span. So `aiv captions` drafts
+    `publish/captions/<lang>.srt` from the cues chosen by kind and id. The code is in
+    `@aiv/pipeline` (`packages/pipeline/src/captions/`); the command and the `aiv check` hook are
+    in `tools/aiv`.
+    - **Exact words, the picture's timing.** The text is never reworded. A caption runs over its
+      cue's span [frame, end) on the delivery, the leader included. Every frame becomes ms through
+      one non-decreasing map, so touching captions never overlap.
+    - **Lines.** Lines are wrapped to a per-language profile, balanced, preferring a break after
+      clause punctuation (or at a pause in Chinese); a `\n` is kept. A cue longer than a caption
+      becomes consecutive captions over its span.
+    - **Overlaps.** Overlapping cues stack while they fit; otherwise the newest wins (by the cue's
+      own start, not its page's) and the earlier one returns when it ends. A chosen cue that newer
+      ones cover the whole time would never be shown: the draft fails and names it.
+    - **The linter.** It checks the profiles of `references/subtitles.md` (en ≤ 42 characters a
+      line, ≤ 2 lines, ≤ 20 characters/s; zh-Hans ≤ 16, ≤ 2, ≤ 9, its punctuation). A caption
+      under 1 s is a warning: that floor is our choice. `aiv check` fails on lint errors in every
+      unfrozen video's caption files; a frozen video's files were published as they are.
+    - **Cost:** spoken narration (a voice) has no cue text to draft from; its captions need an
+      aligned transcript (references/subtitles.md, narration vs subtitle text). On-screen labels
+      that overlap the narration are left out by the selection, a choice made per video.
