@@ -1,0 +1,208 @@
+1
+00:00:00,867 --> 00:00:04,467
+Your AI agents work in parallel.
+You can’t.
+
+2
+00:00:05,533 --> 00:00:06,867
+Who Routes the Agents?
+
+3
+00:00:06,867 --> 00:00:12,467
+Super-agent, a design by
+DeepSeek’s Harness team
+
+4
+00:00:13,533 --> 00:00:17,467
+Each session knows one task.
+You must know them all.
+
+5
+00:00:17,867 --> 00:00:21,800
+In the authors’ experience,
+you can follow about 3–5.
+
+6
+00:00:22,200 --> 00:00:26,800
+You switch, prompt each run,
+wait, and keep it all running.
+
+7
+00:00:27,867 --> 00:00:31,467
+You’ve quietly become their router.
+
+8
+00:00:32,867 --> 00:00:37,467
+All in one session: it remembers,
+but is serial and muddled.
+
+9
+00:00:37,867 --> 00:00:42,467
+One per event: fast, but disconnected,
+and all reply to you.
+
+10
+00:00:42,867 --> 00:00:46,133
+Continuity or speed: must we pick one?
+
+11
+00:00:48,200 --> 00:00:51,800
+Super-agent keeps both, on two levels.
+
+12
+00:00:52,200 --> 00:00:56,133
+Above: one long-lived
+Router hears every channel.
+
+13
+00:00:56,533 --> 00:01:00,467
+It hands each task over whole
+and never does the work.
+
+14
+00:01:00,867 --> 00:01:05,467
+Why? Every task passes here;
+it must never be the bottleneck.
+
+15
+00:01:06,200 --> 00:01:10,800
+Below: each task gets its own Worker,
+context and tools.
+
+16
+00:01:11,200 --> 00:01:15,133
+Workers report up.
+Only the Router answers you.
+
+17
+00:01:17,533 --> 00:01:21,800
+It listens for events,
+so no one has to prompt each run.
+
+18
+00:01:22,533 --> 00:01:27,467
+By design: rules drop most noise;
+a model judges the rest.
+
+19
+00:01:30,867 --> 00:01:35,467
+Can one Router keep up?
+Waiting events go in together.
+
+20
+00:01:35,867 --> 00:01:40,467
+Long input, short output:
+merging events adds little time.
+
+21
+00:01:42,200 --> 00:01:46,800
+Context is a cache: a summary in view,
+a pointer to the rest.
+
+22
+00:01:47,533 --> 00:01:52,133
+Asked in another channel?
+It follows IDs back, hop by hop.
+
+23
+00:01:54,867 --> 00:01:58,467
+Follow-ups in a Thread go
+straight to its Worker.
+
+24
+00:01:58,867 --> 00:02:02,800
+Not faster tasks:
+about 23% fewer Router decisions.
+
+25
+00:02:03,200 --> 00:02:07,800
+Jobs run in the background;
+new input never waits on them.
+
+26
+00:02:13,533 --> 00:02:17,800
+Slowest tasks: about half
+the time of a single session.
+
+27
+00:02:18,200 --> 00:02:22,467
+Typical tasks: only ~10% faster
+than the stronger baseline.
+
+28
+00:02:22,867 --> 00:02:26,800
+Left to choose,
+the single session never delegated.
+
+29
+00:02:27,200 --> 00:02:31,800
+Two levels make delegation structural,
+at 2–4× the tokens.
+
+30
+00:02:32,867 --> 00:02:37,133
+Proposed: a cloud loop that
+works while your laptop sleeps.
+
+31
+00:02:39,200 --> 00:02:44,467
+A watchdog checks progress,
+not just that it’s alive.
+
+32
+00:02:45,533 --> 00:02:50,467
+Open risk: a hijacked loop could
+reach all connected machines.
+
+33
+00:02:50,867 --> 00:02:55,133
+Shard the Router and continuity
+trades against speed again.
+
+34
+00:02:55,867 --> 00:03:01,133
+Many tasks still need you midway:
+how to step in is open.
+
+35
+00:03:05,867 --> 00:03:10,467
+None of this is new theory:
+it is classic systems design.
+
+36
+00:03:10,867 --> 00:03:15,467
+As models need less help,
+your attention becomes the limit.
+
+37
+00:03:15,867 --> 00:03:19,800
+So people move up:
+to decisions, and to sign-off.
+
+38
+00:03:20,533 --> 00:03:25,133
+Your agents work in parallel.
+By design, you don’t have to.
+
+39
+00:03:26,867 --> 00:03:31,633
+Source: “Exploring Super-agent Design:
+Towards a More Autonomous Agent System”
+
+40
+00:03:31,633 --> 00:03:34,133
+DeepSeek Harness team · author Yujia Qiao
+
+41
+00:03:34,133 --> 00:03:37,800
+Chinese original 31 Oct 2026 ·
+machine-translated 1 Nov 2026
+
+42
+00:03:37,800 --> 00:03:40,933
+Charts re-plotted from the
+authors’ synthetic tests
+
+43
+00:03:40,933 --> 00:03:42,633
+Not affiliated with DeepSeek

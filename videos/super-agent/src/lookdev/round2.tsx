@@ -4,17 +4,18 @@
  * text (docs/ARCHITECTURE.md decision 30), at the two pitches the user chooses between, with and
  * without bloom.
  *
- * Each composition spans the whole film timeline (the test-card leader included, so composition
- * frame 2215 is film frame 2200) at the video's exact format, and renders the desk world only:
- *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StyleB15 --frames 2215 --label r2-b15
+ * Each composition spans the whole film timeline after the test-card leader (LEADER_FRAMES: 0 since the
+ * final, so a composition frame is the film frame; in the signed-off session-3 stills it was film frame
+ * + 15) at the video's exact format, and renders the desk world only:
+ *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StyleB15 --frames 2200 --label r2-b15
  *   (StyleB15NoBloom, StyleB0, StyleB0NoBloom; a cost span: --frames 2200-2229 --span)
  * DeskGround15 and DeskGround0 draw the same frame without its objects (the desk, its shadows, pools and
  * the text): the difference from StyleB15 / StyleB0 is the objects' silhouettes (the 25% silhouette sheet).
  *
- * StillC15 is still (c), context as a cache (film f3150, composition frame 3165), at 15° with bloom,
+ * StillC15 is still (c), context as a cache (film f3150), at 15° with bloom,
  * through the film's camera (desk/camera.ts cameraAt: 2.0x on the reading window from bar 34), with
  * N5 and the cache tag; DeskGroundC15 is its objects-free twin:
- *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillC15 --frames 3165 --label r2-c15
+ *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillC15 --frames 3150 --label r2-c15
  */
 import { Composition, registerRoot, useCurrentFrame } from 'remotion';
 import { FILM_FRAMES, FPS, LEADER_FRAMES } from '../cues.ts';
@@ -58,8 +59,8 @@ export const StillA15 = () => <StillA objects />;
 export const StillAGround15 = () => <StillA objects={false} />;
 
 /**
- * Still (d), the summary at the sign-off rest (film f5520, composition frame 5535), 15°, bloom on:
- *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillD15 --frames 5535 --label r2-d15
+ * Still (d), the summary at the sign-off rest (film f5520), 15°, bloom on:
+ *   pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillD15 --frames 5520 --label r2-d15
  * StillDGround15 is its objects-free twin (the silhouette sheet).
  */
 function StillD({ objects }: { objects: boolean }) {
