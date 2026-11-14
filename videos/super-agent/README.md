@@ -15,7 +15,7 @@ their URLs and pins, are in [sources.jsonl](sources.jsonl), and every claim is i
 **Series:** [Science & Technology Explainers](../../series/science-explainers/SERIES.md) · **Number:** 4 · **Engine:** remotion
 ▶ **Watch:** not yet published.
 
-## Status: production, the whole film built and the review answers applied; the 1080p review cut is next
+## Status: review cut made (1080p, QA passed); the user's approval is next
 The film has been in production since 2026-11-08. Decisions with the user so far:
 
 | Date | Decision | The user's words |
@@ -179,9 +179,12 @@ design works.
      - the score's flyover onset, lost to the 2.0 dB limiter margin, restored (its A5 pickup
        2 dB under the D6); the score rebuilt and verified;
      - the draft rendered again (3cef742: QA passed, -14.0 LUFS, -2.8 dBTP), then a light
-       two-critic check of the changed regions.
+       two-critic check of the changed regions (no P0 or P1; its P2s are in the open list);
+     - **the 1080p review cut** (3cef742): `out/super-agent/post/review/super-agent.mp4`, H.264
+       CRF 17 with AAC 320k, 144.5 MB; QA passed (-14.0 LUFS, -3.1 dBTP, no unexpected freeze).
+   - **User:** watches the review cut and approves it, or asks for changes (Handoff).
 7. **Review cut, then release.**
-   - The 1080p review cut through `aiv qa`.
+   - The 1080p review cut through `aiv qa` (made in session 6).
    - Caption tooling (an SRT generator and a subtitle linter).
    - `publish/` (the YouTube description, chapters, AI disclosure), the thumbnail.
    - The final and `aiv release`.
@@ -193,7 +196,7 @@ design works.
 **Start here.** Read this section and `video.json` `next`. The whole film is built (film f0–6719,
 beats 1–13) and the score covers all 84 bars. Session 6 ran two whole-film critic rounds with a fix
 wave after each, and applied the user's review answers of 2026-11-14. What is left:
-- the 1080p review cut, for the user's approval (with the score's bars 44–84, which nobody has
+- the user's approval of the 1080p review cut (with the score's bars 44–84, which nobody has
   listened to yet: the table below);
 - then caption tooling, `publish/`, the thumbnail, the final and the release (the session plan).
 
@@ -228,7 +231,11 @@ decisions below, and what STORYBOARD.md's "Settled in the build" sections record
 
 On the reference host only, since `out/` and `.cache/` are not in git:
 - `out/super-agent/stills/r2-final/` holds the signed-off lookdev set.
-- `out/super-agent/post/draft/super-agent.mp4` is the current draft (3cef742).
+- `out/super-agent/post/review/super-agent.mp4` is the review cut and `post/draft/` the draft,
+  both at 3cef742. A full-size render needs about 19 GB free while its chunks are joined (about
+  1.4 MB a frame of FFV1, twice), and its join and frame hashing outlast a 10-minute call: run
+  that last `aiv render` call, `aiv post` and `aiv qa` at full size as single calls that may run
+  longer (about 10–20 minutes each).
 - `out/super-agent/stills/s6w2-keys/` holds its keys; `s6t-fx-final/`, `s6m-fx-*` the fix-wave-2
   lanes' full-size stills of what they changed; `s6-r2-full/`, `s6-r2-full-b/` and `s6-r2-events/`
   full-size stills of 8bfa0f0, and `s6-r1-full*` the same frames before fix wave 1.
@@ -321,8 +328,8 @@ A change that should not touch a key keeps its hash.
 **For the user's review** (session 6). The user answered on 2026-11-14 ("Right, carry on"; the
 zh and C12 answers are in the decisions table), but has not yet watched the film, seen the
 stills or heard bars 44–84: the review cut is where that happens, and nothing below is approved.
-- **The film:** `out/super-agent/post/draft/super-agent.mp4` (the 960×540 draft at 3cef742,
-  QA passed); the 1080p review cut supersedes it.
+- **The film:** `out/super-agent/post/review/super-agent.mp4`, the 1080p review cut at 3cef742
+  (QA passed). The 960×540 draft of the same commit is `out/super-agent/post/draft/`.
 - **The stills that changed** since the user last saw them (part 1, 2026-11-12):
   - the throat now lights a slip lying in it: keys 2240, 3165, 3454, the seam and (d), at the
     throat only;
@@ -342,7 +349,7 @@ stills or heard bars 44–84: the review cut is where that happens, and nothing 
   - Bars 1–43: the user heard them ("Right direction"). Since then the only change is the
     master's limiter at -3.5 dBTP: up to 0.9 dB more limiting on the loudest peaks.
   - The flyover (f3520): its A5 pickup sits 2 dB under its D6 since wave 2.
-  - Bars 44–84: nobody has listened yet. In the draft mp4 (film frame + 15 over 30):
+  - Bars 44–84: nobody has listened yet. In the review cut (film frame + 15 over 30):
 
     | mp4 time | Film frames | What to listen for |
     |---|---|---|
