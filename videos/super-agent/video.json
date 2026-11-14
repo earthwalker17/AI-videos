@@ -21,7 +21,7 @@
       "note": "The user approved the 1080p review cut (out/super-agent/post/review/super-agent.mp4, commit 3cef742) at the start of session 7: \"Everything till now looks OK, so proceed directly to the final render after finishing any remaining work, without asking again for approval.\""
     }
   ],
-  "next": "Session 7 (in progress): locked; the leader removed for the final (decision 24); caption tooling, publish/, the thumbnail, the final render and its proof against the review cut (README.md, Status).",
+  "next": "Session 8: publication and release. The final is made and passed aiv qa (out/super-agent/post/final/super-agent.mp4, rendered at 8b992c9; every frame equals the approved review cut without its leader, and so does the score). The user uploads it to YouTube with publish/ (description.en.md, chapters, captions/en.srt, thumbnail.jpg, ai-disclosure.md): README.md, Handoff, \"To publish\". After the upload: record the final approval only as the user gives it, youtube.id and published, run aiv release (v1), set release and status published, and commit release(super-agent): v1; then push main, the tag video/super-agent/v1 and the GitHub release only when the user asks (\"After publishing\").",
   "languages": [
     "en",
     "zh-Hans"

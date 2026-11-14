@@ -15,8 +15,12 @@ their URLs and pins, are in [sources.jsonl](sources.jsonl), and every claim is i
 **Series:** [Science & Technology Explainers](../../series/science-explainers/SERIES.md) · **Number:** 4 · **Engine:** remotion
 ▶ **Watch:** not yet published.
 
-## Status: review cut made (1080p, QA passed); the user's approval is next
-The film has been in production since 2026-11-08. Decisions with the user so far:
+## Status: locked; the final is made and ready to publish
+The review cut was approved on 2026-11-15. The final (no leader) is
+`out/super-agent/post/final/super-agent.mp4`, and `publish/` holds the upload texts, the captions and
+the thumbnail (Handoff, "To publish"). Next: the user uploads it to YouTube; then the final approval,
+`aiv release`, the tag and the push (the user asked for no push or release before publication).
+The film was in production from 2026-11-08. Decisions with the user:
 
 | Date | Decision | The user's words |
 |---|---|---|
@@ -44,6 +48,7 @@ The film has been in production since 2026-11-08. Decisions with the user so far
 | 2026-11-14 | Review of the session-6 draft | "Right, carry on (Recommended)": apply the answers below, fix the cheaper P2s, then the 1080p review cut |
 | 2026-11-14 | zh in the picture | "Drop it from long plates (Recommended)": the long plates, the chart's labels and the idea labels go EN only; the short tags ("you · 你", the trait plates), the title card and the end card keep their zh |
 | 2026-11-14 | C12 | "Change to 'answers you' (Recommended)": "Workers report up. Only the Router answers you." (its zh follows unsigned: not shown) |
+| 2026-11-15 | The 1080p review cut (3cef742) | **Approved** (recorded in `video.json` `approvals`): "Everything till now looks OK, so proceed directly to the final render after finishing any remaining work, without asking again for approval." Also: a safe clean-up, the final left in place to publish, no push or release until the film is published |
 
 **What this means (session 3).** The session-3 brief named the faults:
 - basic flat geometry;
@@ -183,22 +188,67 @@ design works.
      - **the 1080p review cut** (3cef742): `out/super-agent/post/review/super-agent.mp4`, H.264
        CRF 17 with AAC 320k, 144.5 MB; QA passed (-14.0 LUFS, -3.1 dBTP, no unexpected freeze).
    - **User:** watches the review cut and approves it, or asks for changes (Handoff).
-7. **Review cut, then release.**
-   - The 1080p review cut through `aiv qa` (made in session 6).
-   - Caption tooling (an SRT generator and a subtitle linter).
-   - `publish/` (the YouTube description, chapters, AI disclosure), the thumbnail.
-   - The final and `aiv release`.
-   - **User:** approves the review cut, then the final.
-   - Push, tag and GitHub release only when the user asks.
-8. **Buffer.**
+7. **Session 7 (2026-11-15): locked, publish/ and the final.**
+   - **User:** approved the review cut ("Everything till now looks OK"), asked for the final
+     without a further approval round, a safe clean-up, and no push or release before publication.
+   - **Done:**
+     - locked; the leader removed (`LEADER_FRAMES` 0, `qa.swatchFrames` gone; decision 24). The
+       score rebuilt and verified (-14.1 LUFS); the keys at their new frames hash as at 3cef742
+       (606b8d1);
+     - caption tooling for every video: `aiv captions` drafts SRT from cue text and lints it per
+       language, and `aiv check` lints every unfrozen video's captions (ARCHITECTURE decision 32,
+       c1e55a6);
+     - `publish/` (8b992c9): `captions/en.srt` (43 captions: the narration, title, credit and end
+       card), `description.en.md`, `chapters.md`, `ai-disclosure.md` (fact-checked adversarially
+       against FACTS.md and the sources), and the thumbnail, rendered in code from the film's
+       world (`src/thumbnail/`, picked from three candidates by a frame critic and a stranger);
+     - the final at 1080p through `aiv post` and `aiv qa`, proven frame by frame against the
+       approved review cut (Handoff, "The final");
+     - the clean-up: old session scratch (about 19.5 GB; its text reports kept in
+       `.cache/research/super-agent-sessions/`), superseded stills, the draft render and the review
+       mezzanine.
+8. **Publish, then release** (session 8, after the user uploads): the final approval, `aiv
+   release`, the tag `video/super-agent/v1`, the push and the GitHub release (Handoff).
 
 ## Handoff (for the next session)
-**Start here.** Read this section and `video.json` `next`. The whole film is built (film f0–6719,
-beats 1–13) and the score covers all 84 bars. Session 6 ran two whole-film critic rounds with a fix
-wave after each, and applied the user's review answers of 2026-11-14. What is left:
-- the user's approval of the 1080p review cut (with the score's bars 44–84, which nobody has
-  listened to yet: the table below);
-- then caption tooling, `publish/`, the thumbnail, the final and the release (the session plan).
+**Start here.** Read this section and `video.json` `next`. The film is locked: the review cut was
+approved on 2026-11-15, and the final and `publish/` are made (session 7). What is left is
+publication, by the user, then the release.
+
+**To publish** (the user, on YouTube):
+- **The video:** `out/super-agent/post/final/super-agent.mp4` (the delivery; `archive.mkv` beside it
+  is the archival master, for the GitHub release, not for YouTube).
+- **Title, description and chapters:** `publish/description.en.md` (a proposal in the creator's
+  voice, with alternative titles; read its "Before pasting" notes: the film-folder link resolves
+  only once `main` is pushed). `publish/chapters.md` has the same chapters and their arithmetic.
+- **Captions:** `publish/captions/en.srt`, uploaded as English subtitles.
+- **Thumbnail:** `publish/thumbnail.jpg` (1920×1080, made in code by `src/thumbnail/`; replace it
+  with your own if you prefer, as for *A Halloween Gift*, and then record its provenance).
+- **AI use:** `publish/ai-disclosure.md` (the altered-or-synthetic setting is not required for a
+  stylised animated diagram; the open question on AI-generated music is noted there).
+- **Licence:** Creative Commons (CC BY 4.0) is available: the film has no third-party media.
+
+**After publishing** (session 8): give the agent the YouTube link. It records the final approval,
+`youtube.id` and `published`, runs `pnpm aiv release super-agent` (version 1), sets `release`,
+status `published`, the Watch link and thumbnail in this README, `aiv check --fix`, and commits
+`release(super-agent): v1`. Then, when the user asks: push `main`, tag `video/super-agent/v1` and
+push the tag, `gh release create video/super-agent/v1 out/super-agent/release/v1/* --latest=false`,
+`aiv release verify super-agent` (PRODUCTION.md, stage 6). Optionally swap the description's
+film-folder link for the tag's.
+
+**The final** (session 7, rendered at 8b992c9, clean tree):
+- **Delivery:** `super-agent.mp4`, 6,720 frames, 224.0 s, 1920×1080 at 30 fps, H.264 yuv420p
+  BT.709 limited range, AAC 48 kHz, 144.5 MB. **Archive:** `archive.mkv` (24-bit PCM), 204 MB.
+- **`aiv qa --profile final` passed** on both: -14.0 LUFS, -3.3 dBTP (archive -3.2), A/V within a
+  frame, no unexpected black, freeze or silence, every text hold and the card lengths, motion
+  (no judder, flash or pop). Colour is "not verified" by design without the leader (decision
+  24): the review cut's QA is the evidence, and the frames below are the review cut's. Six hit
+  onsets read 55–110 ms late (INFO; the onset finder in a dense mix, as at the review cut).
+- **Proof against the approved review cut:** all 6,720 frame hashes equal the review cut's frames
+  15–6734 (`frames.sha256`, 0 mismatches), and the mixed score equals the review cut's from
+  sample 24,000 (0.5 s), sample for sample (its leader was digital silence). The final is the
+  approved film without its test card.
+- **Render:** 56 chunks, 4,754 s (0.40–0.77 s a frame), mezzanine 9.0 GB on E:.
 
 The look is signed off (2026-11-10). The visual spec in force is [TREATMENT.md](TREATMENT.md)
 "Art direction v2: The Register Desk", with the user's picks (15° pitch, bloom 0.3), the standing
@@ -226,35 +276,54 @@ decisions below, and what STORYBOARD.md's "Settled in the build" sections record
 | `src/desk/` | The Register Desk:<br>• `layout.ts`, `geom.ts`: world coordinates.<br>• `film.ts`: the segments (act one [0, 1400), the turn [1400, 1660], act two [1661, 5400), the summary [5400, 6200), the end [6200, 6720)), act two's labels and tags. `FilmFrame.tsx` draws a film frame from them (its animatic slate still exists, but draws nothing now that every beat is built).<br>• Pure schedules, every effect a sum over one event list: `actOne.ts`, `you.ts`, `beat3.ts` (Fix A, Fix B), `turn.ts`, `state.ts` (act two's world, the focus steps, `EVENTS_B`/`C`/`D`), `beat4.ts` to `beat11.ts`, `proposed.ts` (beats 9–10's proposed parts), `summary.ts` (still (d) and the sign-off), `end.ts` (the bookend and the dissolve), `endCard.ts`.<br>• `camera.ts`: framings and moves. `footprints.ts`, `fpKit.ts`, `pools.ts`: analytic SDF shadows and light pools. `springs.ts`, `marks.ts`, `onScreen.ts`: springs, marks and screen-space checks.<br>• `gl/`: desk shader, light set, materials, post, canvas text; `plate.ts` the trait and stress plates; `print5.ts`–`print8.ts` beats 5–8's print; `veil.ts` the dissolve.<br>• `objects/`: one file per part or beat: Register, Bay, YourDesk, Intake, Links, Handshake, Dispatch, Counterfactual, Filter, Batch, Cache, Recall, Proposed, Trace, ActOne, TitleCard, Turn, FixCards, Replies, Thread (7.1), Jobs (7.3), Evidence (beat 8), Beat7–Beat11, End, World.<br>• `*Frame.tsx`, `DeskWorld.tsx`, `Overlay.tsx`: a frame's world and its DOM labels and notes, posed by one camera function.<br>• Tests: a `*.test.ts` per schedule (639 tests in the video, with the cue sheet's and the score's) |
 | `src/lookdev/round2.tsx`, `frames.ts` | Lookdev round 2, its own entry: `StillA15` (a), `StyleB15` (b, and MT1's span), `StillC15` (c), `StillD15` (d), `MT2`, the 0° and no-bloom variants and ground twins. The signed-off reference; the film draws the same frames through `FilmFrame` |
 | `src/lookdev/probe.tsx` | The determinism probe ('Probe') and the notes width sheet ('Notes') |
-| `src/Main.tsx` | The leader test card (15 frames), then the film: `desk/FilmFrame.tsx` for every film frame |
+| `src/Main.tsx` | The leader test card (15 frames in the review cut, none in the final), then the film: `desk/FilmFrame.tsx` for every film frame |
+| `src/thumbnail/` | The thumbnail's own entry (composition `Thumbnail`, one frame): the act-two world at f1830, the request docked in bug bay W-07, at 2.2× with the context stepped down, and the title |
+| `publish/` | The upload texts (`description.en.md`, `chapters.md`, `ai-disclosure.md`), `captions/en.srt` (drafted by `aiv captions`) and `thumbnail.jpg` |
 | `audio/` | The score on the 84-bar grid (`index.ts`, one stereo track `mix`; the master at -14 LUFS with its limiter at -3.5 dBTP). `arrangement.ts` lists the parts, one module per stretch: `actOne.ts` (bars 1–12), `fixes.ts` (13–18), `levels.ts` (19–29), `keepUp.ts` (30–43), `waiting.ts` (44–49), `evidence.ts` (50–57), `persistent.ts` (58–62), `open.ts` (63–68), `signoff.ts` (69–77), `endCard.ts` (78–84). `continuity.ts` is the Router's layer (pad, bass pulse, memory ticks) from the turn to the end, with part two's harmonic plan. `places.ts` holds part two's pans (copies of desk positions and the camera plan, each held equal to its source by the tests). `instruments.ts`, `foley.ts` and `common.ts` are shared. `score.test.ts` holds every sync point to the cue sheet and to the picture's own frames |
 
 On the reference host only, since `out/` and `.cache/` are not in git:
-- `out/super-agent/stills/r2-final/` holds the signed-off lookdev set.
-- `out/super-agent/post/review/super-agent.mp4` is the review cut and `post/draft/` the draft,
-  both at 3cef742. A full-size render needs about 19 GB free while its chunks are joined (about
-  1.4 MB a frame of FFV1, twice), and its join and frame hashing outlast a 10-minute call: run
-  that last `aiv render` call, `aiv post` and `aiv qa` at full size as single calls that may run
-  longer (about 10–20 minutes each).
-- `out/super-agent/stills/s6w2-keys/` holds its keys; `s6t-fx-final/`, `s6m-fx-*` the fix-wave-2
-  lanes' full-size stills of what they changed; `s6-r2-full/`, `s6-r2-full-b/` and `s6-r2-events/`
-  full-size stills of 8bfa0f0, and `s6-r1-full*` the same frames before fix wave 1.
+- `out/super-agent/post/final/` holds the final (`super-agent.mp4`, `archive.mkv`, `post.json`),
+  `qa/final/` its reports. `render/final` is a directory junction to `E:/aiv-out/super-agent/final`
+  (the mezzanine, kept until the release), as `render/review` is to `E:/aiv-out/super-agent/review`
+  (its records and `frames.sha256` only: the review mezzanine was deleted on 2026-11-15).
+- `out/super-agent/post/review/super-agent.mp4` is the approved review cut (3cef742), with
+  `qa/review/`, the colour evidence (decision 24).
+- `out/super-agent/stills/`: `r2-final/` the signed-off lookdev set; `r2g-mt1/`, `r2h-mt2*/` the
+  signed-off motion tests (preview mp4, contact sheet and records; their frames were pruned);
+  `s7-keys/` the keys after the leader went; `s7-thumb-final/` the thumbnail's source PNG.
+- `.cache/research/super-agent-sessions/` keeps the text reports of sessions 2–6's scratch
+  (critic rounds, lane reports, progress logs); its README maps the folders to sessions.
+- A full-size render needs about 19 GB free while its chunks are joined (about 1.4 MB a frame of
+  FFV1, twice), and its join and frame hashing outlast a 10-minute call. The call that renders
+  the last chunk goes straight on to the join, so when about seven chunks are left, run it as one
+  call without a time limit; `aiv post` and `aiv qa` too (about 10–20 minutes each). A call cut
+  off during the join leaves a complete but unverified `mezzanine.mkv`: delete it before
+  rerunning, or the second join overflows the disk (session 7: E: had 8 GB left).
 
-**Commands.** Frames are composition frames: film frame + 15 (the leader).
+**Commands.** Since the leader went (session 7), a composition frame is the film frame; in the
+review cut and every earlier render and still it was film frame + 15.
 ```sh
 # the film (Main): full-size keys, then a draft span of at most 240 frames with its fresh-page check
-pnpm aiv still super-agent --frames 930,2240,3165,3454,5435,5446,5535 --label keys
-pnpm aiv still super-agent --profile draft --frames 2735-2974 --span --encode --inner 3 --label b6-span
+pnpm aiv still super-agent --frames 915,2225,3150,3439,5420,5431,5520 --label keys
+pnpm aiv still super-agent --profile draft --frames 2720-2959 --span --encode --inner 3 --label b6-span
+# the final: render (chunked, resumable; the last call joins), post, qa, then the captions and the thumbnail
+pnpm aiv render super-agent --profile final --budget-min 9
+pnpm aiv post super-agent --profile final && pnpm aiv qa super-agent --profile final
+pnpm aiv captions super-agent --cues 'title,credit,c?,c??,n?,n??,end'
+pnpm aiv still super-agent --entry src/thumbnail/index.tsx --composition Thumbnail --frames 0 --label s7-thumb-final
+ffmpeg -y -i out/super-agent/stills/s7-thumb-final/f00000.png -q:v 2 videos/super-agent/publish/thumbnail.jpg
 # the whole film, draft: chunked and resumable (exit 75 = the heavy lock is busy: wait and rerun)
 pnpm aiv render super-agent --profile draft --budget-min 9
 pnpm aiv audio super-agent && pnpm aiv audio super-agent --verify
 pnpm aiv post super-agent --profile draft && pnpm aiv qa super-agent --profile draft
 # lookdev round 2, the signed-off reference
-pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillD15 --frames 5535 --label r2-d
+pnpm aiv still super-agent --entry src/lookdev/round2.tsx --composition StillD15 --frames 5520 --label r2-d
 pnpm exec vitest run videos/super-agent --maxWorkers=2
 ```
-Measured on the reference host (session 6):
+Measured on the reference host (sessions 6–7):
 - a draft pass is 113 chunks and 43–63 minutes, in five to eight foreground calls of 9 minutes;
+- the full-size final is 56 chunks and about 80 minutes in nine calls, then a join and hash of
+  about 10 minutes; `aiv post --profile final` about 35 minutes, `aiv qa` about 15;
 - a call cut off by its timeout during the final mezzanine hash resumes there when rerun;
 - a full-size still takes 4–6 s after a 4–8 s boot;
 - the test suite takes about 7 minutes.
@@ -263,16 +332,16 @@ Check free memory first, and close Chrome if it is connected.
 
 The signed-off lookdev stills hash as follows (first 12 hex of the RGBA sha256): (a)
 `5cb677648515`, (b) `6b660e981ea9`, (c) `43d104d679bb`, (d) `fc8ee34c5a43`. The film's own keys
-at 3cef742:
+at 3cef742, unchanged in the final (`s7-keys`, 606b8d1):
 
-| Composition frame | Hash |
+| Film frame (review cut: + 15) | Hash |
 |---|---|
-| 930 | `db1f4491385a` |
-| 2240 | `f2bc7b4e2c50` (C12's new words, 771ed08) |
-| 3165 | `123f341c0719` (the cache tag EN only, N5's halo: 3cef742) |
-| 3454 | `5ccf303e78ec` |
-| 5435, 5438, 5439, 5446 | `96ca2cbb49ca` (still equal to each other) |
-| 5535 | `8c8005727eea` |
+| 915 | `db1f4491385a` |
+| 2225 | `f2bc7b4e2c50` (C12's new words, 771ed08) |
+| 3150 | `123f341c0719` (the cache tag EN only, N5's halo: 3cef742) |
+| 3439 | `5ccf303e78ec` |
+| 5420, 5423, 5424, 5431 | `96ca2cbb49ca` (still equal to each other) |
+| 5520 | `8c8005727eea` |
 
 A change that should not touch a key keeps its hash.
 
@@ -325,9 +394,10 @@ A change that should not touch a key keeps its hash.
   38, after rejecting round 1 that an uncalibrated critic had passed. Ask the user early, with
   images.
 
-**For the user's review** (session 6). The user answered on 2026-11-14 ("Right, carry on"; the
-zh and C12 answers are in the decisions table), but has not yet watched the film, seen the
-stills or heard bars 44–84: the review cut is where that happens, and nothing below is approved.
+**What the review cut showed the user** (session 6; approved 2026-11-15 with the film). The
+user answered on 2026-11-14 ("Right, carry on"; the zh and C12 answers are in the decisions
+table), then watched the review cut and approved it. The list below is what was new in it, kept
+as the record of what the approval covered.
 - **The film:** `out/super-agent/post/review/super-agent.mp4`, the 1080p review cut at 3cef742
   (QA passed). The 960×540 draft of the same commit is `out/super-agent/post/draft/`.
 - **The stills that changed** since the user last saw them (part 1, 2026-11-12):
@@ -378,7 +448,8 @@ stills or heard bars 44–84: the review cut is where that happens, and nothing 
     | 3:20.5–3:25.8 | f6000–6160 | 12.1: one quiet tick a beat (frame 0's rhythm); the motif once with no answer as the slip turns vermilion (f6100); the print head's soft stamp-in on the dissolve's first frame |
     | 3:27.2–3:44.5 | f6200–6719 | 13: a solo mallet plays the motif as the end card lands, four more times, softer and further apart, once at half speed, then one long D5 decaying to nothing |
 
-**Open after fix wave 2** (2026-11-14). No P0 or P1 is known. Wave 2 closed the round-2 list's
+**Open after fix wave 2** (2026-11-14), accepted with the review cut on 2026-11-15: the final
+keeps them. No P0 or P1 is known. Wave 2 closed the round-2 list's
 one-frame steps (the first ask slip, MT1's slip, W-10's rise, the dossier, the rider, the edge
 sliver, the shard window, the transit light), the act-one card's exit speed, the stress plate's
 entry, the load tag, the jobs tag, the end card's flat ground, the captions over the notes card and

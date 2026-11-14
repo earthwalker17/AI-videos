@@ -32,8 +32,8 @@ the film plays as one continuous world, beats 1–6 (f0–3439) are built on dra
 animatic covers the rest, and the score is laid on the 84 bars (composed for bars 1–43). Session 5
 (2026-11-12 to 11-13) built part 2: beats 7–13 and the score for bars 44–84. Session 6
 (2026-11-13) dropped the zh caption line (the film is YouTube only), ran two whole-film critic
-rounds with a fix wave between them, and passed QA on the full draft. The user's review is next,
-then the review cut.
+rounds with a fix wave between them, and made the review cut. Session 7 (2026-11-15): approved,
+locked, captions tooling, publish/ and the final; publication is next.
 - [x] **Determinism lint for 2D DOM work** (2026-11-08): frame code may not use CSS
   `transition`/`animation`/`@keyframes`, the Web Animations API or `ResizeObserver`/
   `IntersectionObserver`.
@@ -59,12 +59,12 @@ then the review cut.
 
   The WebGL world measured 0.37–0.62 s/frame and 1.31 MiB/frame at 1080p, deterministic on
   fresh pages.
-- [ ] **The build** (the video's README has the session plan):
+- [x] **The build** (the video's README has the session plan):
   - [x] part 1 (session 4, 2026-11-11): beats 1–6, the animatic and the score for bars 1–43, on
     draft renders;
   - [x] part 2 (sessions 5–6, 2026-11-13): beats 7–13, the score for bars 44–84 and two
     whole-film critic rounds, on draft renders;
-  - [ ] the user's review, then the review cut.
+  - [x] the review cut (session 6), approved 2026-11-15; the final (session 7).
 - [ ] **Two-user promotions:** `readingSeconds` and the hold rule → `@aiv/core` are done
   (2026-11-08). Still to do:
   - the caption pattern and the cue-text helpers → `@aiv/remotion-kit` / `@aiv/core`: the
