@@ -4,27 +4,12 @@
   "number": 4,
   "slug": "super-agent",
   "title": "Who Routes the Agents?",
-  "titles": {
-    "zh-Hans": "谁来调度智能体？"
-  },
   "series": "science-explainers",
-  "status": "archived",
-  "approvals": [
-    {
-      "gate": "treatment",
-      "date": "2026-11-08",
-      "note": "The user selected \"Hybrid on B (Recommended)\" (Who Routes the Agents? / 谁来调度智能体？) from three candidates and the judged hybrid, chose the look \"Dark ink map (Recommended)\" and \"Text-led, no voice (Recommended)\", and approved the production plan (sessions 1-4 in README.md)."
-    },
-    {
-      "gate": "review",
-      "date": "2026-11-15",
-      "note": "The user approved the 1080p review cut (out/super-agent/post/review/super-agent.mp4, commit 3cef742) at the start of session 7: \"Everything till now looks OK, so proceed directly to the final render after finishing any remaining work, without asking again for approval.\""
-    }
-  ],
-  "next": "Archived 2026-11-15, not published: the user decided not to publish V1, because other films on similar topics made with Claude Fable 5.2 look much better, and will remake it as V2 in this slot. V1 is complete at the tag video/super-agent/v1-archived. Rebuild it from a worktree at that tag (docs/PRODUCTION.md, 'Archive an unpublished video').",
+  "status": "brief",
+  "approvals": [],
+  "next": "V2, session 1: read README.md, BRIEF.md, FACTS.md and V1.md here, then the user's V2 brief and references. Write that brief and its references into BRIEF.md (Shape: platform, languages, length, voice, score). Plan V2 as a whole (narrative, look, engine, sound) and put the session plan, at most about 15 lines, in README Status. Then write three treatments in TREATMENT.md and stop for the user's treatment approval. V1 was archived unpublished on 2026-11-15 (tag video/super-agent/v1-archived); its approvals do not carry over.",
   "languages": [
-    "en",
-    "zh-Hans"
+    "en"
   ],
   "styles": [],
   "reproducibility": "full",
@@ -36,13 +21,6 @@
     "height": 1080,
     "fps": 30
   },
-  "audio": {
-    "tracks": [
-      {
-        "source": "audio:mix"
-      }
-    ]
-  },
   "qa": {
     "loudness": {
       "integrated": -14,
@@ -50,36 +28,7 @@
       "truePeakMax": -1
     }
   },
-  "reusable": [
-    {
-      "path": "src/kit/timeline.ts",
-      "what": "Bar/beat helpers from a musical grid, pure progress combinators (seq, all, lagged, delay windows) and named easings for frame-driven 2D motion"
-    },
-    {
-      "path": "src/kit/text.tsx",
-      "what": "Frame-driven text: a 6-frame clip-path wipe and fade (never typewriter), a bilingual EN + zh notes block on fixed baselines, explicit zh phrase breaks, grey (non-LCD) antialiasing through a layer hint"
-    },
-    {
-      "path": "src/kit/camera.tsx",
-      "what": "A 2D translate-and-scale camera over a large world, non-scaling strokes, and labels projected into screen space so they keep their size at any zoom"
-    },
-    {
-      "path": "src/kit/diagram.tsx",
-      "what": "SVG diagram parts for dark ink maps: rings, platform boxes, pills, edges drawn on at a constant pen speed, tokens riding a path, dashed and hatched variants"
-    },
-    {
-      "path": "src/kit/sketch.ts",
-      "what": "Tapered, variable-width sketch strokes with seeded pressure, drawn as filled polygons (no filters)"
-    },
-    {
-      "path": "src/kit/dither.tsx",
-      "what": "A seeded dither tile laid out with Remotion <Img> (waited for, unlike CSS background images) to break up banding on dark grounds"
-    },
-    {
-      "path": "src/look/fontPlan.ts",
-      "what": "Plans the unicode-range slices of a CJK fontsource family that a film's strings need, so only those slices load and their coverage is proven"
-    }
-  ],
+  "reusable": [],
   "license": {
     "film": "CC-BY-4.0"
   },

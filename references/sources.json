@@ -648,7 +648,7 @@
       "pin": "2026-04-08",
       "license": "Proprietary (facts paraphrased)",
       "excerpt_policy": "facts-paraphrased",
-      "why": "The work the article compares its compute/state/environment split to; its brain/hands metaphor is not used in video #4.",
+      "why": "The work the article compares its compute/state/environment split to; its brain/hands metaphor was not used in video #4 V1.",
       "note": "deepseek-superagent-2026-11.md",
       "status": "verified"
     },
@@ -698,12 +698,12 @@
     },
     {
       "id": "fontsource-explainer-fonts",
-      "title": "fontsource variable fonts: IBM Plex Sans 5.3.0, Noto Sans SC 5.3.1, JetBrains Mono 5.3.0",
+      "title": "fontsource fonts: IBM Plex Sans 5.3.0, Noto Sans SC 5.3.1, IBM Plex Mono 5.3.0 (JetBrains Mono 5.3.0 until 2026-11-09)",
       "url": "https://fontsource.org",
-      "pin": "@fontsource-variable/ibm-plex-sans 5.3.0, @fontsource-variable/noto-sans-sc 5.3.1, @fontsource-variable/jetbrains-mono 5.3.0",
+      "pin": "@fontsource-variable/ibm-plex-sans 5.3.0, @fontsource-variable/noto-sans-sc 5.3.1, @fontsource/ibm-plex-mono 5.3.0",
       "license": "OFL-1.1",
       "excerpt_policy": "vendorable",
-      "why": "The type system of video #4, loaded from pinned npm packages (credited in the video, never committed).",
+      "why": "The type system of video #4 V1 (archived 2026-11-15), loaded from pinned npm packages (credited in the video, never committed).",
       "note": "motion-graphics-2d-2026-11.md",
       "status": "verified"
     },

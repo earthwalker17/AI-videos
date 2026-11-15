@@ -59,8 +59,8 @@ verdict is `partial`.
    reference and what would close the gap; "better than before" is not a pass.
 
 12. **Finished craft** (the bar a person sets, not a clean diagram). A frame can pass
-   criteria 1–11 and still look unfinished: video #4's first lookdev did, and the user
-   rejected it as "too simple and crude to be worth watching". So score craft separately and
+   criteria 1–11 and still look unfinished: #4 V1's first lookdev did, and the user
+   rejected it as "too simple and crude to be something worth watching". So score craft separately and
    strictly. The sources and their licences are in `references/agent-video-skills-2026-11.md`.
    - **P0 tells.** Any one of these fails the frame outright. Name the object and where it
      is.
@@ -89,6 +89,8 @@ verdict is `partial`.
        explaining before it reads.
      - **Accuracy:** a part drawn with the wrong built, proposed or open status (as a line,
        a material or a tag), or a number outside the facts.
+     - **Kitsch, the opposite failure:** richness tipping into skeuomorphic props, figures,
+       brass, wood or parchment, or the sheen of a glossy 3D product render.
    - **Scored items, 0–2 each.** ★ marks a starred item: a 0 on any starred item fails the
      frame. Otherwise it passes at 30 of 38 or more.
      - On a single still, items 8 and 9 (and the motion parts of 10 and 16) are *pending*,
@@ -103,15 +105,17 @@ verdict is `partial`.
      4. ★ Material: filled forms with consistent key-light shading, a rim and a contact
         shadow, and the material matches the meaning it is given. A rim is a highlight edge
         inside the form; a shadow falls on a surface. Neither may become a glow or a blur.
-     5. ★ Light: light pools carry attention, and emission follows the film's rule (in #4:
-        live processes only, at most 3 sources). A frame with no light at all scores 0. A pool
+     5. ★ Light: light pools carry attention, and emission follows the film's written light
+        rule (in its TREATMENT or STORYBOARD). A frame with no light at all scores 0. A pool
         is local light falling on things, never a centred vignette.
      6. Depth: at least 3 readable planes; history recedes cleanly, never as alpha dirt.
      7. ★ Relationships: the form of a link tells its kind; its state is visible
         (flow, tension, a pulse); no effect comes before its cause. Lines are crafted (load,
         taper, material), not uniform procedural strokes.
      8. Choreography (from frames): stagger, overlap and follow-through; stillness before a
-        climax; nothing starts as one block.
+        climax; nothing starts as one block; at most about 3 motions at once; every part
+        emerges from a visible source; no one-frame swaps of small parts (step the frames:
+        motion QA misses them).
      9. Easing: the film's tokens only; no linear moves except constant-speed transport; no
         bouncy default spring.
      10. Camera: the shot size fits the information; no drift on holds; the focus pull (by
@@ -121,8 +125,8 @@ verdict is `partial`.
          frame height; texture print ≥ 18 px; nothing overlaps.
      12. Composition: one focal idea; 40–60% breathing room, measured within the content's
          bounding box; the active object on a third.
-     13. Colour semantics: each accent keeps one meaning; it survives a colour-blindness
-         simulation; no stray hue.
+     13. Colour semantics: each accent keeps one meaning; accents differ in lightness and
+         form, not hue alone, so they survive a colour-blindness simulation; no stray hue.
      14. Finish: no banding or aliasing at delivery size; texture present but at most about
          6% of the local value, never noise.
      15. Genre distance: the frame passes the do-not-copy lists (in
@@ -134,22 +138,49 @@ verdict is `partial`.
          other film.
      18. ★ World layers: ground, light, depth, texture, material and a sound cue are all
          present (2), one or two missing (1), more missing (0).
-     19. Worked example: the film's tracer (in #4, the vermilion request) can be found, or
-         its absence is deliberate.
+     19. Worked example: the film's tracer (the running example its storyboard names) can
+         be found, or its absence is deliberate.
    - **Report for criterion 12:** every P0 hit, then each item's score with its evidence,
-     the total and the verdict.
-   - **Calibration.** Before this rubric is trusted on a new look, it must fail the stills
-     the user rejected: `out/super-agent/stills/lookdev-{1,2,3,chart}/f00000.png`.
-     - The first run (2026-11-09) failed them at 15, 15, 14 and 16 of 38. All four had P0
-       hits and a 0 on Material.
-     - A pass here is evidence, not the user's verdict: show the user early.
+     the total, the verdict, and how the frame compares with the user's current references
+     (or that none were given, so the comparison was not made).
+   - **Calibration.** The rubric needs two anchors before it is trusted on a new look.
+     - **Lower anchor: the looks the user rejected.** The rubric must fail them.
+       - **#4 V1's round-1 lookdev stills** (the dark ink map). The first run (2026-11-09)
+         failed them at 15, 15, 14 and 16 of 38; all four had P0 hits and a 0 on Material.
+         Their source is `src/lookdev/stills.tsx` (compositions Still1, Still2, Still3 and
+         Chart) at commit `9a4a565`, which added them.
+       - **#4 V1's final look**, dropped on 2026-11-15. Its key frames are film frames 915,
+         2225, 3150, 3439, 5431 and 5520 of the `Main` composition at tag
+         `video/super-agent/v1-archived`. The tag's README lists each frame's hash, which
+         proves a rebuild.
+       - **Rebuilding.** The renders of both sets were deleted with V1's outputs. To rebuild,
+         run `aiv still super-agent --frames <list>` in a worktree at that commit
+         (docs/PRODUCTION.md, "Rebuild a frozen video": `pnpm install` there first).
+         [U: not yet re-rendered.] Until they are rebuilt, the recorded
+         scores above are the only evidence for this anchor.
+       - Add each later rejected look to the set.
+     - **Upper anchor: the newest peer films the user names as the bar.** Compare each frame
+       with them side by side at 1080p or more, dimension by dimension (criterion 11). Like
+       all references, they are never committed.
+     - **Check the rubric against those references first.** Before using it on a new film,
+       score 3–5 frames of the user's current references. Items 4, 5, 7, 18 and 19, and the
+       genre tells, grew out of #4 V1's critiques. If a reference the user holds up as the bar
+       fails a starred item or a P0 tell, revise the rubric for that film, not the
+       reference, and record the change in the film's TREATMENT.
+     - **A pass is not "competitive".** The user signed off #4 V1's round-2 look when this
+       rubric scored it 23–30/38, and its final passed QA, yet the user dropped it on
+       2026-11-15 because films on similar topics made with Claude Fable 5.2 look much
+       better. So before a pass is trusted, also say how the frame compares with the user's
+       current references. #4 V1's final look (at tag `video/super-agent/v1-archived`)
+       counts as below the bar.
+     - A score is evidence, not the user's verdict: show the user early.
 
 ## Output
 ```text
 Verdict: pass | partial | fail
 1. Promise: <pass|partial|fail>. Evidence: <frames, what you saw>. Fix: <specific change>.
 …
-12. Finished craft: <P0 hits> · <score>/38 · <pass|fail>. Evidence per item. Fix: <the three changes that raise the score most>.
+12. Finished craft: <P0 hits> · <score>/38 · <pass|fail> · against the current references: <what still separates them, or "none given">. Evidence per item. Fix: <the three changes that raise the score most>.
 Top three fixes, most important first.
 Not checked: <what you could not judge from frames, e.g. how the audio sounds>.
 ```

@@ -80,3 +80,10 @@ wingbeat) that the full-size runs did not.
   measure boil on a span without grain or with the grain's share known.
 - A one-frame flicker of a light (lightning as a light popped for a frame) is a flash; soften
   it into a pulse of a few frames unless the cut is the point.
+- The pop check misses small one-frame swaps: it reads the whole picture's D
+  (`packages/pipeline/src/qa/motion.ts`, `popEvents`), which a small part that jumps pose,
+  appears or steps its light in one frame barely moves. Video #4 V1 (archived 2026-11-15) found
+  them with tile diffs round every scripted event, then held each fix with a per-frame state
+  test (no part may change more in a frame than its ramp allows); its carriers came out of a
+  slot over 3–4 frames rather than appearing in one (`videos/super-agent/README.md:270-271,
+  :364-365` and `src/desk/desk.test.ts:396, :593` at tag `video/super-agent/v1-archived`).

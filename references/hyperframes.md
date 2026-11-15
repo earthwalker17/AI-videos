@@ -19,7 +19,7 @@ It is the strongest agent-oriented HTML engine, renders on Windows, and its `hf-
 means our own page contract could run under it with a few lines of glue. It is also a
 source of concrete lessons (LFS patterns, eol, Windows CI). Since 0.9 its skills carry the
 most specific written craft bar we have found for generated explainers (what "generated"
-looks like, and how to review against it), which is why round 2 of video #4 read them.
+looks like, and how to review against it), which is why round 2 of #4 V1 read them.
 
 ## Key facts
 - Stats: Apache-2.0, ~76.5k stars, created 2026-03-10 [V]; ~80.9k stars on 2026-11-09 [V].
@@ -60,9 +60,9 @@ looks like, and how to review against it), which is why round 2 of video #4 read
 ## What we adopted / adapted
 - Nothing installed. Ideas only: seek-driven determinism rules (already ours), container provenance tags (→ `render.json` / post metadata), the registry-item fields (licence per item, external preview) as input for a future catalog format, `eol=lf` from day one (already in `.gitattributes`).
 - Proposed, not planned: an optional `hf-seek` listener in the `engines/web` page runtime that calls our frame renderer, so a page could also be captured by HyperFrames.
-- From the skills (2026-11-08, for lookdev round 2 of video #4), restated in our own words (in progress for round 2):
+- From the skills (2026-11-08, for lookdev round 2 of #4 V1), restated in our own words:
   - the "tells" and the stranger-sentence P0 test as input for the frame-critic's craft criterion (sources collected in `agent-video-skills-2026-11.md`);
-  - a per-film BANNED line, grown after each render, with the default list treated as "defaults to justify" rather than absolute bans: the user's dark-ground preference overrides the dark-void item, and #4 keeps bloom only on live emitters (`motion-graphics-2d-2026-11.md`, delta);
+  - a per-film BANNED line, grown after each render, with the default list treated as "defaults to justify" rather than absolute bans: the user's dark-ground preference overrides the dark-void item, and #4 V1 (archived 2026-11-15) kept bloom only on live emitters (`motion-graphics-2d-2026-11.md`, delta);
   - a look written as the rules of one medium; shapes of information chosen per line before drawing; one worked example through every mechanism;
   - motion rules: ease by role, springs by damping ratio, overlap, a dead-still landed title, stillness before the payoff, effects on the causing frame, no idle wobble;
   - QA ideas for `aiv qa`: a dead-stretch check, a phone-width sheet, assertions of motion intent. Our text floor (1/30 of frame height, 36 px at 1080p) is already stricter than its 28 px.
@@ -73,7 +73,7 @@ looks like, and how to review against it), which is why round 2 of video #4 read
 - GSAP inside reusable library components: proprietary, with a Prohibited Uses clause. Prefer WAAPI, CSS or Anime.js (MIT) for shared code. *Under Remotion nothing seeks those either [U] (`motion-graphics-2d-2026-11.md`, lint blind spots): shared Remotion code stays on `interpolate`/`spring`.*
 - GSAP code from the skills' examples (`cut-the-curve` and its `examples/gsap-implementation.md`): prose ideas only, never the code.
 - `style-sampling` and `reverse-any-video`: paid Pro features with a usage beacon; and rebuilding someone else's video conflicts with the do-not-copy stance in `vibe-knowledge-style-2026-11.md`.
-- The seam law, vector ledger and seam gate as written: built for multi-scene films with cuts; video #4 is one world with a moving camera [U]. Its causal-motion and no-wobble rules are taken.
+- The seam law, vector ledger and seam gate as written: built for multi-scene films with cuts, while #4 V1 (archived 2026-11-15) was one world with a moving camera. A film with cuts may take them. The doctrine's causal-motion and no-wobble rules are taken.
 - Its upstream skills/plugin vendored into the repo: install-only if ever used.
 - Its "vs Remotion" marketing page as evidence: decide on our own fixture renders.
 

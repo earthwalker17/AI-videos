@@ -11,7 +11,11 @@ inputs) decides what a frame shows.
 2. **Randomness is stateless and seeded**: `rand(seed, id, k)` hashes its arguments, so any
    frame can be rendered alone, in any order. A sequential generator breaks the moment a
    render starts mid-way.
-3. **No state carried between frames.** Pose everything from `i` every frame. Beware lazy
+3. **No state carried between frames.** Pose everything from `i` every frame. For effects that
+   react to events (a pulse when a message lands, a light that fades after a hit), write each one
+   as a pure sum over a plain-data event list, `f(i) = Σ g(i − tₑ)`, with no simulation and no
+   memory. The same list can place the score's hits, so picture and sound cannot drift apart.
+   Beware lazy
    caches: three.js `InstancedMesh` computes its bounding sphere from the first frame it
    renders and culls with it afterwards, so moving instances vanish depending on where a
    chunk starts. Set `frustumCulled = false` on them.
@@ -46,6 +50,13 @@ template (150 frames, three.js WebGL scene, Canvas 2D text):
 
   Lines that only mention the words (a label reading "The transition…", a `title: 'animation
   notes'`) and a frame-driven `transform` were not flagged.
+
+- 2026-11-09 to 11-15, #4 V1 (`videos/super-agent`, archived; source at tag
+  `video/super-agent/v1-archived`). Every effect of a 6,720-frame film was a sum over its event
+  lists (`src/desk/state.ts`, `turn.ts`, `beat*.ts`), and the score read the same schedules
+  from `src/cues.ts`. Each schedule had a test (639 tests in the video). The final's frames
+  hashed equal to the review cut's at every frame, rendered in chunks that started at different
+  frames.
 
 Not verified: determinism across machines or GPUs (compare with SSIM there, not bytes).
 

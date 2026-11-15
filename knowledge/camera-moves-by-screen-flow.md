@@ -47,11 +47,32 @@ Verified on rendered stills and a 21-frame span of the close, then by the motion
 whole film: on the 1080p review and final mezzanines (2026-11-06) it flagged no judder, twos or
 pop, the crane out included.
 
+Video #4 V1 (`videos/super-agent`, archived 2026-11-15 unpublished; 30 fps, a fov 20° lens
+that only trucks, dollies and zooms over a lit desk) tested screen speed per frame through its
+one camera function. These caps are one film's precedent, not research:
+- a move's aim point (the desk point under the frame's centre) at most 700 px/s on screen,
+  about 23 px a frame, on every move from the turn on;
+- an object in flight at most 2410 px/s, about 80 px a frame, a cap taken from one signed-off
+  flight in the film;
+- screen distance grows with the zoom, so a flight at 2.4× needs about four times the frames
+  of the same flight at 0.6×;
+- a line of text never spends its first second under a move unless the move is the line; a
+  label that would move more than 40 px fades out over the move's first 6 f and re-enters once
+  the camera has landed.
+
+Its final's motion QA (1080p, 6,720 frames) found no judder, flash or pop.
+
 ## In this repo
 The estimate was a short script against the film's layout (`world/layout.ts` groundHeight, the
 trees' geometry, `film/journey.ts` journeyAt), not yet a shared tool; the guard is the step test
 in `videos/halloween-gift/src/film/journey.test.ts`. A shared version (any engine's camera path
 against a scene's heightfield and proxies) belongs in `tools/aiv` once a second film needs it.
+
+#4 V1's speed tests are only at tag `video/super-agent/v1-archived`, under
+`videos/super-agent/`: the aim point in `src/desk/desk.test.ts:100-113`, flights in
+`src/desk/beat11.test.ts:166-172` and `src/desk/end.test.ts:21-22`, the label exits in
+`src/desk/film.ts:85-96` and `src/desk/film.test.ts:45-53, :146-164`, and the rules in
+`TREATMENT.md:977-982` and `README.md:380-383`.
 
 ## Pitfalls
 - The stand-in scene leaves things out (walls, props): the estimate is a lower bound near them.

@@ -20,57 +20,45 @@ Decisions section of `docs/ARCHITECTURE.md`.
 - [x] Motion QA on the mezzanine (decision 27), lookdev stills with a reference compare
   (decision 28), the Remotion GPU program cache (`engines/remotion/ENGINE.md`).
 
-## Now: what *Who Routes the Agents?* (#4, `super-agent`) needs
-The first 2D, text-led, bilingual film, and the second scored one. Each item is built and
-verified in its own commit, in this order (the video's README has the session plan).
-
-Changed 2026-11-08: lookdev round 1 was not approved, because the look is too simple and crude
-to be worth watching. A look-rework session now comes before the build. The remaining items
-(captions, Bilibili publishing) move back one session. The reworked look (the Register Desk,
-lookdev round 2) was signed off on 2026-11-10. Session 4 (2026-11-10 to 11-11) built part 1:
-the film plays as one continuous world, beats 1–6 (f0–3439) are built on draft renders, an
-animatic covers the rest, and the score is laid on the 84 bars (composed for bars 1–43). Session 5
-(2026-11-12 to 11-13) built part 2: beats 7–13 and the score for bars 44–84. Session 6
-(2026-11-13) dropped the zh caption line (the film is YouTube only), ran two whole-film critic
-rounds with a fix wave between them, and made the review cut. Session 7 (2026-11-15): approved,
-locked, captions tooling, publish/ and the final; publication is next.
+## Done: built for *Who Routes the Agents?* V1 (#4, archived 2026-11-15)
+V1 was finished and then archived unpublished on 2026-11-15. It is at the tag
+`video/super-agent/v1-archived`; the slot's `V1.md` holds the record. The infrastructure it needed
+stays.
 - [x] **Determinism lint for 2D DOM work** (2026-11-08): frame code may not use CSS
   `transition`/`animation`/`@keyframes`, the Web Animations API or `ResizeObserver`/
   `IntersectionObserver`.
 - [x] **Dependencies** (2026-11-08): `@remotion/paths` and `@remotion/layout-utils` 4.0.539, plus
-  fontsource IBM Plex Sans, Noto Sans SC and JetBrains Mono.
-- [x] **Score kit** (2026-11-08, decision 29): the generic DSP, convolution, reverb, mastering,
-  mixer and grid timeline, copied from the frozen film and bit-identical to it with default options,
-  plus oscillators, ADSR, delay, ducking and Karplus–Strong, at `@aiv/pipeline/audio/kit`. The
-  film's instruments stay in its own `audio/`.
-- [x] **2D measurements** (2026-11-08):
-  - 0.20–0.21 s/frame and 0.49 MiB/frame at 1080p;
-  - deterministic across fresh runs and at chunk starts with text ≤ 136 px (`engines/remotion/ENGINE.md`,
-    `knowledge/dom-text-determinism.md`);
-  - a flat ground, because CSS gradients band.
-  Follow-ups are under Known gaps.
-- [x] **The look rework's infrastructure** (2026-11-09, decisions 30–31):
-  - a diagram film is a lit WebGL world under DOM text, posed by one camera function;
+  fontsource IBM Plex Sans, Noto Sans SC and IBM Plex Mono 5.3.0. Plex Mono replaced JetBrains Mono
+  on 2026-11-09.
+- [x] **Score kit** (2026-11-08, decision 29): the generic DSP, convolution, reverb, mastering, mixer
+  and grid timeline, copied from the frozen film and bit-identical to it with default options.
+  Also oscillators, ADSR, delay, ducking and Karplus–Strong, at `@aiv/pipeline/audio/kit`.
+- [x] **2D and lit-world measurements** (2026-11-08 to 11-15, `engines/remotion/ENGINE.md`):
+  DOM text is deterministic at 136 px or less (`knowledge/dom-text-determinism.md`), and CSS
+  gradients band. The lit WebGL world is deterministic on fresh pages; its cost is in ENGINE.md.
+- [x] **The lit world's infrastructure** (2026-11-09, decisions 30–31):
   - `aiv still --span --encode --inner` for motion tests and their fresh-page check;
-  - `@aiv/remotion-kit` gains the frozen film's noise, `FinishEffect`, `Curve`, `CamPath`
-    and `screenBoxAt`, now hashing with public-domain MurmurHash3 fmix32;
-  - IBM Plex Mono 5.3.0 replaces JetBrains Mono;
+  - `@aiv/remotion-kit` gains the frozen film's noise, `FinishEffect`, `Curve`, `CamPath` and
+    `screenBoxAt`, now hashing with public-domain MurmurHash3 fmix32;
   - the frame-critic's calibrated "finished craft" criterion.
+- [x] **Captions** (2026-11-15, decision 32): `aiv captions` drafts SRT from cue text and lints it.
+- [x] **Archiving an unpublished film** (2026-11-15, decision 33): `archived` without a release
+  needs only a written README (docs/PRODUCTION.md, "Archive an unpublished video").
 
-  The WebGL world measured 0.37–0.62 s/frame and 1.31 MiB/frame at 1080p, deterministic on
-  fresh pages.
-- [x] **The build** (the video's README has the session plan):
-  - [x] part 1 (session 4, 2026-11-11): beats 1–6, the animatic and the score for bars 1–43, on
-    draft renders;
-  - [x] part 2 (sessions 5–6, 2026-11-13): beats 7–13, the score for bars 44–84 and two
-    whole-film critic rounds, on draft renders;
-  - [x] the review cut (session 6), approved 2026-11-15; the final (session 7).
-- [ ] **Two-user promotions:** `readingSeconds` and the hold rule → `@aiv/core` are done
-  (2026-11-08). Still to do:
-  - the caption pattern and the cue-text helpers → `@aiv/remotion-kit` / `@aiv/core`: the
-    film's notes block has settled (an EN line, a second-language line optional);
-  - the film's 2D motion kit (`videos/super-agent/src/kit/`), promoted with the next 2D explainer.
-- [x] **Captions** (2026-11-15): `aiv captions` drafts SRT from cue text and lints it (decision 32).
+## Now: #4 V2
+- [ ] **V2 of *Who Routes the Agents?*** is made with Claude Fable 5.2. It is planned in its first
+  session from the user's brief; the infrastructure it needs is listed here then.
+- [ ] **Two-user promotions.** `readingSeconds` and the hold rule moved to `@aiv/core` on
+  2026-11-08. The following exist only at V1's tag. Each moves to `@aiv/remotion-kit` or
+  `@aiv/core` when a film uses it again, and not before:
+  - the caption pattern and the cue-text helpers (`GREY_TEXT`, the notes block, `revealState`);
+  - `planSlices` (CJK font slices);
+  - `PreToeEffect`;
+  - the analytic footprint light;
+  - the 2D motion kit.
+- [ ] **Dependencies kept for V2.** Since the reset, nothing at HEAD imports fontsource IBM Plex Sans,
+  Noto Sans SC, IBM Plex Mono, `@remotion/paths` or `@remotion/layout-utils`. V1 rebuilds from its
+  tag's own lockfile. Remove the ones V2 does not use once its engine and type are chosen.
 
 ## Next: built when a film needs it
 Built when a film needs them, not before:
@@ -87,10 +75,13 @@ Built when a film needs them, not before:
   when the second web video exists (the Remotion side already shares them).
 - **Several formats per piece** (16:9 plus a 9:16 Short, as three series plan): decide
   between `deliverables[]` in `video.json` and linked slots, with the first such piece.
+- **A voice track**: text-to-speech or a recorded voice in `media/`, with captions aligned from
+  `SCRIPT.md`'s subtitle text (decision 32 notes the gap). Built when a film is narrated; #4 V2 may
+  be the first (its BRIEF, Narration).
 - **Bilibili publishing**: a `references/bilibili-publishing.md` (AI-content label, 自制
   declaration, covers, CC subtitles, 合集), and whether `video.json` records a Bilibili
-  release. Planned for #4 and dropped on 2026-11-13: the user publishes *Who Routes the
-  Agents?* on YouTube only, so its zh captions were removed (the film's README, Decisions).
+  release. It was planned for #4 V1 and dropped on 2026-11-13, when the user chose YouTube only
+  for that film. It is open for V2.
 
 ## Known gaps (not blocking)
 - Post is one-shot, not chunked; the assembly decode check reads the whole mezzanine.
@@ -101,6 +92,14 @@ Built when a film needs them, not before:
 - On macOS and Linux the orphan sweep parses `ps` output by whitespace, so a repository
   path with spaces defeats it (the docs require a path without spaces).
 - No interactive `--wait` queue for `aiv render` (it exits 75 when the heavy lock is held).
+- Browser profiles still pile up on Windows. On 2026-11-15 the temp folder held 654
+  `puppeteer_dev_chrome_profile-*` folders, about 0.9 GB, dated 2026-11-09 to 11-15: the days of
+  #4 V1's renders and stills. They were left even though the engine deletes the profiles it marks
+  (ENGINE.md, Browser hygiene). Which launches leave them is not traced, and the sweep deletes
+  only marked profiles.
+- A render call killed while the joined mezzanine is checked and hashed leaves a complete but
+  unverified `mezzanine.mkv`. A rerun joins again beside it, so the disk must hold two copies. The
+  runner could verify and reuse it instead.
 - Remotion engine:
   - page-side network fetches are not intercepted (bundled files are checked; the docs ban
     runtime loads);

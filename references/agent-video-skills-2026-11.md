@@ -10,7 +10,7 @@
 | Excerpt policy | Apache-2.0 prose may be adapted with a `NOTICE.md` entry. PolyForm-NC and unlicensed sources: ideas only, never copied. GSAP code: never. |
 
 ## What it is
-The agent skills and method sources found while reworking video #4's look, after its first
+The agent skills and method sources found while reworking #4 V1's look, after its first
 lookdev round passed the frame critic and was rejected by the user as too simple and crude.
 It records what each source teaches about taste and craft (not engines: those are in
 `hyperframes.md`, `remotion.md` and `motion-graphics-2d-2026-11.md`), its licence and our
@@ -111,11 +111,11 @@ must fail the rejected stills before it is trusted on anything new.
 
 ## What we adopted / adapted
 - **Frame-critic criterion 12, "Finished craft"** (`.claude/agents/frame-critic.md`), one merged rubric replacing two overlapping drafts (the craft checklist: 16 items, pass 26/32; and the skills strand's tells):
-  - *P0, any one fails the frame:* tells (rings or boxes as nodes, pill chips, icons in circles, three equal cards or identical parallel modules, 0/45/90° or connect-only lines, dash or glyph lines for text, glow on lines or text, decorative particles, fade-and-slide-up entrances, idle wobble, text moving while read, rolling counters, white flashes, gold or amber on navy) [HyperFrames]; the **small-object rule** (no hero ≥ 170 px, or an object under 110 px is the largest content element for more than 45 frames) [anything2explainer, idea]; **minimalism as a hiding place** [motionmaxxing]; the **stranger sentence** [HyperFrames]; **accuracy** (wrong built/proposed/open status, a number outside the facts).
+  - *P0, any one fails the frame:* tells (rings or boxes as nodes, pill chips, icons in circles, three equal cards or identical parallel modules, 0/45/90° or connect-only lines, dash or glyph lines for text, glow on lines or text, decorative particles, fade-and-slide-up entrances, idle wobble, text moving while read, rolling counters, white flashes, gold or amber on navy) [HyperFrames]; the **small-object rule** (no hero ≥ 170 px, or an object under 110 px is the largest content element for more than 45 frames, at 720p; the critic uses 255 px and 165 px at 1080p, Gotchas) [anything2explainer, idea]; **minimalism as a hiding place** [motionmaxxing]; the **stranger sentence** [HyperFrames]; **accuracy** (wrong built/proposed/open status, a number outside the facts).
   - *19 items scored 0–2*, pass at 30/38, a zero on a starred item fails: ★silhouettes, ★values, detail tiers, ★material, ★light, depth, ★relationships, choreography, easing, camera, ★type, composition, colour semantics, finish, genre distance, ★teaching, specificity [impeccable], ★world layers [motionmaxxing], worked example [HyperFrames explainer; Victor's ground level].
-  - *Calibration gate:* before it is trusted on a new look it must fail video #4's four rejected round-1 lookdev stills. The first run (2026-11-09, recorded in the critic) failed all four, at 14–16 of 38, each with P0 hits.
+  - *Calibration gate:* before it is trusted on a new look it must fail the looks the user rejected (`.claude/agents/frame-critic.md`, Calibration). Its first run (2026-11-09) failed #4 V1's four rejected round-1 lookdev stills, at 14–16 of 38, each with P0 hits. Those stills were local render output and are gone; the critic's Calibration section is the record.
   - We score, against HyperFrames' advice (quote above), because calibration needs a threshold; the report still lists every P0 and the three fixes that raise the score most.
-- **Motion tokens** for video #4 (planned home: `videos/super-agent/src/kit/timeline.ts`, which still holds round 1's `EASE` set; promoted by the rule of two). Springs as `{stiffness, damping}`, mass 1:
+- **Motion tokens** for #4 V1 (V1 defined the springs in `src/desk/springs.ts` and used them across `src/desk/`, e.g. `src/desk/beat11.ts`, at tag `video/super-agent/v1-archived`; no shared home yet, promoted by the rule of two). Springs as `{stiffness, damping}`, mass 1:
 
 | Token | ζ, k → Remotion config | Use |
 |---|---|---|
@@ -131,7 +131,7 @@ must fail the rejected stills before it is trusted on anything new.
 
   - Rules: Remotion's default spring is banned; overlap 30–40% of the earlier move; stagger 2–3 f, at most 20 f per group; follow-through 2–4 f, labels trail their object by 2 f; 10–20 f of stillness before each climax; durations micro 5 f, entrance 10–20 f, structural change 40–80 f [U, about 1.5–2× UI durations]; life only from parts that are working, so notes and landed labels stay dead still and holds do not drift; shadows baked per state on Comeau's recipe, not animated blur.
 - **Lookdev method** (home: `docs/PRODUCTION.md` and the `make-video` / `render-verify` skills): style frames of 2–3 *competing directions* at the same beat, each first written as a named philosophy and as the rules of one medium, filled to all six world layers, then given the refine-don't-add pass; then **motion tests** (a few seconds of a signature relationship move at final craft); then an **animatic** (stills and key poses timed on the cue sheet with the score). The user approves at each lock; this is also anything2explainer's first-30-seconds sample.
-- **Per-film BANNED line** (proposed home: the film's `STORYBOARD.md`): HyperFrames' defaults plus everything the first render used, growing with each review.
+- **Per-film BANNED line** (proposed home: the film's `STORYBOARD.md`; V1 kept its list in `videos/super-agent/TREATMENT.md`, "BANNED (this film)", at tag `video/super-agent/v1-archived`): HyperFrames' defaults plus everything the first render used, growing with each review.
 - **Attribution:** ideas restated in our words are credited here, as `NOTICE.md` says. Any repo file that keeps Apache-2.0 wording from HyperFrames, motionmaxxing or anthropics/skills needs a `NOTICE.md` and `REUSE.toml` entry and a file header; motionmaxxing's NOTICE travels with its text.
 
 ## What we deliberately did NOT adopt, and why
@@ -140,19 +140,19 @@ must fail the rejected stills before it is trusted on anything new.
 - The dark-void ban as an absolute: the user prefers dark grounds, so for us it reads "a dark ground must be built (light, texture, material), never a void".
 - anything2explainer text, code and look (black ground, purple glow, star field are the genre's package); its 1.0 → 1.05 slow push to fill stillness, which contradicts "no drift on holds".
 - The craft strand's 1–3% camera drift on every hold, breathing and hand wobble, and the tooling strand's bloom and decorative particles: the motion doctrine and the BANNED list forbid them; emission stays semantic.
-- motionmaxxing's hard-cut launch-film grammar: video #4 is one world without cuts.
+- motionmaxxing's hard-cut launch-film grammar: it conflicts with a one-world film such as #4 V1; a film with cuts may take its grammar.
 - remotion-dev/skills: nothing new, no licence. anthropics `theme-factory`: generic themes; `frontend-design` is web UI (already available as a plugin).
 - Skipped as generic framework knowledge (a 2026-10-11 benchmark found such skills add nothing over a no-skill baseline [S]): adithya-s-k/manim_skill `cef04501`, yusuke710/manim-skill `a0048d9e` (both MIT), kylezantos/design-motion-principles `4a9ca879` (MIT, UI micro-interactions), ItsssssJack/claude-video-2 (MIT; one useful line: a shadow that tightens as a thing lands). MiyanoX/vibe-knowledge-video: no commits since `78cbecce`.
 - D2, isoflow, excalidraw-animate (wrong look) and PrimerTools (no licence); imMamdouhaboammar/motion-graphics-skills (proprietary).
 
 ## Gotchas
-- **anything2explainer's pixel thresholds are for 720p.** Scaled to 1080p, 170 px and 110 px become about 255 px and 165 px. The critic adopted the raw numbers, which is 1.5× looser; whether to scale them is open [U].
+- **anything2explainer's pixel thresholds are for 720p.** Scaled to 1080p, 170 px and 110 px become about 255 px and 165 px. ~~The critic adopted the raw numbers, which is 1.5× looser; whether to scale them is open [U].~~ Resolved 2026-11-09: the critic uses the scaled 255 px and 165 px (`.claude/agents/frame-critic.md`, criterion 12).
 - The critic's P0 wording tracks HyperFrames' closely in places ("text that moves while it is read"). If it counts as adapted text, it needs the NOTICE entry; the safe reading is that it does [U].
 - Overlap is stated two ways: HyperFrames starts the next element when the previous is 30–50% done (a deep overlap); the craft strand starts it at 60–75%. The token rules above take the craft side (overlap 30–40%, so the next move starts at 60–70%). Write the film's choice in frames.
 - HyperFrames' text floor (28 px at 1080) is below the repo's (1/30 of frame height, 36 px at 1080p); the repo's wins. Its hero rule (≥ 40% of height or width) is stricter than 170 px.
-- JetBrains Mono, video #4's number face, is on HyperFrames' "generated" list; IBM Plex Mono matches Plex Sans [U], but swapping it is a dependency decision.
+- JetBrains Mono, #4 V1's first number face, is on HyperFrames' "generated" list; IBM Plex Mono matches Plex Sans [U]. IBM Plex Mono 5.3.0 replaced it on 2026-11-09 (`docs/ROADMAP.md`).
 - HyperFrames publishes several versions a day (0.9.20 to 0.9.23 within about 20 hours): pin by commit and re-read before adapting any text.
-- Motion tests need spans longer than 120 frames plus an encode and motion QA, which the tooling did not have when this was written.
+- Motion tests need spans longer than 120 frames plus an encode and motion QA, which the tooling did not have when this was written. Since 2026-11-09 it has them: `aiv still --span --encode`, up to 240 frames, and `--inner` for the fresh-page check (`docs/ARCHITECTURE.md`, decision 31).
 - anthropics/skills, awesome lists and GitHub's licence API all mislead in their own way: read the actual LICENSE file of the thing you take.
 
 ## Not read

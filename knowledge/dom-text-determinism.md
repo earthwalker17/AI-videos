@@ -29,7 +29,7 @@ The answer is a size limit, a compositing-layer hint and a flat ground (or a bak
 ## Evidence
 2026-11-08, reference host class: Windows 11, 4-core 10th-gen Intel, Intel UHD iGPU, 8 GB.
 Chrome Headless Shell 157.0.8080.0, `--gl=angle`, Remotion 4.0.539. The determinism probe of
-`videos/super-agent` (`src/lookdev/ProbeScene.tsx`):
+video #4 V1 (`videos/super-agent/src/lookdev/ProbeScene.tsx` at tag `video/super-agent/v1-archived`):
 - **Large text.** A 200 px IBM Plex Sans SemiBold line differed by up to 2 code values on 32–363
   pixels in 9 of 15 fresh-page against mid-chunk comparisons at 1080p; one frame gave three
   different hashes in three calls. A layer did not help.
@@ -51,9 +51,15 @@ Not verified: other GPUs and browser builds (the bound is per host; re-measure);
 136 and 160 px in Plex; whether the kit's `TestCard` and `Title` text (not in a layer) also fringe.
 
 ## In this repo
-- `MAX_TEXT_PX` (136) and the tests on it: `videos/super-agent/src/look/tokens.ts`.
-- `GREY_TEXT` and the text components that use it: `videos/super-agent/src/kit/text.tsx`.
-- The flat ground and the `<Img>`-loaded dither tile: `src/look/Ground.tsx`, `src/kit/dither.tsx`.
+- None of `MAX_TEXT_PX`, `GREY_TEXT`, the flat ground or the dither tile is in shared code yet.
+  #4 V1 (archived 2026-11-15) kept them in its slot, now only at tag
+  `video/super-agent/v1-archived`:
+  - `MAX_TEXT_PX` (136): `videos/super-agent/src/look/tokens.ts`, tested in `tokens.test.ts`;
+  - `GREY_TEXT` and the text components that use it: `videos/super-agent/src/kit/text.tsx`;
+  - the flat ground and the `<Img>`-loaded dither tile: `videos/super-agent/src/look/Ground.tsx`,
+    `src/kit/dither.tsx`.
+
+  Promote them to `@aiv/remotion-kit` when a second film uses them.
 - Measurements: `engines/remotion/ENGINE.md`, Measured on the reference host.
 - The check commands: the `render-verify` skill.
 
@@ -64,3 +70,14 @@ Not verified: other GPUs and browser builds (the bound is per host; re-measure);
 - Characters missing from a family fall back to another one (here, U+2192 → came from Noto Sans
   SC inside JetBrains Mono numbers): `useFont`'s coverage proof catches a missing glyph, not a
   mismatched one.
+- Word segmentation cannot place zh line breaks: `Intl.Segmenter('zh', { granularity: 'word' })`
+  splits 路由器 into 路|由|器 (Node 24.19.0, ICU 78.3; Chrome's ICU was not checked). Write the
+  phrase breaks into the copy by hand as spaces, and wrap zh DOM text with `word-break: keep-all`,
+  `line-break: strict` and `text-autospace: no-autospace`, so it breaks only there and Chrome
+  140+ adds no Han–Latin gap of its own [U: from the references note, not tested here] (#4 V1, `videos/super-agent/src/kit/text.tsx:17-19, :74-79`
+  at tag `video/super-agent/v1-archived`; [references/motion-graphics-2d-2026-11.md](../references/motion-graphics-2d-2026-11.md)).
+- Under `vector-effect: non-scaling-stroke` the browser lays a dash pattern out in screen units,
+  so a draw-on that animates a dash offset measured in world units ends in the wrong place at
+  any zoom but 1. Cut the path instead (`@remotion/paths` `cutPath`), which also keeps a dashed
+  line's pattern still while it draws (#4 V1, `videos/super-agent/src/kit/diagram.tsx:7-10` at
+  the tag) [U: recorded in the code, not measured on its own].

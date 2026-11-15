@@ -3,16 +3,16 @@
 | | |
 |---|---|
 | Upstream | Article (English, X): https://x.com/DeepSeekHarness/status/2116857257245987236 · Chinese original (WeChat, not read): https://mp.weixin.qq.com/s/zoS7GlReWPhfCjENGxXCdg · prototype: https://github.com/deepseek-ai/dsh-superagent-prototype · DeepSeek Harness: https://github.com/deepseek-ai/deepseek-harness |
-| Pin | Article: X article id `2116829218935857152`, status `2116857257245987236`, created and last modified 2026-11-01T11:37:54Z, 143 blocks (read as JSON through the public api.fxtwitter.com proxy; re-read there on 2026-11-09: still 143 blocks, modified time unchanged). Wayback: the X status at `20261104183343`, the prototype repo page at `20261104092814`. Prototype `8c32a9dc5d72c033816c6a8110b37f40cf94fba4` (its only commit). DeepSeek Harness `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159` (2026-11-04, branch `master`). |
+| Pin | Article: X article id `2116829218935857152`, status `2116857257245987236`, created and last modified 2026-11-01T11:37:54Z, 143 blocks (read as JSON through the public api.fxtwitter.com proxy; re-read there on 2026-11-09: still 143 blocks, modified time unchanged). Wayback: the X status at `20261104183343`, the prototype repo page at `20261104092814`. Prototype `8c32a9dc5d72c033816c6a8110b37f40cf94fba4` (its only commit). DeepSeek Harness `fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159` (2026-11-04, branch `master`). Article text: sha256 of the UTF-8 `JSON.stringify(blocks.map(b => b.text))` over the proxy JSON's `article.content.blocks` is `d1a1fdc670eb78799d37237e73a4597e7b3cb5029a59f6deb16e2eab27d458b9` (143 blocks, modified 2026-11-01T11:37:54Z), the same in the three fetches of 2026-11-08 and 2026-11-09 (computed 2026-11-15). Recompute it on a re-fetch to see whether the text changed; a whole-file hash changes with the reach counts. |
 | Licence | Article and figures: no licence stated, so facts are paraphrased, quotes stay short and figures are never reused. Prototype and DeepSeek Harness: MIT ("Copyright (c) 2026 DeepSeek Harness Team" for the prototype). |
-| Accessed | 2026-11-08 (prototype and Harness first read 2026-11-07, about 23:40 UTC). The facts added for the 3:45 cut were re-checked 2026-11-09: the article through the proxy, the prototype files and Harness presets at the pins. |
-| Stale after | 2026-12-08 for the prototype, the Harness (a pre-1.0 developer preview) and the reach counts. Check the article for edits or errata before the review cut and again before release. |
+| Accessed | 2026-11-08 (prototype and Harness first read 2026-11-07, about 23:40 UTC). The mechanism details and matrix notes were re-checked 2026-11-09: the article through the proxy, the prototype files and Harness presets at the pins. |
+| Stale after | 2026-12-08 for the prototype, the Harness (a pre-1.0 developer preview) and the reach counts. Check the article for edits or errata (the text hash in Pin) before #4 V2's script locks, and again before its review cut and its release. |
 
 ## What it is
 A design essay by the DeepSeek Harness team, *Exploring Super-agent Design: Towards a More Autonomous Agent System*; Yujia Qiao implemented the system and wrote the article (block 143). It argues that once one person runs many agent sessions, the limit is human attention, not the model. Its answer is a long-lived **Router** that talks to people and dispatches work without doing it, above isolated **Workers** that each run one task. Further mechanisms (event filtering, Thread subscriptions, context handling, an async loop, compute/state/environment separation, a Watchdog) and two small synthetic experiments follow. The team also published an MIT research prototype: a DeepSeek Harness plugin that acts as a coding agent for one GitHub repository.
 
 ## Why it matters here
-Video #4 (`videos/super-agent`, *Who Routes the Agents? / 谁来调度智能体？*) explains this article. Its facts gate needs every on-screen claim pinned to a block, the prototype SHA or a snapshot, and the film labels each part built, proposed or open: the matrix below is the source of truth for that.
+Video #4 (`videos/super-agent`; V1 *Who Routes the Agents?* archived 2026-11-15, V2 in planning) explains this article. Its facts gate needs every on-screen claim pinned to a block, the prototype SHA or a snapshot, and the series rule is to say on screen what is built and what is proposed (`series/science-explainers/SERIES.md`, "Built or proposed"): the matrix below is the source of truth for that.
 
 ## Key facts — publication [V unless marked]
 - **English version.** Block 1 says it is a machine translation of a Chinese original; block 2 says it presents architectural ideas, not existing DeepSeek Harness features. About 6,900 words, 13 inline figures, a dark cover image and one Markdown results table.
@@ -36,7 +36,7 @@ Video #4 (`videos/super-agent`, *Who Routes the Agents? / 谁来调度智能体�
 8. **Open problems (blocks 121–136).** Scaling (sharding, Worker topology, a Router-trained model; block 124), long-term memory (block 125), working without sessions and stepping in mid-task (blocks 127–129), context boundaries and A2A (blocks 131–132), security: a loop compromised by intrusion or prompt injection could take over every connected endpoint, and credentials leak through context (blocks 134–136).
 9. **Conclusion (blocks 137–140).** Classic systems ideas "rather than proposing new theory" (block 138); people move up to "higher-level decisions and sign-off" (block 139). Block 141 calls the prototype "not an official DeepSeek product".
 
-## Key facts — the mechanisms behind the 3:45 cut [V via mirror unless marked; paraphrased]
+## Key facts — the mechanisms in detail [V via mirror unless marked; paraphrased]
 Read 2026-11-08 and re-read 2026-11-09 in the article's JSON through api.fxtwitter.com. **[V via mirror]** means checked in that third-party copy, not on x.com itself. The earlier [V] tags on article facts in this note rest on the same copy.
 
 - **Traits and their modules (blocks 12–18).**
@@ -45,11 +45,11 @@ Read 2026-11-08 and re-read 2026-11-09 in the article's JSON through api.fxtwitt
   - Proactive: it watches its environment, acts on what is worth it and otherwise stays quiet.
   - Persistent: always online, in real environments, recovering by itself.
   - Block 18 maps modules to traits: two levels → Continuous and Productive; event-driven → Proactive; full-duplex multi-channel → Continuous and Productive; compute/state/environment separation plus the Watchdog → Persistent.
-- **The chores (blocks 6, 7, 44).**
+- **What people still do by hand (blocks 6, 7, 44).**
   - Switching sessions by hand and remembering what each one holds (6).
   - One synchronous session that blocks on long operations, mixes task contexts, stops when the device goes offline, and takes a lot of manual effort to keep running (7).
   - A human prompt before each run (44).
-  - Calling these four chores and pairing each with a trait is our framing [U].
+  - #4 V1 called these four chores and paired each with a trait: our framing [U], not the article's.
 - **Why the Router never works (blocks 31–32, 39, 53, 58).**
   - All cross-task information and decisions meet in the Router, so it is the one sequence point, coordinator and memory. It does not execute, so that this single node never becomes the bottleneck (31).
   - It handles only cold starts and cross-task coordination; code sends follow-ups to their Worker (53).
@@ -122,7 +122,7 @@ Read 2026-11-08 and re-read 2026-11-09 in the article's JSON through api.fxtwitt
   - Block 17 says classic systems ideas apply. Block 138 says the design applies them instead of new theory. It also says the internal instance runs continuously: it reproduces and fixes issues, answers code reviews and helps develop DeepSeek Harness itself.
   - Block 139 credits the five modules with taking over session management and context syncing.
   - The further analogies in the lineage table below (pub/sub, actors, the event loop, Lampson, Denning) are ours [U], not the article's.
-- **Lines the 2:56 cut left unused**: blocks 62 and 102 (quoted above), block 138's "rather than proposing new theory" (section 9 above), and block 27:
+- **Further quotable lines**: blocks 62 and 102 (quoted above), block 138's "rather than proposing new theory" (section 9 above), and block 27:
   > Quoted from https://x.com/DeepSeekHarness/status/2116857257245987236 (accessed 2026-11-09): "a design habit carried over from low-level LLM APIs"
 
 ## Key facts — experiments [V numbers; ratios our arithmetic, U]
@@ -173,13 +173,13 @@ Read 2026-11-08 and re-read 2026-11-09 in the article's JSON through api.fxtwitt
 
 The article's own short summary (block 124) is what is built: one long-lived Router Session, subscription with pass-through, no direct Worker-to-Worker messages.
 
-**Matrix notes for the 3:45 cut** [V at `8c32a9d`: read 2026-11-08, re-checked 2026-11-09]
+**Matrix notes** [V at `8c32a9d`: read 2026-11-08, re-checked 2026-11-09]
 - **Inline & Spill in numbers** (`docs/007-architecture.md`):
   - At the Router, a `worker_report` arrives as a card with a summary of up to 600 characters. When the summary is truncated, the card adds `chars` and a read pointer (:589); `src/app/notices.ts` truncates behind `ticket/<id>/result`.
   - Other loaded messages appear as 50-character `{id, from, preview}` stubs (:546). That is also the article's own example length (block 66).
   - A Trigger's text is inlined up to 4,000 characters. Thread messages get 400 characters, or 1,200 for the two on either side of the Trigger (:543–545).
   - A Worker's first message inlines up to 1,500 characters of the assignment (:594). Read pointers appear only for truncated content.
-  - So the mechanism is clearest at the Router. These numbers are not film copy (Q5 below).
+  - So the mechanism is clearest at the Router. These numbers are the prototype's, not the article's (Q5 below).
 - **Isolation by ID** (:573, :575):
   - An Executor Session reads only its own Ticket, its Threads, the Triggers that reached it, the prompt versions it worked under and the originals. Its pages leave out the ids of what it cannot read: Decisions and other Tickets.
   - Every id a page shows can be read, so a Session walks from one object to the next. That is Chain of Recall in prototype form, and isolation is enforced by which IDs a Worker ever sees.
@@ -292,85 +292,58 @@ Sources: authors' terms via IT之家 or 量子位 [S]; a full reprint credited t
 10. The prototype differs from the article: the Router keeps a shell, Workers reply on GitHub, and there is no cloud, BYOM, ~~Watchdog~~ model-judged Watchdog (only an operator-set hourly restart check, matrix 2026-11-09), sharding or experiment harness.
 11. Security is unsolved: one hijacked loop could reach every connected machine.
 
-## Key facts — open accuracy questions for the 3:45 cut (raised 2026-11-08)
-These stay open until the facts gate signs off the new lines. Where the 2026-11-09 re-check answered the fact, the film decision is still open.
+## Key facts — accuracy questions (raised 2026-11-08)
+Raised by the critique of 2026-11-08; settled at the source on 2026-11-09 unless the last column says "Open". How a film shows each answer is that film's choice. (Q9, about a picture metaphor of #4 V1, was dropped on 2026-11-15.)
 
-| # | Question | Found so far | Still to check |
+| # | Question | Answer | Still open |
 |---|---|---|---|
-| Q1 | Does a pass-through follow-up reach the Router at all, i.e. is it on the Router's tape? | Yes, in both. Article: the Router sees every event but evaluates only unsubscribed ones (block 58) [V via mirror]. Prototype: a person's follow-up reaches the main Session as a `follow_up` notice, and bot or CI messages still go to Eval (matrix notes) [V 2026-11-09] | Whether the film's tape records decisions (then "the tape does not tick" under C17 holds) or arrivals (then the follow-up must be marked without a decision) |
-| Q2 | Who posts the PR? | The design gives all external interaction to the Router layer (blocks 60, 86); in the prototype, Workers open PRs (`prompts/work.md`) | Draw no sender line; re-check if the prototype changes |
-| Q3 | Does C12's "only the Router talks to you" hold? | In IM only. Workers post their own acknowledgements through `orchestrator_ack` (`src/app/tools/executor.ts:29`) and reply on review threads (`prompts/replies.md`) | FACTS open item 2 decides the wording; tagBuilt keeps ending before C12 |
-| Q4 | Can any part of the Watchdog be drawn as built? | Only the infrastructure check exists: an agent-run hourly prompt that never judges progress (matrix) [V 2026-11-09] | N8 stays under tagProposed; a solid line may show a running Worker, never a progress judgement |
-| Q5 | Do the card numbers go on screen? | 600-character reports, 50-character stubs, 160-character previews, 1,500-character assignments and 4,000-unit pages are prototype details [V] | Film decision: keep them off screen; a tag says "prototype form" at most |
-| Q6 | Does N7 need a tag? | Block 83: in the Harness but not enabled by default. The prototype's presets switch it on at 5 s. At `fcc0ad4` the Harness `standard` preset looks switched on too [V code; U reading] | Which preset a fresh Harness profile gets, and what block 83 means by "default"; the cue sheet's draft tag is "prototype: background after 5 s" |
-| Q7 | Are the zh terms for the four traits the authors'? | 连续 / 高效 / 主动 / 持久 come from IT之家 [S] | The Chinese original's own terms, once it can be read (WeChat, Zhihu) |
-| Q8 | Is the token mapping right? | Yes [V via mirror, 2026-11-09]. Entity 13: 6.1M = single session, neutral prompt; 10.8M = single session, delegation prompt; 23.2M = Super-agent. The column is "cache-read tokens per run (all sessions)" | Nothing further: the lanes "one session / told to delegate / two levels" match |
-| Q9 | Is the request's stub on the tape a fact? | It is our metaphor for the Ticket record [U]. The prototype's main Session sees Ticket cards and `related_tickets`, not a log of every arrival (`docs/007-architecture.md:540-548`) | Keep it unlabelled, as a metaphor |
-| Q10 | Where does the Slow Path sit? | The article sends candidate events to an LLM without saying which session runs it (block 50); in the prototype the main Session runs the assessment after the code gate (matrix) | Keep the loupe on the Router and the code gate before it, as in the prototype |
+| Q1 | Does a pass-through follow-up reach the Router at all? | Yes, in both. Article: the Router sees every event but evaluates only unsubscribed ones (block 58) [V via mirror]. Prototype: a person's follow-up reaches the main Session as a `follow_up` notice, and bot or CI messages still go to Eval (matrix notes) [V 2026-11-09]. Settled 2026-11-09 | Nothing. A picture of the Router's record must say whether it records decisions (a follow-up adds none) or arrivals (a follow-up arrives without a decision) |
+| Q2 | Who posts the PR? | The design gives all external interaction to the Router layer (blocks 60, 86); in the prototype, Workers open PRs (`prompts/work.md`). Settled 2026-11-09 | Re-check if the prototype changes; show no sender unless the film says whether it means the design or the prototype |
+| Q3 | Does "only the Router talks to people" hold in the prototype? | In IM only. Workers post their own acknowledgements through `orchestrator_ack` (`src/app/tools/executor.ts:29`) and reply on review threads (`prompts/replies.md`). Settled 2026-11-09 | Nothing. A "built" label covers the two levels, not this claim |
+| Q4 | Can any part of the Watchdog be shown as built? | Only the infrastructure check exists: an agent-run hourly prompt that never judges progress (matrix) [V 2026-11-09]. Settled 2026-11-09 | Nothing. The Watchdog is proposed; a running Worker may be shown as built, a progress judgement never |
+| Q5 | Are the prototype's card sizes article facts? | No: 600-character reports, 50-character stubs, 160-character previews, 1,500-character assignments and 4,000-unit pages are prototype details [V]. Settled 2026-11-09 | Nothing. If shown, they are labelled as the prototype's |
+| Q6 | Is the async job loop on by default? | Block 83: in the Harness but not enabled by default. The prototype's presets switch it on at 5 s. At `fcc0ad4` the Harness `standard` preset looks switched on too [V code; U reading] | Open: which preset a fresh Harness profile gets, and what block 83 means by "default" |
+| Q7 | Are the zh terms for the four traits the authors'? | 连续 / 高效 / 主动 / 持久 come from IT之家 [S] | Open: the Chinese original's own terms, once it can be read (WeChat, Zhihu) |
+| Q8 | Is the token mapping right? | Yes [V via mirror, 2026-11-09]. Entity 13: 6.1M = single session, neutral prompt; 10.8M = single session, delegation prompt; 23.2M = Super-agent. The column is "cache-read tokens per run (all sessions)". Settled 2026-11-09 | Nothing |
+| Q10 | Where does the Slow Path sit? | The article sends candidate events to an LLM without saying which session runs it (block 50); in the prototype the main Session runs the assessment after the code gate (matrix). Settled for the prototype 2026-11-09 | Nothing to check. The article does not say; a picture that puts it at the Router, after the code gate, shows the prototype's form |
+
+## Sources found in V1's session notes (URLs; not re-read since 2026-11-08)
+#4 V1's research notes (written 2026-11-07 to 2026-11-09) held these URLs and facts, which this note named without a link or left out. They were copied here on 2026-11-15, before those notes were deleted; the tags are the notes' own. Paraphrased; no article text or figure is kept.
+- **Context** (accessed 2026-11-08) [V as noted then]:
+  - Anthropic, *Building effective agents* (2024-12-19), https://www.anthropic.com/engineering/building-effective-agents: its orchestrator-workers pattern has a central model work out the subtasks, the contrast named under reception above.
+  - Anthropic, *How we built our multi-agent research system* (2025-06-13), https://www.anthropic.com/engineering/multi-agent-research-system: an Opus 4 lead with Sonnet 4 subagents, 90.2% better than a single agent on an internal eval, about 15× the tokens of chat, a poor fit for shared-context work and most coding, and a lead that runs synchronously.
+  - Cognition, *Don't Build Multi-Agents* (2025-06-12), https://cognition.com/blog/dont-build-multi-agents, and *Multi-Agents: What's Actually Working* (2026-04-22), https://cognition.com/blog/multi-agents-working: share full context; multi-agent setups work when writes stay single-threaded. V1's reading [U]: one Worker per whole task is close to single-threaded writes, and the neutral prompt's 0 of 5 delegations fits Cognition's finding that a model left to decide when to escalate is unreliable.
+  - Claude Code docs as of 2026-11-08: subagents (background, up to 20 concurrent by default, 3 nesting levels), https://code.claude.com/docs/en/sub-agents; agent teams (experimental; teammates message each other directly, unlike Workers; the docs suggest starting with 3–5 teammates, a coincidence with block 6), https://code.claude.com/docs/en/agent-teams; Projects (a coordinator that sees what its threads report, not each of their steps), https://code.claude.com/docs/en/claude-projects and https://claude.com/blog/projects-redesigned (2026-09-17). These products change fast: date any comparison.
+  - Codex cloud, https://learn.chatgpt.com/docs/cloud, and GitHub Copilot cloud agent, https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-coding-agent.
+  - Personal agents of the kind section 1 alludes to, neither named in the article: OpenClaw (MIT, about 394k stars) and Hermes Agent (MIT, about 261.5k) [V GitHub API then]. A count found no mention of Claude, OpenAI, Codex, Cursor or Devin in the article.
+- **Reception** (accessed 2026-11-08): Interesting Engineering (B. Stojkovski, 11-01), https://interestingengineering.com/app/read/ai-robotics/china-deepseek-architecture-multi-agent-ai, which gives 3–5 as the team's estimate; 智东西 via Sina, https://finance.sina.cn/tech/csj/2026-11-01/detail-inixepty4335109.d.html; redreamality (11-02), https://redreamality.com/cn/blog/deepseek-super-agent-router-worker-architecture/; 掘金 (11-04), https://juejin.cn/post/7704197912935252002; 人人都是产品经理 (11-04), https://www.woshipm.com/ai/6488815.html, a practitioner who agrees with the shape (partly promotional); aicodewith (11-01), https://aicodewith.ai/zh/blog/deepseek-super-agent-review-dsh-superagent; explainx, https://explainx.ai/blog/deepseek-super-agent-architecture-router-worker-triggers-watchdog-2026; Hacker News through https://hn.algolia.com/api/v1/search?query=dsh-superagent (items 50326523, 50334601, 50316116, 50321277, 50327721 and 50323920; the Bloomberg thread is 50323814); the AI LABS YouTube video, id `3DklR44DHnM` [V oEmbed]; the Harness CVE advisory, https://advisories.gitlab.com/pkg/npm/@deepseek-ai/dsh-client-connection/; a Bilibili column, cv53698541 [U: it did not load].
+- **Lineage and psychology ids** missing from the tables above: Lampson's *Hints*, https://courses.csail.mit.edu/6.826/1999/html/00-Hints-for-computer-system-design.html (long version arXiv 2011.02455); DistServe arXiv 2401.09670; group commit doi 10.1145/602259.602261 [U: analogy]; Snowflake doi 10.1145/2882903.2903741; Denning doi 10.1145/363095.363141 and 10.1145/1070838.1070856; https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop; OSTEP, https://pages.cs.wisc.edu/~remzi/OSTEP/; https://docs.kernel.org/watchdog/watchdog-api.html; https://kubernetes.io/docs/concepts/architecture/controller/; https://www.erlang.org/doc/system/sup_princ.html. Mark 2008 doi 10.1145/1357054.1357072; González & Mark 2004 doi 10.1145/985692.985707; Parnin & Rugaber 2009 doi 10.1109/icpc.2009.5090030; Leroy 2009 doi 10.1016/j.obhdp.2009.04.002 [metadata only]. Not in the tables: Meyer et al., TSE 2017, doi 10.1109/tse.2017.2656886, on fragmented developer work (correlational) [V then].
+- **Prototype setup** [V at `8c32a9d`, `docs/006-deployment.md` unless marked; read 2026-11-07, about 23:40 UTC]: Node ^22.19 or ≥ 24 (`package.json`), pnpm, git 2.32+, tmux, Python 3.8+, gh 2.48+ and a model provider set up in the Harness; a dedicated GitHub *user* account, because a GitHub App cannot be the agent; setup strips environment variables whose names contain KEY, PASSWORD, SECRET or TOKEN; the panel binds 127.0.0.1:3082; records are never deleted (`docs/007-architecture.md:484`), so the database only grows. The Harness repo then had 275,733 stars and 33,724 forks.
+- **The article's figures** (an inventory, so they can be avoided) [V as viewed 2026-11-08]: 13 inline figures and a dark cover. White ground, slate-grey rounded boxes, one saturated blue accent for active parts, grey for passive ones, dashed lines for slow or asynchronous paths, charts in default matplotlib. One running example, a bug report about a view that goes blank on a session switch, runs through figures 9, 11 and 13 by X `localMediaId` (Gotchas): the bug report in the sieve, then its IM thread and its PR thread with CI and review, then the bypass. The problem itself, attention, has no figure. The most visual ideas, in the researcher's judgement [U]: hub and spoke (7), a two-stage sieve (9), the pass-through bypass (13), a speculative PR on a side track (17), blocked against flowing swimlanes (19), a device that sleeps while the loop survives (21), completion curves (23). Their layouts are on the do-not-copy list below; their data may be re-plotted, as that list says.
+- **The reprint's section headings** [S: the blog.eimoon.com reprint; U until the original is read]: 1 Super-agent · 2 双层架构 (Router层, Worker层) · 3 事件驱动 (事件过滤, 事件路由, 上下文组织, 提前行动) · 4 面向人的交互 (全双工交互, 多信道交互) · 5 计算、状态与环境的分离 · 6 Watchdog · 7 初步实验 (消融实验, Router层的批处理) · 8 开放问题 · 9 结语.
 
 ## What we adopted / adapted
-Video #4's use of this note (treatment approved 2026-11-08):
-- **Built vs proposed from the matrix.** Solid line = in the public prototype at `8c32a9d`; dashed = proposed; a sketch "?" = open. The built tag is scoped to the two levels; proactive pickup carries an "off by default" tag; always-on parts and the security risk are dashed or open.
-- **The core claim** as blocks 25, 31–32 and 124 state it: a Router that neither executes nor decomposes (a split sketch is struck out), one Worker per request.
-- **Numbers**: p95 ≈ ½, p50 about 10% against the stronger baseline, 2–4× tokens (2.1× / 3.8×), pass-through's saving in Router decisions rather than time (about 30% more decisions without it, about 23% fewer with it: not "30% fewer"), and the stress test's endpoints only (1 → 40/min, 6.4 → 1.6 s average, mock Workers). The chart is labelled "synthetic · re-plotted · indicative only", with no minutes on screen; "authors' experience" stays attached to 3–5.
-- **Credit and terms**: plain-text credit (title, DeepSeek Harness team, Yujia Qiao, the zh and EN dates) and a non-affiliation line; URLs off-screen (description, CREDITS.md, `sources.jsonl`, README). zh copy keeps the Latin technical terms, glossed as IT之家 and 量子位 do.
-- **Facts**: FACTS.md cites 1-based block numbers, the prototype SHA, the Wayback timestamps and the access date.
-
-**The 3:45 cut** (84 bars, 3:44.0). It is in the film's cue sheet from 2026-11-09. Its 11 new lines and new tags wait for the user's zh sign-off, and the length is beyond BRIEF's 2–3 minutes.
-- **Spine: the human router's chores, handed over** [U framing on blocks 6, 7, 44 and 139]:
-
-  | Chore | Trait | Where it is handed over |
-  |---|---|---|
-  | Switch and remember | Continuous | At the turn (beat 4) |
-  | Prompt each run | Proactive | Beat 5, "by design" |
-  | Wait | Productive | Beat 7 |
-  | Keep it running | Persistent | Beat 9, proposed |
-
-  - The open problems (beat 10) are the chores that cannot be handed over yet.
-  - The trait words appear only as small plates. Their zh comes from IT之家 [S], and Persistent's plate is drawn as proposed.
-  - The through-line is continuity against throughput: C7 asks it, and N9 brings it back (block 37).
-- **What the cut adds, and with which status:**
-
-  | Line | Mechanism (blocks) | Status on screen |
-  |---|---|---|
-  | N1 | The four chores (6, 7, 44) | Framing; no tag |
-  | N2 | Why the Router never works (31) | Design intent, inside the "two levels: built" scope. The Router is never drawn shell-less |
-  | N3 | Listening for events (15, 44) | Built for GitHub. Unprompted pickup carries tagGate ("proactive pickup off by default") in beat 5 |
-  | N4 + plate | Why batching is cheap (33, 35); plate 118–120 | Built in two forms. The plate reads "stress test · mock Workers" and shows endpoints only |
-  | N5 | Context as a cache (62–63, 65–67) | Prototype form, drawn at the Router; no card numbers. The cue sheet's tagCache reads "prototype: summaries and read pointers" and stays up through N6 |
-  | N6 | Chain of Recall (68, 70–71) | Prototype form. It starts from a GitHub review comment, because the prototype has no email source |
-  | N7 | Background jobs (79, 81–83) | Built through Harness background jobs. The cue sheet's draft tagJobs reads "prototype: background after 5 s"; its wording waits on Q6 |
-  | tag100 | The 100-word chat cap (87) | Built. It is attention protection, not waiting |
-  | tagLoad | The test's load (108) | C19's numbers, moved to a tag |
-  | N8 | Watchdog (101–103) | Under tagProposed, because the progress check is absent |
-  | N9 | Sharding and long-term memory (37, 124–125) | Open, in sketch line |
-  | N10 | Stepping in midway (128) | Open. It qualifies the sign-off ending (C27–C28) |
-  | N11 + labels | Classic systems (138); labels 47, 33, 63, 79, 90, 101 | The article's own claim. Only these six ideas are named on screen |
-
-- **Guards from the 2026-11-08 critique:**
-  - "Forgets nothing" is gone: recall reduces loss (block 68), and long-term memory is open (block 125).
-  - Proactive reads "by design" or "can take over", never "taken over" without the gate tag.
-  - The cap is attention protection, whichever beat it sits in.
-  - Inline & Spill is drawn at the Router, with the prototype's cards and read pointers.
-- **Cut from the 2:56 cut:** C13 (its block-27 line goes to the description), C16 (the plate keeps the endpoints, and N4 gives the reason) and C19 (its numbers move to tagLoad).
-- **Swaps, not in the cut:**
-  - Acting ahead (73–74), with the tag "prototype: mechanism only, not a default".
-  - The lighter-model line (32), marked "in the authors' experience".
-  - BYOM (97–98), as picture only, proposed.
-  - Credentials (136), open.
+Used by #4 V1 (*Who Routes the Agents?*, archived unpublished 2026-11-15; source at tag `video/super-agent/v1-archived`). Its narrative is in `videos/super-agent/V1.md`. Its line-by-line use of this note (lines N1–N11, their status tags and the swaps) is in this note and in `videos/super-agent/FACTS.md`, both at the tag. The accuracy rules it followed hold for any film of this article:
+- **The core claim** as blocks 25, 31–32 and 124 state it: a Router that neither executes nor decomposes, and one Worker per task.
+- **Built, proposed and open shown on screen**, from the matrix at `8c32a9d`. Each label covers exactly the parts it is true for: "built" covers the two levels, and proactive pickup is off by default.
+- **The numbers to use**: p95 about half; p50 about 10% lower against the stronger baseline (39% only against the one that never delegated); 2.1–3.8× the tokens; pass-through saves Router decisions and tokens (about 23% fewer decisions, about 27% fewer tokens), not time. Results are re-plotted and labelled synthetic and indicative only. The table's clock is not stated, so minutes need that caveat; #4 V1 showed none.
+- **The stress test** labelled "mock Workers", with per-decision time never derived from batch size and request time (block 118). #4 V1 showed only its endpoints (about 1 → 40 Triggers/min, 6.4 → 1.6 s per decision).
+- **Credit**: a plain-text credit (title, the DeepSeek Harness team, Yujia Qiao, the zh and EN dates) and a non-affiliation line; URLs off screen.
+- **"Authors' experience"** stays attached to 3–5 sessions.
+- **Facts** cite 1-based block numbers, the prototype SHA, the Wayback timestamps and the access date.
 
 ## What we deliberately did NOT adopt, and why
-- **Competitor comparisons and the "rival" framing**: the film is made with Claude, so they would not be neutral, and the article names no other product; its only outside reference is Anthropic's post.
-- **Anthropic's brain/hands metaphor**: it is Anthropic's image, not DeepSeek's; the film uses its own (a laptop shuts while dashed always-on parts carry on).
+- **Competitor comparisons and the "rival" framing** (#4 V1's editorial choice; open for V2): a film made with Claude would not be neutral, and the article names no other product; its only outside reference is Anthropic's post.
+- **Anthropic's brain/hands metaphor**: it is Anthropic's image, not DeepSeek's; #4 V1 used its own (a laptop shuts while dashed always-on parts carry on).
 - **The article's figures**: no layouts (module map with [2]–[6] tags, hub and spoke, sieve, thread cards, bypass lane, pointer graph, swimlanes, cloud over machines), no white-and-blue palette, cover art, matplotlib charts, IDs or dialogues. Data is re-plotted in our style and credited.
 - **Psychology on screen** (the Cowan coincidence invites a false proof), reach numbers, star counts and the CVE.
-- ~~**Mechanisms cut for length**: the full-duplex loop (needs its own diagram), Inline & Spill and Chain of Recall (too deep for under three minutes), speculative work (only a test fixture in the prototype), the Watchdog and credential leakage (text budget). If a narrated version is ever made, the systems-ideas framing (block 138) and the full-duplex beat come back first.~~ That was the 2:56 cut. The 3:45 cut (2026-11-09) brings back the full-duplex loop, Inline & Spill, Chain of Recall, the Watchdog and the systems-ideas framing.
-- **Still left out of the 3:45 cut:**
-  - Acting ahead: only a test fixture in the prototype (swap A1).
-  - The lighter-model line (A2).
-  - BYOM in words (A3: picture only).
-  - Credential leakage (A4).
-  - A Router-trained model, sessionless interfaces beyond stepping in midway, and A2A and context boundaries.
+- **Mechanisms #4 V1 left out** (its 2:56 cut also left out the full-duplex loop, Inline & Spill, Chain of Recall, the Watchdog and the systems-ideas framing; the 3:44 cut of 2026-11-09 brought them back). Not doctrine for V2:
+  - Acting ahead (blocks 73–74): only a test fixture in the prototype.
+  - The lighter Router model (block 32): configurable in the prototype, not demonstrated by it.
+  - Credential leakage (block 136).
+  - Context boundaries across teams and A2A (blocks 131–132), a Router-trained model, and sessionless interfaces beyond stepping in midway.
+  - The §7.2 batch sizes (1.0 → 2.8) and per-request times (2.5 → 3.9 s): V1 showed the endpoints only.
+  - BYOM in words (V1 showed it as a picture, proposed).
   - The prototype's card numbers.
   - Analogies the article does not name (pub/sub, actors, the event loop, Lampson, Denning): description and README only.
 - **Prototype misdepictions**: a shell-less Router, sandboxed Workers, §7.2 numbers shown as properties of the public code.
@@ -381,20 +354,20 @@ Video #4's use of this note (treatment approved 2026-11-08):
 - The prototype's 5 s is a foreground-to-background threshold, not a shell cap.
 - Grepping the prototype for "pass-through", "Chain of Recall", "watchdog", "spill", "BYOM", "daemon", "speculative" or "full-duplex" finds nothing: pass-through is "Subscription fan-out", and the roles are 主 Session / 执行器 Session.
 - A request addressed to the agent is explicit and works in every accept mode; only *inferred* work waits for `auto`.
-- The X article is editable and needs a login, and the fxtwitter proxy is third-party: keep the Wayback snapshots, and a local hash of the fetched JSON in `.cache/` (never in git).
+- The X article is editable and needs a login, and the fxtwitter proxy is third-party: keep the Wayback snapshots, and compare any re-fetch with the text hash in Pin (no copy of the fetched JSON is kept, in git or `.cache/`).
 - **[V via mirror]** marks article facts read through api.fxtwitter.com. The Pin records that the article was read through that proxy, so the older [V] article tags carry the same caveat.
-- **Overclaims to avoid in the 3:45 cut** (critique of 2026-11-08):
+- **Overclaims to avoid** (critique of 2026-11-08):
   - "Forgets nothing": recall reduces loss (block 68), and long-term memory is open (block 125).
-  - "Taken over" for Proactive: pickup is `observe` by default, and acting ahead is a mechanism plus a test fixture. Write "by design" or "can take over", with the gate tag.
+  - "Taken over" for Proactive: pickup is `observe` by default, and acting ahead is a mechanism plus a test fixture. Write "by design" or "can take over", with "off by default" beside it.
   - Filing the 100-word cap under waiting: it protects attention (block 87).
   - Drawing Inline & Spill inside a Worker: it is clearest at the Router's `worker_report` cards.
+- **"People only sign off" needs block 128.** Block 139 moves people up to decisions and sign-off, but block 128 leaves stepping in, taking over or working alongside mid-task open. #4 V1 qualified its sign-off ending with it.
 - **"Follow-ups skip the Router" means they skip its decision, not its view.** The Router sees every event (block 58), and the prototype sends it a `follow_up` notice.
 - **Block 83 versus the code.** The article says the async loop is in the Harness but not enabled by default. The prototype's presets switch it on at 5 s, and the Harness `standard` preset at `fcc0ad4` appears to as well. Write neither "on by default in DeepSeek Harness" nor "off in the prototype".
 - **Block 18 files multi-channel under Continuous and Productive.** The cap's attention reading comes from block 87, not from the trait map.
 - **"Delegation prompt" and "delegation-first prompt" are one design.** The table (entity 13) uses the first name, block 115 the second.
 - **The 50 characters appear twice:** as the article's locality example (block 66) and as the prototype's message stubs (`docs/007-architecture.md:546`). Neither is the source of the other's number.
 - **The prototype's hourly check is run by an agent**, so "absent as an agent" was wrong (struck in the matrix). What is absent is the progress and drift judgement.
-- **"3:45 cut" is a name.** The film is 6,720 frames, 3:44.0.
 
 ## Not read
 - The Chinese original (WeChat verification page; Zhihu 403; the Bilibili column empty; the CSDN copy 521): zh terms come from IT之家, 量子位 and one reprint.

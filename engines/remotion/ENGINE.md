@@ -274,7 +274,8 @@ physical iridescent material, 4x MSAA HalfFloat composer, bloom, vignette, dithe
 - **FFV1 mezzanine:** about 0.35 MiB per frame at 960x540 and 1.20 MiB per frame at 1080p.
   Dithering adds noise that FFV1 cannot predict; without it the template was 0.27 and
   0.79 MiB per frame.
-- **2D DOM + SVG page** (measured 2026-11-08 on `videos/super-agent`'s determinism probe):
+- **2D DOM + SVG page** (measured 2026-11-08 on `videos/super-agent`'s determinism probe; V1,
+  source at tag `video/super-agent/v1-archived`):
   - **Scene:** a flat dark ground with a seeded dither tile; text in Plex, Noto Sans SC and
     JetBrains Mono up to 160 px; SVG edges drawn on; a token riding them; a zoom from 1.0× to
     1.6×; screen-space labels; no R3F.
@@ -287,6 +288,25 @@ physical iridescent material, 4x MSAA HalfFloat composer, bloom, vignette, dithe
     byte-identical mezzanine. `aiv still --check review` matched all 12 mid-chunk frames
     rendered as chunk starts.
   - Large DOM text and the knock-on rules: [knowledge/dom-text-determinism.md](../../knowledge/dom-text-determinism.md).
+- **Lit WebGL world under DOM text** (measured 2026-11-09 to 2026-11-15 on `videos/super-agent`
+  V1, archived unpublished; source at tag `video/super-agent/v1-archived`):
+  - **Scene:** one R3F desk world through `@remotion/three` with a 4x MSAA HalfFloat composer,
+    mipmap bloom, NEUTRAL tone mapping, analytic shadows and light pools and a dithered output,
+    under DOM text of at most 136 px.
+  - **Speed at 1920x1080:** 0.37-0.79 s per frame steady in the lookdev motion tests (the
+    busiest, the 0.64× summary, at the top); 0.40-0.77 s per frame over the
+    6,720-frame final, 56 chunks in 4,754 s, about 80 min in nine `--budget-min 9` calls.
+  - **Draft (960x540):** 113 chunks, 43-63 min in five to eight 9-minute calls.
+  - **Size:** 1.31-1.32 MiB per frame of FFV1 in lossless spans; the final's mezzanine was 9.0 GB.
+  - **Join:** joining the chunks and hashing the frames took about 10 min and needed about 19 GB
+    free, since the chunks and the joined file exist together.
+  - **Post and QA at final:** `aiv post` about 35 min, `aiv qa` about 15 min. Run both as calls
+    without a time limit.
+  - **Stills:** a full-size `aiv still` took 4–6 s after a 4–8 s boot.
+  - **Deliverables for 3:44:** the YouTube mp4 (H.264 CRF 17, AAC 320k) was 144.5 MB, and the
+    archive master (24-bit PCM) 204 MB.
+  - **Shaders:** no cold first-draw time was recorded for this world; *A Halloween Gift*'s
+    119-225 s is under the GPU program cache above.
 - **Deliverables (final):** the `youtube` mp4 is 4.3 MB and the archive master 10.9 MB.
 - **Doctor GPU probe:** 0.8 s. WebGL family: `ANGLE (Intel, Intel(R) UHD Graphics, D3D11)`.
 - **Disk:**
@@ -309,6 +329,19 @@ physical iridescent material, 4x MSAA HalfFloat composer, bloom, vignette, dithe
   program cache reaches the profile through a wrapped `fs.promises.mkdtemp` instead: see above).
 - **The Studio preview runs R3F with `frameloop: 'always'`.** It hides nondeterminism. Check
   determinism by rendering twice.
+- **With `--budget-min`, the call that renders the last chunk runs straight on into the join.**
+  The join and the frame hashing of a full-size film outlast a 10-minute call (about 10 min for
+  `videos/super-agent` V1's 6,720 frames at 1080p), so when about a call's worth of chunks is
+  left (about seven of V1's 56), run the render without a time limit. A call killed after the
+  join, while the mezzanine is checked and hashed, leaves a complete but unverified
+  `mezzanine.mkv` (the join itself writes a `.part` file). A rerun does not reuse it: with every
+  chunk done, the runner joins them again into a `.part` file beside it and replaces it only
+  once the new one is complete (`packages/pipeline/src/runner/runner.ts`, `assemble`), so the
+  disk must hold the chunks and two joined copies. Delete the old one before rerunning.
+- **Agents on Windows can leave CRLF line endings.** The repository is LF (`.gitattributes`),
+  but the input hash reads the files as they are on disk, so a source file an agent wrote with
+  CRLF gives a render whose input hash differs from the commit's. Normalise to LF before
+  rendering (V1's `videos/super-agent/README.md:396-398` at tag `video/super-agent/v1-archived`).
 
 ## Licence
 

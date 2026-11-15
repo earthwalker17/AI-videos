@@ -12,7 +12,7 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 | 1 | [Journey Through Middle-Earth](../videos/journey-through-middle-earth/README.md) | standalone | published (record only) | [YouTube](https://youtu.be/kRuPq4GjhGc) |
 | 2 | [THE AI STACK](../videos/the-ai-stack/README.md) | [3D Concept Visualizations](../series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
 | 3 | [A Halloween Gift](../videos/halloween-gift/README.md) | [Festival & Celebration](../series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
-| 4 | [Who Routes the Agents?](../videos/super-agent/README.md) | [Science & Technology Explainers](../series/science-explainers/SERIES.md) | archived | — |
+| 4 | [Who Routes the Agents?](../videos/super-agent/README.md) | [Science & Technology Explainers](../series/science-explainers/SERIES.md) | brief | — |
 
 ## Series
 - [3D Concept Visualizations](../series/concept-viz/SERIES.md) (`concept-viz`, active, 1 video): Complex technical systems explained as physical, spatial machines you can see working.
@@ -58,6 +58,7 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [Animate everything on ones when the camera moves, and measure cadence, not stills](../knowledge/motion-cadence.md): A stylised film often animates its characters "on twos" (a new pose every other frame) for a hand-made feel.
 - [A painted moonlit night in real-time 3D comes from the darks, the depth and the sky, not from the models](../knowledge/painterly-night-3d.md): Real-time 3D lit by a moon behind the scene renders as black cut-outs with a cyan outline: every face toward the camera is in shadow, and shadows in a physically based renderer…
 - [Render React Three Fiber under Remotion so every chunk start looks the same](../knowledge/r3f-under-remotion.md): Remotion renders a 3D scene one frame at a time, in chunks, and each chunk usually starts on a fresh page.
+- [Lay a synthesised score on the film's cue sheet, and measure it the way QA will](../knowledge/score-to-the-cue-sheet.md): A score written in code for a film whose picture is also code can stay in sync to the sample, but only if both read one timeline and the score is measured against what QA will…
 
 ## Reusable parts of videos
 - [SFZ-subset sampler for pinned CC0 libraries (VSCO 2 CE): regions, velocity layers, seeded round robins, Hermite resampling, leading-silence skip, per-instrument shift/retune fixes](../videos/halloween-gift/audio/sampler.ts) (`halloween-gift`)
@@ -77,16 +78,9 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [A bat from one outline spec, posed in 3D and drawn the same way in 2D: furry body, scalloped membrane wings](../videos/halloween-gift/src/kit/bat.ts) (`halloween-gift`)
 - [Torn orb cobwebs between anchor points, drawn as anti-aliased camera-facing thread ribbons](../videos/halloween-gift/src/kit/cobweb.ts) (`halloween-gift`)
 - [A hardcover book's parts as geometry: bevelled boards, a banded spine, a page block with leaf lines, a cover that hinges](../videos/halloween-gift/src/kit/book.ts) (`halloween-gift`)
-- [Bar/beat helpers from a musical grid, pure progress combinators (seq, all, lagged, delay windows) and named easings for frame-driven 2D motion](../videos/super-agent/src/kit/timeline.ts) (`super-agent`)
-- [Frame-driven text: a 6-frame clip-path wipe and fade (never typewriter), a bilingual EN + zh notes block on fixed baselines, explicit zh phrase breaks, grey (non-LCD) antialiasing through a layer hint](../videos/super-agent/src/kit/text.tsx) (`super-agent`)
-- [A 2D translate-and-scale camera over a large world, non-scaling strokes, and labels projected into screen space so they keep their size at any zoom](../videos/super-agent/src/kit/camera.tsx) (`super-agent`)
-- [SVG diagram parts for dark ink maps: rings, platform boxes, pills, edges drawn on at a constant pen speed, tokens riding a path, dashed and hatched variants](../videos/super-agent/src/kit/diagram.tsx) (`super-agent`)
-- [Tapered, variable-width sketch strokes with seeded pressure, drawn as filled polygons (no filters)](../videos/super-agent/src/kit/sketch.ts) (`super-agent`)
-- [A seeded dither tile laid out with Remotion <Img> (waited for, unlike CSS background images) to break up banding on dark grounds](../videos/super-agent/src/kit/dither.tsx) (`super-agent`)
-- [Plans the unicode-range slices of a CJK fontsource family that a film's strings need, so only those slices load and their coverage is proven](../videos/super-agent/src/look/fontPlan.ts) (`super-agent`)
 
 ## References
-- [Agent skills and method sources for code-made explainer films (2026-11)](../references/agent-video-skills-2026-11.md): The agent skills and method sources found while reworking video #4's look, after its first lookdev round passed the frame critic and was rejected by the user as too simple and…
+- [Agent skills and method sources for code-made explainer films (2026-11)](../references/agent-video-skills-2026-11.md): The agent skills and method sources found while reworking #4 V1's look, after its first lookdev round passed the frame critic and was rejected by the user as too simple and crude.
 - [Parodying a company's notice — trademark guidelines, fair use, YouTube policy (2026-11)](../references/brand-parody.md): What decides how closely a fan parody may imitate a real company's notice (here: the account-suspension email users receive from Anthropic), from the company's own trademark…
 - [Claude Code packaging — skills, CLAUDE.md, plugins, marketplaces](../references/claude-code-packaging.md): How Claude Code finds and loads instructions, skills and plugins, and how third parties (Remotion, HyperFrames, lemo-opuscar) package theirs.
 - [Code-driven video engines — survey and verdicts (2026-11)](../references/code-video-engines-survey.md): A comparison of 16+ code-driven video engines and capture techniques other than Remotion (see remotion.md), checked against live repos and registries.
@@ -98,7 +92,7 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [Licensing tooling — REUSE 3.3, SPDX headers, secret scanning, licence traps](../references/licensing-tooling.md): The tools and facts behind the repo's per-path licence matrix, provenance headers and secret hygiene, plus a list of upstream licences that must never be mixed in.
 - [Manim — Community Edition vs ManimGL](../references/manim.md): A Python library for programmatic math animation.
 - [map-of-middle-earth — our earlier film repo](../references/map-of-middle-earth.md): A three.js WebGPU film made with deterministic Playwright capture, bit-identical re-renders, a sampled orchestral score and a sha256 release manifest, built over about 8 days (342…
-- [2D explainer motion graphics in code — building blocks, fonts, determinism (2026-11)](../references/motion-graphics-2d-2026-11.md): The libraries, fonts and patterns for deterministic, code-generated 2D explainer graphics (DOM + inline SVG under engines/remotion), checked for video #4 (super-agent).
+- [2D explainer motion graphics in code — building blocks, fonts, determinism (2026-11)](../references/motion-graphics-2d-2026-11.md): The libraries, fonts and patterns for deterministic, code-generated 2D explainer graphics (DOM + inline SVG under engines/remotion), checked for video #4 V1 (super-agent, archived…
 - [Multi-video repositories — patterns and anti-patterns](../references/multi-video-repos.md): A study of repos that hold many videos, video knowledge bases and agent video toolkits, sorted into four families, with concrete evidence of what scaled and what broke.
 - [React Three Fiber, drei, postprocessing — pins and determinism](../references/r3f-drei-postprocessing.md): The 3D stack under Remotion's @remotion/three (and usable on its own in web pages): three.js, the React renderer R3F, the drei helper library, and the pmndrs post-processing stack.
 - [Remotion (v4.0.539) — versions, licence, v5, 3D, rendering](../references/remotion.md): A React framework that renders compositions frame by frame in a headless Chrome, with @remotion/three wrapping React Three Fiber.

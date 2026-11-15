@@ -110,10 +110,14 @@ describe('gates', () => {
     expect(unmetGates(v, ctx(folder({ ...all, 'release/v1.json': '{}' })))).toEqual([]);
   });
 
-  it('archived without a release (dropped before publication) needs only a written README; after one, everything published needs', () => {
+  it('archived with no release and no YouTube id (dropped before publication) needs only a written README; a published one keeps its gates', () => {
     expect(unmetGates(slot({ status: 'archived' }), ctx(folder({ 'README.md': '# x' })))).toEqual([]);
     expect(unmetGates(slot({ status: 'archived' }), ctx(folder({ 'README.md': stub })))).toEqual([expect.stringMatching(/README.md is still the stub/)]);
     expect(unmetGates(slot({ status: 'archived', release: { version: 1 } }), ctx(folder({ 'README.md': '# x' })))).toEqual(expect.arrayContaining([expect.stringMatching(/'final' approval/)]));
+    // uploaded but never released through aiv release: still needs the final approval and a release
+    expect(unmetGates(slot({ status: 'archived', youtube: { id: 'LDH7UhHeKG4' } }), ctx(folder({ 'README.md': '# x' })))).toEqual(expect.arrayContaining([expect.stringMatching(/'final' approval/)]));
+    // a metadata-only record still needs its YouTube id
+    expect(unmetGates(slot({ status: 'archived', reproducibility: 'metadata-only' }), ctx(folder({ 'README.md': '# x' })))).toEqual([expect.stringMatching(/youtube is null/)]);
   });
 
   it('the generated table lists every regular status once, in order', () => {

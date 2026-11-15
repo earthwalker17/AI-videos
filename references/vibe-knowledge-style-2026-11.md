@@ -6,7 +6,7 @@
 | Pin | Upload list as shown on 2026-11-08 (26 videos, newest 《压缩即理解》 of 2026-11-06; unchanged when pass 3 looked again that night) · video data of the three pass-3 films re-checked 2026-11-09 · press article 2026-10-20 (36氪), copy 2026-10-22 (21财经) · tutorial updated 2026-10-26 · MiyanoX/vibe-knowledge-video `78cbecce056407402d33eab18de6ce3f584e60ca` (2026-10-13) |
 | Licence | Films, covers, music and descriptions: their owners' (facts and our own descriptions only; no frame, sprite, cover, audio or copy in this repo) · press and tutorial: proprietary (paraphrase) · MiyanoX repo: MIT per its LICENSE file (GitHub's API reports NOASSERTION) |
 | Accessed | 2026-11-08 (passes 1–3) · 2026-11-09 (length, upload date, uploader and master size of the three pass-3 films) |
-| Stale after | 2026-12-08 for the catalogue, counts and press (a fast-moving channel and genre); the style analysis and do-not-copy list hold until #4 is released |
+| Stale after | 2026-12-08 for the catalogue, counts and press (a fast-moving channel and genre); the style analysis and do-not-copy list hold until #4 V2 is released (V1 was archived unpublished on 2026-11-15); re-check them against V2's own references |
 
 ## What it is
 A style study of the Bilibili creator 比特新语 and of the 2026 "Vibe知识" wave the press groups
@@ -18,8 +18,9 @@ found that the finish, not the geometry, carries the look.
 
 ## Why it matters here
 Video #4 (`videos/super-agent`), the science explainers series' first film and first short
-form, is a 2–3 minute, text-led, code-made explainer. The genre is its nearest precedent for
-pacing and text load, and its sameness is the main risk, because #4 is also coded with Claude.
+form, is a short, code-made explainer (V1, archived 2026-11-15: text-led, 3:44). The genre
+is its nearest precedent for pacing and text load, and its sameness is the main risk,
+because #4 is also coded with Claude.
 The genre's reported technique (a frame as a pure function of time, headless capture, keyframes
 checked before the full render) is what this repo already does (the determinism rule, a stricter
 `draw(t)` in `engines/web/ENGINE.md`, stills and draft contact sheets), so distinctness must
@@ -162,16 +163,17 @@ come from art direction, not tooling.
 | Bar charts | A dark track behind each bar, glow on the bar, a dashed outline marking a difference; per category a mini icon (a pixel grid, a waveform), a large CJK label and a small mono EN label |
 
 - **Conclusion** [U, judgement]: the geometry is not complex. What reads as premium is the
-  finish: light, content density, micro-type, rule-driven motion and atmosphere. #4's
+  finish: light, content density, micro-type, rule-driven motion and atmosphere. #4 V1's
   round-1 look had none of these channels, which fits the user's verdict that it was too
   simple and crude.
 - Pass 2's 360p frames under-read this finish: the micro labels and citations were
   unreadable there, so its premium row leaned on restraint (Gotchas).
 
-## What we adopted / adapted
+## What #4 V1 adopted (archived; not defaults)
 Principles only, rebuilt in our own grammar. The design round proposed a light, warm "survey
 sheet" ground for distance; the user chose "Dark ink map (Recommended)" on 2026-11-08 instead,
-so #4 is dark like the genre and differs from it by line grammar and semantic colour.
+so #4 V1 was dark like the genre and set out to differ from it by line grammar and semantic
+colour. The user then rejected that round-1 look as too simple and crude (below).
 - One ground for the whole film; colour that means one thing; one focal idea per frame with
   generous empty space; the key number promoted onto the diagram, set in mono.
 - Three type voices, text in one fixed place, one persistent world instead of cuts, structure
@@ -180,7 +182,7 @@ so #4 is dark like the genre and differs from it by line grammar and semantic co
 - Disclosure from day one: Bilibili's AI label, and AI use stated in the YouTube description
   (its altered-or-synthetic setting is for realistic content: [youtube-publishing.md](youtube-publishing.md)).
 
-| | Genre | #4 "dark ink map" |
+| | Genre | #4 V1 round 1, "dark ink map" |
 |---|---|---|
 | Ground | Near-black about #020408, lifted centre, vignette, grain | Flat #202226 (BT.709 limited Y 45.1), centre may lift, never darker corners, static seeded dither |
 | Line | 1–2 px glowing strokes, bloom on the focus | Flat bright ink drawn along its path; solid = built, dashed = proposed, sketch "?" = open; act one in dim tapered sketch lines |
@@ -191,18 +193,22 @@ so #4 is dark like the genre and differs from it by line grammar and semantic co
 | Sound | A shared bed (likely a library track) whose jumps mark the act breaks | An original synthesised score, 90 bpm on a 66-bar grid, with a motif and a key change at the turn |
 
 The table records round 1, which the user did not approve on 2026-11-08 ("too simple and
-crude"). From pass 3, #4's look rework takes principles only, rebuilt in its own grammar;
-the round-2 look itself is set in `videos/super-agent`, not here:
-- **Light where it means** (the user's decision): light only where a live process is, never
-  a default glow on structure.
-- **Real micro-print as texture** at 18 px or more (the user's decision): our own true
-  labels, data and citations, never placeholder. Text meant to be read keeps the
-  1/30-of-height floor (36 px at 1080p).
+crude"). From pass 3, #4 V1's look rework took principles only, rebuilt in its own grammar;
+its round-2 look is recorded in `videos/super-agent/TREATMENT.md` at tag
+`video/super-agent/v1-archived`, not here. V1 was then archived unpublished, so none of it
+is a default unless marked:
+- **Light where it means** (the user's decision for V1; `videos/super-agent/V1.md` keeps it
+  as a principle, not a rule): light only where a live process is, never a default glow on
+  structure.
+- **Real micro-print as texture** at 18 px or more (the user's decision, now a repo rule in
+  `docs/PRODUCTION.md`): our own true labels, data and citations, never placeholder. Text
+  meant to be read keeps the 1/30-of-height floor (36 px at 1080p).
 - **Curves and material** instead of glowing lines.
 
 ## What we deliberately did NOT adopt, and why
 Their identity is theirs, and the glow-on-navy package as a whole is what the press calls
-模型味. The plan has the `frame-critic` agent review #4's frames against this list.
+模型味. The list binds every film, not only #4 V1, whose plan had the `frame-critic` agent
+review its frames against it.
 - **Identity:** the name 比特新语 and its letterspaced signature; the end-card layout (title,
   credit line, signature); the collection names and the end-card phrase 一时兴起; 《X》
   single-concept titles; the bio's phrasing; the dedication line "致/献给每一个…的人".
@@ -227,7 +233,7 @@ Their identity is theirs, and the glow-on-navy package as a whole is what the pr
 - **The third-party spec's look**, including Juno's Chinese-plus-italic-English subtitle
   signature. The figures of the article #4 explains are a separate do-not-copy list
   ([deepseek-superagent-2026-11.md](deepseek-superagent-2026-11.md)).
-- **Pass 3 changes none of the above.** #4 still refuses the glow-on-navy package, serif
+- **Pass 3 changes none of the above.** The list still refuses the glow-on-navy package, serif
   lockups, particles, nebula and vignette. The compositions pass 3 saw are theirs too: the
   murmuration of points, the observation-dot epicycle traces, 剃刀's doubt-coloured node
   chain, the fractal zoom labelled as live on the GPU, the scrolling date · planet · angle table.
@@ -236,8 +242,9 @@ Their identity is theirs, and the glow-on-navy package as a whole is what the pr
 - Defaults drift: AI-written 2D scenes tend towards glow, particles and gold on navy unless the
   art direction forbids them in writing [U]; prove the distance on lookdev stills, at thumbnail size.
 - `aiv qa` flags any 0.5 s with 98% of pixels below limited Y 37.9 (blackdetect `pix_th=0.10`):
-  sparse scenes on a ground as dark as theirs (Y about 19) would trip it; #4's sits at 45.1.
-- They master in 4K; #4 renders 1080p, where its thinnest planned strokes are 2 px and ~~a
+  sparse scenes on a ground as dark as theirs (Y about 19) would trip it; #4 V1's round-1
+  ground sat at 45.1.
+- They master in 4K; #4 V1 rendered 1080p, where its thinnest planned strokes were 2 px and ~~a
   dither tile handles banding~~ (2026-11-08: a DOM dither tile only broke up the band edges;
   round 2 dithers once at the output, `motion-graphics-2d-2026-11.md`): check line weight and
   gradients at delivery size.
@@ -260,5 +267,6 @@ Their identity is theirs, and the glow-on-navy package as a whole is what the pr
   CAPTCHA (not retried); 观默's X post (its jxxy.net mirror was read).
 - The films the MiyanoX guide is based on, and its render, music and QA scripts.
 - Bilibili's creator rules (AI label, 自制 declaration, covers, collections): planned as
-  `references/bilibili-publishing.md` before #4's release; until then, declare AI use
+  `references/bilibili-publishing.md`, to be written when a film goes to Bilibili
+  (`docs/ROADMAP.md`; #4 V1 dropped Bilibili on 2026-11-13); until then, declare AI use
   ourselves, since the label can be missing when an uploader does not.

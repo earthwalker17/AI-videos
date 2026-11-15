@@ -371,6 +371,8 @@ new entry that supersedes it, not editing history.
 30. **2026-11-09 · A diagram film is a lit WebGL world under DOM text.** *Who Routes the
     Agents?* (video #4) first drew its 2D world as DOM and SVG. The user rejected that look as
     "too simple and crude": DOM gradients band, and there is no real light, shadow or bloom.
+    - **Status (2026-11-15).** This is a proven option, made for #4 V1, which was archived. It is
+      not a default for new films (decision 33).
     - **Layers.** The picture of an explainer that needs material and light is now two
       layers on one Remotion composition:
       - a WebGL world (React Three Fiber under the kit's `Stage3D` and `PostChain`, lit,
@@ -423,3 +425,21 @@ new entry that supersedes it, not editing history.
     - **Cost:** spoken narration (a voice) has no cue text to draft from; its captions need an
       aligned transcript (references/subtitles.md, narration vs subtitle text). On-screen labels
       that overlap the narration are left out by the selection, a choice made per video.
+33. **2026-11-15 · A film dropped before publication is archived at a tag, and a remake resets its
+    slot.** The user dropped *Who Routes the Agents?* V1 after its final had passed QA, and asked
+    for a V2 under the same slug.
+    - **Archiving.** `status: archived` with `release: null` and `youtube: null` (and not a
+      metadata-only record) needs only a written README (`gates.ts`). By convention, the README
+      says why the film was dropped and names the tag. That commit is tagged `video/<slug>/v<N>-archived`,
+      which the frozen check accepts, so the film rebuilds from a worktree at the tag.
+    - **The reset.** A second commit removes the old `src/`, `audio/`, `assets/` and `publish/`,
+      shortens the documents to what the remake needs (a `V1.md` retrospective holds the record),
+      and sets a new status with empty `approvals`. Approvals never carry over.
+    - **Lessons move out first.** Production lessons go to the shared docs and knowledge cards;
+      subject research stays in the slot.
+    - **Earlier decisions** made for the dropped film, such as decision 30's lit world under DOM
+      text, are proven options, not requirements for the remake. A remake that chooses otherwise
+      records a new decision.
+    - **Cost:** the old source lives only in git history and the tag. A file the remake wants back
+      is promoted to `packages/` if it is generic (the dropped film counts as its first user), or
+      rewritten.

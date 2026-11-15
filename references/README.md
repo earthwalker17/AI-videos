@@ -36,20 +36,23 @@ tooling.
 | [V] | Verified at a primary source (upstream repo at the pin, registry metadata, official docs or licence text) on the access date |
 | [S] | Secondary source (a summary, third-party article or benchmark, or a project's own notes not checked at the pin) |
 | [U] | Unverified: inference, estimate or design proposal |
+| [V via mirror] | A primary text read through a third-party copy or proxy (for example an X article read as JSON through a public mirror): keep an archive snapshot and a content hash of the text |
 
 A tag after a group heading applies to every bullet in that group unless a bullet carries
 its own tag. Tags reflect each source as read on the note's access date.
 
 ## How to use
 1. **Read the note for your topic first** (index below; `sources.json` for URLs and licences).
-2. **Research only what is missing or stale**: anything past its "Stale after" date, tagged
+2. **Stop at logins, verification pages and bot checks**, and never bypass them. Study a platform
+   only as a viewer, in a browser session the user consents to.
+3. **Research only what is missing or stale**: anything past its "Stale after" date, tagged
    [U]/[S] and decision-relevant, or listed under "Not read". Prefer primary sources.
-3. **Write back** in the same change:
+4. **Write back** in the same change:
    - update pins and access dates for what you re-checked, and promote or demote tags;
    - mark falsified claims in place (strike the old claim with ~~ ~~, add the corrected fact with its date and source) rather than silently deleting them;
    - move items you read out of "Not read", and add what you deliberately skipped;
    - add or update the entry in `sources.json` (and the index table here).
-4. New topic: copy the header block (Upstream, Pin, Licence, Accessed, Stale after) and the
+5. New topic: copy the header block (Upstream, Pin, Licence, Accessed, Stale after) and the
    sections *What it is · Why it matters here · Key facts · What we adopted / adapted ·
    What we deliberately did NOT adopt, and why · Gotchas · Not read*.
 

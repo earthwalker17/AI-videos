@@ -4,7 +4,7 @@
 > physics, major open problems, prize-winning work, and how computing and AI systems
 > actually work.
 
-Status: active · First video: [Who Routes the Agents?](../../videos/super-agent/README.md) (#4, in production)
+Status: active · First video: [#4 `super-agent`](../../videos/super-agent/README.md): V1 *Who Routes the Agents?* archived unpublished 2026-11-15; V2 in planning
 
 Widened on 2026-11-08 from "Science & Knowledge Explainers" (mathematics and physics) to
 science and technology, with the first video. The id stays `science-explainers`.
@@ -40,18 +40,19 @@ parts exist and which are only proposed.
 - Long form: a concrete question or surprising fact → the minimal background, built
   visually → the key idea → the argument → what it unlocked and what is still open →
   sources.
-- Short form (2–3 minutes, first tried by #4): a concrete hook in the first five seconds
-  → the problem the idea answers → the idea in one image → why it works, with the
-  evidence and its limits → what is still open → what it changes → sources on the end
-  card.
+- Short form (2–3 minutes as a start; #4 V1 ran 3:44 because the user chose depth): a
+  concrete hook in the first five seconds → the problem the idea answers → the idea in one
+  image → why it works, with the evidence and its limits → what is still open → what it
+  changes → sources on the end card.
 
 ## Craft hypotheses (to confirm with the first videos)
-- **Short form** (being tested by #4):
-  - 2–3 minutes, 16:9, 30 fps;
-  - text-led: one English line plus one zh-Hans line per beat, no voiceover, over an
-    original synthesised score whose bar grid sets the timing;
-  - Remotion 2D (DOM + inline SVG) for diagrams and typography;
-  - one persistent diagram world under a camera rather than cuts.
+- **Short form.** #4 V1 tried the options below and was dropped before publication, so
+  none is confirmed; each is one tried option, not a default:
+  - 2–3 minutes planned (V1 ran 3:44), 16:9, 30 fps;
+  - text-led, no voiceover, timed to the bar grid of an original synthesised score;
+  - Remotion 2D (DOM + inline SVG) drew the round-1 look the user rejected; the final film was
+    a lit WebGL world under DOM text (ARCHITECTURE decision 30);
+  - one persistent world under a camera rather than cuts.
 - **Long form:**
   - 8–20 minutes, 16:9, 30 fps (60 fps only when motion needs it);
   - narration expected: script in `SCRIPT.md`, captions per language (English first,
@@ -59,9 +60,27 @@ parts exist and which are only proposed.
   - Manim Community Edition is the leading candidate for mathematical animation (not
     installed yet; see `references/manim.md`), with the web engine and Remotion for
     titles and typography.
-- **Look:** a dark, minimal ground (BT.709 limited luma above QA's black threshold).
-  Identity comes from line grammar, type and semantic colour, not from glow, particles or
-  serif subtitle bands (`references/vibe-knowledge-style-2026-11.md`).
+- **Look:** a dark, minimal ground (the user's preference on 2026-11-08, open per film), in
+  BT.709 limited luma above QA's black threshold. Minimal is not simple: the ground is built
+  (light, texture, material), never a void. Distinctness comes from finish (material, light
+  where it means, real content density, rule-driven motion), type and semantic colour, not
+  from glow, particles or serif subtitle bands, and not from flat line grammar, which the
+  user rejected on #4 V1 as "too simple and crude"
+  (`references/vibe-knowledge-style-2026-11.md`).
+
+## Learned on #4 V1
+- Audit the runtime share that explains how it works: V1's 2:56 cut gave 41% to the
+  problem and 14% to the mechanism, and the user judged it shallow.
+- Give every mechanism a question the viewer already holds.
+- Draw no relationship before the line that explains it.
+- Reading holds are a floor, not a pace: V1's six idea labels cleared theirs and still
+  read as rushed to a stranger viewer. Budget picture-only time per mechanism (text-led V1
+  had text on screen about 81% of the time before the end card).
+- Short bilingual tags are fine; long bilingual plates double the reading load. Settle
+  platform and languages at the brief.
+- Check absolute words ("all", "only", "never") against the mechanism's exceptions.
+- Scope every status label (built, proposed, open) to exactly the lines it is true for.
+- A context-free stranger viewer finds what specs hide.
 
 ## Policies
 - Facts standard: **strict**. Every claim, number, date and attribution is in
