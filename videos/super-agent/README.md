@@ -1,5 +1,11 @@
 # Who Routes the Agents?
 
+> **ARCHIVED on 2026-11-15. Not published.** The final was made and passed QA. Then the user
+> decided not to publish it: other films on similar topics, made with Claude Fable 5.2, look much
+> better. The film will be remade as V2 in this slot. This commit and the tag
+> `video/super-agent/v1-archived` hold V1 complete and rebuildable (docs/PRODUCTION.md,
+> "Archive an unpublished video"). Everything below describes V1 as it was before it was archived.
+
 A text-led explainer of just under four minutes, captioned in English (its labels in English and
 Simplified Chinese), for curious developers on YouTube. It covers the DeepSeek Harness team's article
 *Exploring Super-agent Design: Towards a More Autonomous Agent System*. The Chinese original
@@ -13,9 +19,9 @@ their URLs and pins, are in [sources.jsonl](sources.jsonl), and every claim is i
 [FACTS.md](FACTS.md).
 
 **Series:** [Science & Technology Explainers](../../series/science-explainers/SERIES.md) · **Number:** 4 · **Engine:** remotion
-▶ **Watch:** not yet published.
+▶ **Watch:** not published (archived).
 
-## Status: locked; the final is made and ready to publish
+## Status: archived (V1); before that, locked with the final made
 The review cut was approved on 2026-11-15. The final (no leader) is
 `out/super-agent/post/final/super-agent.mp4`, and `publish/` holds the upload texts, the captions and
 the thumbnail (Handoff, "To publish"). Next: the user uploads it to YouTube; then the final approval,

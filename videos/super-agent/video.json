@@ -8,7 +8,7 @@
     "zh-Hans": "谁来调度智能体？"
   },
   "series": "science-explainers",
-  "status": "locked",
+  "status": "archived",
   "approvals": [
     {
       "gate": "treatment",
@@ -21,7 +21,7 @@
       "note": "The user approved the 1080p review cut (out/super-agent/post/review/super-agent.mp4, commit 3cef742) at the start of session 7: \"Everything till now looks OK, so proceed directly to the final render after finishing any remaining work, without asking again for approval.\""
     }
   ],
-  "next": "Session 8: publication and release. The final is made and passed aiv qa (out/super-agent/post/final/super-agent.mp4, rendered at 8b992c9; every frame equals the approved review cut without its leader, and so does the score). The user uploads it to YouTube with publish/ (description.en.md, chapters, captions/en.srt, thumbnail.jpg, ai-disclosure.md): README.md, Handoff, \"To publish\". After the upload: record the final approval only as the user gives it, youtube.id and published, run aiv release (v1), set release and status published, and commit release(super-agent): v1; then push main, the tag video/super-agent/v1 and the GitHub release only when the user asks (\"After publishing\").",
+  "next": "Archived 2026-11-15, not published: the user decided not to publish V1, because other films on similar topics made with Claude Fable 5.2 look much better, and will remake it as V2 in this slot. V1 is complete at the tag video/super-agent/v1-archived. Rebuild it from a worktree at that tag (docs/PRODUCTION.md, 'Archive an unpublished video').",
   "languages": [
     "en",
     "zh-Hans"
