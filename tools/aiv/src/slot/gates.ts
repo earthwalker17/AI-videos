@@ -91,8 +91,13 @@ export const REQUIREMENTS: readonly Requirement[] = [
   },
 ];
 
-/** Every unmet requirement for the video's current status. */
+/**
+ * Every unmet requirement for the video's current status. A video archived without a release was
+ * dropped before publication, at whatever stage it had reached: it needs only a written README
+ * that says why, and where its source is tagged (docs/PRODUCTION.md, Lifecycle).
+ */
 export function unmetGates(v: VideoSlot, ctx: GateContext): string[] {
+  if (v.status === 'archived' && v.release === null) return [written('README.md')(v, ctx)].filter((m): m is string => m !== null);
   const kind = v.reproducibility === 'metadata-only' ? 'metadata-only' : 'regular';
   return REQUIREMENTS.filter((r) => statusRank(r.from) <= statusRank(v.status) && (r.applies === 'both' || r.applies === kind))
     .map((r) => r.check(v, ctx))

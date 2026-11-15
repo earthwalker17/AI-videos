@@ -20,6 +20,10 @@ artifacts each stage requires (see [Gates](#gates)).
 | `published` | Released (`aiv release`), tagged `video/<slug>/v<N>`, uploaded. The video is now frozen. | (archival only) |
 | `archived` | Kept for the record; not maintained. | — |
 
+A video can also be **dropped before publication** (see [Archive an unpublished video](#archive-an-unpublished-video)).
+It is then `archived` with `release: null`. Its only gate is a written `README.md` that says
+why it was dropped and where its source is tagged.
+
 Human approvals are recorded in `video.json` `approvals[]` (gate, date, note).
 An agent never records an approval the user did not give.
 
@@ -140,6 +144,21 @@ With the final approved and every input committed (release refuses a dirty tree)
    ```
 From here on the video is frozen: it is rebuilt from its tag, never edited to follow
 upgrades, and `aiv render` refuses it at any other commit.
+
+### Archive an unpublished video
+When the user drops a film before publishing it (for example, to remake it), keep its source at a tag
+instead of keeping it in the tree:
+1. Set `status: archived` and a `next` that says why. Put the same note at the top of its README.
+   Run `pnpm aiv check --fix`, which adds the video to `catalog.json` `frozen`. Commit, then tag
+   that commit `video/<slug>/v<N>-archived`. The tag stays local until the user asks for a push.
+2. Delete its renders, stills and audio from `out/` (and any mezzanine on another drive).
+3. Write down its lessons before the source leaves the tree: production lessons go to the shared
+   docs and knowledge cards, and subject research stays in the slot.
+4. To remake the film under the same slug, reset the slot in a second commit: remove the old `src/`,
+   `audio/`, `assets/` and `publish/`, and shorten the documents to what the remake needs. Set
+   `status` and `approvals` for the new film, since approvals of the dropped film do not carry over.
+
+A dropped film is rebuilt like a frozen one, from a worktree at its `-archived` tag.
 
 ### Rebuild a frozen video
 ```sh

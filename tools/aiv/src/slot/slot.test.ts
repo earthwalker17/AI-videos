@@ -110,6 +110,12 @@ describe('gates', () => {
     expect(unmetGates(v, ctx(folder({ ...all, 'release/v1.json': '{}' })))).toEqual([]);
   });
 
+  it('archived without a release (dropped before publication) needs only a written README; after one, everything published needs', () => {
+    expect(unmetGates(slot({ status: 'archived' }), ctx(folder({ 'README.md': '# x' })))).toEqual([]);
+    expect(unmetGates(slot({ status: 'archived' }), ctx(folder({ 'README.md': stub })))).toEqual([expect.stringMatching(/README.md is still the stub/)]);
+    expect(unmetGates(slot({ status: 'archived', release: { version: 1 } }), ctx(folder({ 'README.md': '# x' })))).toEqual(expect.arrayContaining([expect.stringMatching(/'final' approval/)]));
+  });
+
   it('the generated table lists every regular status once, in order', () => {
     const rows = gatesTable().split('\n').slice(2);
     expect(rows.map((r) => /`(\w+)`/.exec(r)?.[1])).toEqual(['idea', 'brief', 'treatment', 'production', 'review', 'locked', 'published']);
