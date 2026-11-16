@@ -4,7 +4,7 @@
  * nothing here keeps state.
  */
 import { clamp, easings, type Easing } from '@aiv/core';
-import { line, type Line } from '../cues.ts';
+import { TEXT_IN, TEXT_OUT, line, type Line } from '../cues.ts';
 
 /** Eased progress of `f` from frame `from` (0) to frame `to` (1), held at both ends. */
 export const prog = (f: number, from: number, to: number, ease: Easing = easings.inOutCubic): number => ease(clamp((f - from) / (to - from)));
@@ -15,9 +15,8 @@ export const gate = (f: number, from: number, to: number, rise = 12, fall = rise
 /** A smooth bump: 0 at `from`, 1 at `peak`, 0 at `to`. */
 export const bump = (f: number, from: number, peak: number, to: number): number => (f <= peak ? easings.outCubic(clamp((f - from) / (peak - from))) : 1 - easings.inOutCubic(clamp((f - peak) / (to - peak))));
 
-/** Frames a line takes to arrive and to leave. Entrances END on the cue's frame. */
-export const TEXT_IN = 20;
-export const TEXT_OUT = 12;
+/** Frames a line takes to arrive and to leave (the cue sheet owns them). Entrances END on the cue's frame. */
+export { TEXT_IN, TEXT_OUT };
 
 export interface LineState {
   l: Line;
@@ -31,7 +30,7 @@ export interface LineState {
 export function lineState(id: string, f: number): LineState {
   const l = line(id);
   const enter = clamp((f - (l.frame - TEXT_IN)) / TEXT_IN);
-  const exit = clamp((f - l.end) / TEXT_OUT);
+  const exit = clamp((f - l.out) / TEXT_OUT);
   return { l, enter, exit, on: enter > 0 && exit < 1 };
 }
 

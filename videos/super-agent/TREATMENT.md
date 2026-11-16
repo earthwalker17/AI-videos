@@ -160,7 +160,8 @@ rebuilt, because its outputs are deleted and the brief names its failure. A pass
 "competitive": every verdict also says how the frame stands beside the benchmark.
 
 ## How it is built
-The web engine, one WebGL canvas with three.js, 1920×1080 at 60 fps. Type is rasterised once on a
+The web engine, one WebGL2 canvas drawn by the film's own small kit (no three.js: the film needs
+only flat shapes, ribbons, glyph quads and post passes), 1920×1080 at 60 fps. Type is rasterised once on a
 CPU canvas into a glyph atlas and drawn as quads in the scene, so words share its camera, bloom
 and motion blur. All film code stays in this slot: `src/cues.ts` (the one timeline), `src/kit/`,
 `src/scenes/`, `audio/`. This departs from decision 30 (a lit world under DOM text); ARCHITECTURE
@@ -184,6 +185,10 @@ Three reviewers looked at the first cut of bars 1 to 17, each without the others
 - **Not yet done:** a second critic pass after those fixes; "YOU DO." with the dot as its full
   stop; deuteranopia (the critic measured green and coral converging there, so shape must keep
   carrying the difference: rings are always you).
+
+## The look check (2026-11-17)
+The user watched the pilot and the three style frames, chose **phosphor and coral**, and said to go
+ahead. The two alternative palettes stay in `src/lookdev/` as a record.
 
 ## Approval
 The user chose "Layer stack hybrid (Recommended)" and approved the V2 plan on 2026-11-16

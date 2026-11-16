@@ -22,22 +22,21 @@ The title is a working title.
 - **The bar** is the 88 s explainer of the same article that the user supplied
   ([the study](../../references/fable-explainer-benchmark-2026-11.md)). Its frames are under
   `.cache/refs/super-agent-v2/`, never in git.
-- **Where it stands (2026-11-16, end of session 1): the pilot is waiting for the user's look
-  check.** Sections 1 to 3 are staged (bars 1 to 24); the rest of the film is a grey-box
-  animatic (the stack and the type on the grid).
-  - The pilot: `out/super-agent/pilot/pilot-1080p60.mp4` (35.5 s with a 0.5 s test card, silent),
-    its key frames, `style-frames.png` (three palettes on three beats) and `compare/` (beside the
-    benchmark). Rebuild it with `pnpm aiv render super-agent --profile review --frames 0-2129`,
-    then `aiv post` and `aiv qa` with the same profile.
-  - It passed QA at 1080p60. A context-free viewer judged our frames and the benchmark's to be
-    different films (closeness 3 and 4 out of 10). The frame critic's first pass was "partial";
-    its five fixes and the first-time viewer's notes were applied, and no second critic pass
-    has been run since.
+- **The look is chosen (2026-11-17):** at the pilot's look check the user picked phosphor green
+  and coral and said to go ahead. The look check is a checkpoint, not a recorded gate.
+- **Where it stands (2026-11-17):** sections 1 to 3 are staged (bars 1 to 24); sections 4 to 7
+  are being staged, one module each (`src/scenes/section.ts` is their contract).
+  - The pilot (bars 1 to 17 as first shown) passed QA at 1080p60. A context-free viewer judged
+    our frames and the benchmark's to be different films (closeness 3 and 4 out of 10). The frame
+    critic's first pass was "partial"; its fixes were applied.
+  - Found after the pilot and fixed: a headline that followed another on the same beat rose over
+    it for a third of a second. A line now leaves before the next block lands (`out` in the cue
+    sheet), and the reading-time tests count that shorter stay.
 - **Session plan:**
   1. ~~Baseline.~~ Done.
   2. ~~`src/cues.ts` with the full copy and its tests, the kit, an animatic.~~ Done.
   3. ~~The first ~35 s at full craft, stills beside the benchmark, the kill test, style frames.~~
-     Done. **The user picks a palette and says go, or redirects.**
+     Done. The user picked phosphor and coral and said go.
   4. Stage sections 4 to 7 (the four answers, evidence, status, close), then one review round
      (critic, context-free viewer, facts auditor).
   5. The score on the shared audio kit (`audio/index.ts`, the `audio:mix` track).
@@ -50,7 +49,7 @@ The title is a working title.
 |---|---|
 | `src/cues.ts` | The one timeline: the 120 bpm grid at 60 fps, every on-screen line and when, the score's hits. `cues.test.ts` holds its rules (holds, blocks, one block at a time, reading room) |
 | `src/kit/` | The film's renderer: `stage.ts` (WebGL2: shapes, ribbons, glyphs, bloom, sub-frame blur), `type.ts` (the glyph atlas and layout), `draw.ts`, `camera.ts`, `look.ts` (palettes, type scale), `time.ts` |
-| `src/scenes/` | `world.ts` (the strata), `flat.ts`, `lift.ts`, `levels.ts`: one module per staged section |
+| `src/scenes/` | `world.ts` (the strata) and one module per section: `flat.ts`, `lift.ts` (also the resting stack), `levels.ts`, then `gates.ts`, `threads.ts`, `batch.ts`, `cache.ts`, `evidence.ts`, `status.ts`, `close.ts`, each a `Section` (`section.ts`) |
 | `src/film.ts`, `src/boot.ts` | The camera track and the typesetter; the page's boot. `src/lookdev/` boots the alternative palettes |
 
 ## Files

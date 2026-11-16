@@ -3,16 +3,24 @@
  * part is a pure function of the film frame, so any frame renders on its own.
  */
 import { clamp, easings } from '@aiv/core';
-import { FILM_FRAMES, LABELS, LINES, SECTIONS, at, type Line, type Tier } from './cues.ts';
+import { FILM_FRAMES, LINES, SECTIONS, at, type Line, type Tier } from './cues.ts';
 import { Camera, mixPose, type Pose } from './kit/camera.ts';
 import { Draw } from './kit/draw.ts';
 import { FINISH, PALETTES, STYLES, mix, type PaletteName, type Rgb, type StyleId } from './kit/look.ts';
 import type { Stage } from './kit/stage.ts';
 import { TEXT_IN, TEXT_OUT, lineState, prog } from './kit/time.ts';
 import type { Type } from './kit/type.ts';
+import { batch } from './scenes/batch.ts';
+import { cache } from './scenes/cache.ts';
+import { close } from './scenes/close.ts';
+import { evidence } from './scenes/evidence.ts';
 import { flat } from './scenes/flat.ts';
+import { gates } from './scenes/gates.ts';
 import { levels, ROUTER_VIEW, WORKER_VIEW } from './scenes/levels.ts';
-import { DROP, TAUT, idleCells, lift, routerRail, strataNames, worldLanes, you, YOU_HOME } from './scenes/lift.ts';
+import { DROP, TAUT, lift, strataNames, you, YOU_HOME } from './scenes/lift.ts';
+import type { Anchor, Place, Section } from './scenes/section.ts';
+import { status } from './scenes/status.ts';
+import { threads } from './scenes/threads.ts';
 import { LEVEL, SLAB, edgeOn, plan, slab, strata } from './scenes/world.ts';
 
 export interface FilmOptions {
@@ -23,7 +31,9 @@ export interface FilmOptions {
 
 // ── the camera: one rig, keyed on the grid ─────────────────────────────────────────────────────
 
-const ROUTER_PLAN: Pose = plan(LEVEL.router, 0, -150, 1.0);
+/** Sections 4 to 7, in film order: each is one module (scenes/section.ts). */
+const LATER: readonly Section[] = [gates, threads, batch, cache, evidence, status, close];
+
 const KEYS: ReadonlyArray<readonly [number, Pose]> = [
   [0, plan(LEVEL.workers, 0, 20, 1.06)],
   [at(7, 1), plan(LEVEL.workers, 0, 20, 1.0)],
@@ -34,21 +44,11 @@ const KEYS: ReadonlyArray<readonly [number, Pose]> = [
   [at(19, 1), ROUTER_VIEW],
   [at(20, 3), WORKER_VIEW],
   [at(24, 3), WORKER_VIEW],
-  [at(25, 2), strata()],
-  [at(27, 1), strata()],
-  [at(28, 1), plan(LEVEL.world, 0, -120, 1.0)],
-  [at(33, 3), plan(LEVEL.world, 0, -120, 1.0)],
-  [at(35, 1), strata(1.12, 300)],
-  [at(41, 1), strata(1.12, 300)],
-  [at(42, 1), ROUTER_PLAN],
-  [at(55, 3), ROUTER_PLAN],
-  [at(56, 3), strata()],
-  [at(69, 3), strata()],
-  [at(71, 1), plan(LEVEL.you, YOU_HOME[0] + 520, 0, 1.0)],
-  [at(74, 3), plan(LEVEL.you, YOU_HOME[0] + 520, 0, 1.0)],
-  [at(76, 1), strata(1.26)],
-  [FILM_FRAMES, strata(1.3)],
+  ...LATER.flatMap((s) => s.keys),
 ];
+for (let k = 1; k < KEYS.length; k++) {
+  if (KEYS[k]![0] < KEYS[k - 1]![0]) throw new Error(`film: camera key at frame ${KEYS[k]![0]} comes before the one at ${KEYS[k - 1]![0]}`);
+}
 
 function poseAt(f: number): Pose {
   let k = 0;
@@ -61,23 +61,19 @@ function poseAt(f: number): Pose {
 
 // ── the typesetter: where each line of the cue sheet sits ──────────────────────────────────────
 
-interface Anchor {
-  x: number;
-  y: number;
-  align: 'left' | 'centre' | 'right';
-}
 const TIER_STYLE: Record<Tier, StyleId> = { h1: 'h1', h2: 'h2', h3: 'h3', sup: 'sup', stamp: 'stamp', num: 'num', verdict: 'verdict', label: 'label' };
 const LEFT = 150;
 const MARGIN = 120;
 
 /** A block's place, set by hand; a function when it hangs on something in the scene. */
-const PLACE: Record<string, Anchor | ((d: Draw) => Anchor)> = {
+const PLACE: Record<string, Place> = {
   q: { x: 960, y: 322, align: 'centre' },
   few: { x: LEFT, y: 170, align: 'left' },
   youdo: { x: 960, y: 610, align: 'centre' },
   // the title stands on the Router's slab
   title: (d) => ({ x: 456, y: d.cam.project([0, LEVEL.router, -SLAB.halfD]).y - 28, align: 'left' }),
   proto1: { x: LEFT, y: 560, align: 'left' },
+  ...Object.assign({}, ...LATER.map((s) => s.place ?? {})),
 };
 
 /** A line placed on its own, away from its block's stack. */
@@ -85,10 +81,11 @@ const LINE_PLACE: Record<string, (d: Draw) => Anchor> = {
   // the credit is a kicker over the title; the stamp lies on the Router's top, in front of its rail
   'title.by': (d) => ({ x: 460, y: d.cam.project([0, LEVEL.router, -SLAB.halfD]).y - 152, align: 'left' }),
   'title.not': (d) => ({ x: 460, y: d.cam.project([0, LEVEL.router, SLAB.halfD]).y - 14, align: 'left' }),
+  ...Object.assign({}, ...LATER.map((s) => s.linePlace ?? {})),
 };
 
 /** Lines their scene sets beside a mark. */
-const SCENE_SET = new Set<string>(['sess', 'ch.chat', 'ch.review', 'ch.mail']);
+const SCENE_SET = new Set<string>(['sess', 'ch.chat', 'ch.review', 'ch.mail', ...LATER.flatMap((s) => s.own ?? [])]);
 /** Words that name you are coral: [first glyph, one past the last], by line. */
 const YOU_GLYPHS: Record<string, ReadonlyArray<readonly [number, number]>> = {
   youdo: [[0, 3]],
@@ -158,18 +155,6 @@ function typeset(d: Draw, f: number): void {
 
 // ── the scenes ─────────────────────────────────────────────────────────────────────────────────
 
-/** The stack at rest: what the sections not yet staged start from. */
-function stack(d: Draw, f: number, focus: number): void {
-  worldLanes(d, f, focus, 1);
-  slab(d, LEVEL.workers, focus, 1, LABELS.workers);
-  idleCells(d, focus, 1);
-  slab(d, LEVEL.router, focus, 1, LABELS.router);
-  routerRail(d, focus);
-  const e = edgeOn(d);
-  you(d, YOU_HOME, e, e);
-  strataNames(d, 1);
-}
-
 function scene(d: Draw, f: number): void {
   if (f < DROP) {
     slab(d, LEVEL.workers, LEVEL.workers);
@@ -181,7 +166,7 @@ function scene(d: Draw, f: number): void {
     const e = edgeOn(d);
     you(d, YOU_HOME, e, e);
     strataNames(d, 1);
-  } else stack(d, f, d.cam.pose.target[1]);
+  } else (LATER.find((s) => f < s.to) ?? close).draw(d, f);
   typeset(d, f);
 }
 

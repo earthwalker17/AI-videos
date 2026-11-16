@@ -104,6 +104,39 @@ export function strataNames(d: Draw, alpha: number): void {
   spineLabel(d, LABELS.world, [0, LEVEL.world, LANES[LANES.length - 1]! + 110], e, mix(d.pal.bone, d.pal.ash, 0.3));
 }
 
+export interface RestOptions {
+  /** 0..1: how much of each part shows (default 1) */
+  lanes?: number;
+  cells?: number;
+  rail?: number;
+  /** a cell the caller draws itself */
+  skip?: number;
+}
+
+/**
+ * The stack at rest: what every section after the lift starts from and returns to. It is a
+ * function of the camera's pose alone, so it is the same picture on both sides of a section's
+ * edge. Looking down on a plane, the planes above it are out of the picture.
+ */
+export function rest(d: Draw, f: number, o: RestOptions = {}): void {
+  const focus = d.cam.pose.target[1];
+  const e = edgeOn(d);
+  const seen = (y: number): number => 1 - clamp((y - focus) / 120) * (1 - e);
+  worldLanes(d, f, focus, o.lanes ?? 1);
+  const w = seen(LEVEL.workers);
+  if (w > 0) {
+    slab(d, LEVEL.workers, focus, w, LABELS.workers);
+    idleCells(d, focus, w * (o.cells ?? 1), o.skip ?? -1);
+  }
+  const r = seen(LEVEL.router);
+  if (r > 0) {
+    slab(d, LEVEL.router, focus, r, LABELS.router);
+    routerRail(d, focus, r * (o.rail ?? 1));
+  }
+  you(d, YOU_HOME, e, e);
+  strataNames(d, 1);
+}
+
 export function lift(d: Draw, f: number): void {
   const p = d.pal;
   const rise = prog(f, DROP, TAUT, easings.inOutCubic);

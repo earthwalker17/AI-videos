@@ -1,11 +1,13 @@
 import { requiredHoldS } from '@aiv/core';
 import { describe, expect, it } from 'vitest';
-import { BAR, BARS, BEAT, CARD_BLOCKS, cues, FILM_FRAMES, FPS, LINES, SECTIONS, sectionSpan, type Line, type Sec } from './cues.ts';
+import { BAR, BARS, BEAT, CARD_BLOCKS, cues, FILM_FRAMES, FPS, LINES, SECTIONS, sectionSpan, TEXT_IN, TEXT_OUT, type Line, type Sec } from './cues.ts';
 
 const seconds = (frames: number) => frames / FPS;
 const blocks = new Map<string, Line[]>();
 for (const l of LINES) blocks.set(l.block, [...(blocks.get(l.block) ?? []), l]);
 const span = (ls: Line[]): [number, number] => [Math.min(...ls.map((l) => l.frame)), Math.max(...ls.map((l) => l.end))];
+/** the frames a block is really readable for: its lines leave early when the next block lands on their heels */
+const readable = (ls: Line[]): [number, number] => [Math.min(...ls.map((l) => l.frame)), Math.max(...ls.map((l) => l.out))];
 
 /** Blocks that may share the screen: a stamp that stays while the next headline lands. */
 const MAY_OVERLAP: Array<[string, string]> = [['notyou', 'decide']];
@@ -44,12 +46,12 @@ describe('the cue sheet', () => {
   });
 
   it('holds every line for at least max(1.8 s, reading time + 0.6 s)', () => {
-    for (const l of LINES) expect(seconds(l.end - l.frame), `${l.id}: "${l.text}"`).toBeGreaterThanOrEqual(requiredHoldS(l.text) - 1e-9);
+    for (const l of LINES) expect(seconds(l.out - l.frame), `${l.id}: "${l.text}"`).toBeGreaterThanOrEqual(requiredHoldS(l.text) - 1e-9);
   });
 
   it('holds every block long enough to read all of it', () => {
     for (const [id, ls] of blocks) {
-      const [from, to] = span(ls);
+      const [from, to] = readable(ls);
       const all = ls.map((l) => l.text).join(' ');
       expect(seconds(to - from), `block ${id}: "${all}"`).toBeGreaterThanOrEqual(requiredHoldS(all) - 1e-9);
     }
@@ -67,9 +69,19 @@ describe('the cue sheet', () => {
     }
   });
 
+  it('hands over cleanly: a line has left before the entrance of the block after it is under way', () => {
+    for (const l of LINES) {
+      expect(l.out, l.id).toBeLessThanOrEqual(l.end);
+      for (const m of LINES) {
+        if (m.block === l.block || m.frame < l.end) continue;
+        expect(m.frame - TEXT_IN - (l.out + TEXT_OUT), `${l.id} then ${m.id}`).toBeGreaterThanOrEqual(-2);
+      }
+    }
+  });
+
   it('keeps cards up for at least 4 s', () => {
     for (const id of CARD_BLOCKS) {
-      const [from, to] = span(blocks.get(id)!);
+      const [from, to] = readable(blocks.get(id)!);
       expect(seconds(to - from), id).toBeGreaterThanOrEqual(4);
     }
   });
