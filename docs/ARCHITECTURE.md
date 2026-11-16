@@ -443,3 +443,17 @@ new entry that supersedes it, not editing history.
     - **Cost:** the old source lives only in git history and the tag. A file the remake wants back
       is promoted to `packages/` if it is generic (the dropped film counts as its first user), or
       rewritten.
+34. **2026-11-16 · A type-led 2.5D film draws everything on one canvas.** The remake of video #4
+    chooses the web engine over decision 30's lit world under DOM text. Its picture is simple
+    marks and large animated type on a layer stack, at 60 fps.
+    - **Type** is rasterised once on a CPU canvas, the only path proven deterministic above
+      136 px, into a glyph atlas, and drawn as quads in the WebGL scene. Words then share the
+      scene's camera, bloom and motion blur, and no DOM layer is composited over the 3D frame
+      (the source of decision 30's chunk-start caveats).
+    - **One readback.** The whole frame is one WebGL canvas, so the engine's warm-up and purity
+      probe cover the type as well.
+    - **The kit stays in the video** (`videos/<slug>/src/kit/`) until a second web video needs
+      it; then it becomes a shared web kit (ROADMAP, Web kit).
+    - **Cost:** there is no browser text layout, so the film's own code measures and breaks
+      lines, and a second script would need its own atlas. 60 fps doubles the frames of every
+      stage. The measurements go into `engines/web/ENGINE.md` with the first cut.

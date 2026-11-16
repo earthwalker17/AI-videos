@@ -1146,6 +1146,17 @@
       "why": "Versions, dates and licences behind the skip and not-needed rows of the round-2 tables.",
       "note": "motion-graphics-2d-2026-11.md",
       "status": "verified"
+    },
+    {
+      "id": "khazix-fable-review-article",
+      "title": "A hands-on review of Claude Fable 5.2 with one-prompt works embedded, among them an 88 s explainer of the Super-agent article (数字生命卡兹克, X article)",
+      "url": "https://x.com/Khazix0918/status/2119941585538572390",
+      "pin": "X status 2119941585538572390 / article 2119938260130832384, created and last modified 2026-11-09T23:53:55Z, 119 blocks; read through a public mirror on 2026-11-16",
+      "license": "The creator's (facts and our own descriptions only; no frame, audio or copy reused)",
+      "excerpt_policy": "facts-paraphrased",
+      "why": "The embedded explainer film is the quality bar the user named for video #4 V2: its clock, its two scales of beat and its transitions were measured; its signatures are on the do-not-copy list.",
+      "note": "fable-explainer-benchmark-2026-11.md",
+      "status": "verified"
     }
   ]
 }

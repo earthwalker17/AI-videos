@@ -3,7 +3,7 @@
 > See the mechanism. Complex technical systems (LLMs, diffusion and video models,
 > world models, embodied AI, robotics) explained as physical, spatial machines.
 
-Status: active · First video: [THE AI STACK](../../videos/the-ai-stack/README.md)
+Status: active · First video: [THE AI STACK](../../videos/the-ai-stack/README.md) · In production: [#4 *Who Routes the Agents?*](../../videos/super-agent/README.md) (V2; moved here from `science-explainers` on 2026-11-16)
 
 ## Promise
 A viewer who has heard the words ("attention", "denoising", "policy", "latent")
@@ -40,10 +40,22 @@ compresses the whole video into one frame.
 - Sound: procedural or code-composed score; narration optional (THE AI STACK had
   none).
 - Length: 4–10 minutes, 16:9, 30 fps.
+- **#4 V2 tests another recipe:** a 2.5D layer stack drawn with simple marks and large
+  in-scene type on the web engine (one WebGL canvas, type from a glyph atlas), 2–3 minutes at
+  60 fps on a 120 bpm grid. The space is real (a camera rides the stack) but the objects are
+  not: the system's organisation is the picture. Record here what it confirms.
 
 ## Policies
 - Facts standard: every technical claim in narration or on-screen text is sourced
   (papers, official docs) in `FACTS.md` + `sources.jsonl` before `locked`.
+- A film that explains someone else's published design (as #4 does) also follows the rules
+  it brought from `science-explainers`:
+  - say on screen what is built, what is proposed and what is open, each scoped to the
+    lines it is true for;
+  - put a test's caveats before its numbers, name every baseline, and redraw figures from
+    their numbers, labelled re-plotted;
+  - no logos, product interfaces, URLs or handles; credit the source in plain text on the
+    end card with a non-affiliation line.
 - Generative AI: allowed for textures and plates, never as a depiction of how a
   system actually works.
 - Lessons that already apply: see the R3F-under-Remotion gotchas in

@@ -46,19 +46,18 @@ stays.
   needs only a written README (docs/PRODUCTION.md, "Archive an unpublished video").
 
 ## Now: #4 V2
-- [ ] **V2 of *Who Routes the Agents?*** is made with Claude Fable 5.2. It is planned in its first
-  session from the user's brief; the infrastructure it needs is listed here then.
-- [ ] **Two-user promotions.** `readingSeconds` and the hold rule moved to `@aiv/core` on
-  2026-11-08. The following exist only at V1's tag. Each moves to `@aiv/remotion-kit` or
-  `@aiv/core` when a film uses it again, and not before:
-  - the caption pattern and the cue-text helpers (`GREY_TEXT`, the notes block, `revealState`);
-  - `planSlices` (CJK font slices);
-  - `PreToeEffect`;
-  - the analytic footprint light;
-  - the 2D motion kit.
-- [ ] **Dependencies kept for V2.** Since the reset, nothing at HEAD imports fontsource IBM Plex Sans,
-  Noto Sans SC, IBM Plex Mono, `@remotion/paths` or `@remotion/layout-utils`. V1 rebuilds from its
-  tag's own lockfile. Remove the ones V2 does not use once its engine and type are chosen.
+- [ ] **V2 of *Who Routes the Agents?*** (planned 2026-11-16, in the `concept-viz` series): the web
+  engine, one WebGL canvas, type from a CPU-canvas glyph atlas, 1080p at 60 fps on a 120 bpm grid
+  (decision 34). Its kit stays in the slot, and it needs no new infrastructure. To measure on its
+  first renders and record in `engines/web/ENGINE.md`: 60 fps (never rendered here before),
+  sub-frame accumulation, and atlas text across pages. Motion QA's windows are tuned in frames
+  for 24/30 fps (info only): scale them by fps if its report misleads.
+- [ ] **Two-user promotions.** These exist only at V1's tag, and V2 takes none of them: the
+  caption pattern and cue-text helpers, `planSlices`, `PreToeEffect`, the analytic footprint light,
+  the 2D motion kit. Each moves to a shared package when a film uses it again, and not before.
+- [ ] **Dependencies.** V2 adds one OFL display font, chosen at its lookdev. Nothing at HEAD
+  imports fontsource IBM Plex Sans, Noto Sans SC, `@remotion/paths` or `@remotion/layout-utils`:
+  remove what V2 does not use once it is released (V1 rebuilds from its tag's own lockfile).
 
 ## Next: built when a film needs it
 Built when a film needs them, not before:

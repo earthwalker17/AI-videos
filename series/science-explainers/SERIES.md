@@ -4,7 +4,7 @@
 > physics, major open problems, prize-winning work, and how computing and AI systems
 > actually work.
 
-Status: active · First video: [#4 `super-agent`](../../videos/super-agent/README.md): V1 *Who Routes the Agents?* archived unpublished 2026-11-15; V2 in planning
+Status: active · First video: none yet. [#4 `super-agent`](../../videos/super-agent/README.md) started here: its V1, *Who Routes the Agents?*, was archived unpublished on 2026-11-15, and its V2 moved to [`concept-viz`](../concept-viz/SERIES.md) on 2026-11-16 at the user's request. What V1 taught stays below.
 
 Widened on 2026-11-08 from "Science & Knowledge Explainers" (mathematics and physics) to
 science and technology, with the first video. The id stays `science-explainers`.

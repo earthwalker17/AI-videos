@@ -121,9 +121,9 @@
       "number": 4,
       "slug": "super-agent",
       "title": "Who Routes the Agents?",
-      "series": "science-explainers",
-      "status": "brief",
-      "engine": "remotion",
+      "series": "concept-viz",
+      "status": "production",
+      "engine": "web",
       "reproducibility": "full",
       "languages": [
         "en"
@@ -141,7 +141,8 @@
       "summary": "Complex technical systems explained as physical, spatial machines you can see working.",
       "path": "series/concept-viz",
       "videos": [
-        "the-ai-stack"
+        "the-ai-stack",
+        "super-agent"
       ]
     },
     {
@@ -176,9 +177,7 @@
       "status": "active",
       "summary": "Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.",
       "path": "series/science-explainers",
-      "videos": [
-        "super-agent"
-      ]
+      "videos": []
     }
   ],
   "styles": [],
@@ -241,8 +240,7 @@
       "path": "engines/remotion/ENGINE.md",
       "template": "templates/remotion",
       "usedBy": [
-        "halloween-gift",
-        "super-agent"
+        "halloween-gift"
       ]
     },
     {
@@ -250,7 +248,9 @@
       "title": "Web engine (`@aiv/engine-web`)",
       "path": "engines/web/ENGINE.md",
       "template": "templates/web",
-      "usedBy": []
+      "usedBy": [
+        "super-agent"
+      ]
     }
   ],
   "packages": [

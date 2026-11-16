@@ -12,14 +12,14 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 | 1 | [Journey Through Middle-Earth](../videos/journey-through-middle-earth/README.md) | standalone | published (record only) | [YouTube](https://youtu.be/kRuPq4GjhGc) |
 | 2 | [THE AI STACK](../videos/the-ai-stack/README.md) | [3D Concept Visualizations](../series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
 | 3 | [A Halloween Gift](../videos/halloween-gift/README.md) | [Festival & Celebration](../series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
-| 4 | [Who Routes the Agents?](../videos/super-agent/README.md) | [Science & Technology Explainers](../series/science-explainers/SERIES.md) | brief | — |
+| 4 | [Who Routes the Agents?](../videos/super-agent/README.md) | [3D Concept Visualizations](../series/concept-viz/SERIES.md) | production | — |
 
 ## Series
-- [3D Concept Visualizations](../series/concept-viz/SERIES.md) (`concept-viz`, active, 1 video): Complex technical systems explained as physical, spatial machines you can see working.
+- [3D Concept Visualizations](../series/concept-viz/SERIES.md) (`concept-viz`, active, 2 videos): Complex technical systems explained as physical, spatial machines you can see working.
 - [Festival & Celebration](../series/festivals/SERIES.md) (`festivals`, active, 1 video): Visual pieces for traditional and seasonal celebrations, built on workflows that return every year.
 - [Micro Films](../series/micro-films/SERIES.md) (`micro-films`, active, 0 videos): Short conceptual and philosophical films about consciousness, humanity, AI and the future.
 - [Product & Launch](../series/product-launch/SERIES.md) (`product-launch`, active, 0 videos): Polished code-generated motion graphics: product demos, launch films and UI animation.
-- [Science & Technology Explainers](../series/science-explainers/SERIES.md) (`science-explainers`, active, 1 video): Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.
+- [Science & Technology Explainers](../series/science-explainers/SERIES.md) (`science-explainers`, active, 0 videos): Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.
 
 ## Docs
 - [AI-videos](../README.md): The source, workflows and shared tooling behind a YouTube channel of videos made with code and AI, and an open knowledge base for anyone making high-quality video the same way.
@@ -85,6 +85,7 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [Claude Code packaging — skills, CLAUDE.md, plugins, marketplaces](../references/claude-code-packaging.md): How Claude Code finds and loads instructions, skills and plugins, and how third parties (Remotion, HyperFrames, lemo-opuscar) package theirs.
 - [Code-driven video engines — survey and verdicts (2026-11)](../references/code-video-engines-survey.md): A comparison of 16+ code-driven video engines and capture techniques other than Remotion (see remotion.md), checked against live repos and registries.
 - [DeepSeek Harness "Super-agent" design article and its research prototype (2026-11)](../references/deepseek-superagent-2026-11.md): A design essay by the DeepSeek Harness team, Exploring Super-agent Design: Towards a More Autonomous Agent System; Yujia Qiao implemented the system and wrote the article (block…
+- [A Fable-made explainer of the Super-agent article: the benchmark for #4 V2 (2026-11)](../references/fable-explainer-benchmark-2026-11.md): An 88-second explainer of the DeepSeek Harness team's Super-agent article, made with Claude Fable 5.2 by another creator and published inside their review of the model.
 - [Generative AI for video assets — landscape, rights, provenance (2026-11)](../references/genai-landscape-2026-11.md): The state of hosted and open-weight generators for video, image, voice and music, the terms that decide whether their output can appear in a monetised, worldwide YouTube video and…
 - [GitHub storage limits — files, LFS, Releases, Pages, runners](../references/github-storage-limits.md): The size, bandwidth and hosting limits that decide where each kind of file in this repo lives.
 - [HyperFrames — candidate HTML engine](../references/hyperframes.md): HeyGen's open-source HTML-to-video renderer, built for coding agents: a composition is an HTML file whose timed elements carry data attributes, animated by paused GSAP timelines…

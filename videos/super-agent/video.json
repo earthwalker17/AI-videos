@@ -4,22 +4,27 @@
   "number": 4,
   "slug": "super-agent",
   "title": "Who Routes the Agents?",
-  "series": "science-explainers",
-  "status": "brief",
-  "approvals": [],
-  "next": "V2, session 1: read README.md, BRIEF.md, FACTS.md and V1.md here, then the user's V2 brief and references. Write that brief and its references into BRIEF.md (Shape: platform, languages, length, voice, score). Plan V2 as a whole (narrative, look, engine, sound) and put the session plan, at most about 15 lines, in README Status. Then write three treatments in TREATMENT.md and stop for the user's treatment approval. V1 was archived unpublished on 2026-11-15 (tag video/super-agent/v1-archived); its approvals do not carry over.",
+  "series": "concept-viz",
+  "status": "production",
+  "approvals": [
+    {
+      "gate": "treatment",
+      "date": "2026-11-16",
+      "note": "V2. Asked \"Which treatment should V2 of the Super-agent film be built on?\" with three candidates, the user chose \"Layer stack hybrid (Recommended)\" and then approved the V2 plan. V1's approvals did not carry over."
+    }
+  ],
+  "next": "V2, session 1 (2026-11-16): the baseline is committed. Next: src/cues.ts with the full copy and its tests, the kit, a grey-box animatic at 540p, then the first ~30 s at full craft with style frames in three palettes beside benchmark frames. Stop there for the user's look check (a checkpoint the user asked for, not a recorded gate). Then the full cut, the score, the review cut. See README Status and TREATMENT.md.",
   "languages": [
     "en"
   ],
   "styles": [],
   "reproducibility": "full",
-  "engine": "remotion",
-  "entry": "src/index.ts",
-  "composition": "Main",
+  "engine": "web",
+  "entry": "src/index.html",
   "format": {
     "width": 1920,
     "height": 1080,
-    "fps": 30
+    "fps": 60
   },
   "qa": {
     "loudness": {
