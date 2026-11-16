@@ -190,6 +190,9 @@ export const LABELS = {
   world: 'EVENTS',
   code: 'CODE',
   model: 'MODEL',
+  /** the two designs the authors' test compares: the rows of the re-plot */
+  sa: 'SUPER-AGENT',
+  base: 'ONE SESSION + SUBAGENT TOOL',
 } as const;
 
 /** Blocks shown as cards (a title or end card): at least 4 s, and captioned as one. */
