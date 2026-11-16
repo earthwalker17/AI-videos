@@ -3,7 +3,7 @@
  * part is a pure function of the film frame, so any frame renders on its own.
  */
 import { clamp, easings } from '@aiv/core';
-import { FILM_FRAMES, LINES, SECTIONS, at, type Line, type Tier } from './cues.ts';
+import { CARD_BLOCKS, FILM_FRAMES, LINES, SECTIONS, at, type Line, type Tier } from './cues.ts';
 import { Camera, mixPose, type Pose } from './kit/camera.ts';
 import { Draw } from './kit/draw.ts';
 import { FINISH, PALETTES, STYLES, mix, type PaletteName, type Rgb, type StyleId } from './kit/look.ts';
@@ -41,8 +41,8 @@ const KEYS: ReadonlyArray<readonly [number, Pose]> = [
   [TAUT + 14, strata()],
   [at(13, 1), strata(1.16)],
   [at(14, 1), ROUTER_VIEW],
-  [at(19, 1), ROUTER_VIEW],
-  [at(20, 3), WORKER_VIEW],
+  [at(20, 1), ROUTER_VIEW],
+  [at(21, 1), WORKER_VIEW],
   [at(24, 3), WORKER_VIEW],
   ...LATER.flatMap((s) => s.keys),
 ];
@@ -71,7 +71,7 @@ const PLACE: Record<string, Place> = {
   few: { x: LEFT, y: 170, align: 'left' },
   youdo: { x: 960, y: 610, align: 'centre' },
   // the title stands on the Router's slab
-  title: (d) => ({ x: 456, y: d.cam.project([0, LEVEL.router, -SLAB.halfD]).y - 28, align: 'left' }),
+  title: (d) => ({ x: 596, y: d.cam.project([0, LEVEL.router, -SLAB.halfD]).y - 28, align: 'left' }),
   proto1: { x: LEFT, y: 560, align: 'left' },
   ...Object.assign({}, ...LATER.map((s) => s.place ?? {})),
 };
@@ -79,8 +79,8 @@ const PLACE: Record<string, Place> = {
 /** A line placed on its own, away from its block's stack. */
 const LINE_PLACE: Record<string, (d: Draw) => Anchor> = {
   // the credit is a kicker over the title; the stamp lies on the Router's top, in front of its rail
-  'title.by': (d) => ({ x: 460, y: d.cam.project([0, LEVEL.router, -SLAB.halfD]).y - 152, align: 'left' }),
-  'title.not': (d) => ({ x: 460, y: d.cam.project([0, LEVEL.router, SLAB.halfD]).y - 14, align: 'left' }),
+  'title.by': (d) => ({ x: 600, y: d.cam.project([0, LEVEL.router, -SLAB.halfD]).y - 152, align: 'left' }),
+  'title.not': (d) => ({ x: 600, y: d.cam.project([0, LEVEL.router, SLAB.halfD]).y - 14, align: 'left' }),
   ...Object.assign({}, ...LATER.map((s) => s.linePlace ?? {})),
 };
 
@@ -94,6 +94,8 @@ const YOU_GLYPHS: Record<string, ReadonlyArray<readonly [number, number]>> = {
 };
 /** how far the scene steps back behind type that takes the frame */
 const DIM: Partial<Record<Tier, number>> = { h1: 0.74, verdict: 0.6 };
+/** under any other line, the ground is deepened a little, softly: what lies on planes beneath never reads through the words */
+const SCRIM = 0.5;
 
 function defaultAnchor(first: Line, type: Type): Anchor {
   const lay = type.layout(TIER_STYLE[first.tier], first.text);
@@ -142,6 +144,13 @@ function typeset(d: Draw, f: number): void {
       // a line never leaves the title-safe frame: it is set smaller instead
       const room = at2.align === 'left' ? 1920 - MARGIN - at2.x : at2.align === 'right' ? at2.x - MARGIN : 2 * Math.min(at2.x - MARGIN, 1920 - MARGIN - at2.x);
       const fit = Math.min(1, room / lay.width);
+      if (!dim && !CARD_BLOCKS.includes(id) && s.enter > 0 && s.exit < 1) {
+        const w = lay.width * fit;
+        const x0 = at2.align === 'left' ? at2.x : at2.align === 'centre' ? at2.x - w / 2 : at2.x - w;
+        const top = (own ? own.y : y) - lay.cap * fit;
+        const bottom = (own ? own.y : y) + (lay.widths.length - 1) * lay.lineStep * fit;
+        d.box([x0 + w / 2, (top + bottom) / 2], [w / 2 + 56, (bottom - top) / 2 + 44], 60, d.pal.ground[0], { alpha: SCRIM * s.enter * (1 - s.exit), feather: 120 });
+      }
       const spans = YOU_GLYPHS[l.id];
       const tint = spans ? (k: number): Rgb | undefined => (spans.some(([a0, a1]) => k >= a0 && k < a1) ? d.pal.you : undefined) : undefined;
       d.text(style, l.text, at2.x, own ? own.y : y, { align: at2.align, enter: s.enter, exit: s.exit, scale: fit, rgb: l.tier === 'stamp' ? mix(d.pal.bone, d.pal.ash, 0.35) : undefined, tint });

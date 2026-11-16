@@ -101,7 +101,7 @@ ln('levels', 'router', 'ch.review', 'label', 14, 3, 6, 'CODE REVIEW');
 ln('levels', 'router', 'ch.mail', 'label', 14, 3, 6, 'EMAIL');
 ln('levels', 'routes', 'routes', 'h2', 16, 1, 8, 'IT ROUTES.\nIT NEVER EXECUTES.');
 ln('levels', 'routes', 'routes.whole', 'sup', 16, 3, 6, 'Whole tasks go down, unsplit.');
-ln('levels', 'proto1', 'proto1', 'stamp', 18, 2, 7, 'PROTOTYPE: A RESTRICTED SHELL, NO WRITE TOOLS');
+ln('levels', 'proto1', 'proto1', 'stamp', 18, 2, 6.5, 'PROTOTYPE: A RESTRICTED SHELL, NO WRITE TOOLS');
 ln('levels', 'worker', 'worker', 'h2', 21, 1, 8, 'A WORKER:\nITS OWN CONTEXT');
 ln('levels', 'worker', 'worker.one', 'sup', 21, 3, 6, 'One task. Full tools.');
 ln('levels', 'answers', 'answers', 'sup', 23, 1, 6, 'By design, only the Router answers you.');

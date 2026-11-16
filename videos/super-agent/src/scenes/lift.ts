@@ -73,17 +73,21 @@ export function worldLanes(d: Draw, f: number, focus: number, alpha: number): vo
   }
 }
 
-/** The sessions as they are after the lift: the Workers' cells, idle. Seen edge-on they are tiles. */
-export function idleCells(d: Draw, focus: number, alpha: number, skip = -1): void {
+/**
+ * The sessions as they are after the lift: the Workers' cells, idle. Seen edge-on they are tiles.
+ * `skip` is a cell the caller draws itself, or a function giving each cell's share of `alpha`.
+ */
+export function idleCells(d: Draw, focus: number, alpha: number, skip: number | ((k: number) => number) = -1): void {
   const p = d.pal;
   const b = blur(LEVEL.workers, focus);
   const e = edgeOn(d);
   for (let k = 0; k < CELLS.length; k++) {
-    if (k === skip) continue;
+    const a = alpha * (typeof skip === 'function' ? skip(k) : k === skip ? 0 : 1);
+    if (a <= 0) continue;
     const c = CELLS[k]!;
     const o: Vec3 = [c.x, LEVEL.workers + 1, c.z];
-    if (e > 0) d.flat(o, [c.hw, c.hd], 28, mix(p.ash, p.bone, 0.25), { alpha: 0.3 * alpha * e });
-    d.flat(o, [c.hw, c.hd], 28, mix(p.ash, p.bone, 0.35), { stroke: 3.2, alpha: (0.62 * alpha) / (1 + 1.3 * b), feather: b * 7 });
+    if (e > 0) d.flat(o, [c.hw, c.hd], 28, mix(p.ash, p.bone, 0.25), { alpha: 0.3 * a * e });
+    d.flat(o, [c.hw, c.hd], 28, mix(p.ash, p.bone, 0.35), { stroke: 3.2, alpha: (0.62 * a) / (1 + 1.3 * b), feather: b * 7 });
   }
 }
 

@@ -26,6 +26,13 @@
     "height": 1080,
     "fps": 60
   },
+  "audio": {
+    "tracks": [
+      {
+        "source": "audio:mix"
+      }
+    ]
+  },
   "qa": {
     "swatchFrames": [
       0,
