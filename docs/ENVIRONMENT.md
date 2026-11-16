@@ -43,6 +43,7 @@ table is generated from it.
 | `@fontsource-variable/ibm-plex-sans` | 5.3.0 |
 | `@fontsource-variable/noto-sans-sc` | 5.3.1 |
 | `@fontsource/ibm-plex-mono` | 5.3.0 |
+| `@fontsource-variable/big-shoulders-display` | 5.3.0 |
 | `playwright-core` | 1.64.1 |
 | `vite` | 8.3.5 |
 | `typescript` | 5.9.3 |

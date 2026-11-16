@@ -166,6 +166,25 @@ and motion blur. All film code stays in this slot: `src/cues.ts` (the one timeli
 `src/scenes/`, `audio/`. This departs from decision 30 (a lit world under DOM text); ARCHITECTURE
 decision 34 records why.
 
+## The pilot's first review (2026-11-16)
+Three reviewers looked at the first cut of bars 1 to 17, each without the others' notes.
+- **Kill test: passed.** A viewer with no context compared our strata frame with the benchmark's
+  two-plane frame, and our sessions frame with its card grid: "different films" both times
+  (closeness 3 and 4 out of 10). What still echoes it: a user disc in a ring at the upper left,
+  and outlined rounded cells.
+- **Frame critic: partial.** The strata were hairlines and slivers, the action sat small under
+  the headlines, and lines and marks crossed the type. Its fixes were applied: slabs have a body
+  and carry their names on their front faces; the Router is a rail with three labelled channels
+  and the task visibly drops to a large cell; slab edges no longer run behind the words; the
+  count sits above the trail; coral is lighter than the green.
+- **First-time viewer:** followed the story and called it "finished, not a rough diagram", with
+  the tangle and its flattening the strongest images. Three lines were changed for them: the 3 to
+  5 line names its source in one sentence, a stalled session now calls for you with a ring
+  opening from it, and "IT DOESN'T WORK" (read as "it is broken") became "IT NEVER EXECUTES".
+- **Not yet done:** a second critic pass after those fixes; "YOU DO." with the dot as its full
+  stop; deuteranopia (the critic measured green and coral converging there, so shape must keep
+  carrying the difference: rings are always you).
+
 ## Approval
 The user chose "Layer stack hybrid (Recommended)" and approved the V2 plan on 2026-11-16
 (`video.json` `approvals`, gate `treatment`). The next human gate is the review cut. Before it, at

@@ -259,7 +259,8 @@
       "path": "packages/core",
       "description": "Isomorphic determinism helpers (seeded rng, easing, test swatches) and the shared zod contracts.",
       "usedBy": [
-        "halloween-gift"
+        "halloween-gift",
+        "super-agent"
       ]
     },
     {
@@ -286,7 +287,9 @@
       "name": "@aiv/engine-web",
       "path": "engines/web",
       "description": "Web engine: Playwright harness that captures page-contract pages (canvas, WebGL, WebGPU, SVG) deterministically, plus the in-page runtime.",
-      "usedBy": []
+      "usedBy": [
+        "super-agent"
+      ]
     },
     {
       "name": "@aiv/cli",

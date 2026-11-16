@@ -182,6 +182,28 @@ Scene: `templates/web` (three.js, shadows, MSAA, 160 instances, a Canvas 2D over
 - **Mezzanine size (FFV1 RGB)**: 0.22 MB per frame at 960x540, 0.63 MB per frame at 1080p.
 - **Doctor GPU probe**: 1.3 s.
 
+**At 60 fps** (2026-11-16, *Who Routes the Agents?* V2: the first 60 fps renders here). The page
+is one WebGL2 canvas (signed-distance shapes, ribbons, glyph quads from a CPU-canvas atlas, a
+half-float target, a six-level bloom, sub-frames averaged for motion blur) copied to the 2D
+output canvas, as the template does. Every stage accepted 60 fps unchanged.
+
+| Profile | Size, sub-frames | Per frame in a run | Frames | Render time | FFV1 |
+|---|---|---|---|---|---|
+| draft | 960x540, 3 | 0.07-0.12 s | 9,630 (the whole film) | 1,011 s | 0.32 MB per frame |
+| review | 1920x1080, 6 | 0.26-0.28 s | 2,130 (`--frames 0-2129`) | 795 s | 1.2 MB per frame |
+
+- **In the page**, a 1080p frame with 6 sub-frames takes 0.08 s (`aiv still --span`, the
+  steady median). The rest of a run's per-frame cost is the readback and the FFV1 encode.
+- **Bytes per frame are the film's own.** Its frames are about twice the template's size. The
+  likely cause is its static grain (about 1.6 code values); that was not isolated. Budget the
+  join's disk from the film's own figure, not the template's.
+- **For a clip, use `aiv render --frames a-b`**, then `aiv post` and `aiv qa` as usual (a partial
+  render cannot be released). `aiv still --span` writes one PNG per frame, which at 1080p takes
+  about a second each: 240 stills take about four minutes, against one for the same frames in a
+  run.
+- **QA at 60 fps**: probe, black, freeze and swatches behave as at 30 fps. Motion QA's windows
+  are counted in frames and were tuned at 24 and 30 fps (ROADMAP).
+
 ## Gotchas (lessons from Journey Through Middle-Earth)
 
 - **Warm up before the first captured frame.** Lazily created GPU resources (programs,
