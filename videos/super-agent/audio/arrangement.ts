@@ -44,8 +44,35 @@ const TASK_DROP = A(16, 3);
 const TASK_LANDED = A(17, 3);
 /** scenes/flat.ts FREEZE: you stop moving */
 const FREEZE = A(7, 4);
-/** scenes/batch.ts: the waiting arrivals enter together */
+/** scenes/gates.ts: waves of events reach the Router on the half beats; gate one is ruled; the model judges one event at each of JUDGED */
+const WAVES_FROM = A(25, 3);
+const WAVES = 9;
+const GATE_ONE = A(28, 3);
+const JUDGED = [A(30, 2), A(30, 3), A(31, 1), A(31, 4), A(32, 2), A(32, 3), A(33, 1)] as const;
+/** scenes/threads.ts: the request is routed, its task lands in a Worker, and each follow-up reaches that Worker */
+const ROUTED = A(34, 4);
+const SUBSCRIBED = A(35, 1);
+const FOLLOW_UPS = [A(35, 3), A(36, 1), A(36, 3), A(37, 1), A(37, 4), A(38, 1), A(38, 2), A(38, 3), A(38, 4), A(39, 1), A(39, 2), A(39, 3)] as const;
+/** scenes/batch-rail.ts: the first call lights; the waiting arrivals enter together; then each later call takes its batch */
+const FIRST_CALL = A(41, 3.5);
 const ENTER = A(43, 1);
+const BATCHES: ReadonlyArray<readonly [at: number, size: number]> = [[A(44, 3), 3], [A(46, 2), 3], [A(48, 1), 4], [A(49, 4), 4]];
+const BURST: readonly [number, number] = [A(46, 3), A(47, 4)];
+/** scenes/cache.ts: old items let their bodies go, oldest first; the recall's two hops, the body's return and the loss */
+const CASCADE = A(50, 3);
+const HOPS = [A(52, 3), A(52, 4), A(53, 1)] as const;
+const RECALLED = A(53, 3);
+const LOSS = A(53, 4);
+/** scenes/evidence.ts: the two trails stop; the typical lengths land; the token bands are lit */
+const STOPS = [A(61, 1), A(61, 3)] as const;
+const TYPICAL = A(63, 1);
+const LIT = A(64, 2);
+/** scenes/status.ts: the four gaps open */
+const GAPS = [A(68, 3), A(68, 4.5), A(69, 2), A(69, 3.5)] as const;
+/** scenes/close.ts: the question returns; the Router's model runs on the result; the result reaches you */
+const ASKED = A(71, 1);
+const REPORTED = A(72, 3);
+const ARRIVED = A(73, 3);
 
 /** The balance: what each family gets on top of the level written at its call (dB). Set from the mixer's report. */
 const TRIM = { kick: -1, thud: -3, hat: 4, clap: 4, bass: 5, pad: 5, swell: 4, string: 3, arp: 4, tick: 4 } as const;
@@ -59,6 +86,8 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   const K = kick();
   const TH = thud(seedOf(seed, 'thud'));
   const CL = clap(seedOf(seed, 'clap'));
+  /** one bright burst, a little long: a clap's bursts are spread over a frame and more */
+  const CR = hat(seedOf(seed, 'crack'), 0.11);
   const HATS = [0, 1, 2, 3].map((k) => hat(seedOf(seed, 'hat', k)));
   const memo = <T2>(make: (key: string) => T2): ((key: string) => T2) => {
     const m = new Map<string, T2>();
@@ -80,6 +109,8 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   // ── the parts ───────────────────────────────────────────────────────────────────────────────
   const kickAt = (abs: number, db = -6): void => mx.add(at(abs), K, { bus: 'drums', part: 'kick', db: db + TRIM.kick });
   const thudAt = (abs: number, db = -5): void => mx.add(at(abs), TH, { bus: 'fx', part: 'thud', db: db + TRIM.thud, sends: { hall: 0.12 } });
+  /** a bright edge on an impact that a riser runs into: without it the hit is all low end, and its start is soft */
+  const crack = (abs: number, db = -13): void => mx.add(at(abs), CR, { bus: 'drums', part: 'crack', db: db + TRIM.clap, sends: { hall: 0.45 } });
   const ring = (abs: number, m: number, db = -13, len = 1.8, pan = 0): void =>
     mx.add(at(abs), bellClip(`${m}:${len}`), { bus: 'lead', part: 'bell', db, pan, sends: { hall: 0.4, echo: 0.22 } });
   const strum = (abs: number, m: number, db: number, o: { len?: number; bright?: number; pan?: number; echo?: number; part?: string } = {}): void =>
@@ -201,6 +232,7 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   hit('hit.drop', A(9, 1), () => {
     kickAt(A(9, 1), -6);
     thudAt(A(9, 1), -7);
+    crack(A(9, 1), -12);
     mx.add(at(A(9, 1)), bassClip(`${ROOT.events}:3.6`), { bus: 'bass', part: 'bass', db: -9 + TRIM.bass });
   });
   for (let k = 0; k < 4; k++) ring(A(9, 1 + k), MOTIF[k]!, -11, 2.4, (k - 1.5) * 0.25);
@@ -232,8 +264,14 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   // ── 4. One Router for all this? (bars 25-26): the beat stops; a question that does not close ─
   hit('hit.spine', A(25, 1), () => {
     thudAt(A(25, 1), -4);
+    crack(A(25, 1));
     mx.add(at(A(25, 1)), pad(CHORD.open, secs(7), { seed: seedOf(seed, 'question'), attack: 0.02, release: 1.4, bright: 0.6 }), { bus: 'pad', part: 'stab', db: -14 + TRIM.pad, sends: { hall: 0.4 } });
   });
+  // the worry: wave after wave of events reaches the Router, each larger than the last
+  for (let k = 0; k < WAVES; k++) {
+    const b = WAVES_FROM + k / 2;
+    strum(b, [62, 64, 67, 69][k % 4]! + (k >= 4 ? 12 : 0), -21 + k * 0.9, { len: 0.5, pan: (k % 2 ? 0.45 : -0.45) * (0.4 + k / 14), echo: 0.35, part: 'waves' });
+  }
   ring(A(25, 3), 76, -14, 1.6, -0.2);
   ring(A(25, 4), 79, -14, 1.6, 0);
   ring(A(26, 1), 81, -13, 1.6, 0.2);
@@ -245,37 +283,54 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   bassLine(A(27), A(33, 3), ROOT.events);
   padSpan(A(27), A(33, 3), CHORD.dm9, { release: 0.6 });
   // gate one: plain code checks each event, dry and unpitched, a little off the grid
-  for (let k = 0, b = A(28, 3); b < A(33, 2); k++, b += 0.25) {
+  mx.add(at(GATE_ONE), tick(seedOf(seed, 'gate'), 0), { bus: 'fx', part: 'tick', db: -13 + TRIM.tick });
+  thudAt(GATE_ONE, -12);
+  for (let k = 0, b = GATE_ONE + 0.25; b < A(33, 2); k++, b += 0.25) {
     if (uni(seedOf(seed, 'ticks'), k) < 0.42) continue;
     mx.add(at(b) + Math.round((uni(seedOf(seed, 'tick-late'), k) - 0.5) * 600), tick(seedOf(seed, 'tick'), k), { bus: 'fx', part: 'tick', db: -23 + TRIM.tick, pan: uni(seedOf(seed, 'tick-pan'), k) * 1.4 - 0.7 });
   }
   // gate two: a model judges
-  for (const b of [A(30, 2), A(31, 1), A(32, 1), A(33, 1)]) swell(b, CHORD.dm9);
+  for (const [k, b] of JUDGED.entries()) swell(b, CHORD.dm9, k > 0 && b - JUDGED[k - 1]! < 2 ? 0.9 : 1.5, -18);
   verdict('hit.v1', A(33, 3), 1, CHORD.dm9);
+  // the next request is routed, once, and its task goes down to a Worker: the Router's note, then the Worker's
+  swell(ROUTED, CHORD.cmaj9, 1, -18);
+  ring(ROUTED, 72, -13, 1.2, 0.2);
+  ring(SUBSCRIBED, 69, -12, 1.8, 0.3);
   rise(A(35), 2, -22);
 
   // ── second answer, threads (bars 35-40): the Workers' note; follow-ups go straight in ───────
   drums(A(35), A(39, 4), { clapFrom: A(35) });
   bassLine(A(35), A(39, 4), ROOT.workers);
   padSpan(A(35), A(39, 4), CHORD.am11, { release: 0.6 });
-  arp(A(36), A(39, 4), CHORD.am11, { db: -21 });
+  arp(A(36), A(39, 4), CHORD.am11, { db: -22 });
+  // each follow-up goes straight to its Worker (a high pluck); the Router only notes it: a dry tick, no swell
+  for (const [k, b] of FOLLOW_UPS.entries()) {
+    strum(b, k % 2 ? 76 : 81, -15, { len: 0.5, pan: 0.35, echo: 0.2, part: 'follow' });
+    mx.add(at(b), tick(seedOf(seed, 'seen'), k), { bus: 'fx', part: 'tick', db: -19 + TRIM.tick, pan: 0.35 });
+  }
   verdict('hit.v2', A(39, 4), 2, CHORD.am11);
 
   // ── third answer, batching (bars 41-49): arrivals off the grid, then one chord ──────────────
   padSpan(A(41), ENTER, CHORD.cmaj9, { db: -19, bright: 0.3 });
   kickAt(A(41), -8);
   kickAt(A(42), -8);
+  // the first arrival finds the rail free: one call
+  swell(FIRST_CALL, CHORD.cmaj9, 1, -18);
   {
-    // each arrival waits where it landed: plucks at uneven times, low
+    // each arrival waits where it landed: plucks at uneven times, low; in the burst they crowd
     const s = seedOf(seed, 'arrivals');
-    let b = A(41, 1.4);
-    for (let k = 0; b < ENTER - 0.4; k++) {
-      strum(b, CHORD.cmaj9[1 + (k % 4)]! + 12, -19, { pan: uni(s, k) * 1.2 - 0.6, echo: 0.1, part: 'arrival' });
-      b += 0.45 + 0.75 * uni(s, k + 100);
+    const taken = [ENTER, ...BATCHES.map(([t]) => t)];
+    let b = A(41, 3.6);
+    for (let k = 0; b < A(49, 3); k++) {
+      if (!taken.some((t) => Math.abs(b - t) < 0.3)) strum(b, CHORD.cmaj9[1 + (k % 4)]! + 12, b < ENTER ? -19 : -22, { pan: uni(s, k) * 1.2 - 0.6, echo: 0.1, part: 'arrival' });
+      const crowd = b >= BURST[0] && b < BURST[1];
+      b += (crowd ? 0.22 : 0.45) + (crowd ? 0.3 : 0.75) * uni(s, k + 100);
     }
   }
   // they enter together: the same notes at once
-  for (const [k, m] of CHORD.cmaj9.slice(1).entries()) ring(ENTER, m + 12, -15, 2.2, (k - 1.5) * 0.3);
+  for (const [k, m] of CHORD.cmaj9.slice(1).entries()) ring(ENTER, m + 12, -18, 2.2, (k - 1.5) * 0.3);
+  // and so does every later batch: as many notes as it holds
+  for (const [t, size] of BATCHES) for (let k = 0; k < size; k++) ring(t, CHORD.cmaj9[1 + k]! + 12, -21, 1.6, (k - (size - 1) / 2) * 0.3);
   drums(ENTER, A(48, 4), { clapFrom: A(45) });
   bassLine(ENTER, A(48, 4), ROOT.router);
   padSpan(ENTER, A(48, 4), CHORD.cmaj9, { release: 0.6 });
@@ -283,14 +338,19 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   verdict('hit.v3', A(48, 4), 3, CHORD.cmaj9);
 
   // ── fourth answer, the cache (bars 50-55): the Router's note still; recall is an echo ───────
-  drums(A(50, 3), A(54, 4));
-  bassLine(A(50, 3), A(54, 4), ROOT.router);
+  drums(A(50, 3), A(54, 3));
+  bassLine(A(50, 3), A(54, 3), ROOT.router);
   padSpan(A(50), A(53), CHORD.cmaj9, { db: -18 });
-  padSpan(A(53), A(54, 4), CHORD.em11, { db: -18, release: 0.6 });
-  arp(A(51), A(54, 4), CHORD.cmaj9, { db: -22, echo: 0.6 });
-  strum(A(52, 3), 76, -13, { len: 1.2, echo: 0.8, part: 'recall' });
-  strum(A(53, 1), 71, -14, { len: 1.2, echo: 0.8, part: 'recall' });
-  verdict('hit.v4', A(54, 4), 4, CHORD.em11);
+  padSpan(A(53), A(54, 3), CHORD.em11, { db: -18, release: 0.6 });
+  arp(A(51), A(54, 3), CHORD.cmaj9, { db: -22, echo: 0.6 });
+  // old items let their bodies go, oldest first: a run of dry ticks, falling away
+  for (let k = 0; k < 8; k++) mx.add(at(CASCADE + (k * 7) / 30), tick(seedOf(seed, 'spill'), k), { bus: 'fx', part: 'tick', db: -17 - k * 0.8 + TRIM.tick, pan: -0.6 + k * 0.08 });
+  // the recall: the ID, its body, the body that one names, each an echo further back; then the body is back in view
+  for (const [k, b] of HOPS.entries()) strum(b, [76, 74, 71][k]!, -13 - k * 0.5, { len: 1.2, echo: 0.8, pan: -0.15 * k, part: 'recall' });
+  ring(RECALLED, 72, -14, 1.8, 0.25);
+  // not nothing is lost: one note is cut short
+  strum(LOSS, 59, -15, { len: 0.16, bright: 0.3, echo: 0, part: 'recall' });
+  verdict('hit.v4', A(54, 3), 4, CHORD.em11);
   rise(A(56), 2, -21);
 
   // ── 5. Evidence (bars 56-66): half-time; the chords climb the stack as the results add up ───
@@ -306,6 +366,12 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
     bassLine(from, to, roots[k]!, true);
     if (k > 0) ring(from, climb[k]![0]! + 24, -15, 2.4, k % 2 ? 0.25 : -0.25);
   }
+  // the two trails stop, the Super-agent's first; then the typical lengths land
+  ring(STOPS[0], 81, -14, 1.6, -0.3);
+  ring(STOPS[1], 69, -14, 2.2, 0.3);
+  ring(TYPICAL, 76, -15, 1.8, 0);
+  // the price is light: models reading
+  swell(LIT, CHORD.dm9, 1, -16);
 
   // ── 6. Proposed, open (bars 66-70): dashed notes, then notes with gaps ──────────────────────
   padSpan(A(66, 2), A(70, 4), [50, 57], { db: -19, bright: 0.3, release: 1.0 });
@@ -313,19 +379,28 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   // proposed: dashed (two on, one off)
   for (let e = A(66, 2) * 2, k = 0; e < A(68, 3) * 2; e++, k++) if (k % 3 !== 2) strum(e / 2, k % 6 < 3 ? 62 : 69, -17, { len: 0.3, pan: k % 2 ? 0.3 : -0.3, part: 'dashed' });
   // open: the pattern has holes in it
-  for (const b of [A(68, 3), A(69, 1), A(69, 2.5), A(70, 1), A(70, 3)]) strum(b, 64, -16, { len: 1.0, echo: 0.5, part: 'open' });
+  for (const [k, b] of GAPS.entries()) strum(b, [64, 67, 62, 69][k]!, -15, { len: 1.0, echo: 0.5, pan: k % 2 ? 0.3 : -0.3, part: 'open' });
 
   // ── 7. Close (bars 71-75): the opening's hops come back, slower; then you sign off ──────────
-  padSpan(A(71), A(72, 3), CHORD.am11, { db: -20, bright: 0.25, attack: 0.8, release: 0.8 });
-  for (let b = A(71); b < A(72, 3); b += 1) strum(b, 57, -15, { part: 'hops' });
-  // "NOT YOU.": the bass moves up to your note
-  thudAt(A(72, 3), -9);
-  mx.add(at(A(72, 3)), bassClip(`${ROOT.you}:5.6`), { bus: 'bass', part: 'bass', db: -12 + TRIM.bass });
-  padSpan(A(72, 3), A(74), CHORD.em11, { db: -18, bright: 0.4, release: 0.5 });
+  rise(ASKED, 1, -22);
+  padSpan(ASKED, REPORTED, CHORD.am11, { db: -20, bright: 0.25, attack: 0.8, release: 0.8 });
+  // the question again, as it first landed
+  thudAt(ASKED, -9);
+  ring(ASKED, 69, -12, 2.4);
+  ring(ASKED, 76, -16, 2.4);
+  for (let b = ASKED + 1; b < REPORTED; b += 1) strum(b, 57, -15, { part: 'hops' });
+  // "NOT YOU.": the Router's model runs on the result, and the bass moves up to your note
+  swell(REPORTED, CHORD.cmaj9, 1.5, -17);
+  thudAt(REPORTED, -9);
+  mx.add(at(REPORTED), bassClip(`${ROOT.you}:5.6`), { bus: 'bass', part: 'bass', db: -12 + TRIM.bass });
+  padSpan(REPORTED, A(74), CHORD.em11, { db: -18, bright: 0.4, release: 0.5 });
+  // the result is beside you: your note
+  ring(ARRIVED, 76, -12, 2.0, 0.2);
   rise(A(74), 3, -19);
   hit('hit.decide', A(74, 1), () => {
     kickAt(A(74, 1), -5);
     thudAt(A(74, 1), -6);
+    crack(A(74, 1));
     mx.add(at(A(74, 1)), pad(CHORD.stack, secs(1.8), { seed: seedOf(seed, 'decide'), attack: 0.01, release: 0.4, bright: 0.7 }), { bus: 'pad', part: 'stab', db: -14 + TRIM.pad, sends: { hall: 0.3 } });
   });
   // the motif, whole, leading into the one touch

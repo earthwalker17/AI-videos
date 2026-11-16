@@ -239,7 +239,7 @@ the article's table (section 4) on 2026-11-17.
 | `recall` | BY DESIGN: RECALL BY ID / It loses less. Not nothing. | Blocks 68–71: each recalled object inlines the next hop's summaries and IDs; it "reduces how much earlier information the Router layer loses". "By design": the prototype has summaries and read pointers but no dedicated multi-hop recall (section 3). Memory over months is open (125) | [V via mirror], [V]; the prototype's lack of multi-hop recall is [U] |
 | `v4` | 4 THE REST WAITS BEHIND IDS. | As `cache` and `recall` | [V via mirror] |
 | `test` | THE AUTHORS' TEST / Synthetic. 5 runs. Indicative only. | Blocks 106, 108: synthetic workloads, "indicative only", 5 runs per design, simulated coding | [V via mirror] |
-| `who` | SUPER-AGENT · ONE SESSION + SUBAGENT TOOL / told to delegate first | The table's rows (113): the Super-agent, and the single session with a subagent tool under the delegation prompt (110, 115) | [V via mirror] |
+| `who` | SUPER-AGENT · ONE SESSION + SUBAGENT TOOL / told to delegate first (stays beside the row's name under every length) | The table's rows (113): the Super-agent, and the single session with a subagent tool under the delegation prompt (110, 115) | [V via mirror] |
 | `slow` | SLOWEST TASKS: ABOUT HALF THE TIME / P95 · RE-PLOTTED | p95 15.7 against 29.0: 0.54. Lengths drawn in that ratio, with no unit (the table's clock is unstated and the chart is time-scaled) | [V via mirror], [calc] |
 | `typ` | TYPICAL TASKS: ABOUT 10% FASTER / P50 | p50 12.4 against 13.8: 10.1% less. Against the baseline that never delegated it would be 39%; the film uses the stronger baseline and names it | [V via mirror], [calc] |
 | `price` | THE PRICE: 2–4× THE TOKENS / 2× this one, 4× one left to choose | Cache-read tokens 23.2M against 10.8M (2.1×, the delegation prompt) and 6.1M (3.8×, the neutral prompt, which allowed a subagent "when appropriate": "left to choose") | [V via mirror], [calc] |
@@ -248,9 +248,52 @@ the article's table (section 4) on 2026-11-17.
 | `notyou`, `decide` | NOT YOU. BY DESIGN / YOU DECIDE. YOU SIGN OFF. | Blocks 4 and 139: people move up to "higher-level decisions and sign-off". "By design" stays on screen because the public prototype builds only part of it | [V via mirror]; framing ours |
 | `end` | WHO ROUTES THE AGENTS? / After "Exploring Super-agent Design" by the DeepSeek Harness team, 2026 / An independent explainer. Not affiliated with DeepSeek. | The article's title and credit (section 1), posted 2026-11-01 (the Chinese original 2026-10-31 [S]); the non-affiliation statement is ours | [V via mirror] |
 
-**What the picture adds to the words** (checked against the same findings): a ring marks an event a
-person sent; a capsule is one whole task and is never split; green light means a model is running
-and appears nowhere at the code gate; the Router shows an unlit tick for each follow-up; batches
-stay small (the test's average batch was 1.0 to 2.8); the re-plot has no units; dashed marks are
-proposed and gaps are open. Illustrative events and tasks are the film's own, never the article's
-examples.
+**What the picture adds to the words** (each checked against the same findings). Illustrative
+events, tasks, counts and proportions are the film's own, never the article's examples or data.
+
+- **Throughout.** A ring marks an event a person sent. A capsule is one whole task and is never
+  split. Green light means a model is running; it is the film's only glow. Dashed marks are
+  proposed, gaps are open. The only lines are history or a subscription.
+- **The question (bars 25–26).** A crowd of events presses under the Router with nothing lit. It is
+  the film's picture of a worry, not a measured load, and it never shares a frame with a figure.
+- **Gates.** No green appears before the model gate. The code gate's check is drawn as immediate; no
+  latency is claimed (the prototype polls GitHub every 60 s). The model gate is a rule on the
+  events' plane named only MODEL: no separate agent is drawn, because the article does not say
+  which session judges and in the prototype the Router's own session does. The proportion is the
+  film's: about eighty events end as ash at the code gate against seven that reach the model; the
+  article says "most noise" and gives no number, and none is on screen. Every ringed event shown
+  passes both gates; the sources support "explicit requests work in every mode", not "every
+  message from a person is acted on" (about 20 of the test's 300 messages were requests). Ringed
+  events get a model pulse, as in the article's slow path; the prototype routes explicit requests
+  without assessing them (section 3). An unasked event the model accepts stops at a shelf as a
+  hollow outline: recorded, not started (observe mode).
+- **Threads.** The request rises to the Router and gets one model call. A thin line from its lane to
+  the Worker's cell is the subscription. Every follow-up shown is a person's; in the prototype bot
+  and CI follow-ups still go to the model. A tick on the rail means "seen"; twelve ticks to one
+  lit decision is illustrative, not the test's ratio (about 27% fewer tokens, about 23% fewer
+  decisions). The Worker's light turns at one pace throughout: not faster.
+- **Batch.** While the test's figures are on screen every call holds three (the test's average batch
+  was 2.8 at its highest load) and lasts longer than a call of one, never shorter. A call has
+  four places: the film's own number for "a bound", which the article does not count. The rate of
+  arrivals on screen is not the test's 1 to 40 a minute.
+- **Cache.** The most recent items stay whole; the article's rule is "likely needed soon", which the
+  picture shows as recency. Ticks, bodies and the shelf are solid (the prototype has summaries,
+  stubs and read pointers); the shelf as a place is the film's image. The recall walk is dashed
+  (the prototype has no multi-hop recall) and the recalled body is a copy. One shelf body shows a
+  gap: less is lost, not nothing.
+- **Evidence.** Before any length, the same stream of events runs along both rows (the designs ran
+  on one synthetic stream; its rings are simulated people). Lengths are exact ratios from one left
+  edge: 15.7 to 29.0, then 12.4 to 13.8 on that same scale with the slowest left behind in ash,
+  then 23.2 to 10.8 to 6.1 on a scale of their own. No axis, tick, unit or figure is drawn, and the
+  trails' common pace is not a clock. The token bands are lit although they stand for a total.
+  The third band is the single session left to choose. "told to delegate first" stands beside the
+  baseline's name under every length.
+- **Status.** Proposed: a dashed copy of the Router's line lifted off the rail (running in the
+  cloud) and a dashed session in front of the Workers (the check for stuck Workers); neither is
+  drawn solid. Open: a gap in the rail (long memory), a broken coral reach from you to a working
+  cell (stepping in mid-task), a slice through the Router's slab (more Routers) and a window in the
+  Workers' face with the world's events showing through (security: untrusted input, the film's
+  reading of blocks 134–136, not a finding about the prototype).
+- **Close.** A result comes up by way of the Router, whose model runs once on it: our inference from
+  the Router being the session that answers people (blocks 40, 86). A coral ring round a result
+  means a person signed it off; no approval mechanism of the prototype is claimed.

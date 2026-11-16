@@ -4,14 +4,14 @@
  * unsplit. On the Workers' plane: a cell closes round the task and works on it alone.
  */
 import { clamp, easings, lerp } from '@aiv/core';
-import { SECTIONS, at } from '../cues.ts';
+import { LABELS, SECTIONS, at } from '../cues.ts';
 import type { Pose, Vec3 } from '../kit/camera.ts';
 import type { Draw } from '../kit/draw.ts';
 import { mix, scale } from '../kit/look.ts';
 import { bump, lineState, prog } from '../kit/time.ts';
 import { CELLS } from './flat.ts';
 import { idleCells, routerRail, worldLanes } from './lift.ts';
-import { LEVEL, SLAB, blur, plan, slab } from './world.ts';
+import { LEVEL, SLAB, blur, edgeOn, plan, slab } from './world.ts';
 
 const R = LEVEL.router;
 const W = LEVEL.workers;
@@ -59,17 +59,18 @@ const UNDER_WORDS: readonly number[] = [4, 5];
 /** The rail, its channels, and what has come down them. */
 function routerPlane(d: Draw, f: number, focus: number): void {
   const p = d.pal;
-  // looking down on the Workers' plane, the Router is overhead and out of the picture
-  const seen = clamp(1 - (R - focus) / 120);
+  // looking down on the Workers' plane, the Router is overhead and out of the picture; edge-on it is always there
+  const seen = 1 - clamp((R - focus) / 120) * (1 - edgeOn(d));
   if (seen <= 0) return;
   const b = blur(R, focus);
   const dim = seen / (1 + 0.9 * b);
-  slab(d, R, focus, seen);
+  slab(d, R, focus, seen, LABELS.router);
 
-  // the channels: each one runs into the rail
+  // the channels: each one runs into the rail. They belong to this view: they have gone when the camera comes back up
   const open = prog(f, at(13, 3), at(14, 1), easings.outCubic);
+  const shown = 1 - prog(f, at(20, 1), at(21, 1));
   for (const ch of CHANNELS) {
-    d.line([[ch.x, R + 1, 14], [ch.x, R + 1, 14 + (SLAB.halfD - 14) * open]], 2.2, mix(p.ash, p.bone, 0.45), { alpha: 0.7 * dim, feather: b * 3 });
+    if (shown > 0) d.line([[ch.x, R + 1, 14], [ch.x, R + 1, 14 + (SLAB.halfD - 14) * open]], 2.2, mix(p.ash, p.bone, 0.45), { alpha: 0.7 * dim * shown, feather: b * 3 });
     const s = lineState(ch.line, f);
     if (s.on) {
       // the name stands to the left of its channel, clear of the frame's edge and of the next one
@@ -113,7 +114,7 @@ function task(d: Draw, f: number, focus: number): void {
   const y = lerp(R + 2, W + 2, fall);
   const o: Vec3 = [CHANNELS[REQUEST.ch]!.x, y, lerp(0, CELL.z, fall)];
   const b = blur(y, focus);
-  const alpha = (made * (1 - prog(f, DONE, SECTIONS.spine))) / (1 + 0.5 * b);
+  const alpha = (made * (1 - prog(f, DONE, SECTIONS.spine - 12))) / (1 + 0.5 * b);
   // a capsule: one whole task
   d.flat(o, [74 * (0.7 + 0.3 * made), 30], 30, p.ground[1], { alpha: 0.85 * alpha, feather: b * 4 });
   d.flat(o, [74 * (0.7 + 0.3 * made), 30], 30, p.bone, { stroke: 4, alpha, feather: b * 4 });
@@ -126,14 +127,17 @@ function workerPlane(d: Draw, f: number, focus: number): void {
   const p = d.pal;
   const b = blur(W, focus);
   const dim = 1 / (1 + 1.2 * b);
-  slab(d, W, focus);
+  slab(d, W, focus, 1, LABELS.workers);
+  // the section begins and ends with the stack at rest: the Worker's cell is one of the idle ones until the task
+  // is on its way down to it, and again once the camera leaves
+  const back = prog(f, DONE, SECTIONS.spine - 12);
+  const idle = Math.max(back, 1 - prog(f, REQUEST.drop, REQUEST.landed - 6));
   // close on the Worker, the two sessions that would sit under the words step out; they are back for the stack
-  const close = prog(f, at(20, 1), at(20, 4)) * (1 - prog(f, DONE, SECTIONS.spine));
-  idleCells(d, focus, 1, (k) => (k === HOME ? 0 : UNDER_WORDS.includes(k) ? 1 - close : 1));
+  const close = prog(f, at(20, 1), at(20, 4)) * (1 - back);
+  idleCells(d, focus, 1, (k) => (k === HOME ? idle : UNDER_WORDS.includes(k) ? 1 - close : 1));
   const o: Vec3 = [CELL.x, W + 1, CELL.z];
-  // the section ends with the stack at rest: the Worker's light goes out as the camera leaves
-  const works = prog(f, REQUEST.landed - 6, REQUEST.landed + 30, easings.outCubic) * (1 - prog(f, DONE, SECTIONS.spine));
-  d.flat(o, [CELL.hw, CELL.hd], 28, mix(p.ash, p.bone, 0.35 + 0.5 * works), { stroke: 3.6, alpha: (0.62 + 0.3 * works) * dim, feather: b * 6 });
+  const works = prog(f, REQUEST.landed - 6, REQUEST.landed + 30, easings.outCubic) * (1 - back);
+  d.flat(o, [CELL.hw, CELL.hd], 28, mix(p.ash, p.bone, 0.35 + 0.5 * works), { stroke: 3.6, alpha: (0.62 + 0.3 * works) * dim * (1 - idle), feather: b * 6 });
   if (works > 0) {
     // the Worker's model runs: light under it, and a lit stretch going round its edge
     d.pool(o, [CELL.hw * 0.55, CELL.hd * 0.45], 96, p.think, 0.14 * works * dim);

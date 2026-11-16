@@ -13,7 +13,7 @@ import type { Draw } from '../kit/draw.ts';
 import { mix, scale } from '../kit/look.ts';
 import { bump, prog } from '../kit/time.ts';
 import { CELLS, FREEZE, trail, youAt } from './flat.ts';
-import { LEVEL, SLAB, blur, edgeOn, slab, spineLabel } from './world.ts';
+import { LEVEL, NAME, SLAB, blur, edgeOn, namesOn, slab, slabNameY, spineLabel, spineNameY } from './world.ts';
 
 export const DROP = at(9, 1);
 /** the trail has left the floor and is a straight line by here */
@@ -100,12 +100,20 @@ export function you(d: Draw, at3: Vec3, alpha = 1, ring = 1): void {
   if (ring > 0) d.dot(at3, 44, p.you, { stroke: 2.2, alpha: 0.5 * alpha * ring });
 }
 
+/** where the world's name hangs: in front of its nearest lane */
+export const WORLD_NAME: Vec3 = [0, LEVEL.world, LANES[LANES.length - 1]! + 110];
+
 /** The names of the strata that have no slab: you above, the world's events below. */
 export function strataNames(d: Draw, alpha: number): void {
-  const e = edgeOn(d) * alpha;
+  const e = namesOn(d) * alpha;
   if (e <= 0) return;
-  spineLabel(d, LABELS.you, YOU_HOME, e, d.pal.you);
-  spineLabel(d, LABELS.world, [0, LEVEL.world, LANES[LANES.length - 1]! + 110], e, mix(d.pal.bone, d.pal.ash, 0.3));
+  // your name waits until your dot, ring and all, is clear of it (the camera may still be coming across)
+  const q = d.cam.project(YOU_HOME);
+  const clear = clamp((q.x - 44 * q.s - (NAME.x + d.type.layout('label', LABELS.you).width) - 6) / 24);
+  spineLabel(d, LABELS.you, YOU_HOME, e * clear, d.pal.you);
+  // waiting at the frame's edge, the world's name gives way to the Workers' when the two would meet
+  const apart = clamp((spineNameY(d, WORLD_NAME) - slabNameY(d, LEVEL.workers) - 40) / 16);
+  spineLabel(d, LABELS.world, WORLD_NAME, e * apart, mix(d.pal.bone, d.pal.ash, 0.3));
 }
 
 export interface RestOptions {

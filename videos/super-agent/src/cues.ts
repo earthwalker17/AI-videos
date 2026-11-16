@@ -116,8 +116,8 @@ ln('gates', 'gate2', 'gate2', 'h3', 30, 2, 5, 'THEN A MODEL JUDGES.');
 ln('gates', 'proto2', 'proto2', 'stamp', 31, 3, 7, 'PROTOTYPE DEFAULT: UNASKED WORK IS ONLY RECORDED');
 ln('gates', 'v1', 'v1', 'verdict', 33, 3, 4, '1  MOST NEVER REACH IT.');
 
-ln('threads', 'follow', 'follow', 'h3', 35, 1, 9, 'FOLLOW-UPS GO STRAIGHT IN');
-ln('threads', 'follow', 'follow.seen', 'sup', 35, 3, 7, 'Seen by the Router. Not decided.');
+ln('threads', 'follow', 'follow', 'h3', 35, 1, 8, 'FOLLOW-UPS GO STRAIGHT IN');
+ln('threads', 'follow', 'follow.seen', 'sup', 35, 3, 6, 'Seen by the Router. Not decided.');
 ln('threads', 'cheaper', 'cheaper', 'h3', 37, 2, 10, 'CHEAPER, NOT FASTER');
 ln('threads', 'cheaper', 'cheaper.n', 'num', 37, 4, 8, '~27%');
 ln('threads', 'cheaper', 'cheaper.of', 'sup', 37, 4, 8, 'fewer tokens than without it');
@@ -134,9 +134,9 @@ ln('batch', 'v3', 'v3', 'verdict', 48, 4, 5, '3  THE REST ARRIVE TOGETHER.');
 
 ln('cache', 'cache', 'cache', 'h3', 50, 3, 8, 'ITS CONTEXT IS A CACHE');
 ln('cache', 'cache', 'cache.how', 'sup', 51, 1, 6, 'What it needs soon stays in view.');
-ln('cache', 'recall', 'recall', 'h3', 52, 3, 9, 'BY DESIGN: RECALL BY ID');
-ln('cache', 'recall', 'recall.loss', 'sup', 53, 1, 7, 'It loses less. Not nothing.');
-ln('cache', 'v4', 'v4', 'verdict', 54, 4, 5, '4  THE REST WAITS BEHIND IDS.');
+ln('cache', 'recall', 'recall', 'h3', 52, 3, 8, 'BY DESIGN: RECALL BY ID');
+ln('cache', 'recall', 'recall.loss', 'sup', 53, 1, 6, 'It loses less. Not nothing.');
+ln('cache', 'v4', 'v4', 'verdict', 54, 3, 5, '4  THE REST WAITS BEHIND IDS.');
 
 // ── 5. Evidence (bars 56-66) ─────────────────────────────────────────────────────────────────
 ln('evidence', 'test', 'test', 'h3', 56, 1, 9, "THE AUTHORS' TEST");
@@ -160,7 +160,7 @@ ln('status', 'open', 'open.t', 'sup', 68, 3, 9, 'Long memory. Security. Stepping
 // ── 7. Close (bars 70-80) ────────────────────────────────────────────────────────────────────
 ln('close', 'q2', 'q2', 'h1', 71, 1, 6, 'WHO ROUTES\nYOUR AGENTS?');
 ln('close', 'notyou', 'notyou', 'h1', 72, 3, 6, 'NOT YOU.');
-ln('close', 'notyou', 'bydesign', 'stamp', 72, 3, 10, 'BY DESIGN');
+ln('close', 'notyou', 'bydesign', 'stamp', 72, 3, 12, 'BY DESIGN');
 ln('close', 'decide', 'decide', 'h1', 74, 1, 6, 'YOU DECIDE.\nYOU SIGN OFF.');
 ln('close', 'end', 'end.t', 'h2', 76, 1, 19, 'WHO ROUTES THE AGENTS?');
 ln('close', 'end', 'end.src', 'sup', 76, 3, 17, 'After “Exploring Super-agent Design”');
@@ -208,7 +208,7 @@ const HITS: Array<[id: string, bar: number, beat: number, label: string]> = [
   ['hit.v1', 33, 3, 'verdict 1'],
   ['hit.v2', 39, 4, 'verdict 2'],
   ['hit.v3', 48, 4, 'verdict 3'],
-  ['hit.v4', 54, 4, 'verdict 4'],
+  ['hit.v4', 54, 3, 'verdict 4'],
   ['hit.test', 56, 1, 'evidence begins'],
   ['hit.decide', 74, 1, 'YOU DECIDE. YOU SIGN OFF.'],
   ['hit.sign', 74, 3, 'the sign-off: one coral touch'],
@@ -221,8 +221,8 @@ for (const [id, bar, beat, label] of HITS) events.push({ id, kind: 'hit', frame:
 for (const l of lines) {
   events.push({ id: l.id, kind: CARD_BLOCKS.includes(l.block) && l.id === (l.block === 'title' ? 'title' : 'end.t') ? 'card' : 'text', frame: l.frame, end: l.end, text: { en: l.text.replace(/\n/g, ' ') } });
 }
-// the end card stands still while it is read
-events.push({ id: 'hold.end', kind: 'hold', frame: at(77, 3), end: at(80, 4), label: 'the end card' });
+// the end card stands still while it is read: the camera has settled a beat after its last line lands
+events.push({ id: 'hold.end', kind: 'hold', frame: at(77, 2), end: at(80, 4), label: 'the end card' });
 
 export const cues = CueSheet.parse({
   schemaVersion: 1,

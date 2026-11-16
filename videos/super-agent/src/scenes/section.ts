@@ -19,6 +19,15 @@ export interface Anchor {
 /** A place set by hand, or a function when it hangs on something in the scene. */
 export type Place = Anchor | ((d: Draw) => Anchor);
 
+/**
+ * How far the scene steps back behind type that takes the frame (a share of the ground laid over
+ * it). A scene that keeps a mark in the light under such type scales it by the same number.
+ */
+export const DIM = { h1: 0.74, verdict: 0.6 } as const;
+
+/** Where every counted verdict stands: the clear ground at the top, so the four read as one series. */
+export const VERDICT_AT: Anchor = { x: 960, y: 236, align: 'centre' };
+
 export interface Section {
   /** the film frames it draws: from `from` up to, not including, `to` */
   from: number;

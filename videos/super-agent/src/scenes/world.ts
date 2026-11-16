@@ -32,6 +32,21 @@ export const blur = (y: number, focus: number): number => Math.abs(y - focus) / 
 export const edgeOn = (d: Draw): number => clamp((34 - d.cam.pose.tilt) / 16);
 
 /**
+ * How much of the names on the stack's spine shows. They go before the stack has turned far and
+ * come back once it has nearly settled, so in a dive or a rise no name meets another, or its mark.
+ */
+export const namesOn = (d: Draw): number => clamp((24 - d.cam.pose.tilt) / 8);
+
+/** where the spine's names start, and how far below a mark's middle a name's baseline sits */
+export const NAME = { x: 132, drop: 19, top: 96, bottom: 1000 } as const;
+
+/** The baseline of the name on a slab's front face. */
+export const slabNameY = (d: Draw, y: number): number => d.cam.project([0, y - SLAB.thick / 2, SLAB.halfD]).y + NAME.drop;
+
+/** The baseline of a name beside a stratum that has no slab: it waits at the frame's edge while its mark is out of frame. */
+export const spineNameY = (d: Draw, at: Vec3): number => clamp(d.cam.project(at).y, NAME.top, NAME.bottom) + NAME.drop;
+
+/**
  * A slab: smoked glass with a lit top edge and a front face. `focus` is the height in focus; a
  * slab away from it is softer and dimmer. `lit` in 0..1 scales the whole slab (for one that is
  * forming). Its name is set on its face.
@@ -54,16 +69,12 @@ export function slab(d: Draw, y: number, focus: number, lit = 1, name = ''): voi
     // the top's near edge catches the light
     const near: Vec3[] = [[-SLAB.halfW, y, SLAB.halfD], [SLAB.halfW, y, SLAB.halfD]];
     d.line(near, 3, scale(p.bone, 1.15), { alpha: 0.8 * lit * e });
-    if (name) {
-      const q = d.cam.project([0, y - SLAB.thick / 2, SLAB.halfD]);
-      d.text('label', name, 132, q.y + 19, { alpha: lit * e });
-    }
+    if (name) d.text('label', name, NAME.x, slabNameY(d, y), { alpha: lit * namesOn(d) });
   }
 }
 
 /** A name beside a stratum that has no slab (you, the world's events). */
-export function spineLabel(d: Draw, text: string, at: Vec3, alpha: number, rgb = d.pal.bone, x = 132): void {
+export function spineLabel(d: Draw, text: string, at: Vec3, alpha: number, rgb = d.pal.bone): void {
   if (alpha <= 0) return;
-  const q = d.cam.project(at);
-  d.text('label', text, x, clamp(q.y, 96, 1000) + 19, { rgb, alpha });
+  d.text('label', text, NAME.x, spineNameY(d, at), { rgb, alpha });
 }

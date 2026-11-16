@@ -18,7 +18,7 @@ import { flat } from './scenes/flat.ts';
 import { gates } from './scenes/gates.ts';
 import { levels, ROUTER_VIEW, WORKER_VIEW } from './scenes/levels.ts';
 import { DROP, TAUT, lift, strataNames, you, YOU_HOME } from './scenes/lift.ts';
-import type { Anchor, Place, Section } from './scenes/section.ts';
+import { DIM, VERDICT_AT, type Anchor, type Place, type Section } from './scenes/section.ts';
 import { status } from './scenes/status.ts';
 import { threads } from './scenes/threads.ts';
 import { LEVEL, SLAB, edgeOn, plan, slab, strata } from './scenes/world.ts';
@@ -67,7 +67,7 @@ const MARGIN = 120;
 
 /** A block's place, set by hand; a function when it hangs on something in the scene. */
 const PLACE: Record<string, Place> = {
-  q: { x: 960, y: 322, align: 'centre' },
+  q: { x: 960, y: 336, align: 'centre' },
   few: { x: LEFT, y: 170, align: 'left' },
   youdo: { x: 960, y: 610, align: 'centre' },
   // the title stands on the Router's slab
@@ -92,8 +92,6 @@ const YOU_GLYPHS: Record<string, ReadonlyArray<readonly [number, number]>> = {
   notyou: [[3, 6]],
   decide: [[0, 3], [10, 13]],
 };
-/** how far the scene steps back behind type that takes the frame */
-const DIM: Partial<Record<Tier, number>> = { h1: 0.74, verdict: 0.6 };
 /** under any other line, the ground is deepened a little, softly: what lies on planes beneath never reads through the words */
 const SCRIM = 0.5;
 
@@ -104,7 +102,7 @@ function defaultAnchor(first: Line, type: Type): Anchor {
     case 'h1':
       return { x: 960, y: 540 + lay.cap / 2 - ((rows - 1) * lay.lineStep) / 2, align: 'centre' };
     case 'verdict':
-      return { x: 960, y: 580, align: 'centre' };
+      return VERDICT_AT;
     case 'num':
       return { x: 960, y: 620, align: 'centre' };
     case 'h2':
@@ -127,7 +125,7 @@ function typeset(d: Draw, f: number): void {
     const first = ls[0]!;
     const place = PLACE[id];
     const a = typeof place === 'function' ? place(d) : (place ?? defaultAnchor(first, d.type));
-    const dim = DIM[first.tier];
+    const dim = first.tier === 'h1' || first.tier === 'verdict' ? DIM[first.tier] : 0;
     if (dim) {
       const s = lineState(first.id, f);
       d.box([960, 540], [960, 540], 0, d.pal.ground[0], { alpha: dim * s.enter * (1 - s.exit) });
