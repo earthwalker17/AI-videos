@@ -5,7 +5,7 @@
   "slug": "super-agent",
   "title": "Who Routes the Agents?",
   "series": "science-explainers",
-  "status": "locked",
+  "status": "published",
   "approvals": [
     {
       "gate": "treatment",
@@ -23,7 +23,7 @@
       "note": "V2. Shown the final (out/super-agent/post/final/super-agent.mp4, bit-identical to the approved review cut frame for frame, aiv qa passed) and the publish kit, the user uploaded it and wrote: \"OK the video is approved and published: https://youtu.be/-b7g5XIgEn0\""
     }
   ],
-  "next": "The user approved the final and published it on YouTube (https://youtu.be/-b7g5XIgEn0, 2026-11-17 18:30 UTC), and decided on 2026-11-18 to release it in science-explainers, as v2. Now: aiv release --version 2, youtube.id and status published, the tag video/super-agent/v2, the push and the GitHub release.",
+  "next": "Published on YouTube on 2026-11-17 (https://youtu.be/-b7g5XIgEn0) and released as v2 (tag video/super-agent/v2). The film is frozen: it is rebuilt from that tag, never edited.",
   "languages": [
     "en"
   ],
@@ -82,7 +82,12 @@
     "film": "CC-BY-4.0",
     "note": "The film (picture and score) is CC BY 4.0. It explains an article by the DeepSeek Harness team, which states no licence: facts are paraphrased and nothing of the article is licensed here. The thumbnail is AI output with no copyright claimed. Not affiliated with or endorsed by DeepSeek. Code MIT and text CC BY 4.0 as in the rest of the repository."
   },
-  "youtube": null,
-  "release": null,
+  "youtube": {
+    "id": "-b7g5XIgEn0",
+    "published": "2026-11-17"
+  },
+  "release": {
+    "version": 2
+  },
   "source": null
 }

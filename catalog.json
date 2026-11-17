@@ -122,14 +122,14 @@
       "slug": "super-agent",
       "title": "Who Routes the Agents?",
       "series": "science-explainers",
-      "status": "locked",
+      "status": "published",
       "engine": "web",
       "reproducibility": "full",
       "languages": [
         "en"
       ],
       "path": "videos/super-agent",
-      "watch": null,
+      "watch": "https://youtu.be/-b7g5XIgEn0",
       "reusable": [
         {
           "path": "videos/super-agent/src/kit/stage.ts",
@@ -322,6 +322,8 @@
   ],
   "frozen": [
     "videos/halloween-gift/src",
-    "videos/halloween-gift/audio"
+    "videos/halloween-gift/audio",
+    "videos/super-agent/src",
+    "videos/super-agent/audio"
   ]
 }

@@ -12,6 +12,8 @@
   ],
   "exclude": [
     "videos/halloween-gift/src",
-    "videos/halloween-gift/audio"
+    "videos/halloween-gift/audio",
+    "videos/super-agent/src",
+    "videos/super-agent/audio"
   ]
 }

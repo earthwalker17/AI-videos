@@ -13,11 +13,15 @@ YouTube the film is titled *Who Routes the Agents? | DSH Super-agent Architectur
 **Series:** [Science & Technology Explainers](../../series/science-explainers/SERIES.md) · **Number:** 4 · **Engine:** web, 1920×1080 at 60 fps
 ▶ **Watch:** [youtu.be/-b7g5XIgEn0](https://youtu.be/-b7g5XIgEn0) (published 2026-11-17)
 
-## Status: locked; published on YouTube, release pending
+## Status: published
 Published on YouTube on 2026-11-17 at 18:30 UTC
-([youtu.be/-b7g5XIgEn0](https://youtu.be/-b7g5XIgEn0)): 1920×1080 at 60 fps, 84 bars at 120 bpm,
-10,080 frames, 2:48.0, English, no voice. The approval dates below are the creator's local dates,
-which is why the final approval reads 2026-11-18.
+([youtu.be/-b7g5XIgEn0](https://youtu.be/-b7g5XIgEn0)) as release v2
+([release/v2.json](release/v2.json)): the delivery `super-agent-v2.mp4` (1920×1080 at 60 fps,
+84 bars at 120 bpm, 10,080 frames, 2:48.0, H.264 and AAC, BT.709; sha256 `4982377ab3fe…`, the
+file that was uploaded) and an archive master with PCM audio (sha256 `4e010cd0398c…`), published
+as the assets of the GitHub release `video/super-agent/v2`. English, no voice. The film is frozen
+at that tag and rebuilt only from it (see Reproduce it). The approval dates below are the
+creator's local dates, which is why the final approval reads 2026-11-18.
 
 - **V1 and V2.** V1 was archived unpublished on 2026-11-15 ([V1.md](V1.md)). V2 is a fresh remake
   made with Claude Fable 5.2 from the user's brief ([BRIEF.md](BRIEF.md)): a simpler,
@@ -31,11 +35,12 @@ which is why the final approval reads 2026-11-18.
   film in `science-explainers` (it was made under `concept-viz`) and as v2.
 - **Verified.** The final is the approved review cut without its 30-frame test card: all 10,080
   frame hashes of the final render equal the review render's. `aiv qa` passes on the delivery
-  (−14.0 LUFS, −3.1 dBTP, no unexpected freeze or black, every reading hold). On the archive
-  master the first run failed one check: its freeze detector read 0:35.1 to 0:38.1 as a frozen
-  picture (3.03 s against a 3 s threshold, while the prototype stamp stands and only the Worker's
-  trace moves). In the lossless render every frame in that span differs from the one before; the
-  span is now declared in `video.json` (`qa.allowFreeze`) and QA is re-run before the release.
+  and on the archive master (−14.0 LUFS, −3.1 dBTP, no unexpected freeze or black, every
+  reading hold). One near-still span is declared for it in `video.json` (`qa.allowFreeze`): on
+  the archive master the first run's freeze detector read 0:35.1 to 0:38.1 as a frozen picture
+  (3.03 s against a 3 s threshold, while the prototype stamp stands and only the Worker's trace
+  moves), although every frame in that span differs in the lossless render. The release's
+  delivery was encoded again from the committed tree and is byte for byte the uploaded file.
   Colour was verified on the review cut's swatches (within 2 levels); the final has no test card
   to measure. On the review cut, 17 frames re-rendered on a fresh page matched the render's
   hashes.
@@ -102,13 +107,17 @@ V1 never had a release. The user chose to release V2 as v2 (`aiv release --versi
 the release number matches the film's name and cannot be confused with V1's `v1-archived` tag.
 
 ## Reproduce it
-Once V2 is built:
+The film is frozen: rebuild it from its release tag, not from `main`.
 ```sh
+git worktree add ../rebuild-super-agent-v2 video/super-agent/v2
+cd ../rebuild-super-agent-v2
+pnpm install --frozen-lockfile && pnpm aiv doctor --fix   # that tag's toolchain and pinned browser
 pnpm aiv audio super-agent
-pnpm aiv render super-agent --profile final
-pnpm aiv post super-agent --profile final
-pnpm aiv qa super-agent --profile final
+pnpm aiv render super-agent --profile final && pnpm aiv post super-agent --profile final && pnpm aiv qa super-agent --profile final
 ```
+On the reference host the frames match the release's frame hashes, and the delivery came out
+byte for byte the same in two encodes; elsewhere compare with SSIM
+([PRODUCTION](../../docs/PRODUCTION.md), Rebuild a frozen video).
 
 ## Licence
 This text is CC BY 4.0 and the code MIT ([licensing](../../docs/LICENSING.md)). The film itself

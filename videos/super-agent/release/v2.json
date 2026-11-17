@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "slug": "super-agent",
+  "version": 2,
+  "createdAt": "2026-11-17T21:20:58.110Z",
+  "files": [
+    {
+      "name": "super-agent-v2.mp4",
+      "role": "delivery",
+      "bytes": 138350940,
+      "sha256": "4982377ab3fe2ef6fd682c438f6eef002f1a744aa2df93842a63383bf05e67b2",
+      "container": "mov,mp4,m4a,3gp,3g2,mj2",
+      "vcodec": "h264",
+      "acodec": "aac",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "frames": 10080,
+      "durationS": 168,
+      "color": {
+        "space": "bt709",
+        "primaries": "bt709",
+        "transfer": "bt709",
+        "range": "tv"
+      }
+    },
+    {
+      "name": "super-agent-v2-archive.mkv",
+      "role": "archive",
+      "bytes": 249962609,
+      "sha256": "4e010cd0398c0b0bbd153d38ec97be67f43dfff6f556fc6b7e4371af87e09e02",
+      "container": "matroska,webm",
+      "vcodec": "h264",
+      "acodec": "pcm_s24le",
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "frames": 10080,
+      "durationS": 168,
+      "color": {
+        "space": "bt709",
+        "primaries": "bt709",
+        "transfer": "bt709",
+        "range": "tv"
+      }
+    }
+  ],
+  "picture": {
+    "engine": {
+      "name": "web",
+      "version": "0.1.0",
+      "adapterVersion": "1"
+    },
+    "profile": "final",
+    "commit": "60c4dc336dde442a554a8794f56d8fe0236bc278",
+    "dirty": false,
+    "inputHash": "41d333b753b123e747d832f81437d305675f757ff13cd33793c26983d88c46c7",
+    "frames": 10080,
+    "durationFrames": 10080,
+    "fps": 60,
+    "toolchain": {
+      "node": "v24.19.0",
+      "pnpm": "11.1.3",
+      "ffmpeg": "8.0.1-full_build-www.gyan.dev",
+      "ffmpegBuildconfHash": "74073287e9d549c9",
+      "browser": "chrome-for-testing 156.0.8078.4",
+      "os": "win32",
+      "arch": "x64",
+      "gpu": "ANGLE (Intel, Intel(R) UHD Graphics, D3D11)"
+    }
+  },
+  "post": {
+    "dirty": false,
+    "deliveryPreset": "youtube",
+    "encoder": "libx264",
+    "archivePreset": "archive"
+  },
+  "tree": {
+    "commit": "061fc1af81fbba5133585b66967d5b6bc88ec6d5",
+    "dirty": false
+  },
+  "audio": {
+    "lufs": -14,
+    "truePeak": -3.1,
+    "sources": [
+      {
+        "source": "audio:mix",
+        "bytes": 64512058,
+        "sha256": "7c6facb0bdd6f7f3db98b9ad0cedbdae85522b32b6342e50b7464712cc3877c5",
+        "inputHash": "9dd7e3c35a9165dd6cc959c50de579a57042f54403eb84fa415c7154e6b8399f"
+      }
+    ]
+  },
+  "qa": {
+    "passed": true,
+    "failed": []
+  },
+  "storage": {
+    "tier": "T1",
+    "limitBytes": 2147483648
+  }
+}
