@@ -8,9 +8,9 @@
  * Then the look-down on the world. A flood of events (a few of them a person's) meets gate one, a
  * ruled edge of plain code: each is checked the moment it touches, most fall to ash on the spot,
  * and no model runs. The few that pass meet gate two, where a model judges each one: the first
- * light of the section. A person's request lifts off towards the Router. Work nobody asked for,
- * which the model would accept, is only recorded (the prototype's default): it stops at a short
- * shelf past the gate, hollow.
+ * light of the section. A person's request crosses the gate and lifts off towards the Router. Work
+ * nobody asked for, which the model would accept, is only recorded (the prototype's default): it
+ * comes to rest against a short shelf past the gate, an open outline.
  */
 import { clamp, easings, lerp, rand, smoothstep, valueNoise } from '@aiv/core';
 import { LABELS, SECTIONS, at, line } from '../cues.ts';
@@ -59,9 +59,13 @@ const G1 = at(28, 3);
 const G2 = at(30, 2);
 /** the shelf is ruled, and the first unasked event is on it, by here */
 const SHELF = at(31, 3);
-/** the picture is held while the verdict is read, then cleared: everything of this section's own is gone by its end */
+/** the camera holds while the verdict is read */
 const HOLD = at(34, 2.5);
-const CLEAR_FROM = HOLD - 9;
+/**
+ * The gates stay under the verdict until it lets go (it counts what lies against them), then clear
+ * at once: everything of this section's own is gone by its end.
+ */
+const CLEAR_FROM = SECTIONS.threads - 12;
 const CLEAR_BY = SECTIONS.threads - 2;
 
 // ── the question: the crowd under the Router ───────────────────────────────────────────────────
@@ -91,8 +95,8 @@ function clearOfNames(d: Draw, o: Vec3, r: number): number {
     if (q.x - rad > NAME.x + d.type.layout('label', text).width + 16) continue;
     k = Math.min(k, clamp(Math.max(base - cap - 6 - (q.y + rad), q.y - rad - (base + 8)) / 8));
   }
-  // as the names fade with the tilt, what they hid comes back
-  return 1 - (1 - k) * clamp(n * 3);
+  // what the names hid comes back once they have all but gone with the tilt: never through one that still reads
+  return 1 - (1 - k) * clamp(n * 10);
 }
 
 const PACK = { z: SLAB.halfD - 10, top: LEVEL.router - SLAB.thick - 12.5, row: 19, pitch: 24, perRow: 121, r: 7.5 } as const;
@@ -221,11 +225,24 @@ const EARLY: ReadonlyArray<{ t: number; lane: number }> = [
   { t: G1 - 150, lane: 1 },
 ];
 
+/**
+ * One event a person sent that the code stops: the first on this lane from this frame on. Not
+ * everything a person sends is a request, and the picture must not say that it is. No other ringed
+ * event runs on this lane, so nothing brushes its ring where it lies.
+ */
+const TURNED_BACK = { lane: 0, from: at(29, 2) } as const;
+
 /** frames the model takes over one event */
 const JUDGE = 30;
+/** frames a passed event takes to cross gate two's rule, before it goes up */
+const CROSS = 16;
 const DOT = 13;
 const RING = 23;
 const ASH = 10.5;
+/** the ring a person's event keeps as ash: drawn in, like its body */
+const ASH_RING = 17.5;
+/** a recorded event is an open outline, wide enough to be seen empty from here */
+const REC = 22;
 /** an event's centre stops this far short of a gate's rule */
 const STOP = 19;
 const HOP = 14;
@@ -237,9 +254,15 @@ const Z1 = 700;
 const NAME_Z = LANES[LANES.length - 1]! + 66;
 /** the bank of ash against gate one: a file on each side of every lane, pushed back as it grows */
 const BANK = { side: 37, step: 25, first: RULE + ASH + 1.5, push: 10 } as const;
-/** the shelf: a short rule past gate two, across the two far lanes */
-const SHELF_X = X2 + 172;
-const SHELF_Z: readonly [number, number] = [Z0 + 8, (LANES[1]! + LANES[2]!) / 2];
+/**
+ * The shelf: a short rule just past gate two, across the two far lanes. It runs on a little towards
+ * the viewer, to the baseline of its name, which stands at its foot as the gates' names do.
+ */
+const SHELF_X = X2 + 116;
+const SHELF_Z: readonly [number, number] = [Z0 + 8, -112];
+const SHELF_HALF = 2.6;
+/** a recorded event's centre rests this far short of the shelf */
+const SHELF_STOP = SHELF_HALF + REC + 4;
 /** as gate one is ruled, what had already gone by clears: from here on nothing is downstream that the code did not pass */
 const SWEPT: readonly [number, number] = [G1 - 22, G1 + 10];
 
@@ -278,6 +301,14 @@ const STOPS: number[][] = LANES.map(() => []);
   for (const c of CAST) EVENTS.push({ lane: c.lane, t: c.a - TRANSIT, person: c.fate === 'lift', fate: c.fate, n: c.fate === 'park' ? parked++ : c.fate === 'drop' ? dropped++ : 0 });
 }
 
+/** the person's event the code stops: it keeps its ring, and with it takes two places in its file */
+const RINGED: Ev = (() => {
+  const ev = EVENTS.find((e) => e.fate === 'code' && e.lane === TURNED_BACK.lane && e.t >= TURNED_BACK.from);
+  if (!ev) throw new Error('gates: the code stops no event on the turned-back lane');
+  ev.person = true;
+  return ev;
+})();
+
 /** Where the `n`th event the code stopped in a lane lies at frame `f`: each later one on its side pushes it a place back. */
 function bankPlace(lane: number, n: number, f: number): Vec3 {
   const stops = STOPS[lane]!;
@@ -287,7 +318,12 @@ function bankPlace(lane: number, n: number, f: number): Vec3 {
     rank++;
     last = stops[m]!;
   }
-  const back = rank === 0 ? 0 : rank - 1 + easings.outCubic((f - last) / BANK.push);
+  let back = rank === 0 ? 0 : rank - 1 + easings.outCubic((f - last) / BANK.push);
+  if (lane === RINGED.lane && (n - RINGED.n) % 2 === 0) {
+    // the ringed one lies half a place further in, and pushes those behind it a whole place more
+    if (n === RINGED.n) back += 0.5;
+    else if (n < RINGED.n && RINGED.t <= f) back += easings.outCubic((f - RINGED.t) / BANK.push);
+  }
   return [X1 - BANK.first - back * BANK.step, W, LANES[lane]! + (n % 2 === 0 ? BANK.side : -BANK.side)];
 }
 
@@ -312,15 +348,16 @@ function event(d: Draw, o: Vec3, rgb: Rgb, alpha: number, person: boolean, feath
   if (person) d.dot(o, RING, d.pal.you, { stroke: 3.4, alpha: 0.95 * alpha, feather });
 }
 
-/** A dropped event: ash, lying on the plane. */
-function ash(d: Draw, o: Vec3, alpha: number, feather: number, gain = 1): void {
-  alpha *= clearOfNames(d, o, ASH);
+/** A dropped event: ash, lying on the plane. One a person sent keeps its ring, as dim as the rest. */
+function ash(d: Draw, o: Vec3, alpha: number, feather: number, gain = 1, person = false): void {
+  alpha *= clearOfNames(d, o, person ? ASH_RING : ASH);
   if (alpha <= 0) return;
   d.flat([o[0], W + 0.5, o[2]], [ASH, ASH], ASH, scale(mix(d.pal.ash, d.pal.bone, 0.1), gain), { alpha: 0.92 * alpha, feather });
+  if (person) d.flat([o[0], W + 0.5, o[2]], [ASH_RING, ASH_RING], ASH_RING, scale(mix(d.pal.you, d.pal.ash, 0.5), gain), { stroke: 3, alpha: 0.92 * alpha, feather });
 }
 
 /** An event dropped at frame `t0`: it turns to ash and falls aside, from `from` to `to`. */
-function fall(d: Draw, f: number, t0: number, from: Vec3, to: Vec3, alpha: number, soft: number, gain = 1): void {
+function fall(d: Draw, f: number, t0: number, from: Vec3, to: Vec3, alpha: number, soft: number, gain = 1, person = false): void {
   const p = d.pal;
   const u = clamp((f - t0) / HOP);
   const h = easings.outCubic(u);
@@ -328,8 +365,8 @@ function fall(d: Draw, f: number, t0: number, from: Vec3, to: Vec3, alpha: numbe
   const speed = (Math.hypot(to[0] - from[0], to[2] - from[2]) * 3 * (1 - u) * (1 - u)) / HOP;
   const feather = soft + Math.min(7, speed * 0.16);
   const flat = clamp((f - t0) / 8);
-  ash(d, o, alpha * flat, feather, gain);
-  event(d, o, mix(p.bone, p.ash, clamp((f - t0) / 4)), alpha * (1 - flat), false, feather);
+  ash(d, o, alpha * flat, feather, gain, person);
+  event(d, o, mix(p.bone, p.ash, clamp((f - t0) / 4)), alpha * (1 - flat), person, feather);
 }
 
 function flood(d: Draw, f: number, focus: number, show: number): void {
@@ -347,15 +384,21 @@ function flood(d: Draw, f: number, focus: number, show: number): void {
   const v1 = lineState('v1', f);
   const kept = lerp(1, 1 / (1 - VERDICT_DIM * v1.enter * (1 - v1.exit)), 0.8);
   for (const ev of EVENTS) {
-    if (ev.fate === 'code' && f >= ev.t + HOP) ash(d, bankPlace(ev.lane, ev.n, f), dim, soft, kept);
+    if (ev.fate === 'code' && f >= ev.t + HOP) ash(d, bankPlace(ev.lane, ev.n, f), dim, soft, kept, ev.person);
   }
 
   rule(d, X1, G1, LABELS.code, dim, soft);
   rule(d, X2, G2, LABELS.model, dim, soft);
 
-  // the shelf: where unasked work is recorded
-  const shelf = prog(f, SHELF - 16, SHELF, easings.outCubic);
-  if (shelf > 0) d.line([[SHELF_X, W, SHELF_Z[0]], [SHELF_X, W, SHELF_Z[1]]], 4, p.bone, { alpha: 0.88 * dim, feather: soft * 0.5, trim: [0, shelf] });
+  // the shelf, where unasked work is recorded: a rule lighter than a gate's, and named like one.
+  // It is ruled while the first such event is on its way from the gate, so that is seen to stop at it
+  const shelf = prog(f, SHELF - 30, SHELF - 12, easings.outCubic);
+  if (shelf > 0) {
+    const half = ((SHELF_Z[1] - SHELF_Z[0]) / 2) * shelf;
+    d.flat([SHELF_X, W + 1, SHELF_Z[0] + half], [SHELF_HALF, half], 1, mix(p.bone, p.ash, 0.06), { alpha: 0.95 * dim, feather: soft });
+    const q = d.cam.project([SHELF_X, W, SHELF_Z[1]]);
+    d.text('label', LABELS.recorded, q.x + 30, q.y, { alpha: dim, enter: clamp((f - (SHELF - 12)) / 16) });
+  }
 
   for (const ev of EVENTS) {
     const z = LANES[ev.lane]!;
@@ -375,7 +418,7 @@ function flood(d: Draw, f: number, focus: number, show: number): void {
       continue;
     }
     if (ev.fate === 'code') {
-      if (dt < HOP) fall(d, f, ev.t, [X1 - STOP, W, z], bankPlace(ev.lane, ev.n, f), dim, soft, kept);
+      if (dt < HOP) fall(d, f, ev.t, [X1 - STOP, W, z], bankPlace(ev.lane, ev.n, f), dim, soft, kept, ev.person);
       continue;
     }
     // it passed the code: on to gate two
@@ -399,25 +442,30 @@ function flood(d: Draw, f: number, focus: number, show: number): void {
       if (f < v + HOP) fall(d, f, v, at2, to, dim, soft, kept);
       else ash(d, to, dim, soft, kept);
     } else if (ev.fate === 'lift') {
-      // a person's request goes up, towards the Router: off this plane and out of the picture
-      const height = (g: number): number => 300 * easings.inOutSine(clamp((g - v) / 62)) ** 1.5;
+      // a person's request passes: it is seen to cross the rule, and only then goes up, towards
+      // the Router: off this plane and out of the picture
+      const x = lerp(at2[0], X2 + STOP, prog(f, v, v + CROSS));
+      const height = (g: number): number => 300 * easings.inOutSine(clamp((g - (v + CROSS - 4)) / 62)) ** 1.5;
       const y = height(f);
-      const gone = smoothstep(110, 270, y);
-      const o: Vec3 = [at2[0], W + y, z];
+      // it has gone before it can drift, in this view, over the shelf two lanes further back
+      const gone = smoothstep(70, 180, y);
+      const o: Vec3 = [x, W + y, z];
       // the shade it leaves on the plane tells its height
       const k = 1 + y / 150;
-      d.flat([at2[0], W, z], [DOT * k, DOT * k], DOT * k, p.ground[0], { alpha: 0.6 * dim * clamp(y / 30) * (1 - gone), feather: 5 + y * 0.09 });
+      d.flat([x, W, z], [DOT * k, DOT * k], DOT * k, p.ground[0], { alpha: 0.6 * dim * clamp(y / 30) * (1 - gone), feather: 5 + y * 0.09 });
       event(d, o, p.bone, dim * (1 - gone), ev.person, soft + blur(y, 0) * 6 + Math.min(7, (y - height(f - 1)) * 0.16));
     } else {
-      // unasked work the model would accept: recorded, not started. It stops at the shelf, hollow
-      const u = easings.inOutCubic((f - v) / JUDGE);
-      const to = SHELF_X - STOP + 3;
+      // unasked work the model would accept: recorded, not started. It runs on past the gate and
+      // comes to rest against the shelf, where it opens into an outline
+      const reach = JUDGE - 8;
+      const u = easings.inOutCubic((f - v) / reach);
+      const to = SHELF_X - SHELF_STOP;
       const o: Vec3 = [lerp(at2[0], to, u), W, z];
-      const du = u > 0 && u < 1 ? u - easings.inOutCubic((f - 1 - v) / JUDGE) : 0;
+      const du = u > 0 && u < 1 ? u - easings.inOutCubic((f - 1 - v) / reach) : 0;
       const feather = soft + Math.min(7, du * (to - at2[0]) * 0.16);
-      const hollow = clamp((f - v - JUDGE * 0.5) / (JUDGE * 0.5));
-      event(d, o, p.bone, dim * (1 - hollow), false, feather);
-      d.dot(o, DOT, p.bone, { stroke: 3.4, alpha: 0.94 * dim * hollow, feather });
+      const open = prog(f, v + reach - 6, v + JUDGE, easings.outCubic);
+      event(d, o, p.bone, dim * (1 - open), false, feather);
+      if (open > 0) d.dot(o, lerp(DOT, REC, open), p.bone, { stroke: 4.4, alpha: 0.94 * dim * clamp(open * 2.5), feather });
     }
   }
 }

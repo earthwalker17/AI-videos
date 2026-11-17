@@ -1,6 +1,6 @@
 /**
  * Section 7, the close. The film opened flat, on you hopping between sessions under the question
- * "who routes your agents?". Here the camera comes up to you, on top of the stack, and the question
+ * "who routes the agents?". Here the camera comes up to you, on top of the stack, and the question
  * returns over the same look-down, two levels higher: you are alone up here, and still.
  *
  * A result comes up from the stack: one finished whole task, from the first session's cell, by way
@@ -8,10 +8,13 @@
  * to your level. It waits beside you, not yet at rest. On the sign-off you reach over and touch it
  * once: your ring closes round it, it turns matte and lies still. That is all you do.
  *
- * Then the camera drops back to the stack's own view, raised: you over the Router, and the end card
- * in the clear ground above you. The whole stack cannot stand under four lines of type without its
- * edges running through them, so the card gets the sky and the picture keeps the two strata the
- * title asks about.
+ * Then the camera backs off, still above you: the signed result at rest beside you, and over the
+ * clear ground the four counted answers stand once more, as one list: the recap. (Over the stack
+ * its edges would run through the words.) Last, the camera drops back to the stack's own view,
+ * raised: you over the Router, and the end card in the clear ground above you. The whole stack cannot stand under
+ * four lines of type without its edges running through them, so the card gets the sky and the
+ * picture keeps the two strata the title asks about. Under the card the stack keeps working: the
+ * Router's model runs now and then, and nothing asks for you.
  */
 import { clamp, easings, lerp } from '@aiv/core';
 import { FILM_FRAMES, SECTIONS, at, line } from '../cues.ts';
@@ -46,10 +49,15 @@ const DECIDE = at(74, 1);
 const SIGN = at(74, 3);
 const STRIKE = SIGN - 20;
 const HOME_BY = at(75, 1) - 6;
-/** the words let go and the camera drops back to the stack; the end card is readable from here, and held from here */
+/** the words let go and the camera backs off above you: the recap stands over the clear ground */
 const LEAVE = line('decide').out;
+const RECAP = line('recap.1').frame;
+const RECAP_OUT = at(79, 3);
+/** the view rises for the end card: it is readable from here, and held from here */
 const CARD = line('end.t').frame;
-const HELD = at(77, 3);
+const HELD = at(81, 3);
+/** under the card the Router's model still runs now and then: [film frame, x along the rail] */
+const AFTER: ReadonlyArray<readonly [number, number]> = [[at(81, 3), 330], [at(82, 4), -180], [at(83, 3), 640]];
 
 // ── the camera ─────────────────────────────────────────────────────────────────────────────────
 /** the first session's cell: the result comes up from it, and stops beside you */
@@ -64,6 +72,9 @@ const over = (dist: number): Pose => ({ target: [(YOU_HOME[0] + DESK[0]) / 2 + 2
 const HIGH = over(0.6);
 const NEAR = over(0.46);
 const NEARER = over(0.42);
+/** the recap's view: you and the signed result at the frame's foot, the ground above them clear for the list */
+const RECAP_ROW = 912;
+const RECAP_VIEW: Pose = { ...over(0.52), centre: [960, RECAP_ROW] };
 
 /**
  * The stack's own view with the Router in focus, set so that you stand at screen height `youY`:
@@ -91,16 +102,16 @@ const SIGNED = 12;
 const TOUCH = DESK[0] - TASK[0] - ME + 5;
 /** how far the scene steps back behind an h1 */
 const H1_DIM = DIM.h1;
-const HEADS = ['q2', 'notyou', 'decide'] as const;
+const HEADS: ReadonlyArray<readonly [string, number]> = [['q2', H1_DIM], ['notyou', H1_DIM], ['decide', H1_DIM], ['recap.1', DIM.verdict]];
 
 const lerp3 = (a: Vec3, b: Vec3, t: number): Vec3 => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 
 /** How much of the scene the typesetter lets through behind this section's headlines. */
 function passed(f: number): number {
   let t = 1;
-  for (const id of HEADS) {
+  for (const [id, dim] of HEADS) {
     const s = lineState(id, f);
-    t *= 1 - H1_DIM * s.enter * (1 - s.exit);
+    t *= 1 - dim * s.enter * (1 - s.exit);
   }
   return t;
 }
@@ -125,21 +136,30 @@ function youAt(f: number): Vec3 {
   return [lerp(YOU_HOME[0], TOUCH, (lean + strike) * (1 - back)), YOU_HOME[1], YOU_HOME[2]];
 }
 
-/** The Router's model runs on the result as it passes: one short pulse of light along the rail. */
-function routed(d: Draw, f: number, gain: number): void {
-  const run = bump(f, ROUTED - 2, ROUTED + 10, ROUTED + 56);
+/** The Router's model runs: one short pulse of light along the rail, at `x`, from frame `t`. */
+function pulse(d: Draw, f: number, t: number, x: number, gain: number): void {
+  const run = bump(f, t - 2, t + 10, t + 56);
   if (run <= 0) return;
   const p = d.pal;
   const b = blur(R, d.cam.pose.target[1]);
   const dim = 1 / (1 + 0.9 * b);
-  const reach = lerp(110, 210, prog(f, ROUTED - 2, ROUTED + 16, easings.outCubic));
-  d.pool([RAIL[0], R, 0], [reach * 0.9, 40], 100, scale(p.think, gain), 0.2 * run * dim);
-  d.flat([RAIL[0], R + 2, 0], [reach, 8], 8, scale(p.think, 3.2 * gain), { alpha: run * dim, add: 0.8, feather: b * 4 });
+  const reach = lerp(110, 210, prog(f, t - 2, t + 16, easings.outCubic));
+  d.pool([x, R, 0], [reach * 0.9, 40], 100, scale(p.think, gain), 0.2 * run * dim);
+  d.flat([x, R + 2, 0], [reach, 8], 8, scale(p.think, 3.2 * gain), { alpha: run * dim, add: 0.8, feather: b * 4 });
+  // edge-on the lit stretch has no depth to show: there it is a line of light
+  const e = edgeOn(d);
+  if (e > 0) d.line([[x - reach, R + 2, 0], [x + reach, R + 2, 0]], 4, scale(p.think, 3.2 * gain), { alpha: run * dim * e });
+}
+
+/** It runs on the result as it passes, as "NOT YOU." lands. */
+function routed(d: Draw, f: number, gain: number): void {
+  pulse(d, f, ROUTED, RAIL[0], gain);
 }
 
 /** The result: one whole task in its capsule, the request a person sent still inside it. */
 function result(d: Draw, f: number, gain: number): void {
-  const show = prog(f, LEFT, LEFT + 30) * (1 - prog(f, LEAVE + 4, LEAVE + 30));
+  // signed, it stays beside you to the end
+  const show = prog(f, LEFT, LEFT + 30);
   if (show <= 0) return;
   const p = d.pal;
   const o = resultAt(f);
@@ -155,15 +175,25 @@ function result(d: Draw, f: number, gain: number): void {
   // pressed for a moment by your touch
   const press = 1 - 0.05 * bump(f, SIGN - 1, SIGN + 3, SIGN + 22);
   const half: [number, number] = [TASK[0] * press, TASK[1] * press];
-  d.flat(o, half, half[1], scale(mix(p.ground[1], p.bone, 0.12 * matte), k), { alpha: lerp(0.85, 1, matte) * a, feather: soft });
-  d.flat(o, half, half[1], scale(p.bone, k), { stroke: 4, alpha: a, feather: soft });
+  // lying in your plane it is a sliver when the stack is seen edge-on: there it faces the viewer
+  const e = edgeOn(d);
+  const lying = a * (1 - e);
+  const out: [number, number] = [half[0] + SIGNED, half[1] + SIGNED];
+  if (lying > 0) {
+    d.flat(o, half, half[1], scale(mix(p.ground[1], p.bone, 0.12 * matte), k), { alpha: lerp(0.85, 1, matte) * lying, feather: soft });
+    d.flat(o, half, half[1], scale(p.bone, k), { stroke: 4, alpha: lying, feather: soft });
+    // signed off: your ring closes round it, from where you touched it
+    if (signed > 0) d.flat(o, out, out[1], scale(p.you, k), { stroke: 3.6, alpha: lying, arc: [Math.PI, Math.PI * signed + 0.001] });
+  }
+  if (e > 0) {
+    const q = d.cam.project(o);
+    const hh = half[1] * q.s;
+    d.box([q.x, q.y], [half[0] * q.s, hh], hh, scale(mix(p.ground[1], p.bone, 0.12 * matte), k), { alpha: a * e });
+    d.box([q.x, q.y], [half[0] * q.s, hh], hh, scale(p.bone, k), { stroke: Math.max(2, 4 * q.s), alpha: a * e });
+    if (signed > 0) d.box([q.x, q.y], [out[0] * q.s, out[1] * q.s], out[1] * q.s, scale(p.you, k), { stroke: Math.max(2, 3.6 * q.s), alpha: a * e * signed });
+  }
   d.dot(o, DOT, scale(p.bone, k), { alpha: a, feather: soft });
   d.dot(o, RING, scale(p.you, k), { stroke: 3, alpha: 0.95 * a, feather: soft });
-  // signed off: your ring closes round it, from where you touched it
-  if (signed > 0) {
-    const out: [number, number] = [half[0] + SIGNED, half[1] + SIGNED];
-    d.flat(o, out, out[1], scale(p.you, k), { stroke: 3.6, alpha: a, arc: [Math.PI, Math.PI * signed + 0.001] });
-  }
 }
 
 /** You, in the look-down: the dot of lift.ts, stretched into its own motion when it is fast. */
@@ -185,8 +215,10 @@ function me(d: Draw, f: number, gain: number): void {
 const ASKED: Anchor = { x: 960, y: 336, align: 'centre' };
 const SECOND_ROW = ASKED.y + STYLES.h1.px * STYLES.h1.leading;
 /** the stamp stays under the answer, and under the two lines that follow it */
-const STAMP_Y = SECOND_ROW + 70;
+const STAMP_Y = SECOND_ROW + 90;
 const STAMP_IN = 7;
+/** the recap: the first answer's baseline; the four stand as one list, their numerals in a column */
+const RECAP_AT: Anchor = { x: 262, y: 262, align: 'left' };
 /** the card: the title's baseline, and the three lines under it */
 const TITLE_Y = 271;
 const CARD_ROWS = [TITLE_Y + 82, TITLE_Y + 158, TITLE_Y + 234] as const;
@@ -204,8 +236,12 @@ function draw(d: Draw, f: number): void {
   // what the words are about stays in the light
   const gain = 1 / through;
   routed(d, f, gain);
+  for (const [t, x] of AFTER) pulse(d, f, t, x, 1);
   result(d, f, gain);
   me(d, f, gain);
+  // under the card the stack runs on below the frame: its foot goes into the ground, not off a cut
+  const card = prog(f, RECAP_OUT, CARD);
+  if (card > 0) d.box([960, 1100], [1100, 150], 0, d.pal.ground[0], { alpha: 0.9 * card, feather: 150 });
   // the stamp outlasts its headline: it is set here, so that the next headline's shade does not fall on it.
   // It comes in last, on its cue, once the headline's glyphs have risen past its row
   const stamp = lineState('bydesign', f);
@@ -218,11 +254,12 @@ function draw(d: Draw, f: number): void {
 export const close: Section = {
   from: FROM,
   to: TO,
-  keys: [[LANDED, HIGH], [CLOSE_BY, NEAR], [LEAVE - 6, NEARER], [CARD, END[0]], [HELD, END[1]], [TO, END[1]]],
+  keys: [[LANDED, HIGH], [CLOSE_BY, NEAR], [LEAVE - 6, NEARER], [RECAP, RECAP_VIEW], [RECAP_OUT, RECAP_VIEW], [CARD, END[0]], [HELD, END[1]], [TO, END[1]]],
   place: {
     q2: ASKED,
     notyou: { x: 960, y: SECOND_ROW, align: 'centre' },
     decide: ASKED,
+    recap: RECAP_AT,
     end: { x: 960, y: TITLE_Y, align: 'centre' },
   },
   linePlace: {

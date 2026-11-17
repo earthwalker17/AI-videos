@@ -1,5 +1,5 @@
 /**
- * The arrangement: what sounds when, on the cue sheet's grid (120 bpm, 80 bars of four beats).
+ * The arrangement: what sounds when, on the cue sheet's grid (120 bpm, 84 bars of four beats).
  *
  * The music carries the picture's own ideas:
  * - The stack is a chord with one pitch per level: D (events), A (the Workers), C (the Router),
@@ -52,17 +52,19 @@ const JUDGED = [A(30, 2), A(30, 3), A(31, 1), A(31, 4), A(32, 2), A(32, 3), A(33
 /** scenes/threads.ts: the request is routed, its task lands in a Worker, and each follow-up reaches that Worker */
 const ROUTED = A(34, 4);
 const SUBSCRIBED = A(35, 1);
-const FOLLOW_UPS = [A(35, 3), A(36, 1), A(36, 3), A(37, 1), A(37, 4), A(38, 1), A(38, 2), A(38, 3), A(38, 4), A(39, 1), A(39, 2), A(39, 3)] as const;
+const FOLLOW_UPS = [A(35, 3), A(36, 1), A(36, 3), A(37, 1), A(37, 3), A(38, 1), A(38, 3), A(39, 1), A(39, 3)] as const;
 /** scenes/batch-rail.ts: the first call lights; the waiting arrivals enter together; then each later call takes its batch */
 const FIRST_CALL = A(41, 3.5);
 const ENTER = A(43, 1);
 const BATCHES: ReadonlyArray<readonly [at: number, size: number]> = [[A(44, 3), 3], [A(46, 2), 3], [A(48, 1), 4], [A(49, 4), 4]];
 const BURST: readonly [number, number] = [A(46, 3), A(47, 4)];
-/** scenes/cache.ts: old items let their bodies go, oldest first; the recall's two hops, the body's return and the loss */
+/** scenes/cache.ts: old items let their bodies go, from the edge of view back; the ID lights and its body is read; the copy is back on the rail; a piece of another body falls */
 const CASCADE = A(50, 3);
-const HOPS = [A(52, 3), A(52, 4), A(53, 1)] as const;
-const RECALLED = A(53, 3);
-const LOSS = A(53, 4);
+const HOPS = [A(52, 3), A(52, 4)] as const;
+const RECALLED = A(53, 1.5);
+const LOSS = A(53, 2);
+/** scenes/levels.ts (ANSWER): a report leaves the working cell; the Router's model runs on it; the answer reaches you */
+const ANSWER = { sent: A(23, 2), routed: A(23, 3), heard: A(24, 1) } as const;
 /** scenes/evidence.ts: the two trails stop; the typical lengths land; the token bands are lit */
 const STOPS = [A(61, 1), A(61, 3)] as const;
 const TYPICAL = A(63, 1);
@@ -257,6 +259,10 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   // the whole task goes down: the Router's note, then the Worker's
   ring(TASK_DROP, 72, -12, 1.4, 0.2);
   ring(TASK_LANDED, 69, -12, 1.8, -0.2);
+  // only the Router answers you: the Worker's note goes up, the Router's model runs, and your note answers
+  ring(ANSWER.sent, 69, -15, 0.9, 0.3);
+  swell(ANSWER.routed, CHORD.cmaj9, 1, -19);
+  ring(ANSWER.heard, 76, -12, 1.8, -0.3);
   kickAt(A(24, 4), -9);
   kickAt(A(24, 4.5), -7);
   rise(A(25), 3, -19);
@@ -343,10 +349,10 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   padSpan(A(50), A(53), CHORD.cmaj9, { db: -18 });
   padSpan(A(53), A(54, 3), CHORD.em11, { db: -18, release: 0.6 });
   arp(A(51), A(54, 3), CHORD.cmaj9, { db: -22, echo: 0.6 });
-  // old items let their bodies go, oldest first: a run of dry ticks, falling away
-  for (let k = 0; k < 8; k++) mx.add(at(CASCADE + (k * 7) / 30), tick(seedOf(seed, 'spill'), k), { bus: 'fx', part: 'tick', db: -17 - k * 0.8 + TRIM.tick, pan: -0.6 + k * 0.08 });
-  // the recall: the ID, its body, the body that one names, each an echo further back; then the body is back in view
-  for (const [k, b] of HOPS.entries()) strum(b, [76, 74, 71][k]!, -13 - k * 0.5, { len: 1.2, echo: 0.8, pan: -0.15 * k, part: 'recall' });
+  // old items let their bodies go, one after another, from the edge of view back into the history: a run of dry ticks, falling away
+  for (let k = 0; k < 8; k++) mx.add(at(CASCADE + (k * 7) / 30), tick(seedOf(seed, 'spill'), k), { bus: 'fx', part: 'tick', db: -17 - k * 0.8 + TRIM.tick, pan: 0.5 - k * 0.08 });
+  // the recall: the ID, then its own body, an echo further back; then the copy is back in view
+  for (const [k, b] of HOPS.entries()) strum(b, [76, 74][k]!, -13 - k * 0.5, { len: 1.2, echo: 0.8, pan: -0.15 * k, part: 'recall' });
   ring(RECALLED, 72, -14, 1.8, 0.25);
   // not nothing is lost: one note is cut short
   strum(LOSS, 59, -15, { len: 0.16, bright: 0.3, echo: 0, part: 'recall' });
@@ -414,15 +420,26 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Map<string, numbe
   padSpan(A(74, 3), A(76), CHORD.dm9, { db: -17, bright: 0.5, attack: 0.2, release: 1.0 });
   mx.add(at(A(74, 3)), bassClip(`${ROOT.events}:5.6`), { bus: 'bass', part: 'bass', db: -11 + TRIM.bass });
 
-  // ── the end card (bars 76-80): the stack at rest, the motif once more, slowly, and home ─────
-  hit('hit.end', A(76, 1), () => {
-    kickAt(A(76, 1), -8);
-    for (const [k, m] of MOTIF.entries()) ring(A(76, 1), m, -15, 3.4, (k - 1.5) * 0.3);
+  // ── the recap (bars 76-79): the four answers land a beat apart, a note of the motif each; under
+  // them the chords walk back down the stack, from your level to the events', a bar each ────────
+  for (const [k, m] of MOTIF.entries()) ring(A(76, 1 + k), m, -12, 2.6, (k - 1.5) * 0.3);
+  const down = [[CHORD.em11, ROOT.you], [CHORD.cmaj9, ROOT.router], [CHORD.am11, ROOT.workers], [CHORD.dm9, ROOT.events]] as const;
+  for (const [k, [chord, root]] of down.entries()) {
+    padSpan(A(76 + k), A(77 + k), chord, { db: -19, bright: 0.3, attack: 0.25, release: 0.9 });
+    bassLine(A(76 + k), A(77 + k), root, true);
+  }
+  for (let b = A(77); b < A(80); b += 4) kickAt(b, -10);
+  rise(A(79, 3), 2, -22);
+
+  // ── the end card (bars 80-84): the stack at rest, the motif once more, slowly, and home ─────
+  hit('hit.end', A(80, 1), () => {
+    kickAt(A(80, 1), -8);
+    for (const [k, m] of MOTIF.entries()) ring(A(80, 1), m, -15, 3.4, (k - 1.5) * 0.3);
   });
-  padSpan(A(76), A(80), CHORD.dm9, { db: -18, bright: 0.35, attack: 0.3, release: 2.5 });
-  bassLine(A(76), A(80), ROOT.events, true);
-  for (let k = 0; k < 4; k++) ring(A(77, 1 + 2 * (k % 2)) + 4 * Math.floor(k / 2), MOTIF[k]!, -15, 3, (k - 1.5) * 0.25);
-  ring(A(79, 1), REST, -14, 4);
+  padSpan(A(80), A(84), CHORD.dm9, { db: -18, bright: 0.35, attack: 0.3, release: 2.5 });
+  bassLine(A(80), A(84), ROOT.events, true);
+  for (let k = 0; k < 4; k++) ring(A(81, 1 + 2 * (k % 2)) + 4 * Math.floor(k / 2), MOTIF[k]!, -15, 3, (k - 1.5) * 0.25);
+  ring(A(83, 1), REST, -14, 4);
 
   return accents;
 }

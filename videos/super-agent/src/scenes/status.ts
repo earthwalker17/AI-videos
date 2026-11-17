@@ -18,7 +18,7 @@ import type { Draw } from '../kit/draw.ts';
 import { mix, scale } from '../kit/look.ts';
 import { TEXT_IN, TEXT_OUT, lineState, prog } from '../kit/time.ts';
 import { CELLS } from './flat.ts';
-import { YOU_HOME } from './lift.ts';
+import { YOU_HOME, rimArc } from './lift.ts';
 import type { Anchor, Section } from './section.ts';
 import { STACK_VIEW, stack, type Span, type StackOptions } from './status-stack.ts';
 import { LEVEL, SLAB, blur, strata } from './world.ts';
@@ -82,15 +82,17 @@ const WATCH_X = 596;
 const CELL = CELLS[2]!;
 const CORNER = 28;
 const SEAT: Vec3 = [CELL.x, W + 2, CELL.z];
-/** your reach breaks off beside its sentence, in the clear ground above the Router */
+/** its sentence stands beside your reach, in the clear ground above the Router */
 const STEP_AT = { x: 484, y: 270 } as const;
-const REACH_GAP: Span = [STEP_AT.y - HALF_X - 40, STEP_AT.y - HALF_X + 40];
+/** your reach stops this far short of the working cell (screen px), on an open end: nothing joins you to a Worker mid-task yet */
+const SHORT = 64;
+const OPEN_END = 9;
 /** the sentence that stands in the rail's gap */
 const MEMORY_X = 640;
 /** the slice through the Router's slab; its sentence stands left of it on the slab's face */
-const SLICE: Span = [1640, 1700];
+const SLICE: Span = [1570, 1700];
 /** the window in the Workers' face; its sentence stands right of it */
-const WINDOW: Span = [1000, 1060];
+const WINDOW: Span = [940, 1060];
 
 /** A span opened by `k` (0..1) about its middle. */
 const opened = (s: Span, k: number): Span => [lerp((s[0] + s[1]) / 2, s[0], k), lerp((s[0] + s[1]) / 2, s[1], k)];
@@ -99,7 +101,7 @@ const opened = (s: Span, k: number): Span => [lerp((s[0] + s[1]) / 2, s[0], k), 
 
 /** Running in the cloud: the Router's line, dashed, lifted off its slab and running out of the frame. */
 function cloud(d: Draw, f: number, show: number): void {
-  const lift = prog(f, LANDED - 26, LANDED, easings.outCubic);
+  const lift = prog(f, LANDED, LANDED + 30, easings.outCubic);
   if (lift <= 0 || show <= 0) return;
   const h = lerp(R + 2, CLOUD_H, lift);
   const from = (CLOUD_AT.x + d.type.layout('sup', CLOUD).width + 34 - 960) / VIEW.project([0, CLOUD_H, 0]).s;
@@ -150,23 +152,6 @@ function watch(d: Draw, f: number, show: number): void {
 
 // ── open: gaps ─────────────────────────────────────────────────────────────────────────────────
 
-/** A point on the working cell's outline, in the direction `ang` from its centre (the angle the kit's arcs use). */
-function rim(ang: number): Vec3 {
-  const c = Math.cos(ang);
-  const s = Math.sin(ang);
-  let lo = 0;
-  let hi = Math.hypot(CELL.hw, CELL.hd);
-  for (let k = 0; k < 14; k++) {
-    const t = (lo + hi) / 2;
-    const qx = Math.abs(t * c) - (CELL.hw - CORNER);
-    const qz = Math.abs(t * s) - (CELL.hd - CORNER);
-    const sd = Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - CORNER;
-    if (sd < 0) lo = t;
-    else hi = t;
-  }
-  return [CELL.x + lo * c, W + 1, CELL.z + lo * s];
-}
-const rimArc = (from: number, to: number, n: number): Vec3[] => Array.from({ length: n + 1 }, (_, k) => rim(lerp(from, to, k / n)));
 
 /** A Worker mid-task: its cell is lit while its model runs (the look of threads.ts, edge-on). */
 function working(d: Draw, f: number, works: number): void {
@@ -179,11 +164,11 @@ function working(d: Draw, f: number, works: number): void {
   d.flat(o, [CELL.hw - 4, CELL.hd - 4], 26, p.think, { alpha: 0.2 * works * dim, feather: 10, add: 1 });
   d.flat(o, [CELL.hw, CELL.hd], CORNER, mix(p.ash, p.bone, 0.85), { stroke: 3.6, alpha: 0.5 * works * dim, feather: b * 6 });
   const ang = ((f * 0.075) % (2 * Math.PI)) - Math.PI;
-  d.line(rimArc(-Math.PI, Math.PI, 56), 2.2, scale(p.think, 1.5), { alpha: 0.6 * works * dim, add: 0.4, feather: 0.4 + b });
-  d.line(rimArc(ang - 0.8, ang + 0.8, 16), 3.6, scale(p.think, 3.4), { alpha: works * dim, add: 0.7, feather: 0.4 + b });
+  d.line(rimArc(CELL, -Math.PI, Math.PI, 56), 2.2, scale(p.think, 1.5), { alpha: 0.6 * works * dim, add: 0.4, feather: 0.4 + b });
+  d.line(rimArc(CELL, ang - 0.8, ang + 0.8, 16), 3.6, scale(p.think, 3.4), { alpha: works * dim, add: 0.7, feather: 0.4 + b });
 }
 
-/** Stepping in mid-task: your reach down to the working cell, with a stretch of it missing under you. */
+/** Stepping in mid-task: your reach down towards the working cell, which stops short of it on an open end. */
 function reach(d: Draw, f: number, heal: number): void {
   const head = prog(f, GAP.step - 18, GAP.step, easings.inOutCubic) * (1 - heal);
   if (head <= 0.01) return;
@@ -192,11 +177,13 @@ function reach(d: Draw, f: number, heal: number): void {
   const along = (y: number): number => clamp((y - a.y) / (b.y - a.y));
   // it leaves you under your ring
   const start = along(a.y + 44 * a.s + 12);
-  const to = lerp(start, 1, head);
+  const stop = along(b.y - SHORT);
+  const to = lerp(start, stop, head);
   const rgb = mix(d.pal.you, d.pal.bone, 0.12);
-  for (const [from, till] of [[start, Math.min(to, along(REACH_GAP[0]))], [along(REACH_GAP[1]), to]] as const) {
-    if (till > from) d.line([YOU_HOME, SEAT], 3.4, rgb, { alpha: 0.92 * clamp(head * 12), trim: [from, till] });
-  }
+  if (to > start) d.line([YOU_HOME, SEAT], 3.4, rgb, { alpha: 0.92 * clamp(head * 12), trim: [start, to] });
+  // the open end: a small ring where the reach gives out, above the cell
+  const end = prog(f, GAP.step - 4, GAP.step + 8, easings.outCubic) * (1 - heal);
+  if (end > 0) d.box([lerp(a.x, b.x, stop), lerp(a.y, b.y, stop) + OPEN_END], [OPEN_END, OPEN_END], OPEN_END, rgb, { stroke: 3, alpha: 0.92 * end });
 }
 
 function draw(d: Draw, f: number): void {
@@ -209,7 +196,8 @@ function draw(d: Draw, f: number): void {
 
   // the structure, with what is open taken out of it
   const cuts: StackOptions = {};
-  const memoryGap: Span = [MEMORY_X - 36, MEMORY_X + d.type.layout('sup', MEMORY).width + 40];
+  // the gap runs on well past its sentence: an empty stretch of the rail, not a rule broken for a label
+  const memoryGap: Span = [MEMORY_X - 36, MEMORY_X + d.type.layout('sup', MEMORY).width + 290];
   const memory = open(GAP.memory, 18);
   if (memory > 0.02) cuts.railGap = opened(memoryGap, memory);
   const slice = open(GAP.routers);

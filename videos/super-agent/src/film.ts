@@ -16,12 +16,12 @@ import { close } from './scenes/close.ts';
 import { evidence } from './scenes/evidence.ts';
 import { flat } from './scenes/flat.ts';
 import { gates } from './scenes/gates.ts';
-import { levels, ROUTER_VIEW, WORKER_VIEW } from './scenes/levels.ts';
-import { DROP, TAUT, lift, strataNames, you, YOU_HOME } from './scenes/lift.ts';
+import { ANSWER, ANSWERS_AT, heard, levels, ROUTER_VIEW, STACK_VIEW, WORKER_VIEW } from './scenes/levels.ts';
+import { DROP, IDLE, TAUT, lift, strataNames, you, YOU_HOME } from './scenes/lift.ts';
 import { DIM, VERDICT_AT, type Anchor, type Place, type Section } from './scenes/section.ts';
 import { status } from './scenes/status.ts';
 import { threads } from './scenes/threads.ts';
-import { LEVEL, SLAB, edgeOn, plan, slab, strata } from './scenes/world.ts';
+import { LEVEL, SLAB, edgeOn, plan, slab, slabFaceY, strata } from './scenes/world.ts';
 
 export interface FilmOptions {
   palette: PaletteName;
@@ -39,11 +39,14 @@ const KEYS: ReadonlyArray<readonly [number, Pose]> = [
   [at(7, 1), plan(LEVEL.workers, 0, 20, 1.0)],
   [DROP, plan(LEVEL.workers, 0, 20, 1.0)],
   [TAUT + 14, strata()],
-  [at(13, 1), strata(1.16)],
+  [at(13, 1), STACK_VIEW],
   [at(14, 1), ROUTER_VIEW],
   [at(20, 1), ROUTER_VIEW],
   [at(21, 1), WORKER_VIEW],
-  [at(24, 3), WORKER_VIEW],
+  // the Worker's words let go and the stack comes back edge-on, held while the answer travels: its whole way is in the frame
+  [ANSWER.leave, WORKER_VIEW],
+  [ANSWER.stood, STACK_VIEW],
+  [ANSWER.done, STACK_VIEW],
   ...LATER.flatMap((s) => s.keys),
 ];
 for (let k = 1; k < KEYS.length; k++) {
@@ -73,14 +76,16 @@ const PLACE: Record<string, Place> = {
   // the title stands on the Router's slab
   title: (d) => ({ x: 596, y: d.cam.project([0, LEVEL.router, -SLAB.halfD]).y - 28, align: 'left' }),
   proto1: { x: LEFT, y: 560, align: 'left' },
+  // the sentence about the Router stands on the Router's front face, where the settled stack has it
+  answers: ANSWERS_AT,
   ...Object.assign({}, ...LATER.map((s) => s.place ?? {})),
 };
 
 /** A line placed on its own, away from its block's stack. */
 const LINE_PLACE: Record<string, (d: Draw) => Anchor> = {
-  // the credit is a kicker over the title; the stamp lies on the Router's top, in front of its rail
+  // the credit is a kicker over the title; the stamp stands on the Router's front face, between the two levels
   'title.by': (d) => ({ x: 600, y: d.cam.project([0, LEVEL.router, -SLAB.halfD]).y - 152, align: 'left' }),
-  'title.not': (d) => ({ x: 600, y: d.cam.project([0, LEVEL.router, SLAB.halfD]).y - 14, align: 'left' }),
+  'title.not': (d) => ({ x: 600, y: slabFaceY(d, LEVEL.router), align: 'left' }),
   ...Object.assign({}, ...LATER.map((s) => s.linePlace ?? {})),
 };
 
@@ -169,9 +174,11 @@ function scene(d: Draw, f: number): void {
   } else if (f < SECTIONS.levels) lift(d, f);
   else if (f < SECTIONS.spine) {
     levels(d, f);
-    // leaving the strata and coming back to them, the names and you are still there
+    // leaving the strata and coming back to them, the names and you are still there.
+    // When the Router's answer reaches you, your ring and your light answer once
     const e = edgeOn(d);
-    you(d, YOU_HOME, e, e);
+    const h = heard(f);
+    you(d, YOU_HOME, e, e * (1 + h), IDLE + h);
     strataNames(d, 1);
   } else (LATER.find((s) => f < s.to) ?? close).draw(d, f);
   typeset(d, f);

@@ -14,7 +14,7 @@ import { clamp } from '@aiv/core';
 import { LABELS } from '../cues.ts';
 import type { Draw } from '../kit/draw.ts';
 import { mix, scale, type Rgb } from '../kit/look.ts';
-import { WORLD_NAME, YOU_HOME, idleCells, rest, routerRail, worldLanes, you } from './lift.ts';
+import { IDLE, WORLD_NAME, YOU_HOME, idleCells, rest, routerRail, worldLanes, you } from './lift.ts';
 import { LEVEL, NAME, SLAB, blur, edgeOn, namesOn, slab, slabNameY, spineLabel, strata } from './world.ts';
 
 /** The stack edge-on, as on the title card: the view both sections rest on. */
@@ -30,6 +30,8 @@ export interface StackOptions {
   routerCut?: Span;
   /** a window in the Workers' front face */
   workersCut?: Span;
+  /** your light (default: idle, you only watch) */
+  you?: number;
 }
 
 /** a name beside a stratum goes when its mark has left the bottom of the frame */
@@ -80,7 +82,7 @@ function cutSlab(d: Draw, y: number, focus: number, lit: number, name: string, c
     }
   }
   for (const [a, z] of left(d, y - SLAB.thick / 2, SLAB.halfD, cuts)) {
-    d.face([(a + z) / 2, y - SLAB.thick / 2, SLAB.halfD], [(z - a) / 2, SLAB.thick / 2], mix(p.ground[0], p.ground[1], 0.75), { alpha: 0.92 * lit * e });
+    d.face([(a + z) / 2, y - SLAB.thick / 2, SLAB.halfD], [(z - a) / 2, SLAB.thick / 2], mix(p.ground[0], p.ground[1], 0.75), { alpha: lit * e });
   }
   for (const [a, z] of left(d, y - SLAB.thick, SLAB.halfD, cuts)) {
     d.line([[a, y - SLAB.thick, SLAB.halfD], [z, y - SLAB.thick, SLAB.halfD]], 1.6, p.bone, { alpha: 0.16 * lit * e });
@@ -91,7 +93,14 @@ function cutSlab(d: Draw, y: number, focus: number, lit: number, name: string, c
   for (const [a, z] of left(d, y, SLAB.halfD, cuts)) {
     d.line([[a, y, SLAB.halfD], [z, y, SLAB.halfD]], 3, scale(p.bone, 1.15), { alpha: 0.8 * lit * e });
   }
-  d.text('label', name, NAME.x, slabNameY(d, y), { alpha: lit * namesOn(d) });
+  // the cut's own edges catch the light like the slab's others: it is a cut, made on purpose, not a hole in the picture
+  if (cut[1] - cut[0] > 6) {
+    const top = d.cam.project([0, y, through ? -SLAB.halfD : SLAB.halfD]).y;
+    const bottom = d.cam.project([0, y - SLAB.thick, SLAB.halfD]).y;
+    const open = clamp((cut[1] - cut[0] - 6) / 30);
+    for (const x of cut) d.path([[x, top], [x, bottom]], 2.4, scale(p.bone, 1.15), { alpha: 0.7 * lit * e * open });
+  }
+  d.text('label', name, NAME.x, slabNameY(d, y), { alpha: lit * namesOn(d) * clamp((1046 - slabNameY(d, y)) / 40) });
 }
 
 /** The Router's rail (lift.ts, routerRail) in the stretches that are left of it. */
@@ -100,7 +109,9 @@ function cutRail(d: Draw, focus: number, alpha: number, cuts: readonly Span[]): 
   const dim = 1 / (1 + 0.9 * b);
   for (const [a, z] of left(d, LEVEL.router + 1, 0, cuts)) {
     if (z - a < 14) continue;
-    d.flat([(a + z) / 2, LEVEL.router + 1, 0], [(z - a) / 2, 7], 7, d.pal.bone, { alpha: 0.9 * alpha * dim, feather: b * 4 });
+    const e = edgeOn(d);
+    if (e < 1) d.flat([(a + z) / 2, LEVEL.router + 1, 0], [(z - a) / 2, 7], 7, d.pal.bone, { alpha: 0.9 * alpha * dim * (1 - e), feather: b * 4 });
+    if (e > 0) d.line([[a, LEVEL.router + 1, 0], [z, LEVEL.router + 1, 0]], 2.4, d.pal.bone, { alpha: 0.9 * alpha * dim * e });
   }
 }
 
@@ -111,7 +122,7 @@ export function stack(d: Draw, f: number, o: StackOptions = {}): void {
   const worldName = inFrame(d.cam.project(WORLD_NAME).y);
   const railCuts = [o.railGap, o.routerCut].filter((c): c is Span => c !== undefined);
   if (railCuts.length === 0 && !o.workersCut && youName >= 1 && worldName >= 1) {
-    rest(d, f);
+    rest(d, f, o.you === undefined ? {} : { you: o.you });
     return;
   }
 
@@ -133,7 +144,7 @@ export function stack(d: Draw, f: number, o: StackOptions = {}): void {
     else cutRail(d, focus, r, railCuts);
   }
   // far below the frame, your light would still spill into it
-  you(d, YOU_HOME, e * clamp((1260 - youY) / 100), e);
+  you(d, YOU_HOME, e * clamp((1260 - youY) / 100), e, o.you ?? IDLE);
   const n = namesOn(d);
   if (n > 0) {
     spineLabel(d, LABELS.you, YOU_HOME, n * youName, d.pal.you);

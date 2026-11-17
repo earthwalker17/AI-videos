@@ -214,12 +214,13 @@ the article's table (section 4) on 2026-11-17.
 
 | Block | On screen | Rests on | Tag |
 |---|---|---|---|
-| `q`, `youdo`, `q2` | WHO ROUTES YOUR AGENTS? / YOU DO. | Blocks 4–7: the session is the unit of work, sessions are isolated, the user switches by hand and remembers what each holds. The question and its answer are ours | [V via mirror]; framing ours |
-| `few` | One team finds a person can usually follow 3 to 5. | Block 6: "In our experience, a person can usually follow only 3 to 5 active sessions at once." The team is the authors; it is experience, not a measurement (section 5) | [V via mirror] |
+| `q`, `youdo`, `q2` | WHO ROUTES THE AGENTS? / YOU DO. | Blocks 4–7: the session is the unit of work, sessions are isolated, the user switches by hand and remembers what each holds. The question and its answer are ours | [V via mirror]; framing ours |
+| `sess` | SESSION, and the count 1 to 7 beside the cells | Blocks 4–7: the session is the unit of work. The count is the film's own illustration of sessions adding up; it is set solid, because hollow numerals are kept for the authors' test figures | [V via mirror]; count ours |
+| `few` | One team finds a person can usually follow 3 to 5 sessions. | Block 6: "In our experience, a person can usually follow only 3 to 5 active sessions at once." The team is the authors; it is experience, not a measurement (section 5) | [V via mirror] |
 | `title` | THE SUPER-AGENT DESIGN / from DeepSeek's Harness team / TWO LEVELS · A DESIGN, NOT A PRODUCT | Title (section 1); block 143 and the Harness README line 5; blocks 2 and 141 (ideas, not existing features; not an official product); two levels: blocks 22–27 | [V via mirror], [V] |
 | `router` | ONE LONG-LIVED ROUTER, with channels CHAT, CODE REVIEW, EMAIL | Blocks 29–33 (long-lived; takes human interaction from every entry point), 84–88 (IM, GitHub, email, documents). The three names show the design; the prototype has GitHub and Feishu only (section 3), and the film puts no "prototype" mark on them | [V via mirror] |
 | `routes` | IT ROUTES. IT NEVER EXECUTES. / Whole tasks go down, unsplit. | Block 31 (does not execute), block 32 (dispatches whole tasks, does not break them down) | [V via mirror] |
-| `proto1` | PROTOTYPE: A RESTRICTED SHELL, NO WRITE TOOLS | cordis.patch.yml:163–167; src/app/sessions.ts:263; docs/007-architecture.md:507 | [V] |
+| `proto1` | PROTOTYPE ROUTER: KEEPS A SHELL, NO WRITE TOOLS | cordis.patch.yml:163–167; src/app/sessions.ts:263; docs/007-architecture.md:507. The stamp is the caveat to "it never executes": the prototype's Router has no write or edit tools but keeps `bash`, file reads and job tools. It says "keeps a shell", not "restricted shell": the presets run `danger-full-access` (section 3), so no sandbox is claimed | [V] |
 | `worker` | A WORKER: ITS OWN CONTEXT / One task. Full tools. | Block 39 | [V via mirror] |
 | `answers` | By design, only the Router answers you. | Blocks 40, 86. "By design" because the prototype's Workers acknowledge and reply on GitHub (section 3) | [V via mirror], [V] |
 | `spine` | ONE ROUTER FOR ALL THIS? | Our question. The article raises the same concern itself (31: the single node "never becomes the bottleneck"; 36–37 on sharding) | ours |
@@ -229,23 +230,24 @@ the article's table (section 4) on 2026-11-17.
 | `proto2` | PROTOTYPE DEFAULT: UNASKED WORK IS ONLY RECORDED | Accept mode `observe` by default: an approved inferred candidate is recorded as "would accept"; explicit requests work in every mode (src/policy.ts:55, 84; docs/002-authorization.md:98, 101) | [V] |
 | `v1` | 1 MOST NEVER REACH IT. | Block 47: the Fast Path "drops most noise before any model call". No number is given, and none is shown | [V via mirror] |
 | `follow` | FOLLOW-UPS GO STRAIGHT IN / Seen by the Router. Not decided. | Blocks 53–60: code passes follow-ups to the subscribed Worker; the Router still sees every event (58). Prototype: a person's follow-up reaches the main Session as a notice (src/app/runtime.ts:142–146) | [V via mirror], [V] |
-| `cheaper` | CHEAPER, NOT FASTER / ~27% fewer tokens than without it / AUTHORS' TEST | Block 116 and the table (113): 23.2M against 31.8M cache-read tokens per run, 1 − 23.2/31.8 = 27.0%; it "does not make tasks finish faster or better" | [V via mirror], [calc] |
+| `cheaper` | CHEAPER, NOT FASTER / ~27% fewer tokens than without it / AUTHORS' TEST | Block 116 and the table (113): 23.2M against 31.8M cache-read tokens per run, 1 − 23.2/31.8 = 27.0%; it "does not make tasks finish faster or better". "Tokens" on screen are the table's cache-read tokens, here and in `price`. This figure comes 18 bars before the test's caveats (`test`): it carries its source stamp, and the block's reading time has no room for "synthetic" as well | [V via mirror], [calc] |
 | `v2` | 2 FOLLOW-UPS SKIP ITS DECISION. | As `follow`: its decision, not its view | [V via mirror] |
 | `wait` | ARRIVALS WAIT, THEN ENTER TOGETHER | Blocks 33–35: events that arrive mid-turn queue and enter the next call together | [V via mirror] |
-| `cost` | 6.4 s → 1.6 s model time per decision / AUTHORS' STRESS TEST · MOCK WORKERS / ~1 → ~40 DECISIONS NEEDED A MINUTE | Blocks 118–120: a real Router model with mock Workers; amortised inference time per decision 6.4 s → 1.6 s as events needing a decision rise from about 1 to about 40 a minute. The time per request rises (2.5 s → 3.9 s), so the picture never shows calls getting shorter | [V via mirror] |
+| `cost` | 6.4 s → 1.6 s / model time per decision, at ~40× the load / AUTHORS' STRESS TEST · MOCK WORKERS | Blocks 118–120: a real Router model with mock Workers; amortised inference time per decision 6.4 s → 1.6 s as events needing a decision rise from about 1 to about 40 a minute: 40 times the load, said without the unit because the test's clock is unstated. The time per request rises (2.5 s → 3.9 s), so the picture never shows calls getting shorter | [V via mirror], [calc] |
 | `limit` | UP TO A LIMIT PER CALL. | Block 35: bounded by the context length and by how many events the model handles accurately in one turn | [V via mirror] |
 | `v3` | 3 THE REST ARRIVE TOGETHER. | As `wait` | [V via mirror] |
 | `cache` | ITS CONTEXT IS A CACHE / What it needs soon stays in view. | Blocks 62–67 (the window as a cache; inline what is likely needed soon, spill the rest behind a reference or summary). The article applies it to whichever session an event reaches; the film shows it on the Router | [V via mirror] |
-| `recall` | BY DESIGN: RECALL BY ID / It loses less. Not nothing. | Blocks 68–71: each recalled object inlines the next hop's summaries and IDs; it "reduces how much earlier information the Router layer loses". "By design": the prototype has summaries and read pointers but no dedicated multi-hop recall (section 3). Memory over months is open (125) | [V via mirror], [V]; the prototype's lack of multi-hop recall is [U] |
-| `v4` | 4 THE REST WAITS BEHIND IDS. | As `cache` and `recall` | [V via mirror] |
+| `recall` | BY DESIGN: RECALL BY ID / It loses less. Not nothing. | Blocks 68–71: each recalled object inlines the next hop's summaries and IDs; it "reduces how much earlier information the Router layer loses". "By design": the prototype has summaries and read pointers, and reads any shown ID through a tool, but has no dedicated multi-hop recall (section 3); the picture draws only the single hop, solid. Memory over months is open (125) | [V via mirror], [V]; the prototype's lack of multi-hop recall is [U] |
+| `v4` | 4 DETAILS WAIT BEHIND IDS. | As `cache` and `recall` | [V via mirror] |
 | `test` | THE AUTHORS' TEST / Synthetic. 5 runs. Indicative only. | Blocks 106, 108: synthetic workloads, "indicative only", 5 runs per design, simulated coding | [V via mirror] |
 | `who` | SUPER-AGENT · ONE SESSION + SUBAGENT TOOL / told to delegate first (stays beside the row's name under every length) | The table's rows (113): the Super-agent, and the single session with a subagent tool under the delegation prompt (110, 115) | [V via mirror] |
 | `slow` | SLOWEST TASKS: ABOUT HALF THE TIME / P95 · RE-PLOTTED | p95 15.7 against 29.0: 0.54. Lengths drawn in that ratio, with no unit (the table's clock is unstated and the chart is time-scaled) | [V via mirror], [calc] |
 | `typ` | TYPICAL TASKS: ABOUT 10% FASTER / P50 | p50 12.4 against 13.8: 10.1% less. Against the baseline that never delegated it would be 39%; the film uses the stronger baseline and names it | [V via mirror], [calc] |
-| `price` | THE PRICE: 2–4× THE TOKENS / 2× this one, 4× one left to choose | Cache-read tokens 23.2M against 10.8M (2.1×, the delegation prompt) and 6.1M (3.8×, the neutral prompt, which allowed a subagent "when appropriate": "left to choose") | [V via mirror], [calc] |
+| `price` | THE PRICE: 2–4× THE TOKENS / 2× told to delegate first / 4× left to choose (each at the tip of its band, under the one name ONE SESSION + SUBAGENT TOOL) | Cache-read tokens 23.2M against 10.8M (2.1×, the delegation prompt) and 6.1M (3.8×, the neutral prompt, which allowed a subagent "when appropriate": "left to choose") | [V via mirror], [calc] |
 | `proposed` | PROPOSED / Running in the cloud. A check for stuck Workers. | Sections 5 and 6 of the article (blocks 89–104). Neither is in the prototype: it runs locally, and its hourly restart prompt judges no progress (section 3) | [V via mirror], [V] |
 | `open` | OPEN / Long memory. Security. Stepping in mid-task. More Routers. | Blocks 122–136: memory after months (125), security (134–136), stepping in or taking over mid-task (128), when and how to shard (124) | [V via mirror] |
 | `notyou`, `decide` | NOT YOU. BY DESIGN / YOU DECIDE. YOU SIGN OFF. | Blocks 4 and 139: people move up to "higher-level decisions and sign-off". "By design" stays on screen because the public prototype builds only part of it | [V via mirror]; framing ours |
+| `recap` | 1 MOST NEVER REACH IT. / 2 FOLLOW-UPS SKIP ITS DECISION. / 3 THE REST ARRIVE TOGETHER. / 4 DETAILS WAIT BEHIND IDS. | The four verdicts again, word for word (`v1` to `v4`), as one list | as `v1`–`v4` |
 | `end` | WHO ROUTES THE AGENTS? / After "Exploring Super-agent Design" by the DeepSeek Harness team, 2026 / An independent explainer. Not affiliated with DeepSeek. | The article's title and credit (section 1), posted 2026-11-01 (the Chinese original 2026-10-31 [S]); the non-affiliation statement is ours | [V via mirror] |
 
 **What the picture adds to the words** (each checked against the same findings). Illustrative
@@ -253,7 +255,20 @@ events, tasks, counts and proportions are the film's own, never the article's ex
 
 - **Throughout.** A ring marks an event a person sent. A capsule is one whole task and is never
   split. Green light means a model is running; it is the film's only glow. Dashed marks are
-  proposed, gaps are open. The only lines are history or a subscription.
+  proposed, gaps are open. The only lines are history or a subscription. The names YOU, ROUTER,
+  WORKERS and EVENTS stand on the stack whenever it is seen edge-on, each in the band of what it
+  names; CODE, MODEL, RECORDED, ID and the two rows of the re-plot are named the same way.
+- **Flat (bars 1–8).** Seven sessions, counted 1 to 7, and one coral dot for your attention: the
+  film's illustration of the article's "3 to 5", not its data. A session you have left goes pale;
+  no claim is made about what it does meanwhile.
+- **The lift (bars 9–12).** Your trail becomes the Router's line: the film's image for "the person
+  is the router today", not a mechanism of the design. The pulse that runs along the line as it
+  forms is drawn in bone, not in light: no model runs yet.
+- **Who answers (bars 23–24).** One report (a plain dot, no ring) rises from the working cell to
+  the Router's line, whose model runs once on it, and one dot rises from the line to you; nothing
+  goes from the Worker to you. This is the design's route (blocks 40, 86), drawn with ordinary solid
+  marks under the words "By design": the prototype's Workers also acknowledge and reply on GitHub
+  (section 3).
 - **The question (bars 25–26).** A crowd of events presses under the Router with nothing lit. It is
   the film's picture of a worry, not a measured load, and it never shares a frame with a figure.
 - **Gates.** No green appears before the model gate. The code gate's check is drawn as immediate; no
@@ -261,39 +276,49 @@ events, tasks, counts and proportions are the film's own, never the article's ex
   events' plane named only MODEL: no separate agent is drawn, because the article does not say
   which session judges and in the prototype the Router's own session does. The proportion is the
   film's: about eighty events end as ash at the code gate against seven that reach the model; the
-  article says "most noise" and gives no number, and none is on screen. Every ringed event shown
-  passes both gates; the sources support "explicit requests work in every mode", not "every
-  message from a person is acted on" (about 20 of the test's 300 messages were requests). Ringed
-  events get a model pulse, as in the article's slow path; the prototype routes explicit requests
-  without assessing them (section 3). An unasked event the model accepts stops at a shelf as a
-  hollow outline: recorded, not started (observe mode).
+  article says "most noise" and gives no number, and none is on screen. One ringed event is
+  stopped at the code gate and lies in the ash with its ring; the three ringed events the model
+  judges pass. The sources support "explicit requests work in every mode", not "every message from
+  a person is acted on" (about 20 of the test's 300 messages were requests). Ringed events get a
+  model pulse, as in the article's slow path; the prototype routes explicit requests without
+  assessing them (section 3). A passed event crosses the MODEL rule before it rises towards the
+  Router. An unasked event the model accepts stops at a shelf named RECORDED as a hollow outline
+  (drawn larger than a running event, for legibility only): recorded, not started (observe mode).
 - **Threads.** The request rises to the Router and gets one model call. A thin line from its lane to
   the Worker's cell is the subscription. Every follow-up shown is a person's; in the prototype bot
-  and CI follow-ups still go to the model. A tick on the rail means "seen"; twelve ticks to one
+  and CI follow-ups still go to the model. A tick on the rail means "seen"; nine ticks to one
   lit decision is illustrative, not the test's ratio (about 27% fewer tokens, about 23% fewer
-  decisions). The Worker's light turns at one pace throughout: not faster.
+  decisions). Follow-ups arrive at one pace and the Worker's light turns at one pace throughout:
+  not faster.
 - **Batch.** While the test's figures are on screen every call holds three (the test's average batch
   was 2.8 at its highest load) and lasts longer than a call of one, never shorter. A call has
   four places: the film's own number for "a bound", which the article does not count. The rate of
   arrivals on screen is not the test's 1 to 40 a minute.
 - **Cache.** The most recent items stay whole; the article's rule is "likely needed soon", which the
   picture shows as recency. Ticks, bodies and the shelf are solid (the prototype has summaries,
-  stubs and read pointers); the shelf as a place is the film's image. The recall walk is dashed
-  (the prototype has no multi-hop recall) and the recalled body is a copy. One shelf body shows a
-  gap: less is lost, not nothing.
+  stubs and read pointers); the shelf as a place is the film's image, and a tick is named ID. The
+  recall is one hop, drawn solid: the named ID is read, a line runs to its own body, and a copy
+  returns to the call (the prototype reads any shown ID through a tool). The article's chain of
+  recall, object to object, is not drawn; "by design" in the headline covers it and the article's
+  claim about loss. A piece of another body falls off the shelf and lies under it in ash: less is
+  lost, not nothing.
 - **Evidence.** Before any length, the same stream of events runs along both rows (the designs ran
   on one synthetic stream; its rings are simulated people). Lengths are exact ratios from one left
   edge: 15.7 to 29.0, then 12.4 to 13.8 on that same scale with the slowest left behind in ash,
   then 23.2 to 10.8 to 6.1 on a scale of their own. No axis, tick, unit or figure is drawn, and the
   trails' common pace is not a clock. The token bands are lit although they stand for a total.
   The third band is the single session left to choose. "told to delegate first" stands beside the
-  baseline's name under every length.
+  baseline's name under every length; at the price the one name heads both lower bands, and each
+  band's own words stand at its tip with the multiple ("2× told to delegate first", "4× left to
+  choose").
 - **Status.** Proposed: a dashed copy of the Router's line lifted off the rail (running in the
   cloud) and a dashed session in front of the Workers (the check for stuck Workers); neither is
-  drawn solid. Open: a gap in the rail (long memory), a broken coral reach from you to a working
-  cell (stepping in mid-task), a slice through the Router's slab (more Routers) and a window in the
+  drawn solid. Open: a gap in the rail (long memory), a coral reach from you that stops short of a
+  working cell on an open end (stepping in mid-task), a slice through the Router's slab (more Routers) and a window in the
   Workers' face with the world's events showing through (security: untrusted input, the film's
   reading of blocks 134–136, not a finding about the prototype).
 - **Close.** A result comes up by way of the Router, whose model runs once on it: our inference from
   the Router being the session that answers people (blocks 40, 86). A coral ring round a result
-  means a person signed it off; no approval mechanism of the prototype is claimed.
+  means a person signed it off; no approval mechanism of the prototype is claimed. The recap repeats
+  the four verdicts and adds nothing. Under the end card the Router's line lights now and then: the
+  film's picture of the design running on without you, not a claim about any deployment.

@@ -17,7 +17,7 @@ import type { Draw } from '../kit/draw.ts';
 import { mix, scale } from '../kit/look.ts';
 import { bump, prog } from '../kit/time.ts';
 import { CELLS } from './flat.ts';
-import { LANES, rest } from './lift.ts';
+import { LANES, rest, rimArc } from './lift.ts';
 import type { Anchor, Section } from './section.ts';
 import { LEVEL, SLAB, blur, edgeOn, plan, strata } from './world.ts';
 
@@ -42,11 +42,8 @@ const ROUTED = at(34, 4);
 const LANDED = at(35, 1);
 /** the subscription stands */
 const SUBSCRIBED = at(35, 2);
-/** follow-ups reach the cell: one every other beat, then one a beat */
-const FOLLOW_UPS: readonly number[] = [
-  ...[at(35, 3), at(36, 1), at(36, 3), at(37, 1)],
-  ...[at(37, 4), at(38, 1), at(38, 2), at(38, 3), at(38, 4), at(39, 1), at(39, 2), at(39, 3)],
-];
+/** follow-ups reach the cell: one every other beat, at one pace throughout (the claim under them is "not faster") */
+const FOLLOW_UPS: readonly number[] = [at(35, 3), at(36, 1), at(36, 3), at(37, 1), at(37, 3), at(38, 1), at(38, 3), at(39, 1), at(39, 3)];
 /** a follow-up shows on its lane this long before it reaches the cell, and has joined the task this long after */
 const LEAD = 46;
 const TAKEN = 26;
@@ -130,8 +127,9 @@ function rail(d: Draw, f: number, clear: number): void {
   const b = blur(R, d.cam.pose.target[1]);
   const dim = 1 / (1 + 0.9 * b);
 
-  // the model runs on the request: a short pulse of light along the rail
-  const run = bump(f, ROUTED - 2, ROUTED + 10, ROUTED + 54);
+  // the model runs on the request: a pulse of light along the rail. It is still lit when the view has settled
+  // and the headline is up, and goes out as the first follow-up's unlit tick lands beside it: decided once, then only seen
+  const run = bump(f, ROUTED - 2, ROUTED + 10, FOLLOW_UPS[0]! - TICK_IN);
   if (run > 0) {
     const reach = lerp(110, 210, prog(f, ROUTED - 2, ROUTED + 16, easings.outCubic));
     d.pool([RAIL[0], R, 0], [reach * 0.9, 40], 100, p.think, 0.2 * run * dim);
@@ -152,7 +150,7 @@ function rail(d: Draw, f: number, clear: number): void {
     const grow = prog(f, t - TICK_IN, t + 4, easings.outCubic) * (1 + 0.3 * bump(f, t - TICK_IN, t + 2, t + 20));
     const q = d.cam.project([RAIL[0] - age * DRIFT, R + 1, 0]);
     const rgb = mix(p.bone, p.ash, 0.4 * clamp(age / 420));
-    d.path([[q.x, q.y - 7 * q.s], [q.x, q.y + (4 + 32 * grow) * q.s]], Math.max(3.4, 4.6 * q.s), rgb, { alpha: 0.94 * (1 - clear) * clamp(grow * 4), feather: 0.4 + b * 1.2 });
+    d.path([[q.x, q.y - 7 * q.s], [q.x, q.y + (4 + 38 * grow) * q.s]], Math.max(6, 9 * q.s), rgb, { alpha: 0.94 * (1 - clear) * clamp(grow * 4), feather: 0.4 + b * 1.2 });
   }
 }
 
@@ -181,25 +179,6 @@ function subscription(d: Draw, f: number, clear: number): void {
   }
 }
 
-/** A point on the cell's outline, in the direction `ang` from its centre (the angle the kit's arcs use). */
-function rim(ang: number): Vec3 {
-  const c = Math.cos(ang);
-  const s = Math.sin(ang);
-  // march out along the ray to where the rounded box's signed distance is zero
-  let lo = 0;
-  let hi = Math.hypot(CELL.hw, CELL.hd);
-  for (let k = 0; k < 14; k++) {
-    const t = (lo + hi) / 2;
-    const qx = Math.abs(t * c) - (CELL.hw - CORNER);
-    const qz = Math.abs(t * s) - (CELL.hd - CORNER);
-    const sd = Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - CORNER;
-    if (sd < 0) lo = t;
-    else hi = t;
-  }
-  return [CELL.x + lo * c, W + 1, CELL.z + lo * s];
-}
-
-const rimArc = (from: number, to: number, n: number): Vec3[] => Array.from({ length: n + 1 }, (_, k) => rim(lerp(from, to, k / n)));
 
 /** The Worker: its cell is lit while its model runs, at one steady pace. */
 function worker(d: Draw, f: number, works: number): void {
@@ -221,8 +200,8 @@ function worker(d: Draw, f: number, works: number): void {
   d.flat(o, half, CORNER, scale(p.think, 3.4), { stroke: 4.6, alpha: works * dim, add: 0.7, arc: [ang, 0.8], feather: b * 6 });
   if (e > 0) {
     // edge-on, an outline lying in the plane is thinner than a pixel: the same outline and stretch, with a body
-    d.line(rimArc(-Math.PI, Math.PI, 56), 2.2, scale(p.think, 1.5), { alpha: (0.6 + 0.4 * attack) * works * dim * e, add: 0.4, feather: 0.4 + b });
-    d.line(rimArc(ang - 0.8, ang + 0.8, 16), 3.6, scale(p.think, 3.4), { alpha: works * dim * e, add: 0.7, feather: 0.4 + b });
+    d.line(rimArc(CELL, -Math.PI, Math.PI, 56), 2.2, scale(p.think, 1.5), { alpha: (0.6 + 0.4 * attack) * works * dim * e, add: 0.4, feather: 0.4 + b });
+    d.line(rimArc(CELL, ang - 0.8, ang + 0.8, 16), 3.6, scale(p.think, 3.4), { alpha: works * dim * e, add: 0.7, feather: 0.4 + b });
   }
 }
 

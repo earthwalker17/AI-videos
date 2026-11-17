@@ -81,7 +81,7 @@ resolves both the mark and the score's motif.
   explains one mechanism on one plane, with the plane beneath showing through, defocused. A
   near edge-on view shows the strata for the lift, the hand-offs, the status and the recap.
 
-### The arc (about 2:40, 80 bars of 2 s at 120 bpm)
+### The arc (planned: about 2:40, 80 bars of 2 s at 120 bpm)
 | # | Section | Bars | What happens |
 |---|---|---|---|
 | 1 | Flat | 1–8 | The title question. On one flat plane your coral dot hops between sessions, leaving a trail; a count runs up, and past a few they stall. "You do." |
@@ -92,7 +92,20 @@ resolves both the mark and the score's motif.
 | 6 | Proposed, open | 64–67 | One frame of the strata. Dashed: running in the cloud, a check for stuck Workers. Gaps: long memory, security, stepping in mid-task, more than one Router. |
 | 7 | Close | 68–80 | A result rises; one coral touch turns it matte. The title question returns with a new answer: by design, you decide and sign off. Recap frame with the four verdicts counted on the spine. End card: the source, independent, not affiliated. |
 
-About 54% of the runtime explains how the design works (V1: 43%). Left out, with reasons: the four
+**As built (2026-11-17, after the review round).** The film is 84 bars, 2:48: evidence runs to
+bar 66, the status frame is bars 66 to 70, the close bars 70 to 79, and the recap got four bars
+of its own (76 to 79) before the end card (80 to 84). Departures from the lines above, each for a
+reason found on frames:
+- The recap is one list over the clear ground at your level, not on the spine: over the stack its
+  edges ran through the words.
+- The prototype stamp says "keeps a shell, no write tools", not "a restricted shell": the
+  prototype's presets are not a sandbox ([FACTS.md](FACTS.md), section 11, `proto1`).
+- Stamps stand without a hairline bracket.
+- The name EVENTS stands under its lanes, below the line of the bottom 15%; no line of the cue
+  sheet does.
+- The session count of the opening is set solid, so that hollow numerals mean one thing.
+
+About 51% of the runtime explains how the design works (V1: 43%). Left out, with reasons: the four
 traits as a list (the benchmark's centrepiece), speculative execution (a test fixture in the
 prototype, and the article's own example cannot be reused), the async loop and the 100-word cap
 (channel behaviour with traps around defaults), sharding and BYOM beyond one word.

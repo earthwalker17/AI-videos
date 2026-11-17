@@ -35,7 +35,7 @@ const mix = (ctx: ScoreContext): Stereo => {
     hall: { process: convolver(hallIr(seedOf(ctx.seed, 'hall'))), level: 0.4 },
     echo: { process: (l, r, c) => delay(l, r, { time: T.beats(0.75), feedback: 0.36, pingPong: true, damp: 3200, cuts: c }), level: 0.45 },
   });
-  const out = master(mixed.l, mixed.r, { targetLufs: TARGET_LUFS, ceilingDb: CEILING_DBTP, aacMarginDb: AAC_MARGIN_DB, fadeOut: [T.beat(80, 1), T.n] });
+  const out = master(mixed.l, mixed.r, { targetLufs: TARGET_LUFS, ceilingDb: CEILING_DBTP, aacMarginDb: AAC_MARGIN_DB, fadeOut: [T.beat(84, 1), T.n] });
   const r = out.report;
   const part = (name: string, fromBar: number, toBar: number): string => {
     const a = T.beat(fromBar);
@@ -54,7 +54,8 @@ const mix = (ctx: ScoreContext): Stereo => {
     part('evidence', 56, 67),
     part('status', 67, 71),
     part('close', 71, 76),
-    part('end card', 76, 81),
+    part('recap', 76, 80),
+    part('end card', 80, 85),
     ...mx.report(),
   ];
   for (const line of lines) console.log(line);

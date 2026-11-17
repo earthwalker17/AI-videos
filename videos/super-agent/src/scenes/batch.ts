@@ -50,7 +50,6 @@ export const batch: Section = {
   linePlace: {
     'cost.of': (d) => ({ x: LEFT, y: figureY(d) + 82, align: 'left' }),
     'cost.by': (d) => ({ x: LEFT, y: figureY(d) + 150, align: 'left' }),
-    'cost.rate': (d) => ({ x: LEFT, y: figureY(d) + 212, align: 'left' }),
   },
   draw(d, f) {
     rest(d, f);

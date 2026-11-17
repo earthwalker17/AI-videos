@@ -15,7 +15,7 @@ The title is a working title.
 - **V1 was archived unpublished on 2026-11-15.** [V1.md](V1.md) records what it was and what it
   taught.
 - **V2** is a fresh remake made with Claude Fable 5.2: a simpler, hierarchical, typographic film,
-  English only, no voice, about 2:40. The user's brief is in [BRIEF.md](BRIEF.md).
+  English only, no voice, 2:48. The user's brief is in [BRIEF.md](BRIEF.md).
 - **The treatment is approved** (2026-11-16): the layer stack, cut on a 120 bpm clock.
   [TREATMENT.md](TREATMENT.md) holds the image system, the arc, the guard rails and the
   do-not-copy lists.

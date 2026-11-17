@@ -16,7 +16,7 @@ export const BEATS_PER_BAR = 4;
 /** frames per beat and per bar */
 export const BEAT = 30;
 export const BAR = BEAT * BEATS_PER_BAR;
-export const BARS = 80;
+export const BARS = 84;
 export const FILM_FRAMES = BARS * BAR;
 /** test-card frames before the film (the review cut's colour evidence); 0 for the final */
 export const LEADER = 30;
@@ -76,6 +76,12 @@ export interface Line {
 }
 
 const lines: Line[] = [];
+/** A line by id; throws on an unknown id, so a typo fails the page and the tests. */
+export function line(id: string): Line {
+  const l = lines.find((m) => m.id === id);
+  if (!l) throw new Error(`cues: no line '${id}'`);
+  return l;
+}
 /** `beats` is how long the line stays fully readable. */
 function ln(sec: Sec, block: string, id: string, tier: Tier, bar: number, beat: number, beats: number, text: string): void {
   const frame = at(bar, beat);
@@ -84,9 +90,9 @@ function ln(sec: Sec, block: string, id: string, tier: Tier, bar: number, beat: 
 }
 
 // ── 1. Flat: you are the router (bars 1-8) ───────────────────────────────────────────────────
-ln('flat', 'q', 'q', 'h1', 1, 2, 7, 'WHO ROUTES\nYOUR AGENTS?');
+ln('flat', 'q', 'q', 'h1', 1, 2, 7, 'WHO ROUTES\nTHE AGENTS?');
 ln('flat', 'sess', 'sess', 'label', 3, 1, 4, 'SESSION');
-ln('flat', 'few', 'few', 'sup', 5, 2, 8, 'One team finds a person can usually follow 3 to 5.');
+ln('flat', 'few', 'few', 'sup', 5, 2, 8, 'One team finds a person can usually follow 3 to 5 sessions.');
 ln('flat', 'youdo', 'youdo', 'h1', 8, 1, 4, 'YOU DO.');
 
 // ── 2. The lift: routing becomes its own layer (bars 9-12) ───────────────────────────────────
@@ -101,10 +107,12 @@ ln('levels', 'router', 'ch.review', 'label', 14, 3, 6, 'CODE REVIEW');
 ln('levels', 'router', 'ch.mail', 'label', 14, 3, 6, 'EMAIL');
 ln('levels', 'routes', 'routes', 'h2', 16, 1, 8, 'IT ROUTES.\nIT NEVER EXECUTES.');
 ln('levels', 'routes', 'routes.whole', 'sup', 16, 3, 6, 'Whole tasks go down, unsplit.');
-ln('levels', 'proto1', 'proto1', 'stamp', 18, 2, 6.5, 'PROTOTYPE: A RESTRICTED SHELL, NO WRITE TOOLS');
-ln('levels', 'worker', 'worker', 'h2', 21, 1, 8, 'A WORKER:\nITS OWN CONTEXT');
-ln('levels', 'worker', 'worker.one', 'sup', 21, 3, 6, 'One task. Full tools.');
-ln('levels', 'answers', 'answers', 'sup', 23, 1, 6, 'By design, only the Router answers you.');
+ln('levels', 'proto1', 'proto1', 'stamp', 18, 2, 7.5, 'PROTOTYPE ROUTER: KEEPS A SHELL, NO WRITE TOOLS');
+// it lets go a beat before the bar: the camera leaves the Worker's plane under no words
+ln('levels', 'worker', 'worker', 'h2', 21, 1, 7, 'A WORKER:\nITS OWN CONTEXT');
+ln('levels', 'worker', 'worker.one', 'sup', 21, 3, 5, 'One task. Full tools.');
+// half a beat into the bar: the camera is back on the stack and at rest before the sentence is read
+ln('levels', 'answers', 'answers', 'sup', 23, 1.5, 6, 'By design, only the Router answers you.');
 
 // ── 4. One Router for all this? Four answers (bars 25-55) ────────────────────────────────────
 ln('spine', 'spine', 'spine', 'h1', 25, 1, 6, 'ONE ROUTER\nFOR ALL THIS?');
@@ -126,9 +134,8 @@ ln('threads', 'v2', 'v2', 'verdict', 39, 4, 5, '2  FOLLOW-UPS SKIP ITS DECISION.
 
 ln('batch', 'wait', 'wait', 'h3', 42, 3, 6, 'ARRIVALS WAIT,\nTHEN ENTER TOGETHER');
 ln('batch', 'cost', 'cost.n', 'num', 44, 1, 14, '6.4 s → 1.6 s');
-ln('batch', 'cost', 'cost.of', 'sup', 44, 1, 14, 'model time per decision');
-ln('batch', 'cost', 'cost.by', 'stamp', 44, 3, 12, "AUTHORS' STRESS TEST · MOCK WORKERS");
-ln('batch', 'cost', 'cost.rate', 'stamp', 45, 1, 10, '~1 → ~40 DECISIONS NEEDED A MINUTE');
+ln('batch', 'cost', 'cost.of', 'sup', 44, 1, 14, 'model time per decision, at ~40× the load');
+ln('batch', 'cost', 'cost.by', 'stamp', 44, 1, 14, "AUTHORS' STRESS TEST · MOCK WORKERS");
 ln('batch', 'limit', 'limit', 'h3', 47, 3, 5, 'UP TO A LIMIT PER CALL.');
 ln('batch', 'v3', 'v3', 'verdict', 48, 4, 5, '3  THE REST ARRIVE TOGETHER.');
 
@@ -136,7 +143,7 @@ ln('cache', 'cache', 'cache', 'h3', 50, 3, 8, 'ITS CONTEXT IS A CACHE');
 ln('cache', 'cache', 'cache.how', 'sup', 51, 1, 6, 'What it needs soon stays in view.');
 ln('cache', 'recall', 'recall', 'h3', 52, 3, 8, 'BY DESIGN: RECALL BY ID');
 ln('cache', 'recall', 'recall.loss', 'sup', 53, 1, 6, 'It loses less. Not nothing.');
-ln('cache', 'v4', 'v4', 'verdict', 54, 3, 5, '4  THE REST WAITS BEHIND IDS.');
+ln('cache', 'v4', 'v4', 'verdict', 54, 3, 5, '4  DETAILS WAIT BEHIND IDS.');
 
 // ── 5. Evidence (bars 56-66) ─────────────────────────────────────────────────────────────────
 ln('evidence', 'test', 'test', 'h3', 56, 1, 9, "THE AUTHORS' TEST");
@@ -149,23 +156,30 @@ ln('evidence', 'slow', 'slow.tag', 'stamp', 61, 1, 6, 'P95 · RE-PLOTTED');
 ln('evidence', 'typ', 'typ', 'h3', 62, 3, 6, 'TYPICAL TASKS:\nABOUT 10% FASTER');
 ln('evidence', 'typ', 'typ.tag', 'stamp', 62, 4, 5, 'P50');
 ln('evidence', 'price', 'price', 'h3', 64, 1, 9, 'THE PRICE:\n2–4× THE TOKENS');
-ln('evidence', 'price', 'price.vs', 'sup', 64, 3, 7, '2× this one, 4× one left to choose');
+ln('evidence', 'price', 'price.two', 'sup', 64, 3, 7, '2×');
+ln('evidence', 'price', 'price.four', 'sup', 64, 3, 7, '4× left to choose');
 
 // ── 6. Proposed, open (bars 66-70) ───────────────────────────────────────────────────────────
 ln('status', 'proposed', 'proposed', 'h3', 66, 2, 9, 'PROPOSED');
-ln('status', 'proposed', 'proposed.t', 'sup', 66, 2, 9, 'Running in the cloud. A check for stuck Workers.');
+ln('status', 'proposed', 'proposed.t', 'sup', 66, 3.5, 7.5, 'Running in the cloud. A check for stuck Workers.');
 ln('status', 'open', 'open', 'h3', 68, 3, 9, 'OPEN');
 ln('status', 'open', 'open.t', 'sup', 68, 3, 9, 'Long memory. Security. Stepping in mid-task. More Routers.');
 
-// ── 7. Close (bars 70-80) ────────────────────────────────────────────────────────────────────
-ln('close', 'q2', 'q2', 'h1', 71, 1, 6, 'WHO ROUTES\nYOUR AGENTS?');
+// ── 7. Close (bars 70-84) ────────────────────────────────────────────────────────────────────
+ln('close', 'q2', 'q2', 'h1', 71, 1, 6, 'WHO ROUTES\nTHE AGENTS?');
 ln('close', 'notyou', 'notyou', 'h1', 72, 3, 6, 'NOT YOU.');
 ln('close', 'notyou', 'bydesign', 'stamp', 72, 3, 12, 'BY DESIGN');
 ln('close', 'decide', 'decide', 'h1', 74, 1, 6, 'YOU DECIDE.\nYOU SIGN OFF.');
-ln('close', 'end', 'end.t', 'h2', 76, 1, 19, 'WHO ROUTES THE AGENTS?');
-ln('close', 'end', 'end.src', 'sup', 76, 3, 17, 'After “Exploring Super-agent Design”');
-ln('close', 'end', 'end.by', 'sup', 76, 3, 17, 'by the DeepSeek Harness team, 2026');
-ln('close', 'end', 'end.ind', 'sup', 77, 1, 15, 'An independent explainer. Not affiliated with DeepSeek.');
+// the recap: the four counted answers once more, as one list, a beat apart
+ln('close', 'recap', 'recap.1', 'verdict', 76, 1, 16, line('v1').text);
+ln('close', 'recap', 'recap.2', 'verdict', 76, 2, 15, line('v2').text);
+ln('close', 'recap', 'recap.3', 'verdict', 76, 3, 14, line('v3').text);
+ln('close', 'recap', 'recap.4', 'verdict', 76, 4, 13, line('v4').text);
+// the end card stays to the last frame: it goes with the picture's own fade
+ln('close', 'end', 'end.t', 'h2', 80, 1, 20, 'WHO ROUTES THE AGENTS?');
+ln('close', 'end', 'end.src', 'sup', 80, 3, 18, 'After “Exploring Super-agent Design”');
+ln('close', 'end', 'end.by', 'sup', 80, 3, 18, 'by the DeepSeek Harness team, 2026');
+ln('close', 'end', 'end.ind', 'sup', 81, 1, 16, 'An independent explainer. Not affiliated with DeepSeek.');
 
 // A block leaves as the next one lands: each line is gone before the entrance that follows it.
 for (const l of lines) {
@@ -174,13 +188,6 @@ for (const l of lines) {
 }
 
 export const LINES: readonly Line[] = lines;
-const byId = new Map(lines.map((l) => [l.id, l]));
-/** A line by id; throws on an unknown id, so a typo fails the page and the tests. */
-export function line(id: string): Line {
-  const l = byId.get(id);
-  if (!l) throw new Error(`cues: no line '${id}'`);
-  return l;
-}
 
 /** Names on the stack's spine and other standing marks: drawn for as long as their mark is. */
 export const LABELS = {
@@ -190,6 +197,10 @@ export const LABELS = {
   world: 'EVENTS',
   code: 'CODE',
   model: 'MODEL',
+  /** where the model gate's unasked work goes in the prototype's default setting */
+  recorded: 'RECORDED',
+  /** what a body leaves on the Router's line when it goes to the shelf */
+  id: 'ID',
   /** the two designs the authors' test compares: the rows of the re-plot */
   sa: 'SUPER-AGENT',
   base: 'ONE SESSION + SUBAGENT TOOL',
@@ -212,7 +223,7 @@ const HITS: Array<[id: string, bar: number, beat: number, label: string]> = [
   ['hit.test', 56, 1, 'evidence begins'],
   ['hit.decide', 74, 1, 'YOU DECIDE. YOU SIGN OFF.'],
   ['hit.sign', 74, 3, 'the sign-off: one coral touch'],
-  ['hit.end', 76, 1, 'the end card'],
+  ['hit.end', 80, 1, 'the end card'],
 ];
 
 const events: CueEvent[] = [];
@@ -221,8 +232,8 @@ for (const [id, bar, beat, label] of HITS) events.push({ id, kind: 'hit', frame:
 for (const l of lines) {
   events.push({ id: l.id, kind: CARD_BLOCKS.includes(l.block) && l.id === (l.block === 'title' ? 'title' : 'end.t') ? 'card' : 'text', frame: l.frame, end: l.end, text: { en: l.text.replace(/\n/g, ' ') } });
 }
-// the end card stands still while it is read: the camera has settled a beat after its last line lands
-events.push({ id: 'hold.end', kind: 'hold', frame: at(77, 2), end: at(80, 4), label: 'the end card' });
+// the end card stands still while it is read, to the last frame: the camera has settled a beat after its last line lands
+events.push({ id: 'hold.end', kind: 'hold', frame: at(81, 2), end: FILM_FRAMES, label: 'the end card' });
 
 export const cues = CueSheet.parse({
   schemaVersion: 1,

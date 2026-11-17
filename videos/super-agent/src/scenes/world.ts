@@ -14,8 +14,8 @@ export type LevelName = keyof typeof LEVEL;
 
 /**
  * A slab is full-bleed and has a body: it leaves the frame on both sides, it is deep enough that
- * a look-down never shows its edges behind the words, and it is thick enough to carry its name on
- * its front face when the stack is seen edge-on.
+ * a look-down never shows its edges behind the words, and it is thick enough to show a front face
+ * when the stack is seen edge-on.
  */
 export const SLAB = { halfW: 3400, halfD: 600, thick: 96 } as const;
 
@@ -37,11 +37,27 @@ export const edgeOn = (d: Draw): number => clamp((34 - d.cam.pose.tilt) / 16);
  */
 export const namesOn = (d: Draw): number => clamp((24 - d.cam.pose.tilt) / 8);
 
-/** where the spine's names start, and how far below a mark's middle a name's baseline sits */
-export const NAME = { x: 132, drop: 19, top: 96, bottom: 1000 } as const;
+/**
+ * Where the spine's names start, how far below a mark's middle a name's baseline sits, the least a
+ * level's name stands above its slab's lit edge, and how far in from that edge the Workers' name
+ * stands (world units: near their cells, clear of the nearest one).
+ */
+export const NAME = { x: 132, drop: 19, rise: 13, inset: 150, top: 96, bottom: 1000 } as const;
 
-/** The baseline of the name on a slab's front face. */
-export const slabNameY = (d: Draw, y: number): number => d.cam.project([0, y - SLAB.thick / 2, SLAB.halfD]).y + NAME.drop;
+/**
+ * The baseline of a level's name: on its slab's top, in the band of what it names. (Set under the
+ * lit edge, on the front face, a name reads as the heading of the level below.) The Router's name
+ * stands midway between its rail, which runs down the slab's middle, and the lit edge.
+ */
+export const slabNameY = (d: Draw, y: number): number => {
+  if (y !== LEVEL.router) return d.cam.project([0, y, SLAB.halfD - NAME.inset]).y;
+  const edge = d.cam.project([0, y, SLAB.halfD]).y;
+  const room = edge - d.cam.project([0, y, 0]).y - d.type.layout('label', 'R').cap;
+  return edge - Math.max(NAME.rise, room / 2);
+};
+
+/** The baseline of a line set on a slab's front face, under its lit edge. */
+export const slabFaceY = (d: Draw, y: number): number => d.cam.project([0, y - SLAB.thick / 2, SLAB.halfD]).y + NAME.drop;
 
 /** The baseline of a name beside a stratum that has no slab: it waits at the frame's edge while its mark is out of frame. */
 export const spineNameY = (d: Draw, at: Vec3): number => clamp(d.cam.project(at).y, NAME.top, NAME.bottom) + NAME.drop;
@@ -49,7 +65,7 @@ export const spineNameY = (d: Draw, at: Vec3): number => clamp(d.cam.project(at)
 /**
  * A slab: smoked glass with a lit top edge and a front face. `focus` is the height in focus; a
  * slab away from it is softer and dimmer. `lit` in 0..1 scales the whole slab (for one that is
- * forming). Its name is set on its face.
+ * forming). Its name stands on its top, at the near edge.
  */
 export function slab(d: Draw, y: number, focus: number, lit = 1, name = ''): void {
   if (lit <= 0) return;
@@ -62,14 +78,16 @@ export function slab(d: Draw, y: number, focus: number, lit = 1, name = ''): voi
   d.flat([0, y, 0], [SLAB.halfW, SLAB.halfD], 0, mix(p.ground[1], p.bone, 0.06), { alpha: (0.2 + 0.2 * e) * lit * dim, feather: soft * 4 });
   if (e > 0) {
     // the front face, seen when the stack is edge-on: the slab's body
-    d.face([0, y - SLAB.thick / 2, SLAB.halfD], [SLAB.halfW, SLAB.thick / 2], mix(p.ground[0], p.ground[1], 0.75), { alpha: 0.92 * lit * e });
+    // it is opaque: the far lanes of the level below do not ghost through it
+    d.face([0, y - SLAB.thick / 2, SLAB.halfD], [SLAB.halfW, SLAB.thick / 2], mix(p.ground[0], p.ground[1], 0.75), { alpha: lit * e });
     d.line([[-SLAB.halfW, y - SLAB.thick, SLAB.halfD], [SLAB.halfW, y - SLAB.thick, SLAB.halfD]], 1.6, p.bone, { alpha: 0.16 * lit * e });
     const far: Vec3[] = [[-SLAB.halfW, y, -SLAB.halfD], [SLAB.halfW, y, -SLAB.halfD]];
     d.line(far, 1.6, p.bone, { alpha: 0.2 * lit * e, feather: soft });
     // the top's near edge catches the light
     const near: Vec3[] = [[-SLAB.halfW, y, SLAB.halfD], [SLAB.halfW, y, SLAB.halfD]];
     d.line(near, 3, scale(p.bone, 1.15), { alpha: 0.8 * lit * e });
-    if (name) d.text('label', name, NAME.x, slabNameY(d, y), { alpha: lit * namesOn(d) });
+    // a name never stands on the frame's foot: it goes before its slab's edge leaves the frame
+    if (name) d.text('label', name, NAME.x, slabNameY(d, y), { alpha: lit * namesOn(d) * clamp((1046 - slabNameY(d, y)) / 40) });
   }
 }
 

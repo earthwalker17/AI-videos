@@ -131,16 +131,16 @@ function chart(d: Draw, f: number): void {
     const y = ROWS[k]!.trail - up;
     const slowest = Math.min(head, P95[k]!) * unit;
     // the row's lane: its trail runs along it
-    if (laid > slowest + 2 && away < 1) d.path([[X0 + slowest, y], [X0 + laid, y]], 1.6, p.ash, { alpha: 0.55 * (1 - away) });
+    if (laid > slowest + 2 && away < 1) d.path([[X0 + slowest, y], [X0 + laid, y]], 2.2, p.ash, { alpha: 0.55 * (1 - away) });
     // before anything is measured, the same synthetic stream of events runs down both lanes
     for (let j = 0; stream > 0 && j < STREAM.count; j++) {
       // spread along the lane, never evenly
       const x = (((j + 0.12 + 0.76 * rand(STREAM.seed, j, 1)) / STREAM.count) * FULL + (f - LANES[0]) * STREAM.pace) % FULL;
       const a = stream * clamp((x - 8) / 40) * clamp((laid - 8 - x) / 40);
       if (a <= 0) continue;
-      d.box([X0 + x, y], [8, 8], 8, mix(p.ash, p.bone, 0.7), { alpha: 0.9 * a });
+      d.box([X0 + x, y], [13, 13], 13, mix(p.ash, p.bone, 0.7), { alpha: 0.9 * a });
       // a person sent this one
-      if (rand(STREAM.seed, j, 2) < 0.3) d.box([X0 + x, y], [15, 15], 15, p.you, { stroke: 2.6, alpha: 0.9 * a });
+      if (rand(STREAM.seed, j, 2) < 0.3) d.box([X0 + x, y], [23, 23], 23, p.you, { stroke: 3, alpha: 0.9 * a });
     }
     bar(d, y, slowest, p.ash, 0.62);
     bar(d, y, lerp(Math.min(head, P95[k]!), P50[k]!, typical) * unit, p.bone, 0.94);
@@ -158,18 +158,18 @@ function chart(d: Draw, f: number): void {
   // the rows' names stand for as long as the rows do
   d.text('label', LABELS.sa, X0, ROWS[0].name - up, { enter: named.enter, exit: gone });
   const base = d.text('label', LABELS.base, X0, ROWS[1].name - up, { enter: lineState('who.base', f).enter, exit: gone });
-  // which single session this is stays beside its name under every length (FACTS.md, section 6: name the baseline)
+  // which single session this is stays beside its name under every length (FACTS.md, section 6: name the baseline).
+  // At the price the name heads two bands, so the words move to the tip of the band they describe
   const told = lineState('who.told', f);
-  if (told.enter > 0) d.text('sup', told.l.text, X0 + base.width + 32, ROWS[1].name - up, { enter: told.enter, exit: gone });
+  const moved = clamp((f - (PRICE - 22)) / TEXT_OUT);
+  if (told.enter > 0 && moved < 1) d.text('sup', told.l.text, X0 + base.width + 32, ROWS[1].name - up, { enter: told.enter, exit: Math.max(gone, moved) });
 
-  // what each of the lower bands is, at its tip
-  const vs = lineState('price.vs', f);
-  if (vs.on) {
-    const [this1 = '', other = ''] = vs.l.text.split(', ');
-    const rise = d.type.layout('sup', this1).cap / 2;
-    d.text('sup', `${this1},`, X0 + TOKENS[1] * token + 30, ys[1]! + rise, { enter: vs.enter, exit: vs.exit });
-    d.text('sup', other, X0 + TOKENS[2] * token + 30, ys[2]! + rise, { enter: vs.enter, exit: vs.exit });
-  }
+  // what each of the lower bands is, and how many of it the Super-agent spent, at its tip
+  const two = lineState('price.two', f);
+  const four = lineState('price.four', f);
+  const rise = d.type.layout('sup', two.l.text).cap / 2;
+  if (two.on) d.text('sup', `${two.l.text} ${told.l.text}`, X0 + TOKENS[1] * token + 30, ys[1]! + rise, { enter: two.enter, exit: two.exit });
+  if (four.on) d.text('sup', four.l.text, X0 + TOKENS[2] * token + 30, ys[2]! + rise, { enter: four.enter, exit: four.exit });
 }
 
 function draw(d: Draw, f: number): void {
@@ -195,6 +195,6 @@ export const evidence: Section = {
     'slow.tag': () => ({ x: X1, y: HEAD_2, align: 'right' }),
     'typ.tag': () => ({ x: X1, y: HEAD_2, align: 'right' }),
   },
-  own: ['who.sa', 'who.base', 'who.told', 'price.vs'],
+  own: ['who.sa', 'who.base', 'who.told', 'price.two', 'price.four'],
   draw,
 };

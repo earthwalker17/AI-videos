@@ -83,7 +83,7 @@ export const STYLES: Record<StyleId, TypeStyle> = {
   stamp: { family: FONT.mono, weight: 500, px: 52, tracking: 0.02, leading: 1.2, chars: ASCII },
   label: { family: FONT.mono, weight: 500, px: 52, tracking: 0.08, leading: 1.2, chars: ASCII },
   num: { family: FONT.display, weight: 800, px: 250, tracking: 0.012, leading: 0.9, hollow: 5, chars: NUMS },
-  count: { family: FONT.display, weight: 700, px: 132, tracking: 0, leading: 0.9, hollow: 3, chars: NUMS },
+  count: { family: FONT.display, weight: 700, px: 132, tracking: 0, leading: 0.9, chars: NUMS },
 };
 
 /** Finish: the numbers of the post chain, in one place. */
