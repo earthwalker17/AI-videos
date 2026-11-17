@@ -93,11 +93,12 @@ Built when a film needs them, not before:
 - On macOS and Linux the orphan sweep parses `ps` output by whitespace, so a repository
   path with spaces defeats it (the docs require a path without spaces).
 - No interactive `--wait` queue for `aiv render` (it exits 75 when the heavy lock is held).
-- Browser profiles still pile up on Windows. On 2026-11-15 the temp folder held 654
-  `puppeteer_dev_chrome_profile-*` folders, about 0.9 GB, dated 2026-11-09 to 11-15: the days of
-  #4 V1's renders and stills. They were left even though the engine deletes the profiles it marks
-  (ENGINE.md, Browser hygiene). Which launches leave them is not traced, and the sweep deletes
-  only marked profiles.
+- Browser profiles piled up on Windows during #4 V1 (654 unmarked `puppeteer_dev_chrome_profile-*`
+  folders, 0.9 GB, by 2026-11-15; none after V2's web-engine renders on 2026-11-18). The engine
+  deletes only the profiles it marks (ENGINE.md, Browser hygiene); which launches leave the others
+  is not traced.
+- CI on `windows-latest` fails one audio-stage test (a score importing `@aiv/pipeline/audio`
+  through a scratch repo's `node_modules` junction); it passes on the reference host and on Linux.
 - A render call killed while the joined mezzanine is checked and hashed leaves a complete but
   unverified `mezzanine.mkv`. A rerun joins again beside it, so the disk must hold two copies. The
   runner could verify and reuse it instead.
