@@ -456,4 +456,4 @@ new entry that supersedes it, not editing history.
       it; then it becomes a shared web kit (ROADMAP, Web kit).
     - **Cost:** there is no browser text layout, so the film's own code measures and breaks
       lines, and a second script would need its own atlas. 60 fps doubles the frames of every
-      stage. The measurements go into `engines/web/ENGINE.md` with the first cut.
+      stage. The measurements are in `engines/web/ENGINE.md` (At 60 fps).

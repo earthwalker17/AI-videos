@@ -6,7 +6,7 @@
 | Pin | Upload list as shown on 2026-11-08 (26 videos, newest 《压缩即理解》 of 2026-11-06; unchanged when pass 3 looked again that night) · video data of the three pass-3 films re-checked 2026-11-09 · press article 2026-10-20 (36氪), copy 2026-10-22 (21财经) · tutorial updated 2026-10-26 · MiyanoX/vibe-knowledge-video `78cbecce056407402d33eab18de6ce3f584e60ca` (2026-10-13) |
 | Licence | Films, covers, music and descriptions: their owners' (facts and our own descriptions only; no frame, sprite, cover, audio or copy in this repo) · press and tutorial: proprietary (paraphrase) · MiyanoX repo: MIT per its LICENSE file (GitHub's API reports NOASSERTION) |
 | Accessed | 2026-11-08 (passes 1–3) · 2026-11-09 (length, upload date, uploader and master size of the three pass-3 films) |
-| Stale after | 2026-12-08 for the catalogue, counts and press (a fast-moving channel and genre); the style analysis and do-not-copy list hold until #4 V2 is released (V1 was archived unpublished on 2026-11-15); re-check them against V2's own references |
+| Stale after | 2026-12-08 for the catalogue, counts and press (a fast-moving channel and genre); the style analysis and do-not-copy list were last used for #4 V2 (published 2026-11-17; V1 was archived unpublished on 2026-11-15); re-check them against the next film's own references |
 
 ## What it is
 A style study of the Bilibili creator 比特新语 and of the 2026 "Vibe知识" wave the press groups

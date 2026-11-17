@@ -234,6 +234,9 @@ compare with SSIM. Remove the worktree with `git worktree remove` when done.
   this on 2026-11-09, for video #4.
   - Still open: does 1/30 mean the font size or the cap height? #4 V1 read it as the font size,
     so its cap heights were smaller. Ask the user before a film's type scale is set.
+  - **Every line names its subject.** A line on screen stands alone: the noun a pronoun points to
+    left with the line before. On #4 V2 two first-time viewers could not say what "it" was in
+    "most never reach it"; the line became "FEW REACH THE ROUTER."
 - **Rest:** at least one deliberate moment of quiet or stillness.
 - **Sound:** -14 LUFS integrated (±1 LU), true peak ≤ -1 dBTP, no clipping; music ducks
   under narration; narration intelligible on laptop speakers. The intended silences and rests
@@ -251,6 +254,10 @@ compare with SSIM. Remove the worktree with `git worktree remove` when done.
     clock is scaled or unstated.
   - **Pictures make claims too.** A part drawn as built, a link drawn before the line that
     explains it, or a tool drawn missing is checked like a sentence.
+  - **A number beside a bar is read as that bar's value.** On #4 V2 a multiple set next to a
+    baseline's band was taken by two cold readers for that band's own cost, when it was the ratio
+    of the top band to it. Put a ratio in the headline, name each bar by what it is, and let the
+    drawn lengths carry the comparison.
 - **Rights:** every asset has a known licence or a rights class; credits complete.
 - **Verified, not assumed:** QA green *and* the frames and the full cut were
   actually looked at. Reports say what was checked and what was not.
@@ -281,6 +288,12 @@ render or release.
   it: in #4 V1 about a fifth were downgraded or refuted. Brief the critics with the lists of what
   is known to be open and what has been accepted, so they do not prove those again. Write fixed
   choreography findings as tests on the frame state, so that they stay fixed.
+- **Cold-read the fixed frames.** After a fix round, show single frames to a reader who has seen
+  nothing of the project, not even the earlier cut, and ask only what each frame says. On #4 V2 a
+  cold read of four frames found misreadings that reviewers who knew the film had passed: they
+  read the intent into the picture. Use a new reader each time.
+- **Audit the publish files too.** A description makes public claims: check each against
+  `FACTS.md` (baselines named, built or proposed, what is and is not public yet) before upload.
 - **Fix lanes.** One implementer per lane, on disjoint files, then a critic on that lane's renders,
   then a fixer. Findings in another lane's files are passed on to that lane, not fixed in place.
 - **Session size.** Size each session to end with its own critic round and a durable handoff.
@@ -311,6 +324,17 @@ for a 3:44 film at 1080p. When only a few chunks are left, run it as one call wi
   unverified `mezzanine.mkv`. A rerun joins again beside it, so delete it before rerunning, or the
   disk must hold both.
 - **Post and QA at the final** take about 35 and 15 minutes. Give them calls with no time limit too.
+  A final's QA writes two reports, `report.json` for the delivery and then `report-archive.json`
+  for the archive master: read both before saying it passed (#4's archive failed a freeze check
+  the delivery passed).
+- **A job moved to the background can outlive its stop notice.** On the 8 GB host a long render
+  or encode that an agent session had moved to the background kept running after the session
+  reported it stopped. Before the next heavy job, check that the lock is free (`aiv doctor`; a
+  heavy command exits 75 while it is held) instead of trusting the notice, and never start a
+  second copy.
+- **Before a release, clean up.** Audit what is about to be pushed (private paths, stale status
+  lines, licences and credits), write the film's lessons into the shared docs, and prune local
+  outputs that can be regenerated.
 - **Session scratch** grows to many GB over a film. Prune old stills and scratch copies as you go.
 
-`engines/remotion/ENGINE.md` has the measured costs.
+`engines/remotion/ENGINE.md` and `engines/web/ENGINE.md` have the measured costs.

@@ -11,7 +11,7 @@
   (a machine translation, read through a third-party mirror; the Chinese original was not read)
   and from the authors' open-source prototype.
 - **What the creator did:** chose the subject and the brief, chose the hybrid treatment
-  recommended from three candidates and the palette at a look check, and decides at every
+  recommended from three candidates and the palette at a look check, and decided at every
   approval gate (treatment, review cut, final).
 - **What no AI did:** no generative image, video, music or voice model was used in the film.
   There is no photographic, recorded or sampled person, voice or place in it: shapes, lines and
@@ -24,5 +24,5 @@
   realistic scenes) and exempts clearly unrealistic, fully animated content. This film is an
   abstract animation of shapes and type, so the setting is not required for the picture; the
   description says how the film was made. Whether YouTube's note on AI-generated music covers a
-  score written as code is unclear (references/youtube-publishing.md); the creator makes that
-  call at upload.
+  score written as code is unclear (references/youtube-publishing.md); the creator made that
+  call at upload on 2026-11-17.

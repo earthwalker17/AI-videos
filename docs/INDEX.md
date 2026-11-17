@@ -12,14 +12,14 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 | 1 | [Journey Through Middle-Earth](../videos/journey-through-middle-earth/README.md) | standalone | published (record only) | [YouTube](https://youtu.be/kRuPq4GjhGc) |
 | 2 | [THE AI STACK](../videos/the-ai-stack/README.md) | [3D Concept Visualizations](../series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
 | 3 | [A Halloween Gift](../videos/halloween-gift/README.md) | [Festival & Celebration](../series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
-| 4 | [Who Routes the Agents?](../videos/super-agent/README.md) | [3D Concept Visualizations](../series/concept-viz/SERIES.md) | locked | — |
+| 4 | [Who Routes the Agents?](../videos/super-agent/README.md) | [Science & Technology Explainers](../series/science-explainers/SERIES.md) | locked | — |
 
 ## Series
-- [3D Concept Visualizations](../series/concept-viz/SERIES.md) (`concept-viz`, active, 2 videos): Complex technical systems explained as physical, spatial machines you can see working.
+- [3D Concept Visualizations](../series/concept-viz/SERIES.md) (`concept-viz`, active, 1 video): Complex technical systems explained as physical, spatial machines you can see working.
 - [Festival & Celebration](../series/festivals/SERIES.md) (`festivals`, active, 1 video): Visual pieces for traditional and seasonal celebrations, built on workflows that return every year.
 - [Micro Films](../series/micro-films/SERIES.md) (`micro-films`, active, 0 videos): Short conceptual and philosophical films about consciousness, humanity, AI and the future.
 - [Product & Launch](../series/product-launch/SERIES.md) (`product-launch`, active, 0 videos): Polished code-generated motion graphics: product demos, launch films and UI animation.
-- [Science & Technology Explainers](../series/science-explainers/SERIES.md) (`science-explainers`, active, 0 videos): Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.
+- [Science & Technology Explainers](../series/science-explainers/SERIES.md) (`science-explainers`, active, 1 video): Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.
 
 ## Docs
 - [AI-videos](../README.md): The source, workflows and shared tooling behind a YouTube channel of videos made with code and AI, and an open knowledge base for anyone making high-quality video the same way.
@@ -78,6 +78,11 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [A bat from one outline spec, posed in 3D and drawn the same way in 2D: furry body, scalloped membrane wings](../videos/halloween-gift/src/kit/bat.ts) (`halloween-gift`)
 - [Torn orb cobwebs between anchor points, drawn as anti-aliased camera-facing thread ribbons](../videos/halloween-gift/src/kit/cobweb.ts) (`halloween-gift`)
 - [A hardcover book's parts as geometry: bevelled boards, a banded spine, a page block with leaf lines, a cover that hinges](../videos/halloween-gift/src/kit/book.ts) (`halloween-gift`)
+- [A small WebGL2 renderer without three.js: signed-distance shapes, ribbons and glyph quads into a linear half-float target, sub-frames averaged for motion blur, then bloom, a tone curve, vignette, dither and grain; stateless per frame](../videos/super-agent/src/kit/stage.ts) (`super-agent`)
+- [A glyph atlas rasterised once on a CPU canvas at display size, with its own measuring and layout: deterministic type of any size, drawn as quads in a WebGL scene](../videos/super-agent/src/kit/type.ts) (`super-agent`)
+- [A pure perspective camera rig in reference pixels that looks at a point on a stack of horizontal planes from a tilt](../videos/super-agent/src/kit/camera.ts) (`super-agent`)
+- [Progress windows, gates and bumps on a frame grid, and the entrance and exit state of a line of type from a cue sheet](../videos/super-agent/src/kit/time.ts) (`super-agent`)
+- [One timeline for picture, score, captions and hold tests: lines of type on a 120 bpm grid with tiers, blocks and hand-over, hits and hold cues (with cues.test.ts, its reading-time and one-block-at-a-time rules)](../videos/super-agent/src/cues.ts) (`super-agent`)
 
 ## References
 - [Agent skills and method sources for code-made explainer films (2026-11)](../references/agent-video-skills-2026-11.md): The agent skills and method sources found while reworking #4 V1's look, after its first lookdev round passed the frame critic and was rejected by the user as too simple and crude.

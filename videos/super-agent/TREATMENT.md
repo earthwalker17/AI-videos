@@ -4,8 +4,8 @@ Three structurally different candidates were written on 2026-11-16 by three desi
 from one lens and from the same brief, facts matrix and benchmark study. Three judges then read all
 three: an art director (who also looked at the benchmark's frames), a facts auditor (against
 [FACTS.md](FACTS.md)) and a first-time viewer (who timed every line against the hold rule). The
-user chose the hybrid the judges recommended. The candidates and verdicts in full are in the
-session's research cache, not in git.
+user chose the hybrid the judges recommended. The candidates and verdicts in full were working
+files and are not in git; the summaries below are the record.
 
 ## Candidate A: the layer stack ("The Missing Layer")
 - **Arc:** flat, you are the router → the lift: routing becomes its own layer → two levels → the
@@ -130,7 +130,8 @@ A warm violet-black ground, bone type and structure, phosphor green only where a
 thinking, coral only for you, ash for dropped and idle marks. No starfield and no grid. Finish:
 edge-lit slabs with analytic defocus by distance from the focus plane, bloom on emissive marks
 only, one additive spill sprite on the plane below a lit mark, sub-frame motion blur, dither and
-fine static grain. Two alternative palettes are shown to the user as style frames at the pilot.
+fine static grain. Two alternative palettes were shown to the user as style frames at the pilot
+(The look check, below).
 
 ### Sound
 120 bpm. The stack is a chord with one pitch per plane, and the bass moves to the visited plane's
@@ -201,9 +202,10 @@ Three reviewers looked at the first cut of bars 1 to 17, each without the others
   the tangle and its flattening the strongest images. Three lines were changed for them: the 3 to
   5 line names its source in one sentence, a stalled session now calls for you with a ring
   opening from it, and "IT DOESN'T WORK" (read as "it is broken") became "IT NEVER EXECUTES".
-- **Not yet done:** a second critic pass after those fixes; "YOU DO." with the dot as its full
-  stop; deuteranopia (the critic measured green and coral converging there, so shape must keep
-  carrying the difference: rings are always you).
+- **Left open by this review:** a second critic pass after those fixes, which came with the
+  review round of 2026-11-17 (README, Status); "YOU DO." with the dot as its full stop; and
+  deuteranopia (the critic measured green and coral converging there, so shape must keep carrying
+  the difference: rings are always you). The last two were not taken up before publication.
 
 ## The look check (2026-11-17)
 The user watched the pilot and the three style frames, chose **phosphor and coral**, and said to go
@@ -211,5 +213,7 @@ ahead. The two alternative palettes stay in `src/lookdev/` as a record.
 
 ## Approval
 The user chose "Layer stack hybrid (Recommended)" and approved the V2 plan on 2026-11-16
-(`video.json` `approvals`, gate `treatment`). The next human gate is the review cut. Before it, at
-the user's request, there is one look check at the pilot: a checkpoint, not a recorded gate.
+(`video.json` `approvals`, gate `treatment`). At the user's request there was one look check at
+the pilot, a checkpoint and not a recorded gate. The user then approved the review cut on
+2026-11-17 and the final on 2026-11-18 (local dates); the film was published on 2026-11-17 at
+18:30 UTC.

@@ -91,3 +91,8 @@ none).
   can pick a neighbour: in V1's draft, six hits of part one read 40-110 ms off although each was
   placed on its frame (`README.md:543-545` at the tag). Check the placement, not only the
   reading.
+- The same finder reads a hit that lands over a kick or a bass note as late, because the low
+  tone's energy keeps rising after the contact. #4 V2's reports showed ten of thirteen hits 65 to
+  115 ms late while a high-band measure of the same mix (a second difference of the signal, 5 ms
+  blocks) put all thirteen on their frame. Give each hit a short bright contact, check placement
+  in a high band, and treat QA's reading as information until its detector does the same.

@@ -121,7 +121,7 @@
       "number": 4,
       "slug": "super-agent",
       "title": "Who Routes the Agents?",
-      "series": "concept-viz",
+      "series": "science-explainers",
       "status": "locked",
       "engine": "web",
       "reproducibility": "full",
@@ -130,7 +130,28 @@
       ],
       "path": "videos/super-agent",
       "watch": null,
-      "reusable": []
+      "reusable": [
+        {
+          "path": "videos/super-agent/src/kit/stage.ts",
+          "what": "A small WebGL2 renderer without three.js: signed-distance shapes, ribbons and glyph quads into a linear half-float target, sub-frames averaged for motion blur, then bloom, a tone curve, vignette, dither and grain; stateless per frame"
+        },
+        {
+          "path": "videos/super-agent/src/kit/type.ts",
+          "what": "A glyph atlas rasterised once on a CPU canvas at display size, with its own measuring and layout: deterministic type of any size, drawn as quads in a WebGL scene"
+        },
+        {
+          "path": "videos/super-agent/src/kit/camera.ts",
+          "what": "A pure perspective camera rig in reference pixels that looks at a point on a stack of horizontal planes from a tilt"
+        },
+        {
+          "path": "videos/super-agent/src/kit/time.ts",
+          "what": "Progress windows, gates and bumps on a frame grid, and the entrance and exit state of a line of type from a cue sheet"
+        },
+        {
+          "path": "videos/super-agent/src/cues.ts",
+          "what": "One timeline for picture, score, captions and hold tests: lines of type on a 120 bpm grid with tiers, blocks and hand-over, hits and hold cues (with cues.test.ts, its reading-time and one-block-at-a-time rules)"
+        }
+      ]
     }
   ],
   "series": [
@@ -141,8 +162,7 @@
       "summary": "Complex technical systems explained as physical, spatial machines you can see working.",
       "path": "series/concept-viz",
       "videos": [
-        "the-ai-stack",
-        "super-agent"
+        "the-ai-stack"
       ]
     },
     {
@@ -177,7 +197,9 @@
       "status": "active",
       "summary": "Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.",
       "path": "series/science-explainers",
-      "videos": []
+      "videos": [
+        "super-agent"
+      ]
     }
   ],
   "styles": [],

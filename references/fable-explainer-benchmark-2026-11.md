@@ -3,10 +3,10 @@
 | | |
 |---|---|
 | Upstream | X article by 数字生命卡兹克, https://x.com/Khazix0918/status/2119941585538572390 (a hands-on review of Claude Fable 5.2 with several one-prompt works embedded) · the linked post with a second film, https://x.com/Khazix0918/status/2119902325460590834 |
-| Pin | Article 2119938260130832384, created and last modified 2026-11-09T23:53:55Z, 119 blocks, read as JSON through a public mirror on 2026-11-16 · the explainer film as embedded there (88.04 s, 1920×1080, 60 fps) and as the user's own copy (1280×720, 30 fps, watermarked) |
+| Pin | Article 2119938260130832384, created and last modified 2026-11-09T23:53:55Z, 119 blocks, read as JSON through a public mirror on 2026-11-16 · the explainer film as embedded there (88.04 s, 1920×1080, 60 fps) and as a 1280×720, 30 fps copy supplied by the user |
 | Licence | The films, their music and the article are their owner's. This note holds facts and our own descriptions only: no frame, audio, copy or asset of theirs is in this repository |
 | Accessed | 2026-11-16 |
-| Stale after | The film is fixed; the article can be edited. The study holds until #4 V2 is released |
+| Stale after | The film is fixed; the article can be edited. #4 V2, the film this study served, was published on 2026-11-17 (https://youtu.be/-b7g5XIgEn0) |
 
 ## What it is
 An 88-second explainer of the DeepSeek Harness team's Super-agent article, made with Claude
@@ -25,10 +25,8 @@ can reach, and of how much of its quality is pacing and hierarchy, not geometry.
 - The user supplied the film as a file and gave the article's address.
 - The article's text and media list were read as JSON through the mirror the repository already
   uses for X articles ([V via mirror]).
-- The article's embedded media (four videos, some images) were fetched with a plain HTTP client
-  during planning, before `docs/PRODUCTION.md`'s rule was read ("Never use download tools without
-  the user's approval"). The user was told and chose to keep the files for local benchmarking.
-  They are under `.cache/`, never in git. **Ask first next time.**
+- The benchmark's media were studied locally only (under `.cache/`, never in git). The rule: ask
+  the user before fetching any reference media (`docs/PRODUCTION.md`).
 - Frames: contact sheets at 2 frames a second, dense strips at 10 frames a second around seven
   transitions, and 1080p frames at fifteen moments. Scene changes by ffmpeg's `scene` score.
 - Audio: loudness by `ebur128`; tempo by autocorrelation of the onset flux of a 150 Hz low-passed
@@ -105,7 +103,7 @@ fast rhythm cut to the music, and a third-party framing.
   hyphen pill; a slatted column and a lens for the filter; a dashed bypass under a Router node;
   the minutes odometer; two tilted outlined planes with a tool chip. They are its identity.
 - **A bottom line that carries the explanation.** The user asked for typography inside the scene.
-- **Its factual shortcuts**, by this repository's bar: minutes from a synthetic, time-scaled test
+- **Where this repository's facts bar asks for more:** minutes from a synthetic, time-scaled test
   shown as durations; no split between what is built, proposed and open; the article's own
   example re-staged; glow and specks that mean nothing.
 

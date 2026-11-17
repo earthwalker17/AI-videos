@@ -3,7 +3,9 @@
 V2 remakes film #4 from a clean baseline. V1 was finished and archived unpublished on 2026-11-15
 ([V1.md](V1.md)). The user gave V2's brief on 2026-11-16; it is quoted in full below. V1's two
 briefs are in this file's history (`git show 13893ff:videos/super-agent/BRIEF.md`) and no longer
-bind anything. The title is a working title.
+bind anything. V2 was published on 2026-11-17 under this title (on YouTube: *Who Routes the
+Agents? | DSH Super-agent Architecture Explanation*); the rest of this page is the brief as
+written before production.
 
 ## Audience
 Curious developers and tech-literate viewers who use or follow AI coding agents. They need not have
@@ -21,12 +23,15 @@ tests show and cost, and what is built, proposed and still open.
 - **Languages:** English only, in the picture and everywhere else. No Chinese.
 - **Voice:** none. Words are animated typography inside the scene; there is no subtitle strip.
   Captions are still drafted from the cue sheet for accessibility ([PRODUCTION.md](../../docs/PRODUCTION.md)).
-- **Length:** about 2:36 (78 bars at 120 bpm), inside the 2–3 minutes asked for.
+- **Length:** about 2:36 (78 bars at 120 bpm) as briefed, inside the 2–3 minutes asked for. As
+  built: 2:48 (84 bars); [TREATMENT.md](TREATMENT.md) says why.
 - **Format:** 16:9, 1920×1080 at 60 fps. The benchmark film runs at 60 fps; this is the
   repository's first 60 fps film.
 - **Score:** an original score made in code at 120 bpm, read from the same cue sheet as the picture.
 - **Engine:** web (one WebGL canvas), chosen for this film ([TREATMENT.md](TREATMENT.md), How it is built).
-- **Series:** `concept-viz`, moved from `science-explainers` on 2026-11-16 at the user's request.
+- **Series:** `science-explainers`. The V2 brief below moved the film to `concept-viz` on
+  2026-11-16, and it was made there; on 2026-11-18, before the release, the user decided to
+  release it in `science-explainers`: it explains one published design and weighs its evidence.
 - **Type size:** text meant to be read is at least 52 px at 1080p. That satisfies both readings of
   the repository's "1/30 of the frame height" bar (font size, or cap height), so the open question
   from V1 does not need an answer here.
@@ -96,6 +101,5 @@ tests show and cost, and what is built, proposed and still open.
 - Treatment: "Layer stack hybrid (Recommended)", from three candidates.
 - Look check: "Pause at the pilot (Recommended)": one pause after a finished ~30 s pilot and style
   frames. A checkpoint, not a recorded gate.
-- Reference media: "Keep locally for benchmarking". The article's embedded media had been fetched
-  into a temporary folder during planning, before the repository's rule on download tools was read;
-  the user was told and chose to keep the files locally. They are under `.cache/`.
+- Reference media: "Keep locally for benchmarking". The benchmark's files stay under `.cache/`
+  and are never committed.

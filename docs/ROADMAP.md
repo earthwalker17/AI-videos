@@ -45,23 +45,23 @@ stays.
 - [x] **Archiving an unpublished film** (2026-11-15, decision 33): `archived` without a release
   needs only a written README (docs/PRODUCTION.md, "Archive an unpublished video").
 
-## Now: #4 V2
-- [ ] **V2 of *Who Routes the Agents?*** (planned 2026-11-16, in the `concept-viz` series): the web
-  engine, one WebGL canvas, type from a CPU-canvas glyph atlas, 1080p at 60 fps on a 120 bpm grid
-  (decision 34). Its kit stays in the slot, and it needs no new infrastructure. To measure on its
-  first renders and record in `engines/web/ENGINE.md`: 60 fps (never rendered here before),
-  sub-frame accumulation, and atlas text across pages. Motion QA's windows are tuned in frames
-  for 24/30 fps (info only): scale them by fps if its report misleads.
-  State on 2026-11-17: the review cut (1080p60, 2:48) is rendered and passes `aiv qa`; it waits
-  for the user's review approval. The 60 fps measurements are in `engines/web/ENGINE.md`. QA's
-  hit-onset check read bass-heavy hits as late on this score (info only): revisit its detector
-  if a second film shows the same.
-- [ ] **Two-user promotions.** These exist only at V1's tag, and V2 takes none of them: the
-  caption pattern and cue-text helpers, `planSlices`, `PreToeEffect`, the analytic footprint light,
-  the 2D motion kit. Each moves to a shared package when a film uses it again, and not before.
-- [ ] **Dependencies.** V2 adds one OFL display font, chosen at its lookdev. Nothing at HEAD
-  imports fontsource IBM Plex Sans, Noto Sans SC, `@remotion/paths` or `@remotion/layout-utils`:
-  remove what V2 does not use once it is released (V1 rebuilds from its tag's own lockfile).
+## Done: #4 V2, *Who Routes the Agents?* (published 2026-11-17, https://youtu.be/-b7g5XIgEn0)
+The first web-engine film and the first at 60 fps (decision 34). It needed no new infrastructure;
+its kit stays in its slot, and the 60 fps measurements are in `engines/web/ENGINE.md`.
+
+## Now
+- [ ] **QA's hit-onset detector.** It read ten of V2's thirteen hits 65 to 115 ms late and six
+  of V1's 55 to 110 ms late, each placed on its frame: measure onsets in a high band.
+- [ ] **Motion QA at 60 fps.** Its windows are counted in frames, tuned at 24 and 30 fps: scale
+  them by fps.
+- [ ] **One verdict from `aiv qa`.** A final has two reports (the delivery, then the archive
+  master); #4's archive failed a check after the first was read as the result. Print one at the end.
+- [ ] **Unused dependencies.** Nothing at HEAD imports fontsource Noto Sans SC, `@remotion/paths`
+  or `@remotion/layout-utils`: remove them (V1 rebuilds from its tag's own lockfile).
+- [ ] **Two-user promotions.** Only at V1's tag: the caption pattern and cue-text helpers,
+  `planSlices`, `PreToeEffect`, the analytic footprint light, the 2D motion kit. Only in V2's
+  frozen slot: its WebGL2 stage, glyph atlas and camera rig. Each moves to a shared package
+  when a second film needs it.
 
 ## Next: built when a film needs it
 Built when a film needs them, not before:
@@ -79,12 +79,10 @@ Built when a film needs them, not before:
 - **Several formats per piece** (16:9 plus a 9:16 Short, as three series plan): decide
   between `deliverables[]` in `video.json` and linked slots, with the first such piece.
 - **A voice track**: text-to-speech or a recorded voice in `media/`, with captions aligned from
-  `SCRIPT.md`'s subtitle text (decision 32 notes the gap). Built when a film is narrated; #4 V2 may
-  be the first (its BRIEF, Narration).
+  `SCRIPT.md`'s subtitle text (decision 32 notes the gap). Built when a film is narrated.
 - **Bilibili publishing**: a `references/bilibili-publishing.md` (AI-content label, 自制
   declaration, covers, CC subtitles, 合集), and whether `video.json` records a Bilibili
-  release. It was planned for #4 V1 and dropped on 2026-11-13, when the user chose YouTube only
-  for that film. It is open for V2.
+  release. Planned for #4 V1, dropped on 2026-11-13; #4 was published on YouTube only.
 
 ## Known gaps (not blocking)
 - Post is one-shot, not chunked; the assembly decode check reads the whole mezzanine.

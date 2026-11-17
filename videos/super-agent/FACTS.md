@@ -20,7 +20,8 @@ Sources: [sources.jsonl](sources.jsonl). Fuller note:
   `JSON.stringify(blocks.map(b => b.text))` =
   `d1a1fdc670eb78799d37237e73a4597e7b3cb5029a59f6deb16e2eab27d458b9` (143 blocks; same in three fetches);
   prototype `file:line` at `8c32a9d`, Harness at `fcc0ad4`. Read 2026-11-07/08, re-checked 2026-11-09. **Stale after
-  2026-12-08:** re-check the article for edits and the repositories for commits before V2 locks.
+  2026-12-08:** V2 locked on 2026-11-17, inside that window; re-check the article for edits and the
+  repositories for commits before any later use.
 - **Licence:** the article states none: paraphrase facts, quote ≤ 25 words with the source id,
   never reuse its figures, examples, IDs or dialogues; charts are redrawn and labelled re-plotted.
   Prototype and Harness: MIT.
@@ -152,7 +153,7 @@ What V1's checks caught. They bind any script about this article.
 release plans (2, 141); no model named; not new theory (17, 138), and only the ideas the article
 names are labelled as its own (pub/sub, actors, the event loop, Lampson, Denning are our
 analogies); the security risk is the article's, about its proposed cloud design (135), not a
-finding about shipped code. **V1 editorial choices, for V2 to revisit:** no competitor comparison
+finding about shipped code. **V1's editorial choices, which V2 kept:** no competitor comparison
 or "rival" framing (the article names no other agent product, and the film is made with Claude);
 not Anthropic's brain/hands image (anthropic-managed-agents).
 

@@ -4,7 +4,7 @@
 > physics, major open problems, prize-winning work, and how computing and AI systems
 > actually work.
 
-Status: active · First video: none yet. [#4 `super-agent`](../../videos/super-agent/README.md) started here: its V1, *Who Routes the Agents?*, was archived unpublished on 2026-11-15, and its V2 moved to [`concept-viz`](../concept-viz/SERIES.md) on 2026-11-16 at the user's request. What V1 taught stays below.
+Status: active · First video: [#4 *Who Routes the Agents?*](../../videos/super-agent/README.md) (published 2026-11-17, 2:48). Its V1 was archived unpublished on 2026-11-15. V2 was made under [`concept-viz`](../concept-viz/SERIES.md) from 2026-11-16 and came back before its release on 2026-11-18, by the user's decision: it is an argument about one published design, with its credit, what is built and what is proposed, and the evidence with its limits. What V1 taught and what V2 confirmed are below.
 
 Widened on 2026-11-08 from "Science & Knowledge Explainers" (mathematics and physics) to
 science and technology, with the first video. The id stays `science-explainers`.
@@ -46,13 +46,20 @@ parts exist and which are only proposed.
   changes → sources on the end card.
 
 ## Craft hypotheses (to confirm with the first videos)
-- **Short form.** #4 V1 tried the options below and was dropped before publication, so
-  none is confirmed; each is one tried option, not a default:
-  - 2–3 minutes planned (V1 ran 3:44), 16:9, 30 fps;
-  - text-led, no voiceover, timed to the bar grid of an original synthesised score;
-  - Remotion 2D (DOM + inline SVG) drew the round-1 look the user rejected; the final film was
-    a lit WebGL world under DOM text (ARCHITECTURE decision 30);
-  - one persistent world under a camera rather than cuts.
+- **Short form, confirmed by #4 V2** (the first film published here):
+  - 2:48 (84 bars at 120 bpm), 16:9, 60 fps; no voiceover; every line of type on a beat, held
+    for its reading time, timed to the bar grid of an original synthesised score;
+  - type in the scene, in tiers (caps headlines, sentence-case support lines, mono stamps,
+    hollow numerals for test figures), with no subtitle strip;
+  - one persistent world under one camera: a stack of levels seen edge-on between mechanisms
+    and from above for one mechanism at a time. The system's organisation is the picture; the
+    objects are simple marks that each keep one meaning;
+  - a counted argument: one question a developer would ask, numbered answers that each end on
+    a one-bar verdict, a recap, the source on the end card;
+  - the web engine: one WebGL2 canvas, type from a glyph atlas (ARCHITECTURE decision 34).
+- **Tried on #4 V1 and dropped with it** (not defaults): 30 fps; Remotion 2D (DOM + inline
+  SVG), the round-1 look the user rejected; a lit 3D world of detailed objects under a block
+  of DOM text (ARCHITECTURE decision 30), which competed with the words; 3:44.
 - **Long form:**
   - 8–20 minutes, 16:9, 30 fps (60 fps only when motion needs it);
   - narration expected: script in `SCRIPT.md`, captions per language (English first,
@@ -82,12 +89,32 @@ parts exist and which are only proposed.
 - Scope every status label (built, proposed, open) to exactly the lines it is true for.
 - A context-free stranger viewer finds what specs hide.
 
+## Learned on #4 V2
+- **A name belongs inside what it names.** On a stack seen edge-on, a name set just under a
+  level's lit edge was read as the heading of the level below. Put each name in the band of its
+  own level, and check it with a viewer who has not seen the film.
+- **Every line names its subject.** Two first-time viewers could not say what "it" was in "most
+  never reach it"; the line became "FEW REACH THE ROUTER." A counted answer carries its ordinal
+  as "1.", or the numeral reads as a figure.
+- **A number beside a bar is read as that bar's value.** A multiple next to a baseline's band
+  was taken for that band's own cost. Say the ratio in the headline, name each bar, and let the
+  lengths carry the comparison.
+- **A mark that means "missing" must look made.** Gaps and cuts drawn as plain absences were
+  read as rendering faults; with lit cut edges and an open end they read as open questions.
+- **A recap needs clear ground.** Laid over the diagram, its lines were struck through by the
+  diagram's rules.
+- **Cold readers find what informed reviewers pass.** After the fix round, single frames shown
+  to a reader with no context still turned up misreadings that five reviewers who knew the film
+  had read past ([PRODUCTION](../../docs/PRODUCTION.md), Working with agents).
+
 ## Policies
 - Facts standard: **strict**. Every claim, number, date and attribution is in
   `FACTS.md` with a primary or authoritative source in `sources.jsonl`; the video
   cannot reach `locked` without it.
 - Generative AI: never for diagrams, data, formulas or historical "photos" that
-  could be mistaken for evidence.
+  could be mistaken for evidence. A thumbnail may be AI-generated when it only restages the
+  film's own picture and title, with its provenance record and a line in the AI-use note
+  (#4's is).
 - Images of real people: only with a clear licence, and credited.
 - Third-party marks: no logos, wordmarks, product UIs, URLs or account handles on screen
   ([LICENSING](../../docs/LICENSING.md#third-party-characters-brands-and-parody)). Sources are
