@@ -16,9 +16,14 @@
       "gate": "review",
       "date": "2026-11-17",
       "note": "V2. Shown the 1080p60 review cut (2:48, out/super-agent/post/review/super-agent.mp4) with what was and was not verified, the changes against the approved treatment (84 bars with the recap, the opening question, the first answer's wording, the prototype stamp, the price chart) and the known weak spots, and asked for the review approval, the user answered: \"It's OK, go ahead.\""
+    },
+    {
+      "gate": "final",
+      "date": "2026-11-18",
+      "note": "V2. Shown the final (out/super-agent/post/final/super-agent.mp4, bit-identical to the approved review cut frame for frame, aiv qa passed) and the publish kit, the user uploaded it and wrote: \"OK the video is approved and published: https://youtu.be/-b7g5XIgEn0\""
     }
   ],
-  "next": "Locked. The final is rendered (out/super-agent/post/final/super-agent.mp4, 2:48.0), bit-identical to the approved review cut frame for frame, and passes aiv qa; publish/ is written. Now: the user's final approval (a recorded gate), then the user uploads; after that aiv release, youtube.id, the tag, and a push only when asked.",
+  "next": "The user approved the final and published it on YouTube (https://youtu.be/-b7g5XIgEn0, 2026-11-17 18:30 UTC). Now: decide the series with the user (concept-viz or science-explainers), then aiv release, youtube.id and status published, the tag, the push and the GitHub release.",
   "languages": [
     "en"
   ],

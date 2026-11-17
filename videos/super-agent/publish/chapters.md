@@ -1,8 +1,10 @@
 # Chapters
 
-Times are the final's (it has no test card). YouTube needs at least three chapters of at least
-ten seconds each, the first at 0:00; the two short stretches (the title card, the question) are
-therefore folded into the chapter they open.
+The description as uploaded carries no chapter list, so the film is published without chapters;
+this list is kept for a later edit of the description. Times are the final's (it has no test
+card). YouTube needs at least three chapters of at least ten seconds each, the first at 0:00; the
+two short stretches (the title card, the question) are therefore folded into the chapter they
+open.
 
 ```
 0:00 Who routes the agents?

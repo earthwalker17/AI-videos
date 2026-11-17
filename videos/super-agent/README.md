@@ -1,15 +1,17 @@
 # Who Routes the Agents?
 
+[![Who Routes the Agents? The film's thumbnail: a Router between three numbered sessions and three Workers, under the title and the tag SUPER-AGENT DESIGN. Click to watch the film on YouTube.](publish/thumbnail.jpg)](https://youtu.be/-b7g5XIgEn0)
+
 An explainer for curious developers on YouTube. Its subject is the DeepSeek Harness team's article
 *Exploring Super-agent Design: Towards a More Autonomous Agent System*: the Chinese original appeared
 on 2026-10-31, and the English machine translation on 2026-11-01. The article argues that when one
 person runs many AI agent sessions, that person quietly becomes their router. Its design hands that
 job to a long-lived Router above isolated Workers. A public research prototype builds part of the
-design. The research is done: [FACTS.md](FACTS.md), with its sources in [sources.jsonl](sources.jsonl).
-The title is a working title.
+design. The research is in [FACTS.md](FACTS.md), with its sources in [sources.jsonl](sources.jsonl). On
+YouTube the film is titled *Who Routes the Agents? | DSH Super-agent Architecture Explanation*.
 
 **Series:** [3D Concept Visualizations](../../series/concept-viz/SERIES.md) · **Number:** 4 · **Engine:** web, 1920×1080 at 60 fps
-▶ **Watch:** not yet published.
+▶ **Watch:** [youtu.be/-b7g5XIgEn0](https://youtu.be/-b7g5XIgEn0) (published 2026-11-17)
 
 ## Status: V2, locked
 - **V1 was archived unpublished on 2026-11-15.** [V1.md](V1.md) records what it was and what it
