@@ -24,23 +24,26 @@ The title is a working title.
   `.cache/refs/super-agent-v2/`, never in git.
 - **The look is chosen (2026-11-17):** at the pilot's look check the user picked phosphor green
   and coral and said to go ahead. The look check is a checkpoint, not a recorded gate.
-- **Where it stands (2026-11-17):** all seven sections are staged (84 bars, 2:48) and the score
-  is written. One review round is done and its findings are fixed. The review cut at 1080p60 is
-  not rendered yet.
-  - The round: two frame critics, a first-time viewer with no context, a facts auditor and a
-    motion reviewer, each serious finding checked by a verifier. No wrong fact or number was
-    found. The first-time viewer's account of the film matched its meaning; the map of the stack
-    was the one thing read wrongly, and its names were moved.
-  - Fixed in that round: the layer names, five lines of copy, a picture for "only the Router
-    answers you", the gates' RECORDED shelf, the cache's ID and its one-hop recall, the open
-    marks, and the ending (the signed result stays; the recap the treatment promised was missing
-    and has four bars of its own). [TREATMENT.md](TREATMENT.md) lists the departures as built.
-  - Checked: cue tests, type check, lint, `aiv check`; the score renders reproducibly at
-    −14.0 LUFS and −3.5 dBTP; every fix was looked at on stills at 1080p.
-  - Not checked yet: the fixed film in motion, QA on a full render, and the sound by ear. The
-    draft before the fixes passed QA except for a hold cue half a second short, since corrected.
-    QA's onset detector reads bass-heavy hits as late; a high-band measure put all 13 on their
-    frame.
+- **Where it stands (2026-11-17):** the review cut is rendered and waits for the user's review
+  approval: `out/super-agent/post/review/super-agent.mp4` (1080p60, 84 bars, 2:48 after a
+  half-second test card). Generated outputs are local, never in git.
+  - Two passes of review went into it. The first (two frame critics, a first-time viewer with no
+    context, a facts auditor, a motion reviewer, each serious finding checked by a verifier) found
+    no wrong fact or number; its findings were fixed. A confirm pass on the fixed draft (a second
+    first-time viewer, a motion reviewer, a regression critic, then a cold read of four frames)
+    found a second, shorter list, also fixed. [TREATMENT.md](TREATMENT.md) lists the departures
+    as built.
+  - Checked on the review cut: `aiv qa` passes (picture, loudness −14.0 LUFS, true peak
+    −3.2 dBTP, reading holds, no unexpected freeze or black); 17 frames re-rendered on a fresh
+    page match the render's hashes; frames from the delivery file show no banding or blocking;
+    the contact sheet and frames beside the benchmark's were looked at.
+  - Not checked: nobody has heard the score or watched the cut at speed. QA lists two moments to
+    watch (0:24.6, where the title card's three lines leave together, and 0:51.6, a slow camera
+    start). QA's onset detector reads nine of the thirteen hits as 65 to 115 ms late; a high-band
+    measure of the same mix puts all thirteen on their frame, so the ear has to settle it.
+  - Known weak spots: the cache's "not nothing" loss is still a small event; the swing back to
+    the stack before "only the Router answers you" is fast; the evidence charts leave the
+    stack's world for about fifteen seconds.
 - **Session plan:**
   1. ~~Baseline.~~ Done.
   2. ~~`src/cues.ts` with the full copy and its tests, the kit, an animatic.~~ Done.
@@ -49,8 +52,8 @@ The title is a working title.
   4. ~~Stage sections 4 to 7, then one review round.~~ Done.
   5. ~~The score on the shared audio kit (`audio/index.ts`, the `audio:mix` track).~~ Done; not
      heard yet.
-  6. A full draft render and QA, then the review cut at 1080p60 (about an hour of rendering on
-     this machine, chunked and resumable), then the user's review approval.
+  6. ~~A full draft render and QA, then the review cut at 1080p60.~~ Done (about 70 minutes of
+     rendering on this machine, chunked and resumable). Next: the user's review approval.
   7. The final and the publish files, the user's upload, then `aiv release`.
 
 ## Source

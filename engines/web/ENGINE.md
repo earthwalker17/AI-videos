@@ -191,6 +191,7 @@ output canvas, as the template does. Every stage accepted 60 fps unchanged.
 |---|---|---|---|---|---|
 | draft | 960x540, 3 | 0.07-0.12 s | 9,630 (the whole film) | 1,011 s | 0.32 MB per frame |
 | review | 1920x1080, 6 | 0.26-0.28 s | 2,130 (`--frames 0-2129`) | 795 s | 1.2 MB per frame |
+| review | 1920x1080, 6 | about 0.36 s | 10,110 (the whole film, 2026-11-17) | 3,623 s | 1.26 MB per frame |
 
 - **In the page**, a 1080p frame with 6 sub-frames takes 0.08 s (`aiv still --span`, the
   steady median). The rest of a run's per-frame cost is the readback and the FFV1 encode.
@@ -201,6 +202,10 @@ output canvas, as the template does. Every stage accepted 60 fps unchanged.
   render cannot be released). `aiv still --span` writes one PNG per frame, which at 1080p takes
   about a second each: 240 stills take about four minutes, against one for the same frames in a
   run.
+- **The whole film at review size** (2026-11-17, 8 GB host): six calls of
+  `aiv render --budget-min 9` did about 15 chunks of 120 frames each; the last call's join ran
+  past ten minutes. The mezzanine is 12.8 GB, and 33 GB free was enough for chunks plus join.
+  `aiv post` (libx264, the youtube preset) took about 24 minutes for 168 s of picture.
 - **QA at 60 fps**: probe, black, freeze and swatches behave as at 30 fps. Motion QA's windows
   are counted in frames and were tuned at 24 and 30 fps (ROADMAP).
 

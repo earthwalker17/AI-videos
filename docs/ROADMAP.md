@@ -52,6 +52,10 @@ stays.
   first renders and record in `engines/web/ENGINE.md`: 60 fps (never rendered here before),
   sub-frame accumulation, and atlas text across pages. Motion QA's windows are tuned in frames
   for 24/30 fps (info only): scale them by fps if its report misleads.
+  State on 2026-11-17: the review cut (1080p60, 2:48) is rendered and passes `aiv qa`; it waits
+  for the user's review approval. The 60 fps measurements are in `engines/web/ENGINE.md`. QA's
+  hit-onset check read bass-heavy hits as late on this score (info only): revisit its detector
+  if a second film shows the same.
 - [ ] **Two-user promotions.** These exist only at V1's tag, and V2 takes none of them: the
   caption pattern and cue-text helpers, `planSlices`, `PreToeEffect`, the analytic footprint light,
   the 2D motion kit. Each moves to a shared package when a film uses it again, and not before.
