@@ -5,15 +5,20 @@
   "slug": "super-agent",
   "title": "Who Routes the Agents?",
   "series": "concept-viz",
-  "status": "production",
+  "status": "locked",
   "approvals": [
     {
       "gate": "treatment",
       "date": "2026-11-16",
       "note": "V2. Asked \"Which treatment should V2 of the Super-agent film be built on?\" with three candidates, the user chose \"Layer stack hybrid (Recommended)\" and then approved the V2 plan. V1's approvals did not carry over."
+    },
+    {
+      "gate": "review",
+      "date": "2026-11-17",
+      "note": "V2. Shown the 1080p60 review cut (2:48, out/super-agent/post/review/super-agent.mp4) with what was and was not verified, the changes against the approved treatment (84 bars with the recap, the opening question, the first answer's wording, the prototype stamp, the price chart) and the known weak spots, and asked for the review approval, the user answered: \"It's OK, go ahead.\""
     }
   ],
-  "next": "V2 (2026-11-17): the review cut is rendered (1080p60, 2:48; out/super-agent/post/review/super-agent.mp4, local) and aiv qa passes. Now: the user watches and listens, then gives or withholds the review approval (a recorded gate). After approval only: the final render without the test card, captions, description, chapters, AI disclosure, thumbnail; the user uploads; then aiv release. See README Status.",
+  "next": "Locked 2026-11-17: the user approved the review cut. Picture and sound are frozen; the test-card leader is removed. Now: the final render (--profile final), post, qa, proof that it is the approved cut frame for frame, captions, publish/ (description, chapters, AI disclosure, thumbnail), then the user's final approval. After that the user uploads; then aiv release, the tag, and a push only when asked.",
   "languages": [
     "en"
   ],
@@ -34,10 +39,6 @@
     ]
   },
   "qa": {
-    "swatchFrames": [
-      0,
-      30
-    ],
     "loudness": {
       "integrated": -14,
       "tolerance": 1,

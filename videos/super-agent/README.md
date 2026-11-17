@@ -11,7 +11,7 @@ The title is a working title.
 **Series:** [3D Concept Visualizations](../../series/concept-viz/SERIES.md) · **Number:** 4 · **Engine:** web, 1920×1080 at 60 fps
 ▶ **Watch:** not yet published.
 
-## Status: V2, in production
+## Status: V2, locked
 - **V1 was archived unpublished on 2026-11-15.** [V1.md](V1.md) records what it was and what it
   taught.
 - **V2** is a fresh remake made with Claude Fable 5.2: a simpler, hierarchical, typographic film,
@@ -24,8 +24,10 @@ The title is a working title.
   `.cache/refs/super-agent-v2/`, never in git.
 - **The look is chosen (2026-11-17):** at the pilot's look check the user picked phosphor green
   and coral and said to go ahead. The look check is a checkpoint, not a recorded gate.
-- **Where it stands (2026-11-17):** the review cut is rendered and waits for the user's review
-  approval: `out/super-agent/post/review/super-agent.mp4` (1080p60, 84 bars, 2:48 after a
+- **Locked (2026-11-17):** the user approved the review cut ("It's OK, go ahead."). Picture and
+  sound are frozen, the test-card leader is removed, and the final is being made from the same
+  inputs.
+- **The review cut as approved:** `out/super-agent/post/review/super-agent.mp4` (1080p60, 84 bars, 2:48 after a
   half-second test card). Generated outputs are local, never in git.
   - Two passes of review went into it. The first (two frame critics, a first-time viewer with no
     context, a facts auditor, a motion reviewer, each serious finding checked by a verifier) found
@@ -53,7 +55,7 @@ The title is a working title.
   5. ~~The score on the shared audio kit (`audio/index.ts`, the `audio:mix` track).~~ Done; not
      heard yet.
   6. ~~A full draft render and QA, then the review cut at 1080p60.~~ Done (about 70 minutes of
-     rendering on this machine, chunked and resumable). Next: the user's review approval.
+     rendering on this machine, chunked and resumable). The user approved it.
   7. The final and the publish files, the user's upload, then `aiv release`.
 
 ## Source

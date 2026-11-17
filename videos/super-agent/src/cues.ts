@@ -18,8 +18,8 @@ export const BEAT = 30;
 export const BAR = BEAT * BEATS_PER_BAR;
 export const BARS = 84;
 export const FILM_FRAMES = BARS * BAR;
-/** test-card frames before the film (the review cut's colour evidence); 0 for the final */
-export const LEADER = 30;
+/** test-card frames before the film: 30 for the review cut (its colour evidence), 0 for the final (locked 2026-11-17) */
+export const LEADER = 0;
 
 /** Frames a line of type takes to arrive and to leave. */
 export const TEXT_IN = 16;

@@ -17,7 +17,8 @@ describe('the cue sheet', () => {
     expect(BAR).toBe(120);
     expect(FILM_FRAMES).toBe(BARS * BAR);
     expect(seconds(FILM_FRAMES)).toBe(168);
-    expect(cues.filmFrames + cues.leaderFrames).toBe(10110);
+    // the final has no test-card leader (the review cut had 30 frames of one)
+    expect(cues.filmFrames + cues.leaderFrames).toBe(10080);
     // a bar is a whole number of frames, or the pipeline's bar-line checks cannot hold
     expect((FPS * 60 * cues.grid!.beatsPerBar) / cues.grid!.bpm).toBe(BAR);
   });

@@ -122,7 +122,7 @@
       "slug": "super-agent",
       "title": "Who Routes the Agents?",
       "series": "concept-viz",
-      "status": "production",
+      "status": "locked",
       "engine": "web",
       "reproducibility": "full",
       "languages": [
