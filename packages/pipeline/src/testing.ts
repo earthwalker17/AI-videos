@@ -3,7 +3,7 @@
  * the OS temp folder and a fake engine adapter that synthesises deterministic RGBA frames
  * (optionally with the swatch strip), in both adapter styles.
  */
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +22,9 @@ export interface TempRepo {
 
 /** A minimal repo root (pnpm-workspace.yaml + lockfile) with one video folder `videos/<slug>`. */
 export function tempRepo(video: Partial<VideoConfig> & { slug?: string } = {}): TempRepo {
-  const root = mkdtempSync(join(tmpdir(), 'aiv-test-'));
+  // the real path: on a Windows CI runner the temp folder is an 8.3 short path (RUNNER~1), which a
+  // score's module and library paths then fail to match
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'aiv-test-')));
   const write = (rel: string, content: string) => {
     const abs = join(root, ...rel.split('/'));
     mkdirSync(join(abs, '..'), { recursive: true });
