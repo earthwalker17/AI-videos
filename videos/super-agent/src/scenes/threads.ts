@@ -129,7 +129,7 @@ function rail(d: Draw, f: number, clear: number): void {
 
   // the model runs on the request: a pulse of light along the rail. It is still lit when the view has settled
   // and the headline is up, and goes out as the first follow-up's unlit tick lands beside it: decided once, then only seen
-  const run = bump(f, ROUTED - 2, ROUTED + 10, FOLLOW_UPS[0]! - TICK_IN);
+  const run = prog(f, ROUTED - 2, ROUTED + 10, easings.outCubic) * (1 - prog(f, FOLLOW_UPS[0]! - TICK_IN - 4, FOLLOW_UPS[0]! + 4));
   if (run > 0) {
     const reach = lerp(110, 210, prog(f, ROUTED - 2, ROUTED + 16, easings.outCubic));
     d.pool([RAIL[0], R, 0], [reach * 0.9, 40], 100, p.think, 0.2 * run * dim);

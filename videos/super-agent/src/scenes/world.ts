@@ -42,7 +42,7 @@ export const namesOn = (d: Draw): number => clamp((24 - d.cam.pose.tilt) / 8);
  * level's name stands above its slab's lit edge, and how far in from that edge the Workers' name
  * stands (world units: near their cells, clear of the nearest one).
  */
-export const NAME = { x: 132, drop: 19, rise: 13, inset: 150, top: 96, bottom: 1000 } as const;
+export const NAME = { x: 132, drop: 19, rise: 13, inset: 95, top: 96, bottom: 1000 } as const;
 
 /**
  * The baseline of a level's name: on its slab's top, in the band of what it names. (Set under the

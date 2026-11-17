@@ -52,12 +52,21 @@ const HOME_BY = at(75, 1) - 6;
 /** the words let go and the camera backs off above you: the recap stands over the clear ground */
 const LEAVE = line('decide').out;
 const RECAP = line('recap.1').frame;
-const RECAP_OUT = at(79, 3);
+const RECAP_OUT = line('recap.1').out;
 /** the view rises for the end card: it is readable from here, and held from here */
 const CARD = line('end.t').frame;
 const HELD = at(81, 3);
-/** under the card the Router's model still runs now and then: [film frame, x along the rail] */
-const AFTER: ReadonlyArray<readonly [number, number]> = [[at(81, 3), 330], [at(82, 4), -180], [at(83, 3), 640]];
+/**
+ * Signed off, you are not asked again: far below the recap (quietly: the list is being read), and
+ * then under the card, the Router's model still runs now and then. [film frame, x along the rail, strength]
+ */
+const AFTER: ReadonlyArray<readonly [number, number, number]> = [
+  [at(77, 3), -300, 0.55],
+  [at(78, 3), -640, 0.55],
+  [at(81, 3), 330, 1],
+  [at(82, 4), -180, 1],
+  [at(83, 3), 640, 1],
+];
 
 // ── the camera ─────────────────────────────────────────────────────────────────────────────────
 /** the first session's cell: the result comes up from it, and stops beside you */
@@ -236,7 +245,7 @@ function draw(d: Draw, f: number): void {
   // what the words are about stays in the light
   const gain = 1 / through;
   routed(d, f, gain);
-  for (const [t, x] of AFTER) pulse(d, f, t, x, 1);
+  for (const [t, x, strength] of AFTER) pulse(d, f, t, x, strength);
   result(d, f, gain);
   me(d, f, gain);
   // under the card the stack runs on below the frame: its foot goes into the ground, not off a cut

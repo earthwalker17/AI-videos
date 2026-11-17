@@ -34,9 +34,9 @@ const TOKENS = [23.2, 10.8, 6.1] as const;
 const FROM = SECTIONS.evidence;
 const TO = SECTIONS.status;
 /** the stack has sunk out of the frame by here */
-const ABOVE_BY = at(58, 2);
+const ABOVE_BY = at(57, 3);
 /** each row's lane is ruled from the common left edge as the rows are named */
-const LANES: readonly [number, number] = [line('who.sa').frame - 8, at(59, 2)];
+const LANES: readonly [number, number] = [line('who.sa').frame - 8, at(58, 3)];
 /** both trails leave the left edge; the slower one stops four beats later, the Super-agent's on the second */
 const RUN = line('slow').frame;
 const RUN_FRAMES = at(61, 3) - RUN;
@@ -164,12 +164,14 @@ function chart(d: Draw, f: number): void {
   const moved = clamp((f - (PRICE - 22)) / TEXT_OUT);
   if (told.enter > 0 && moved < 1) d.text('sup', told.l.text, X0 + base.width + 32, ROWS[1].name - up, { enter: told.enter, exit: Math.max(gone, moved) });
 
-  // what each of the lower bands is, and how many of it the Super-agent spent, at its tip
-  const two = lineState('price.two', f);
-  const four = lineState('price.four', f);
-  const rise = d.type.layout('sup', two.l.text).cap / 2;
-  if (two.on) d.text('sup', `${two.l.text} ${told.l.text}`, X0 + TOKENS[1] * token + 30, ys[1]! + rise, { enter: two.enter, exit: two.exit });
-  if (four.on) d.text('sup', four.l.text, X0 + TOKENS[2] * token + 30, ys[2]! + rise, { enter: four.enter, exit: four.exit });
+  // what each of the lower bands is, at its tip. The lengths say how many of each the Super-agent spent:
+  // a multiple beside a band was read as that band's own
+  const free = lineState('price.free', f);
+  if (free.on) {
+    const rise = d.type.layout('sup', free.l.text).cap / 2;
+    d.text('sup', told.l.text, X0 + TOKENS[1] * token + 30, ys[1]! + rise, { enter: free.enter, exit: free.exit });
+    d.text('sup', free.l.text, X0 + TOKENS[2] * token + 30, ys[2]! + rise, { enter: free.enter, exit: free.exit });
+  }
 }
 
 function draw(d: Draw, f: number): void {
@@ -195,6 +197,6 @@ export const evidence: Section = {
     'slow.tag': () => ({ x: X1, y: HEAD_2, align: 'right' }),
     'typ.tag': () => ({ x: X1, y: HEAD_2, align: 'right' }),
   },
-  own: ['who.sa', 'who.base', 'who.told', 'price.two', 'price.four'],
+  own: ['who.sa', 'who.base', 'who.told', 'price.free'],
   draw,
 };

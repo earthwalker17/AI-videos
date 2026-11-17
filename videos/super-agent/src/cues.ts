@@ -33,7 +33,7 @@ export const at = (bar: number, beat = 1): number => Math.round((bar - 1) * BAR 
 /**
  * Type tiers. h1-h3 are caps headlines (display face), `sup` a sentence-case support line, `stamp`
  * a mono status tag, `num` a hollow numeral (a figure from the authors' synthetic tests), `verdict`
- * a counted one-bar answer, `label` a short name on a mark.
+ * a counted one-bar answer (its ordinal, two spaces, the answer), `label` a short name on a mark.
  */
 export type Tier = 'h1' | 'h2' | 'h3' | 'sup' | 'stamp' | 'num' | 'verdict' | 'label';
 
@@ -122,7 +122,7 @@ ln('gates', 'gate1', 'gate1', 'h3', 28, 3, 7, 'GATE ONE: PLAIN CODE');
 ln('gates', 'gate1', 'gate1.no', 'sup', 29, 1, 5, 'No model runs.');
 ln('gates', 'gate2', 'gate2', 'h3', 30, 2, 5, 'THEN A MODEL JUDGES.');
 ln('gates', 'proto2', 'proto2', 'stamp', 31, 3, 7, 'PROTOTYPE DEFAULT: UNASKED WORK IS ONLY RECORDED');
-ln('gates', 'v1', 'v1', 'verdict', 33, 3, 4, '1  MOST NEVER REACH IT.');
+ln('gates', 'v1', 'v1', 'verdict', 33, 3, 4, '1.  FEW REACH THE ROUTER.');
 
 ln('threads', 'follow', 'follow', 'h3', 35, 1, 8, 'FOLLOW-UPS GO STRAIGHT IN');
 ln('threads', 'follow', 'follow.seen', 'sup', 35, 3, 6, 'Seen by the Router. Not decided.');
@@ -130,34 +130,35 @@ ln('threads', 'cheaper', 'cheaper', 'h3', 37, 2, 10, 'CHEAPER, NOT FASTER');
 ln('threads', 'cheaper', 'cheaper.n', 'num', 37, 4, 8, '~27%');
 ln('threads', 'cheaper', 'cheaper.of', 'sup', 37, 4, 8, 'fewer tokens than without it');
 ln('threads', 'cheaper', 'cheaper.by', 'stamp', 37, 4, 8, "AUTHORS' TEST");
-ln('threads', 'v2', 'v2', 'verdict', 39, 4, 5, '2  FOLLOW-UPS SKIP ITS DECISION.');
+ln('threads', 'v2', 'v2', 'verdict', 39, 4, 5, '2.  FOLLOW-UPS SKIP ITS DECISION.');
 
 ln('batch', 'wait', 'wait', 'h3', 42, 3, 6, 'ARRIVALS WAIT,\nTHEN ENTER TOGETHER');
 ln('batch', 'cost', 'cost.n', 'num', 44, 1, 14, '6.4 s → 1.6 s');
 ln('batch', 'cost', 'cost.of', 'sup', 44, 1, 14, 'model time per decision, at ~40× the load');
 ln('batch', 'cost', 'cost.by', 'stamp', 44, 1, 14, "AUTHORS' STRESS TEST · MOCK WORKERS");
 ln('batch', 'limit', 'limit', 'h3', 47, 3, 5, 'UP TO A LIMIT PER CALL.');
-ln('batch', 'v3', 'v3', 'verdict', 48, 4, 5, '3  THE REST ARRIVE TOGETHER.');
+ln('batch', 'v3', 'v3', 'verdict', 48, 4, 5, '3.  THE REST ARRIVE TOGETHER.');
 
 ln('cache', 'cache', 'cache', 'h3', 50, 3, 8, 'ITS CONTEXT IS A CACHE');
 ln('cache', 'cache', 'cache.how', 'sup', 51, 1, 6, 'What it needs soon stays in view.');
 ln('cache', 'recall', 'recall', 'h3', 52, 3, 8, 'BY DESIGN: RECALL BY ID');
 ln('cache', 'recall', 'recall.loss', 'sup', 53, 1, 6, 'It loses less. Not nothing.');
-ln('cache', 'v4', 'v4', 'verdict', 54, 3, 5, '4  DETAILS WAIT BEHIND IDS.');
+ln('cache', 'v4', 'v4', 'verdict', 54, 3, 5, '4.  DETAILS WAIT BEHIND IDS.');
 
 // ── 5. Evidence (bars 56-66) ─────────────────────────────────────────────────────────────────
-ln('evidence', 'test', 'test', 'h3', 56, 1, 9, "THE AUTHORS' TEST");
-ln('evidence', 'test', 'test.caveat', 'sup', 56, 2, 8, 'Synthetic. 5 runs. Indicative only.');
-ln('evidence', 'who', 'who.sa', 'label', 58, 2, 9, 'SUPER-AGENT');
-ln('evidence', 'who', 'who.base', 'label', 58, 2, 9, 'ONE SESSION + SUBAGENT TOOL');
-ln('evidence', 'who', 'who.told', 'sup', 58, 4, 7, 'told to delegate first');
+// the caveats stay up while the two rows are named and the same events run along both: one block
+ln('evidence', 'test', 'test', 'h3', 56, 1, 18, "THE AUTHORS' TEST");
+ln('evidence', 'test', 'test.caveat', 'sup', 56, 2, 17, 'Synthetic. 5 runs. Indicative only.');
+ln('evidence', 'test', 'who.sa', 'label', 57, 3, 12, 'SUPER-AGENT');
+ln('evidence', 'test', 'who.base', 'label', 57, 3, 12, 'ONE SESSION + SUBAGENT TOOL');
+ln('evidence', 'test', 'who.told', 'sup', 58, 1, 10, 'told to delegate first');
 ln('evidence', 'slow', 'slow', 'h3', 60, 3, 8, 'SLOWEST TASKS:\nABOUT HALF THE TIME');
 ln('evidence', 'slow', 'slow.tag', 'stamp', 61, 1, 6, 'P95 · RE-PLOTTED');
 ln('evidence', 'typ', 'typ', 'h3', 62, 3, 6, 'TYPICAL TASKS:\nABOUT 10% FASTER');
 ln('evidence', 'typ', 'typ.tag', 'stamp', 62, 4, 5, 'P50');
 ln('evidence', 'price', 'price', 'h3', 64, 1, 9, 'THE PRICE:\n2–4× THE TOKENS');
-ln('evidence', 'price', 'price.two', 'sup', 64, 3, 7, '2×');
-ln('evidence', 'price', 'price.four', 'sup', 64, 3, 7, '4× left to choose');
+// each lower band is named at its tip. The lengths say the rest: a multiple beside a band read as that band's own
+ln('evidence', 'price', 'price.free', 'sup', 64, 3, 7, 'left to choose');
 
 // ── 6. Proposed, open (bars 66-70) ───────────────────────────────────────────────────────────
 ln('status', 'proposed', 'proposed', 'h3', 66, 2, 9, 'PROPOSED');
@@ -171,10 +172,11 @@ ln('close', 'notyou', 'notyou', 'h1', 72, 3, 6, 'NOT YOU.');
 ln('close', 'notyou', 'bydesign', 'stamp', 72, 3, 12, 'BY DESIGN');
 ln('close', 'decide', 'decide', 'h1', 74, 1, 6, 'YOU DECIDE.\nYOU SIGN OFF.');
 // the recap: the four counted answers once more, as one list, a beat apart
-ln('close', 'recap', 'recap.1', 'verdict', 76, 1, 16, line('v1').text);
-ln('close', 'recap', 'recap.2', 'verdict', 76, 2, 15, line('v2').text);
-ln('close', 'recap', 'recap.3', 'verdict', 76, 3, 14, line('v3').text);
-ln('close', 'recap', 'recap.4', 'verdict', 76, 4, 13, line('v4').text);
+// (it has gone before the camera leaves for the end card: nothing crosses it)
+ln('close', 'recap', 'recap.1', 'verdict', 76, 1, 14, line('v1').text);
+ln('close', 'recap', 'recap.2', 'verdict', 76, 2, 13, line('v2').text);
+ln('close', 'recap', 'recap.3', 'verdict', 76, 3, 12, line('v3').text);
+ln('close', 'recap', 'recap.4', 'verdict', 76, 4, 11, line('v4').text);
 // the end card stays to the last frame: it goes with the picture's own fade
 ln('close', 'end', 'end.t', 'h2', 80, 1, 20, 'WHO ROUTES THE AGENTS?');
 ln('close', 'end', 'end.src', 'sup', 80, 3, 18, 'After “Exploring Super-agent Design”');
@@ -232,6 +234,8 @@ for (const [id, bar, beat, label] of HITS) events.push({ id, kind: 'hit', frame:
 for (const l of lines) {
   events.push({ id: l.id, kind: CARD_BLOCKS.includes(l.block) && l.id === (l.block === 'title' ? 'title' : 'end.t') ? 'card' : 'text', frame: l.frame, end: l.end, text: { en: l.text.replace(/\n/g, ' ') } });
 }
+// the recap stands still while its four lines are read: from the last line's landing until the camera leaves for the end card
+events.push({ id: 'hold.recap', kind: 'hold', frame: at(76, 4), end: at(79, 3), label: 'the recap' });
 // the end card stands still while it is read, to the last frame: the camera has settled a beat after its last line lands
 events.push({ id: 'hold.end', kind: 'hold', frame: at(81, 2), end: FILM_FRAMES, label: 'the end card' });
 

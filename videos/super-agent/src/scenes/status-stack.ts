@@ -143,8 +143,8 @@ export function stack(d: Draw, f: number, o: StackOptions = {}): void {
     if (railCuts.length === 0) routerRail(d, focus, r);
     else cutRail(d, focus, r, railCuts);
   }
-  // far below the frame, your light would still spill into it
-  you(d, YOU_HOME, e * clamp((1260 - youY) / 100), e, o.you ?? IDLE);
+  // you go out as you reach the frame's foot: below it, your light would still spill into the frame
+  you(d, YOU_HOME, e * clamp((1110 - youY) / 70), e, o.you ?? IDLE);
   const n = namesOn(d);
   if (n > 0) {
     spineLabel(d, LABELS.you, YOU_HOME, n * youName, d.pal.you);

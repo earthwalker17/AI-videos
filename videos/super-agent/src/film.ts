@@ -97,6 +97,8 @@ const YOU_GLYPHS: Record<string, ReadonlyArray<readonly [number, number]>> = {
   notyou: [[3, 6]],
   decide: [[0, 3], [10, 13]],
 };
+/** the column a counted answer's ordinal stands in, in em: the widest ordinal and the gap after it */
+const COUNT_COL = 0.98;
 /** under any other line, the ground is deepened a little, softly: what lies on planes beneath never reads through the words */
 const SCRIM = 0.5;
 
@@ -156,7 +158,15 @@ function typeset(d: Draw, f: number): void {
       }
       const spans = YOU_GLYPHS[l.id];
       const tint = spans ? (k: number): Rgb | undefined => (spans.some(([a0, a1]) => k >= a0 && k < a1) ? d.pal.you : undefined) : undefined;
-      d.text(style, l.text, at2.x, own ? own.y : y, { align: at2.align, enter: s.enter, exit: s.exit, scale: fit, rgb: l.tier === 'stamp' ? mix(d.pal.bone, d.pal.ash, 0.35) : undefined, tint });
+      const [ordinal, answer] = l.tier === 'verdict' ? l.text.split('  ') : [];
+      if (ordinal && answer) {
+        // a counted answer: its ordinal is a list marker, a shade back, in a column of its own, so a list of them lines up
+        const col = STYLES[style].px * COUNT_COL * fit;
+        const total = col + d.type.layout(style, answer).width * fit;
+        const x0 = at2.align === 'left' ? at2.x : at2.align === 'centre' ? at2.x - total / 2 : at2.x - total;
+        d.text(style, ordinal, x0, own ? own.y : y, { enter: s.enter, exit: s.exit, scale: fit, rgb: mix(d.pal.bone, d.pal.ash, 0.4) });
+        d.text(style, answer, x0 + col, own ? own.y : y, { enter: s.enter, exit: s.exit, scale: fit });
+      } else d.text(style, l.text, at2.x, own ? own.y : y, { align: at2.align, enter: s.enter, exit: s.exit, scale: fit, rgb: l.tier === 'stamp' ? mix(d.pal.bone, d.pal.ash, 0.35) : undefined, tint });
       if (!own) {
         y += (lay.widths.length - 1) * lay.lineStep * fit;
         prev = style;
@@ -204,7 +214,8 @@ export class Film {
       scene(new Draw(this.stage, this.type, cam, pal, f), f);
       this.stage.endSub({ colours: pal.ground, centre: [960, 500], radius: [1050, 620] }, 1 / n);
     }
-    const fade = prog(i, 0, 18, easings.outCubic) * (1 - prog(i, FILM_FRAMES - 24, FILM_FRAMES - 2, easings.inCubic));
+    // the picture goes out with the end card on it, and lands on black softly (a curve that ends steep reads as a cut)
+    const fade = prog(i, 0, 18, easings.outCubic) * (1 - prog(i, FILM_FRAMES - 40, FILM_FRAMES - 2, easings.inOutSine));
     this.stage.present(fade);
   }
 }

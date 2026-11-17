@@ -98,12 +98,18 @@ of its own (76 to 79) before the end card (80 to 84). Departures from the lines 
 reason found on frames:
 - The recap is one list over the clear ground at your level, not on the spine: over the stack its
   edges ran through the words.
+- The first answer reads "FEW REACH THE ROUTER.", not "most never reach it": two first-time
+  viewers could not say what "it" was. A counted answer carries its ordinal as "1.", a shade
+  back, in a column of its own.
+- The price frame names its bands and sets no multiple beside them: the headline says 2–4× and
+  the lengths show which is which.
 - The prototype stamp says "keeps a shell, no write tools", not "a restricted shell": the
   prototype's presets are not a sandbox ([FACTS.md](FACTS.md), section 11, `proto1`).
 - Stamps stand without a hairline bracket.
 - The name EVENTS stands under its lanes, below the line of the bottom 15%; no line of the cue
   sheet does.
-- The session count of the opening is set solid, so that hollow numerals mean one thing.
+- The session count of the opening is set solid: a hollow numeral is only ever a figure from the
+  authors' tests (the evidence headlines carry theirs in words and solid caps).
 
 About 51% of the runtime explains how the design works (V1: 43%). Left out, with reasons: the four
 traits as a list (the benchmark's centrepiece), speculative execution (a test fixture in the

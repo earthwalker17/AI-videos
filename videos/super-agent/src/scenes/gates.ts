@@ -445,10 +445,11 @@ function flood(d: Draw, f: number, focus: number, show: number): void {
       // a person's request passes: it is seen to cross the rule, and only then goes up, towards
       // the Router: off this plane and out of the picture
       const x = lerp(at2[0], X2 + STOP, prog(f, v, v + CROSS));
-      const height = (g: number): number => 300 * easings.inOutSine(clamp((g - (v + CROSS - 4)) / 62)) ** 1.5;
+      // it lifts off faster and faster, and stays as bright as it was: seen from above it grows and
+      // softens towards the viewer. Fading where it stood, it read as one more event dropped
+      const height = (g: number): number => 460 * easings.inCubic(clamp((g - (v + CROSS - 2)) / 38));
       const y = height(f);
-      // it has gone before it can drift, in this view, over the shelf two lanes further back
-      const gone = smoothstep(70, 180, y);
+      const gone = smoothstep(270, 450, y);
       const o: Vec3 = [x, W + y, z];
       // the shade it leaves on the plane tells its height
       const k = 1 + y / 150;

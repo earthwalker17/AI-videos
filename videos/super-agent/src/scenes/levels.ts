@@ -62,8 +62,8 @@ export const REQUEST = { t: at(16, 1), ch: 1, drop: at(16, 3), landed: at(17, 3)
 export const ANSWER = {
   leave: at(22, 4) - 4,
   stood: at(23, 1) + 14,
-  forms: at(23, 1) + 4,
-  formed: at(23, 1) + 22,
+  forms: at(22, 4) + 8,
+  formed: at(23, 1),
   sent: at(23, 2),
   routed: at(23, 3),
   out: at(23, 3.5),
@@ -125,9 +125,11 @@ function routerPlane(d: Draw, f: number, focus: number): void {
     if (shown > 0) d.line([[ch.x, R + 1, 14], [ch.x, R + 1, 14 + (SLAB.halfD - 14) * open]], 2.2, mix(p.ash, p.bone, 0.45), { alpha: 0.7 * dim * shown, feather: b * 3 });
     const s = lineState(ch.line, f);
     if (s.on) {
-      // the name stands to the left of its channel, clear of the frame's edge and of the next one
+      // the name stands to the left of its channel, and a small mark on the line says which line is its own
       const q = d.cam.project([ch.x, R, 170]);
-      d.text('label', s.l.text, q.x - 24, q.y, { align: 'right', enter: s.enter, exit: s.exit });
+      const cap = d.type.layout('label', s.l.text).cap;
+      d.box([q.x, q.y - cap / 2], [6, 6], 1.5, p.bone, { alpha: 0.95 * s.enter * (1 - s.exit) });
+      d.text('label', s.l.text, q.x - 22, q.y, { align: 'right', enter: s.enter, exit: s.exit });
     }
   }
   routerRail(d, focus, seen);

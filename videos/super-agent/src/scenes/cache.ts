@@ -39,7 +39,7 @@ const BODY = { half: 6.5, len: 56 } as const;
 const HUNG = 2;
 const STOOD = SHELF_Z - 4 - BODY.len;
 /** the broken body: what is lost of it, from its end nearer the rail */
-const GAP: readonly [number, number] = [17, 39];
+const GAP: readonly [number, number] = [12, 44];
 /** the piece comes out sideways this far and falls off the shelf: it comes to lie this far under the rule */
 const LOST = { aside: 34, under: 12 } as const;
 /** an ID: a tick across the rail, sturdy enough to carry its name */

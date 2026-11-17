@@ -13,7 +13,7 @@
  */
 import { clamp, easings, lerp } from '@aiv/core';
 import { SECTIONS, at, line } from '../cues.ts';
-import { Camera, type Vec3 } from '../kit/camera.ts';
+import type { Vec3 } from '../kit/camera.ts';
 import type { Draw } from '../kit/draw.ts';
 import { mix, scale } from '../kit/look.ts';
 import { TEXT_IN, TEXT_OUT, lineState, prog } from '../kit/time.ts';
@@ -41,16 +41,18 @@ const WATCH_NAMED = at(67, 1);
 const WATCHED = at(67, 2);
 /** each gap opens on its own beat; the rail parts first, as the sentence that stands in its gap arrives */
 const GAP = { memory: at(68, 3), step: at(68, 4.5), routers: at(69, 2), security: at(69, 3.5) } as const;
-/** the structure is whole again by the section's end; the sentences at the gaps leave just before it closes */
-const HEAL = TO - 16;
-const SENTENCES_OFF = TO - 24;
+/**
+ * The structure is whole again by the section's end: the gaps close in its last frames, as the
+ * sentences at them leave (they keep their reading time: the block needs 4.27 s, they stand 4.37).
+ */
+const HEAL = TO - 10;
+const SENTENCES_OFF = TO - 8;
 
 // ── the camera ─────────────────────────────────────────────────────────────────────────────────
 /** the view closes in a little while the frame is read, and holds to the section's last frame */
 const CLOSER = strata(1.17);
 
 // ── the page: where things stand in the resting view ──────────────────────────────────────────
-const VIEW = new Camera(STACK_VIEW);
 /** the status word stands at the top right, clear of you and of what it is said about */
 const HEAD: Anchor = { x: 1770, y: 226, align: 'right' };
 /** half the x-height of a support line: a sentence is centred on its mark */
@@ -60,19 +62,13 @@ const railLine = (d: Draw): number => d.cam.project([0, R + 1, 0]).y;
 /** the baseline a slab's name stands on, on its front face */
 const faceLine = (d: Draw, y: number): number => d.cam.project([0, y - SLAB.thick / 2, SLAB.halfD]).y + 19;
 
-/** Running in the cloud: the sentence, and the dashed line that runs on from it */
+/** Running in the cloud: the sentence stands over the Router's slab */
 const CLOUD_AT = { x: 596, y: 286 } as const;
-/** the height above the Router's rail at which a line stands on that sentence's row */
-const CLOUD_H = ((): number => {
-  let lo: number = R;
-  let hi: number = R + 400;
-  for (let k = 0; k < 24; k++) {
-    const mid = (lo + hi) / 2;
-    if (VIEW.project([0, mid, 0]).y > CLOUD_AT.y - HALF_X) lo = mid;
-    else hi = mid;
-  }
-  return (lo + hi) / 2;
-})();
+/**
+ * The dashed copy of the Router's line hovers this far over the rail: plainly the rail's double.
+ * (Higher, it read as a leader after the sentence, or as a boundary under you.)
+ */
+const CLOUD_H = R + 24;
 
 /** the check for stuck Workers: a session's outline, upright in front of the Workers' level, astride its edge */
 const LOOP = { x: 585, y: W + 10, z: SLAB.halfD + 30, hw: 120, hh: 68, r: 30 } as const;
@@ -99,13 +95,12 @@ const opened = (s: Span, k: number): Span => [lerp((s[0] + s[1]) / 2, s[0], k), 
 
 // ── proposed: dashed ───────────────────────────────────────────────────────────────────────────
 
-/** Running in the cloud: the Router's line, dashed, lifted off its slab and running out of the frame. */
+/** Running in the cloud: the Router's whole line again, dashed, lifted a little off its rail from edge to edge. */
 function cloud(d: Draw, f: number, show: number): void {
   const lift = prog(f, LANDED, LANDED + 30, easings.outCubic);
   if (lift <= 0 || show <= 0) return;
   const h = lerp(R + 2, CLOUD_H, lift);
-  const from = (CLOUD_AT.x + d.type.layout('sup', CLOUD).width + 34 - 960) / VIEW.project([0, CLOUD_H, 0]).s;
-  d.line([[from, h, 0], [SLAB.halfW, h, 0]], 3.6, d.pal.bone, { alpha: 0.9 * show * clamp(lift * 5), dash: [30, 0.56, 0] });
+  d.line([[-SLAB.halfW, h, 0], [SLAB.halfW, h, 0]], 3.6, d.pal.bone, { alpha: 0.9 * show * clamp(lift * 5), dash: [30, 0.56, 0] });
 }
 
 /** The loop's outline, from the middle of its left side, over the top and round. */
