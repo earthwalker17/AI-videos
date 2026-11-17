@@ -18,7 +18,7 @@
       "note": "V2. Shown the 1080p60 review cut (2:48, out/super-agent/post/review/super-agent.mp4) with what was and was not verified, the changes against the approved treatment (84 bars with the recap, the opening question, the first answer's wording, the prototype stamp, the price chart) and the known weak spots, and asked for the review approval, the user answered: \"It's OK, go ahead.\""
     }
   ],
-  "next": "Locked 2026-11-17: the user approved the review cut. Picture and sound are frozen; the test-card leader is removed. Now: the final render (--profile final), post, qa, proof that it is the approved cut frame for frame, captions, publish/ (description, chapters, AI disclosure, thumbnail), then the user's final approval. After that the user uploads; then aiv release, the tag, and a push only when asked.",
+  "next": "Locked. The final is rendered (out/super-agent/post/final/super-agent.mp4, 2:48.0), bit-identical to the approved review cut frame for frame, and passes aiv qa; publish/ is written. Now: the user's final approval (a recorded gate), then the user uploads; after that aiv release, youtube.id, the tag, and a push only when asked.",
   "languages": [
     "en"
   ],

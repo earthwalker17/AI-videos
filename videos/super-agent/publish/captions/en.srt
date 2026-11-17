@@ -1,0 +1,197 @@
+1
+00:00:00,500 --> 00:00:04,000
+WHO ROUTES THE AGENTS?
+
+2
+00:00:08,500 --> 00:00:12,500
+One team finds a person can
+usually follow 3 to 5 sessions.
+
+3
+00:00:14,000 --> 00:00:16,000
+YOU DO.
+
+4
+00:00:18,000 --> 00:00:21,000
+THE SUPER-AGENT DESIGN
+from DeepSeek's Harness team
+
+5
+00:00:21,000 --> 00:00:24,000
+TWO LEVELS · A DESIGN, NOT A PRODUCT
+
+6
+00:00:26,000 --> 00:00:30,000
+ONE LONG-LIVED ROUTER
+
+7
+00:00:30,000 --> 00:00:34,000
+IT ROUTES. IT NEVER EXECUTES.
+Whole tasks go down, unsplit.
+
+8
+00:00:34,500 --> 00:00:38,250
+PROTOTYPE ROUTER:
+KEEPS A SHELL, NO WRITE TOOLS
+
+9
+00:00:40,000 --> 00:00:43,500
+A WORKER: ITS OWN CONTEXT
+One task. Full tools.
+
+10
+00:00:44,250 --> 00:00:47,250
+By design, only the Router answers you.
+
+11
+00:00:48,000 --> 00:00:51,000
+ONE ROUTER FOR ALL THIS?
+
+12
+00:00:52,000 --> 00:00:54,500
+EVENTS, NOT JUST PROMPTS
+
+13
+00:00:55,000 --> 00:00:58,500
+GATE ONE: PLAIN CODE
+No model runs.
+
+14
+00:00:58,500 --> 00:01:01,000
+THEN A MODEL JUDGES.
+
+15
+00:01:01,000 --> 00:01:04,500
+PROTOTYPE DEFAULT:
+UNASKED WORK IS ONLY RECORDED
+
+16
+00:01:05,000 --> 00:01:07,000
+1. FEW REACH THE ROUTER.
+
+17
+00:01:08,000 --> 00:01:12,000
+FOLLOW-UPS GO STRAIGHT IN
+Seen by the Router. Not decided.
+
+18
+00:01:12,500 --> 00:01:14,000
+CHEAPER, NOT FASTER
+
+19
+00:01:14,000 --> 00:01:17,500
+~27% fewer tokens than without it
+AUTHORS' TEST
+
+20
+00:01:17,500 --> 00:01:20,000
+2. FOLLOW-UPS SKIP ITS DECISION.
+
+21
+00:01:23,000 --> 00:01:26,000
+ARRIVALS WAIT,
+THEN ENTER TOGETHER
+
+22
+00:01:26,000 --> 00:01:30,000
+6.4 s → 1.6 s model time per decision,
+at ~40× the load (authors' stress test)
+
+23
+00:01:30,000 --> 00:01:33,000
+AUTHORS' STRESS TEST · MOCK WORKERS
+
+24
+00:01:33,000 --> 00:01:35,500
+UP TO A LIMIT PER CALL.
+
+25
+00:01:35,500 --> 00:01:38,000
+3. THE REST ARRIVE TOGETHER.
+
+26
+00:01:39,000 --> 00:01:43,000
+ITS CONTEXT IS A CACHE
+What it needs soon stays in view.
+
+27
+00:01:43,000 --> 00:01:47,000
+BY DESIGN: RECALL BY ID
+It loses less. Not nothing.
+
+28
+00:01:47,000 --> 00:01:49,500
+4. DETAILS WAIT BEHIND IDS.
+
+29
+00:01:50,000 --> 00:01:54,000
+THE AUTHORS' TEST
+Synthetic. 5 runs. Indicative only.
+
+30
+00:01:54,000 --> 00:01:59,000
+SUPER-AGENT vs ONE SESSION + SUBAGENT TOOL
+(the session was told to delegate first)
+
+31
+00:01:59,000 --> 00:02:03,000
+SLOWEST TASKS: ABOUT HALF THE TIME
+P95 · RE-PLOTTED
+
+32
+00:02:03,000 --> 00:02:06,000
+TYPICAL TASKS: ABOUT 10% FASTER
+P50
+
+33
+00:02:06,000 --> 00:02:10,500
+THE PRICE: 2–4× THE TOKENS of one session
+(told to delegate first · left to choose)
+
+34
+00:02:10,500 --> 00:02:15,000
+PROPOSED: Running in the cloud.
+A check for stuck Workers.
+
+35
+00:02:15,000 --> 00:02:19,500
+OPEN: Long memory. Security.
+Stepping in mid-task. More Routers.
+
+36
+00:02:20,000 --> 00:02:23,000
+WHO ROUTES THE AGENTS?
+
+37
+00:02:23,000 --> 00:02:26,000
+NOT YOU.
+BY DESIGN
+
+38
+00:02:26,000 --> 00:02:29,000
+YOU DECIDE. YOU SIGN OFF.
+BY DESIGN
+
+39
+00:02:30,000 --> 00:02:33,500
+1. FEW REACH THE ROUTER.
+2. FOLLOW-UPS SKIP ITS DECISION.
+
+40
+00:02:33,500 --> 00:02:37,000
+3. THE REST ARRIVE TOGETHER.
+4. DETAILS WAIT BEHIND IDS.
+
+41
+00:02:38,000 --> 00:02:40,000
+WHO ROUTES THE AGENTS?
+
+42
+00:02:40,000 --> 00:02:44,000
+After “Exploring Super-agent Design”
+by the DeepSeek Harness team, 2026
+
+43
+00:02:44,000 --> 00:02:48,000
+An independent explainer.
+Not affiliated with DeepSeek.

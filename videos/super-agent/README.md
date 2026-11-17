@@ -27,6 +27,18 @@ The title is a working title.
 - **Locked (2026-11-17):** the user approved the review cut ("It's OK, go ahead."). Picture and
   sound are frozen, the test-card leader is removed, and the final is being made from the same
   inputs.
+- **The final (2026-11-18)** waits for the user's final approval:
+  `out/super-agent/post/final/super-agent.mp4` (1080p60, 2:48.0, no test card; local, never in
+  git), with its archive master beside it.
+  - It is the approved cut: all 10,080 frames of the final render are bit-identical to the review
+    render's frames after its 30-frame test card. `aiv qa` passes (−14.0 LUFS, −3.1 dBTP, no
+    unexpected freeze or black, every reading hold). Colour is verified through the review cut's
+    swatches; the final has no test card to measure.
+  - [`publish/`](publish/) holds the English captions (43, hand-set from the cue sheet, lint
+    clean), a proposed title and description, the chapters, the AI-use note and a thumbnail
+    candidate (a frame of the film, with its provenance). The texts were audited against
+    [FACTS.md](FACTS.md) and the cue sheet, and corrected.
+  - Still true: nobody but the user can judge the sound and the cut at speed.
 - **The review cut as approved:** `out/super-agent/post/review/super-agent.mp4` (1080p60, 84 bars, 2:48 after a
   half-second test card). Generated outputs are local, never in git.
   - Two passes of review went into it. The first (two frame critics, a first-time viewer with no
@@ -56,7 +68,8 @@ The title is a working title.
      heard yet.
   6. ~~A full draft render and QA, then the review cut at 1080p60.~~ Done (about 70 minutes of
      rendering on this machine, chunked and resumable). The user approved it.
-  7. The final and the publish files, the user's upload, then `aiv release`.
+  7. ~~The final and the publish files.~~ Done. Next: the user's final approval and upload,
+     then `aiv release`, the tag, and a push only when asked.
 
 ## Source
 | Path | What it holds |
@@ -75,6 +88,7 @@ The title is a working title.
 | [V1.md](V1.md) | V1 in brief: why it was archived, what worked, what did not, the lessons, and how to take anything from its tag |
 | [TREATMENT.md](TREATMENT.md) | The three candidates, the panel, the chosen hybrid, the guard rails, the do-not-copy lists, the critic's rubric for this film |
 | [SCRIPT.md](SCRIPT.md), [STORYBOARD.md](STORYBOARD.md), [CREDITS.md](CREDITS.md) | Every word and when (printed from the cue sheet); the fifteen shots; fonts, sources and tools |
+| [publish/](publish/) | Captions, the proposed title and description, chapters, the AI-use note, the thumbnail candidate and its provenance |
 
 The fuller research note is [references/deepseek-superagent-2026-11.md](../../references/deepseek-superagent-2026-11.md).
 It also covers the reception, name collisions, neighbouring products and attention research.
