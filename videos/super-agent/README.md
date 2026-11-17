@@ -24,25 +24,34 @@ The title is a working title.
   `.cache/refs/super-agent-v2/`, never in git.
 - **The look is chosen (2026-11-17):** at the pilot's look check the user picked phosphor green
   and coral and said to go ahead. The look check is a checkpoint, not a recorded gate.
-- **Where it stands (2026-11-17):** sections 1 to 3 are staged (bars 1 to 24); sections 4 to 7
-  are being staged, one module each (`src/scenes/section.ts` is their contract).
-  - The pilot (bars 1 to 17 as first shown) passed QA at 1080p60. A context-free viewer judged
-    our frames and the benchmark's to be different films (closeness 3 and 4 out of 10). The frame
-    critic's first pass was "partial"; its fixes were applied.
-  - Found after the pilot and fixed: a headline that followed another on the same beat rose over
-    it for a third of a second. A line now leaves before the next block lands (`out` in the cue
-    sheet), and the reading-time tests count that shorter stay.
+- **Where it stands (2026-11-17):** all seven sections are staged (84 bars, 2:48) and the score
+  is written. One review round is done and its findings are fixed. The review cut at 1080p60 is
+  not rendered yet.
+  - The round: two frame critics, a first-time viewer with no context, a facts auditor and a
+    motion reviewer, each serious finding checked by a verifier. No wrong fact or number was
+    found. The first-time viewer's account of the film matched its meaning; the map of the stack
+    was the one thing read wrongly, and its names were moved.
+  - Fixed in that round: the layer names, five lines of copy, a picture for "only the Router
+    answers you", the gates' RECORDED shelf, the cache's ID and its one-hop recall, the open
+    marks, and the ending (the signed result stays; the recap the treatment promised was missing
+    and has four bars of its own). [TREATMENT.md](TREATMENT.md) lists the departures as built.
+  - Checked: cue tests, type check, lint, `aiv check`; the score renders reproducibly at
+    −14.0 LUFS and −3.5 dBTP; every fix was looked at on stills at 1080p.
+  - Not checked yet: the fixed film in motion, QA on a full render, and the sound by ear. The
+    draft before the fixes passed QA except for a hold cue half a second short, since corrected.
+    QA's onset detector reads bass-heavy hits as late; a high-band measure put all 13 on their
+    frame.
 - **Session plan:**
   1. ~~Baseline.~~ Done.
   2. ~~`src/cues.ts` with the full copy and its tests, the kit, an animatic.~~ Done.
   3. ~~The first ~35 s at full craft, stills beside the benchmark, the kill test, style frames.~~
      Done. The user picked phosphor and coral and said go.
-  4. Stage sections 4 to 7 (the four answers, evidence, status, close), then one review round
-     (critic, context-free viewer, facts auditor).
-  5. The score on the shared audio kit (`audio/index.ts`, the `audio:mix` track).
-  6. The review cut at 1080p60 (about 45 minutes of rendering), SCRIPT, STORYBOARD and the claims
-     table in FACTS, the user's review approval.
-  7. The final, CREDITS and the publish files, the user's upload, then `aiv release`.
+  4. ~~Stage sections 4 to 7, then one review round.~~ Done.
+  5. ~~The score on the shared audio kit (`audio/index.ts`, the `audio:mix` track).~~ Done; not
+     heard yet.
+  6. A full draft render and QA, then the review cut at 1080p60 (about an hour of rendering on
+     this machine, chunked and resumable), then the user's review approval.
+  7. The final and the publish files, the user's upload, then `aiv release`.
 
 ## Source
 | Path | What it holds |
@@ -60,7 +69,7 @@ The title is a working title.
 | [sources.jsonl](sources.jsonl) | The sources, with URLs, pins and access dates |
 | [V1.md](V1.md) | V1 in brief: why it was archived, what worked, what did not, the lessons, and how to take anything from its tag |
 | [TREATMENT.md](TREATMENT.md) | The three candidates, the panel, the chosen hybrid, the guard rails, the do-not-copy lists, the critic's rubric for this film |
-| SCRIPT, STORYBOARD, CREDITS | Template stubs until V2 writes them |
+| [SCRIPT.md](SCRIPT.md), [STORYBOARD.md](STORYBOARD.md), [CREDITS.md](CREDITS.md) | Every word and when (printed from the cue sheet); the fifteen shots; fonts, sources and tools |
 
 The fuller research note is [references/deepseek-superagent-2026-11.md](../../references/deepseek-superagent-2026-11.md).
 It also covers the reception, name collisions, neighbouring products and attention research.

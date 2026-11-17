@@ -13,7 +13,7 @@
       "note": "V2. Asked \"Which treatment should V2 of the Super-agent film be built on?\" with three candidates, the user chose \"Layer stack hybrid (Recommended)\" and then approved the V2 plan. V1's approvals did not carry over."
     }
   ],
-  "next": "V2 (2026-11-17): at the pilot's look check the user chose phosphor and coral and said go. Now: stage sections 4 to 7 (one module each under src/scenes), one review round (critic, context-free viewer, facts auditor), the score (audio/index.ts, the audio:mix track), the review cut at 1080p60, SCRIPT, STORYBOARD and the FACTS claims table, then the user's review approval. See README Status.",
+  "next": "V2 (2026-11-17): all seven sections and the score are in; one review round is done and its findings are fixed (commit d4b69cb). Now: a full draft render and aiv qa (the last draft run stopped at chunk 30 of 169 when the machine ran low on memory; it resumes with the same command), look at the sheets, then the review cut at 1080p60, post, qa, determinism checks and frames beside the benchmark, then the user's review approval. See README Status.",
   "languages": [
     "en"
   ],
