@@ -1,0 +1,57 @@
+1
+00:00:00,000 --> 00:00:03,700
+A coding agent for your terminal,
+browser and desktop.
+
+2
+00:00:08,500 --> 00:00:12,000
+No edit before a read.
+
+3
+00:00:18,500 --> 00:00:22,000
+Same session. In your browser.
+
+4
+00:00:23,000 --> 00:00:28,000
+The runtime's record,
+not the model's word.
+
+5
+00:00:29,000 --> 00:00:35,867
+Write inside the workspace.
+Anything wider needs approval.
+
+6
+00:00:41,000 --> 00:00:45,000
+Its own window. Node inside.
+
+7
+00:00:46,000 --> 00:00:51,000
+Quit mid-turn. The session is kept.
+
+8
+00:00:54,000 --> 00:00:57,000
+Four ways in.
+
+9
+00:01:01,267 --> 00:01:03,667
+DeepSeek, Anthropic or OpenAI.
+
+10
+00:01:04,000 --> 00:01:08,000
+One runtime.
+
+11
+00:01:12,000 --> 00:01:16,000
+An architecture-first,
+local-first agent harness.
+
+12
+00:01:16,000 --> 00:01:20,333
+An independent project
+inspired by DeepSeek Harness.
+
+13
+00:01:20,333 --> 00:01:24,000
+Not affiliated with or
+endorsed by DeepSeek.

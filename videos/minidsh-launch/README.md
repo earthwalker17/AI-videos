@@ -34,6 +34,8 @@ Not published yet.
 ## Licence
 - Code is MIT.
 - The film and prose are CC BY 4.0 ([LICENSING](../../docs/LICENSING.md)).
+<!-- REUSE-IgnoreStart: third-party rights, not notices for this file -->
 - MiniDSH is MIT; its web UI adapts DeepSeek Harness's design tokens and icons (MIT, © DeepSeek).
 - MiniDSH is an independent project inspired by DeepSeek Harness, not affiliated with or endorsed by
   DeepSeek.
+<!-- REUSE-IgnoreEnd -->

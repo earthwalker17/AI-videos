@@ -25,7 +25,10 @@
 
 - **Non-affiliation.** MiniDSH is an independent project inspired by DeepSeek Harness, not
   affiliated with or endorsed by DeepSeek. No DeepSeek logo or brand artwork appears in the film.
-  The DeepSeek model names on screen are the product's own labels for the provider it calls.
+  The provider and model names on screen (DeepSeek, Anthropic and OpenAI; the DeepSeek and Claude
+  model labels in the picker) are the product's own labels for the providers it calls, used only
+  to name them. No logo or brand artwork of any of them appears, and none endorses the film or
+  MiniDSH.
 
 ## Method
 - **The skill.** The production method was read from **op7418/guizang-product-video-skill @

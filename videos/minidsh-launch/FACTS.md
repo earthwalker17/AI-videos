@@ -26,7 +26,7 @@ against the tag on 2026-11-24.
 | Install | "npm install -g minidsh" · "Node 24+" | README.md:20-27; package.json `engines` (node >= 24); npm `minidsh@2.0.0` | yes |
 | Size | "One package. One runtime dependency." | SECURITY.md:119 ("The npm package has one runtime dependency, `zod`"); README.md:15 | yes, scoped (below) |
 | The repository | "github.com/earthwalker17/MiniDSH" | the repository (public, MIT) | yes |
-| Non-affiliation | "An independent project inspired by DeepSeek Harness. Not affiliated with or endorsed by DeepSeek." | README.md:152 (verbatim except the leading "MiniDSH is") | yes |
+| Non-affiliation | "An independent project inspired by DeepSeek Harness. Not affiliated with or endorsed by DeepSeek." | README.md:152, condensed (it reads "MiniDSH is an independent project inspired by DeepSeek Harness (MIT, © DeepSeek). It is not affiliated with or endorsed by DeepSeek."); NOTICE | yes |
 | How the film was made | "Real sessions, recorded live; waits shortened." | take-tui, take-web, take-desk; capture/ (the film retimes the takes to the beat and never changes their content) | yes |
 
 ## The pictures
