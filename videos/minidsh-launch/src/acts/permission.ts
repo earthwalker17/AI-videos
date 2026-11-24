@@ -7,7 +7,7 @@
 import { clamp, easings } from '@aiv/core';
 import { prog, settle } from '@aiv/web-kit';
 import { BOX, mixView, scrollBlend, screenOf, show, type CaptureKey, type View } from '../captures.ts';
-import { ACTS, HITS, at } from '../cues.ts';
+import { ACTS, CUTS, HITS, at } from '../cues.ts';
 import { PAL, SHADOW } from '../look.ts';
 import { pointer, titles, type ActModule, type Ctx } from './common.ts';
 
@@ -38,7 +38,7 @@ const CURSOR_IN = [at(18, 1), at(18, 4)] as const;
 
 export const permission: ActModule = {
   // the hard cut from the pressed card to the receipt
-  cuts: [HITS.allow],
+  cuts: [CUTS.receipt],
   needs(f) {
     if (f < SEND) return [TYPE_STEPS[Math.min(3, Math.max(0, Math.floor((f - P0) / 12)))]!, 'webType4'];
     if (f < TO_RUN[1]) return ['webType4', 'webRun1'];

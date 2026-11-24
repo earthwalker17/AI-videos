@@ -125,6 +125,20 @@ export const HITS = {
 } as const;
 export type Hit = keyof typeof HITS;
 
+/**
+ * The hard cuts, every one on a bar (QA checks them): the match cut into the browser, the cut to the
+ * read and the edit, back to the wide terminal, the click on Allow once to its receipt, the desktop
+ * window's arrival, and its line to the whole window mid-turn. The acts cut on these frames.
+ */
+export const CUTS = {
+  read: HITS.read,
+  wide: at(7, 1),
+  handoff: ACTS.handoff,
+  receipt: HITS.allow,
+  desktop: ACTS.desktop,
+  window: at(23, 1),
+} as const;
+
 /** Deliberate quiet: after Allow once (half a bar), and the last half bar under the end card. */
 export const RESTS = {
   allow: [at(20, 1), at(20, 3)],
@@ -136,8 +150,9 @@ const events: CueEvent[] = [
   ...Object.entries(HITS).map(([id, frame]): CueEvent => ({ id: `hit-${id.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`, kind: 'hit', frame })),
   { id: 'rest-allow', kind: 'rest', frame: RESTS.allow[0], end: RESTS.allow[1] },
   { id: 'rest-end', kind: 'rest', frame: RESTS.end[0], end: RESTS.end[1] },
-  // the end card stands still while it is read
-  { id: 'hold-close', kind: 'hold', frame: at(39, 1), end: FILM_FRAMES },
+  ...Object.entries(CUTS).map(([id, frame]): CueEvent => ({ id: `cut-${id}`, kind: 'cut', frame })),
+  // the end card stands still while it is read (from its last group's final settle)
+  { id: 'hold-close', kind: 'hold', frame: at(39, 1) - 6, end: FILM_FRAMES },
 ];
 events.sort((a, b) => a.frame - b.frame || a.id.localeCompare(b.id));
 

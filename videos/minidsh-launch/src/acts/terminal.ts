@@ -12,7 +12,7 @@
  */
 import { clamp, easings } from '@aiv/core';
 import { prog, type Vec2 } from '@aiv/web-kit';
-import { ACTS, HITS, at } from '../cues.ts';
+import { ACTS, CUTS, HITS, at } from '../cues.ts';
 import { PAL, SHADOW } from '../look.ts';
 import { TUI_H, TUI_W, cellPx, paintAt } from '../tui.ts';
 import { titles, type ActModule, type Ctx } from './common.ts';
@@ -135,7 +135,7 @@ function payoff(f: number, c: Ctx): void {
 export const terminal: ActModule = {
   needs: () => [],
   // the cut to the read and the edit, and the cut back to wide
-  cuts: [HITS.read, at(7, 1)],
+  cuts: [CUTS.read, CUTS.wide],
   draw(f, c) {
     const fr = frameAt(f);
     const dim = 1 - 0.75 * prog(f, HITS.table - 24, HITS.table, easings.outCubic) * (1 - prog(f, at(9, 3) + 16, at(9, 4) + 4, easings.inCubic));

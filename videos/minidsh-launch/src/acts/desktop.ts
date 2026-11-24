@@ -10,7 +10,7 @@
 import { clamp, easings } from '@aiv/core';
 import { hex, prog, settle, type Vec2 } from '@aiv/web-kit';
 import { mixView, screenOf, show, type CaptureKey, type View } from '../captures.ts';
-import { ACTS, HITS, at } from '../cues.ts';
+import { ACTS, CUTS, HITS, at } from '../cues.ts';
 import { PAL, SHADOW } from '../look.ts';
 import { pointer, titles, world, type ActModule, type Ctx } from './common.ts';
 
@@ -46,7 +46,7 @@ export { CONTENT_AT };
 const ARRIVE = [ACTS.desktop, ACTS.desktop + 24] as const;
 const PUSH = [at(21, 3), at(22, 3)] as const;
 /** the cut to the whole window mid-turn, on bar 23: two seconds of it before the quit */
-const MIDTURN = at(23, 1);
+const MIDTURN = CUTS.window;
 const COLLAPSE = [HITS.collapse - 20, HITS.collapse + 4] as const;
 const STOPPING = [HITS.quit + 4, COLLAPSE[0]] as const;
 const REOPEN = [HITS.reopen, HITS.reopen + 26] as const;
