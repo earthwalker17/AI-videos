@@ -18,7 +18,8 @@ Video #5, the first film in [Product & Launch](../../series/product-launch/SERIE
   desktop title changed to "Its own window. Node inside."
 - **Now.** The final (gate 3): rendered at f5983de, frame for frame the approved review cut except
   the new desktop title; QA passed on the delivery and the archive master. Captions and the publish
-  kit (YouTube, X, Product Hunt, AI use) are drafted and audited. Waiting for the creator.
+  kit (YouTube, X, Product Hunt, AI use) are drafted and audited. The creator approved the final on
+  2026-11-25 and is making the thumbnail; next, the upload and the release.
 
 ## Watch
 Not published yet.
