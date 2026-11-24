@@ -19,7 +19,9 @@ export const STYLES = {
   /** print used as texture (module names on the runtime strips): at least 18 px */
   label: { family: MONO, weight: 500, px: 26, tracking: 0.01, leading: 1.25, chars: CHARS.ascii },
   url: { family: SANS, weight: 500, px: 26, tracking: 0, leading: 1.2, chars: CHARS.ascii },
-} satisfies StyleTable<'title' | 'sub' | 'name' | 'mono' | 'small' | 'label' | 'url'>;
+  /** the payoff table (the test's own data), large */
+  table: { family: MONO, weight: 500, px: 66, tracking: 0, leading: 1.36, chars: CHARS.ascii },
+} satisfies StyleTable<'title' | 'sub' | 'name' | 'mono' | 'small' | 'label' | 'url' | 'table'>;
 export type StyleId = keyof typeof STYLES;
 
 /** Linear colours. */

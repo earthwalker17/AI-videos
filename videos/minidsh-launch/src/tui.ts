@@ -242,3 +242,6 @@ export function drawPaint(k: number, header: { left: string; right: string }): H
 
 /** The screen position (canvas px) of cell (col, row): for marks pinned to the terminal's text. */
 export const cellPx = (col: number, row: number): [number, number] => [PAD + col * CW, HEADER + 18 + row * CH];
+
+/** The caret's cell in paint k (where the terminal shows its cursor), if it shows one. */
+export const caretOf = (k: number): [number, number] | null => P.paints[k]!.c;
