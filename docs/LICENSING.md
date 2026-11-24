@@ -34,6 +34,17 @@ Adapted files keep their upstream copyright line (`SPDX-FileCopyrightText`) and 
 `Adapted from <url>@<commit>` comment. [`NOTICE.md`](../NOTICE.md) lists every
 upstream project, the commit used, its licence and what was adapted.
 
+## External agent skills
+Third-party agent skills are sources, pinned in `references/sources.json` with a `skill`
+field and a note ([references/README.md](../references/README.md), External skills).
+- **Vendorable.** Only skills under MIT, Apache-2.0, BSD, ISC, CC0 or CC BY (`excerpt_policy:
+  vendorable`) may be copied in, under "Code adapted from other projects" above.
+- **Ideas only.** Copyleft (GPL, AGPL), non-commercial, source-available and unlicensed skills
+  are read at their pin and restated in our own words. Their files, starters, styles, sounds
+  and translations never enter this repository or a film.
+- **Never run a third-party skill's installer or scripts in this repository**: they copy their
+  own files in. A film that learned from a skill names it with its pin in its `CREDITS.md`.
+
 ## Dependencies with their own terms
 Dependencies are installed from npm and never redistributed here, but some carry
 obligations for whoever renders with them:

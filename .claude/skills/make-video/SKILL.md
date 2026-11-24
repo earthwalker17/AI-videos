@@ -27,7 +27,8 @@ description: Start or continue a video in this repository, from idea to release 
   when the user gave them. Never record one yourself.
 - Update `status` and `next` in `video.json`, then run `pnpm aiv check`; it enforces the gates.
 - Reuse before writing: `packages/`, `styles/`, `knowledge/`, and other videos' `reusable`
-  lists. Code a second video needs is promoted, never copied (`docs/ARCHITECTURE.md`, "Where
+  lists. For method, check the third-party agent skills already pinned in
+  `references/README.md` (External skills): most are ideas only, never copied or installed. Code a second video needs is promoted, never copied (`docs/ARCHITECTURE.md`, "Where
   things go").
 - Spending money (paid APIs, cloud renders) and changing dependencies need the user's approval.
 - Commit after each verified step. Verified means rendered and looked at, not only exit 0.

@@ -119,6 +119,9 @@ importers:
       '@aiv/remotion-kit':
         specifier: workspace:*
         version: link:packages/remotion-kit
+      '@aiv/web-kit':
+        specifier: workspace:*
+        version: link:packages/web-kit
       '@fontsource-variable/big-shoulders-display':
         specifier: 'catalog:'
         version: 5.3.0
@@ -310,6 +313,12 @@ importers:
       three:
         specifier: 'catalog:'
         version: 0.186.1
+
+  packages/web-kit:
+    dependencies:
+      '@aiv/core':
+        specifier: workspace:*
+        version: link:../core
 
   tools/aiv:
     dependencies:

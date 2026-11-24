@@ -37,7 +37,9 @@ Root files: `README.md`, `CLAUDE.md` (rules for agents), `CONTRIBUTING.md`, `LIC
 | A new renderer (Manim, Blender, …) | `engines/<id>/`; see [Adding an engine](#adding-an-engine). |
 | A verified technique | `knowledge/<topic>.md`, method first, with the evidence. |
 | Notes on an outside project or rule | `references/<topic>.md` and an entry in `references/sources.json`. |
+| A third-party agent skill a film may learn from | Its `references/sources.json` entry with a `skill` field (its pin, licence and reuse rule are the entry's), a note, and a row in [references/README.md](../references/README.md#external-skills). Vendored only when permissive; otherwise ideas only (decision 35). |
 | A small original asset (≤ 2 MiB) | `videos/<slug>/assets/` with its provenance in `CREDITS.md`. |
+| Tooling that captures a video's inputs from a real product (recorders, drivers, converters) | `videos/<slug>/capture/`: not frame code and not a render input; what it produced is in `assets/` (or `media/`), with provenance in `CREDITS.md`. Promoted when a second film needs it. |
 | A large input (music, voice, footage, a big texture or model) | `videos/<slug>/media/`, listed in `media/manifest.json` (see Storage). |
 | Generated material (images, audio, video from a model) | `videos/<slug>/gen/` with a provenance sidecar per file ([LICENSING](LICENSING.md#ai-generated-material)). |
 | Delivery files and masters | GitHub Release assets with a sha256 manifest (see Storage). |
@@ -55,6 +57,7 @@ Root files: `README.md`, `CLAUDE.md` (rules for agents), `CONTRIBUTING.md`, `LIC
 | `src/` | The video's picture code; the engine entry lives here, and `src/cues.ts` (the shared timeline) when the video has a score. | yes | yes (`cues.ts` also in the audio hash) |
 | `audio/` | The score: code that builds the video's audio tracks with `aiv audio` (entry `audio/index.ts`), and `library.json`, the sample files it reads. | yes | the audio hash only |
 | `assets/` | Small original or licensed files the code loads (≤ 2 MiB each). | yes | yes |
+| `capture/` | Tooling that recorded the video's inputs from a real product (decision 35's film is the first). | yes | no |
 | `media/` | Large inputs; only `media/manifest.json` (path, sha256, bytes, source, licence, where the file is kept) is committed. | manifest only | yes |
 | `gen/` | Generated material; only the `*.provenance.json` sidecars are committed. A redistributable file the code loads is copied into `assets/`; a generated upload asset (a thumbnail) is kept in `publish/`, each with its `<name>.provenance.json` beside it. | sidecars only | no |
 | `publish/` | Upload texts per language: description, chapters, captions (`<lang>.srt`), AI disclosure, thumbnail (if generated, with its provenance sidecar). | yes | no |
@@ -457,3 +460,22 @@ new entry that supersedes it, not editing history.
     - **Cost:** there is no browser text layout, so the film's own code measures and breaks
       lines, and a second script would need its own atlas. 60 fps doubles the frames of every
       stage. The measurements are in `engines/web/ENGINE.md` (At 60 fps).
+35. **2026-11-24 · Third-party agent skills are sources, not a subsystem.** Video #5 (`minidsh-launch`)
+    learned its method from an external skill under AGPL-3.0, and the creator asked that useful
+    third-party skills be reusable by later films without being found again.
+    - **Where.** A skill is an entry in `references/sources.json`, which already pins it (`pin`),
+      licenses it (`license`) and states how it may be reused (`excerpt_policy`). One optional field,
+      `skill: {name, path}`, says where its `SKILL.md` sits upstream. A note per skill says how each
+      stage uses it and what is never used. `references/README.md` lists them (External skills).
+    - **Reuse.** `vendorable` skills (permissive licences) may be copied in under the adapted-code
+      rules. Every other skill is ideas only: read at the pin, restated in our words, never copied,
+      translated, installed as a project skill or run here. A film names the skills it learned from
+      in `CREDITS.md`. Skills are not render inputs and are in no input hash.
+    - **Not built.** A generated INDEX list, an `aiv check` gate on `skill` entries and an
+      `aiv doctor` installer into `.cache/skills/<id>@<commit>/` (the pattern of decision 23) wait
+      for the first vendored or locally installed skill.
+    - **Also.** Tooling that captures a video's inputs from a real product (here MiniDSH's terminal,
+      web and desktop takes) lives in `videos/<slug>/capture/`, outside the render inputs; what it
+      produced is in `assets/` with its provenance.
+    - **Cost.** A reader checks a skill's licence and reuse rule by hand until the gate exists; the
+      README table can drift from `sources.json` until it is generated.

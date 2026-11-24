@@ -1,5 +1,5 @@
 {
-  "$comment": "Pinned external sources behind references/*.md. Written from research done on 2026-11-01; facts are restated in our own words in the notes. 'note' paths are relative to references/. 'license' is the licence of the upstream material, not of this file. excerpt_policy: link-only = cite the URL, copy nothing; facts-paraphrased = restate facts in our words; short-quote = quotes of 25 words or fewer, attributed with URL and access date; cc-by-excerpt = CC BY material, excerpts allowed with attribution; vendorable = permissive licence, files may be adapted with SPDX and Adapted-from headers. status: verified = read at the primary source on the access date; unverified = not read at source or only through secondary summaries.",
+  "$comment": "Pinned external sources behind references/*.md. Written from research done on 2026-11-01; facts are restated in our own words in the notes. 'note' paths are relative to references/. 'license' is the licence of the upstream material, not of this file. excerpt_policy: link-only = cite the URL, copy nothing; facts-paraphrased = restate facts in our words; short-quote = quotes of 25 words or fewer, attributed with URL and access date; cc-by-excerpt = CC BY material, excerpts allowed with attribution; vendorable = permissive licence, files may be adapted with SPDX and Adapted-from headers. status: verified = read at the primary source on the access date; unverified = not read at source or only through secondary summaries. Optional 'skill' (an agent skill this repo may reuse): {name, path}, where path is the upstream folder holding its SKILL.md at the pin ('' = the repository root). How it may be reused follows excerpt_policy: 'vendorable' = may be copied in with SPDX and Adapted-from headers, NOTICE.md and REUSE.toml entries; every other policy = ideas only, read at the pin and never copied, installed in the project or run here (docs/LICENSING.md, External agent skills; references/README.md, External skills).",
   "schemaVersion": 1,
   "accessed": "2026-11-01",
   "sources": [
@@ -738,7 +738,11 @@
       "excerpt_policy": "vendorable",
       "why": "Strongest taste source for generated explainers: the object is the explanation, one diagram that grows, shapes of information, the BANNED-by-default list, a look built from one medium, the stranger-sentence P0 test, ease-by-role and spring-by-damping-ratio rules, the no-idle-wobble motion doctrine.",
       "note": "agent-video-skills-2026-11.md",
-      "status": "verified"
+      "status": "verified",
+      "skill": {
+        "name": "hyperframes",
+        "path": "skills/hyperframes"
+      }
     },
     {
       "id": "motionmaxxing",
@@ -749,7 +753,11 @@
       "excerpt_policy": "vendorable",
       "why": "Six world layers (ground, light, depth, texture, material, sound) and the twelve reaches, notably states instead of events, effects standing in for quality, and minimalism as a hiding place; feeds critic criterion 12.",
       "note": "agent-video-skills-2026-11.md",
-      "status": "verified"
+      "status": "verified",
+      "skill": {
+        "name": "motionmaxxing",
+        "path": ""
+      }
     },
     {
       "id": "anthropics-skills-design",
@@ -760,7 +768,11 @@
       "excerpt_policy": "vendorable",
       "why": "Named visual philosophy before building, and the refine-don't-add final pass, adopted in the lookdev step; seeded generators as a pattern for procedural material.",
       "note": "agent-video-skills-2026-11.md",
-      "status": "verified"
+      "status": "verified",
+      "skill": {
+        "name": "canvas-design",
+        "path": "skills/canvas-design"
+      }
     },
     {
       "id": "impeccable",
@@ -771,7 +783,11 @@
       "excerpt_policy": "facts-paraphrased",
       "why": "Its critique opens with a specificity verdict (authored for this subject or category-interchangeable), adopted as critic criterion 12 item 17; the rest is web UI.",
       "note": "agent-video-skills-2026-11.md",
-      "status": "verified"
+      "status": "verified",
+      "skill": {
+        "name": "impeccable",
+        "path": ".claude/skills/impeccable"
+      }
     },
     {
       "id": "anything2explainer",
@@ -782,7 +798,11 @@
       "excerpt_policy": "facts-paraphrased",
       "why": "Ideas only: hero >= 170 px, no sub-110 px largest object for > 45 frames, longest still <= 3 s, 30-45 frame settle, first-30-seconds sample checkpoint. Thresholds are set on a 1280x720 canvas.",
       "note": "agent-video-skills-2026-11.md",
-      "status": "verified"
+      "status": "verified",
+      "skill": {
+        "name": "anything2explainer",
+        "path": ""
+      }
     },
     {
       "id": "charlie947-motion-graphics-skills",
@@ -793,7 +813,11 @@
       "excerpt_policy": "facts-paraphrased",
       "why": "Pattern only: a lone line or bar crossing the screen reads as static; keep a moves reference separate from a look reference.",
       "note": "agent-video-skills-2026-11.md",
-      "status": "verified"
+      "status": "verified",
+      "skill": {
+        "name": "motion-graphics-skills",
+        "path": "skills"
+      }
     },
     {
       "id": "bang-motion",
@@ -804,7 +828,26 @@
       "excerpt_policy": "facts-paraphrased",
       "why": "Pattern only: slide-like violations mapped to fixes (change shot size toward what is speaking); a scene is 3-5 stacked elements; assets must feel alive.",
       "note": "agent-video-skills-2026-11.md",
-      "status": "verified"
+      "status": "verified",
+      "skill": {
+        "name": "bang-motion",
+        "path": ""
+      }
+    },
+    {
+      "id": "guizang-product-video-skill",
+      "title": "op7418/guizang-product-video-skill: code-made software launch and changelog films from the product's real UI (scope lock, evidence table, three directions, push-in continuation, first-frame poster, SFX roles, transition-strip review)",
+      "url": "https://github.com/op7418/guizang-product-video-skill/tree/18842e0f49a9eb2b8c00cc065ec37b314e235aaa",
+      "pin": "18842e0f49a9eb2b8c00cc065ec37b314e235aaa (2026-10-09; main on 2026-11-24), tree 4ce06cc4d60a515d7caa48fa0cb5967f29d260bb",
+      "license": "AGPL-3.0 (workflow, docs, scripts, starter, original audio); assets/fallback/ BUSL-1.1 (CodePilot, no commercial use); starter depends on GSAP (proprietary)",
+      "excerpt_policy": "link-only",
+      "why": "The most complete written method for product-launch films in code; read as a guide for video #5 (minidsh-launch). Ideas only: nothing vendored, copied, translated, installed or run here.",
+      "note": "guizang-product-video-skill.md",
+      "status": "verified",
+      "skill": {
+        "name": "guizang-product-video-skill",
+        "path": ""
+      }
     },
     {
       "id": "victor-ladder-of-abstraction",

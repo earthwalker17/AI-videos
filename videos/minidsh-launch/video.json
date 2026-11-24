@@ -1,0 +1,58 @@
+{
+  "$schema": "../../schemas/video.v1.json",
+  "schemaVersion": 1,
+  "number": 5,
+  "slug": "minidsh-launch",
+  "title": "MiniDSH 2.0: One Runtime, Every Surface",
+  "series": "product-launch",
+  "status": "production",
+  "approvals": [
+    {
+      "gate": "treatment",
+      "date": "2026-11-24",
+      "note": "In plan mode the user was asked \"Which treatment should the MiniDSH launch film be built on?\" with three candidates and answered \"A: One session, three surfaces (Recommended)\"; in the same round they chose WSL for the terminal and web with the desktop on Windows, the official v2.0.0 installer, and the font-size reading of the 36 px text bar, then approved the plan (treatment A, refined as A-prime by a creative review the same day)."
+    }
+  ],
+  "next": "Capture the live takes (terminal and web in WSL, desktop on Windows) once the user has set the demo keys and installed the app; then cues.ts, the pilot look check on the permission beat.",
+  "languages": [
+    "en"
+  ],
+  "styles": [],
+  "reproducibility": "full",
+  "engine": "web",
+  "entry": "src/index.html",
+  "format": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "audio": {
+    "tracks": [
+      {
+        "source": "lavfi:aevalsrc=0.10*sin(2*PI*220*t)+0.07*sin(2*PI*277.18*t)+0.06*sin(2*PI*329.63*t)|0.10*sin(2*PI*220.6*t)+0.07*sin(2*PI*277.18*t)+0.06*sin(2*PI*329.63*t):s=48000,afade=t=in:d=0.6,afade=t=out:st=4.0:d=1.0"
+      },
+      {
+        "source": "lavfi:anoisesrc=c=pink:r=48000:a=0.03:seed=1101,afade=t=in:d=1.0,afade=t=out:st=3.5:d=1.5",
+        "gainDb": -6
+      }
+    ]
+  },
+  "qa": {
+    "swatchFrames": [
+      0,
+      15
+    ],
+    "loudness": {
+      "integrated": -14,
+      "tolerance": 1,
+      "truePeakMax": -1
+    }
+  },
+  "reusable": [],
+  "license": {
+    "film": "CC-BY-4.0"
+  },
+  "youtube": null,
+  "release": null,
+  "source": null
+}

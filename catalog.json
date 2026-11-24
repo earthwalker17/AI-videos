@@ -152,6 +152,21 @@
           "what": "One timeline for picture, score, captions and hold tests: lines of type on a 120 bpm grid with tiers, blocks and hand-over, hits and hold cues (with cues.test.ts, its reading-time and one-block-at-a-time rules)"
         }
       ]
+    },
+    {
+      "number": 5,
+      "slug": "minidsh-launch",
+      "title": "MiniDSH 2.0: One Runtime, Every Surface",
+      "series": "product-launch",
+      "status": "production",
+      "engine": "web",
+      "reproducibility": "full",
+      "languages": [
+        "en"
+      ],
+      "path": "videos/minidsh-launch",
+      "watch": null,
+      "reusable": []
     }
   ],
   "series": [
@@ -189,7 +204,9 @@
       "status": "active",
       "summary": "Polished code-generated motion graphics: product demos, launch films and UI animation.",
       "path": "series/product-launch",
-      "videos": []
+      "videos": [
+        "minidsh-launch"
+      ]
     },
     {
       "id": "science-explainers",
@@ -271,7 +288,8 @@
       "path": "engines/web/ENGINE.md",
       "template": "templates/web",
       "usedBy": [
-        "super-agent"
+        "super-agent",
+        "minidsh-launch"
       ]
     }
   ],
@@ -282,7 +300,8 @@
       "description": "Isomorphic determinism helpers (seeded rng, easing, test swatches) and the shared zod contracts.",
       "usedBy": [
         "halloween-gift",
-        "super-agent"
+        "super-agent",
+        "minidsh-launch"
       ]
     },
     {
@@ -300,6 +319,12 @@
       ]
     },
     {
+      "name": "@aiv/web-kit",
+      "path": "packages/web-kit",
+      "description": "Deterministic building blocks for web-engine pages: a small WebGL2 stage (shapes, ribbons, glyphs, images), a CPU-canvas glyph atlas, a perspective camera rig and frame-grid timing helpers.",
+      "usedBy": []
+    },
+    {
       "name": "@aiv/engine-remotion",
       "path": "engines/remotion",
       "description": "Remotion engine adapter: bundles a video's Remotion entry and renders compositions to a mezzanine plus render.json.",
@@ -310,7 +335,8 @@
       "path": "engines/web",
       "description": "Web engine: Playwright harness that captures page-contract pages (canvas, WebGL, WebGPU, SVG) deterministically, plus the in-page runtime.",
       "usedBy": [
-        "super-agent"
+        "super-agent",
+        "minidsh-launch"
       ]
     },
     {

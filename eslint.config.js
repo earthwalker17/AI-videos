@@ -14,6 +14,7 @@ const FROZEN = existsSync(catalogFile) ? JSON.parse(readFileSync(catalogFile, 'u
 const FRAME_CODE = [
   'packages/core/src/**',
   'packages/remotion-kit/src/**',
+  'packages/web-kit/src/**',
   'engines/web/src/page/**',
   'templates/*/src/**',
   'videos/*/src/**',

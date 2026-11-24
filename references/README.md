@@ -56,6 +56,45 @@ its own tag. Tags reflect each source as read on the note's access date.
    sections *What it is · Why it matters here · Key facts · What we adopted / adapted ·
    What we deliberately did NOT adopt, and why · Gotchas · Not read*.
 
+## External skills
+Third-party agent skills (Claude Code, Codex and others) that a film may learn from. Each one is
+an ordinary source here: pinned in `sources.json`, with an optional `skill` field naming where
+its `SKILL.md` sits upstream, and a note that says how we use it. No second registry exists.
+
+**How each may be reused** follows its `excerpt_policy`:
+- `vendorable` (MIT, Apache-2.0, BSD, ISC, CC0 or CC BY): it may be copied in, as adapted
+  material with SPDX and Adapted-from headers, a `NOTICE.md` row and a `REUSE.toml` entry.
+- Any other policy: **ideas only**. Read it at the pin (for example `gh api
+  repos/<owner>/<repo>/contents/<path>?ref=<pin>`), restate what we take in our own words, and
+  never copy, translate, install in the project or run its scripts here
+  (`docs/LICENSING.md`, External agent skills). This covers copyleft, non-commercial,
+  source-available and unlicensed skills.
+
+| Skill | Upstream, pin | Licence | Reuse | Note |
+|---|---|---|---|---|
+| guizang-product-video-skill | op7418/guizang-product-video-skill `18842e0f` | AGPL-3.0 (BUSL-1.1 fallback assets) | ideas only | [guizang-product-video-skill.md](guizang-product-video-skill.md): product-launch films, the method behind video #5 |
+| hyperframes | heygen-com/hyperframes `070b964d`, `skills/hyperframes` | Apache-2.0 (GSAP proprietary) | vendorable, never the GSAP code | [hyperframes.md](hyperframes.md), [agent-video-skills-2026-11.md](agent-video-skills-2026-11.md) |
+| motionmaxxing | Tejashmakwana/motionmaxxing `8c8ec0f2` | Apache-2.0 with NOTICE | vendorable, not the runtime | [agent-video-skills-2026-11.md](agent-video-skills-2026-11.md) |
+| canvas-design (and siblings) | anthropics/skills `2c5958ec`, `skills/canvas-design` | Apache-2.0 per skill | vendorable | [agent-video-skills-2026-11.md](agent-video-skills-2026-11.md) |
+| impeccable | pbakaus/impeccable `924bbd19` | Apache-2.0 | ideas only (paraphrased) | [agent-video-skills-2026-11.md](agent-video-skills-2026-11.md) |
+| motion-graphics-skills | charlie947/motion-graphics-skills `229022eb`, `skills/` (launch-video, apple-launch-film, vox-explainer, …) | MIT | ideas only (paraphrased) | [agent-video-skills-2026-11.md](agent-video-skills-2026-11.md) |
+| bang-motion | bangtutorial/bang-motion `c1aa65e9` | MIT | ideas only (paraphrased) | [agent-video-skills-2026-11.md](agent-video-skills-2026-11.md) |
+| anything2explainer | Vincentwei1021/anything2explainer `735c79c8` | PolyForm Noncommercial | ideas only | [agent-video-skills-2026-11.md](agent-video-skills-2026-11.md) |
+
+**A new skill.**
+1. Read its LICENSE at the pin; a path-by-path licence is common.
+2. Add its `sources.json` entry with `skill`.
+3. Write a note with the header block, then: *What it is · Why it matters here · How we use it*
+   (our stage → what we take) *· Never* (paths not to copy, run or ship) *· Not adopted, and
+   why · Not read*.
+4. Add a row here.
+
+A film that used one names it with its pin in `CREDITS.md`.
+
+**Not built yet** (ARCHITECTURE decision 35): a generated list in `docs/INDEX.md`, an `aiv check`
+gate on `skill` entries, and an `aiv doctor` installer into `.cache/skills/`. They come with the
+first skill that is vendored or must be installed locally.
+
 ## Refresh policy
 Every note carries a "Stale after" hint sized to how fast its upstream moves (two weeks for
 pre-1.0 engines, a month for release-train projects and provider terms, longer for
@@ -88,4 +127,5 @@ rests on it. Version pins at repo HEAD live in the root config; when they change
 | [motion-graphics-2d-2026-11.md](motion-graphics-2d-2026-11.md) | 2D explainer building blocks as a delta to the engine survey: Remotion 2D packages, code animation, timeline libs, layout, fonts for EN + zh-Hans, CJK typesetting, glow and blur cost, lint blind spots, the stack for video #4; round-2 delta: WebGL world under DOM text, substrate verdicts (Skia, Pixi, HtmlInCanvas), SDF/ribbon/flow techniques | Remotion 4.0.539; npm versions 2026-11-08 | per row (MIT, ISC, Apache-2.0, OFL-1.1, Remotion License, GSAP proprietary) | 2026-12-01 / 2027-05-01 |
 | [agent-video-skills-2026-11.md](agent-video-skills-2026-11.md) | Agent skills and method sources for code-made explainers: HyperFrames, motionmaxxing, anthropics/skills, impeccable, anything2explainer (ideas only), ladder of abstraction, studio pre-production; the frame-critic craft rubric, motion tokens, lookdev with motion tests; licence traps | per row, 2026-11-08/09 | per row (Apache-2.0, MIT, CC BY 4.0; PolyForm NC and unlicensed: ideas only) | 2026-11-22 (skills) / 2027-05-01 (methods) |
 | [fable-explainer-benchmark-2026-11.md](fable-explainer-benchmark-2026-11.md) | The 88 s Fable-made explainer of the Super-agent article that was the bar for #4 V2 (published 2026-11-17): its 120 bpm clock, 60 fps, two scales of beat, transitions as transformations, measured luma and type sizes; qualities adopted and the do-not-copy signatures | article 2026-11-09 (X 2119941585538572390) | owner's rights (descriptions and facts only) | the film is fixed; the article can be edited |
+| [guizang-product-video-skill.md](guizang-product-video-skill.md) | An agent skill for code-made software launch films: scope lock, evidence table, directions on axes, product-derived devices, UI magnification, push-in continuation, first-frame poster, SFX roles, transition-strip review; AGPL, so ideas only | `18842e0f49a9eb2b8c00cc065ec37b314e235aaa` | AGPL-3.0 (BUSL-1.1 fallback) | 2027-02-24 |
 | [sources.json](sources.json) | Machine-readable list of every source (id, url, pin, licence, excerpt policy, why, note, status) | 2026-11-01 | — | with the notes |

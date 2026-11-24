@@ -28,6 +28,7 @@
     "@aiv/core": "workspace:*",
     "@aiv/engine-web": "workspace:*",
     "@aiv/remotion-kit": "workspace:*",
+    "@aiv/web-kit": "workspace:*",
     "@fontsource-variable/big-shoulders-display": "catalog:",
     "@fontsource-variable/ibm-plex-sans": "catalog:",
     "@fontsource-variable/inter": "catalog:",

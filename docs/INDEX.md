@@ -13,12 +13,13 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 | 2 | [THE AI STACK](../videos/the-ai-stack/README.md) | [3D Concept Visualizations](../series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
 | 3 | [A Halloween Gift](../videos/halloween-gift/README.md) | [Festival & Celebration](../series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
 | 4 | [Who Routes the Agents?](../videos/super-agent/README.md) | [Science & Technology Explainers](../series/science-explainers/SERIES.md) | published | [YouTube](https://youtu.be/-b7g5XIgEn0) |
+| 5 | [MiniDSH 2.0: One Runtime, Every Surface](../videos/minidsh-launch/README.md) | [Product & Launch](../series/product-launch/SERIES.md) | production | — |
 
 ## Series
 - [3D Concept Visualizations](../series/concept-viz/SERIES.md) (`concept-viz`, active, 1 video): Complex technical systems explained as physical, spatial machines you can see working.
 - [Festival & Celebration](../series/festivals/SERIES.md) (`festivals`, active, 1 video): Visual pieces for traditional and seasonal celebrations, built on workflows that return every year.
 - [Micro Films](../series/micro-films/SERIES.md) (`micro-films`, active, 0 videos): Short conceptual and philosophical films about consciousness, humanity, AI and the future.
-- [Product & Launch](../series/product-launch/SERIES.md) (`product-launch`, active, 0 videos): Polished code-generated motion graphics: product demos, launch films and UI animation.
+- [Product & Launch](../series/product-launch/SERIES.md) (`product-launch`, active, 1 video): Polished code-generated motion graphics: product demos, launch films and UI animation.
 - [Science & Technology Explainers](../series/science-explainers/SERIES.md) (`science-explainers`, active, 1 video): Honest explanations of hard ideas in science and technology, from mathematics and physics to how computing and AI systems work, in short and long form.
 
 ## Docs
@@ -41,6 +42,7 @@ where things go. Rules: [CLAUDE.md](../CLAUDE.md). Machine-readable: [catalog.js
 - `@aiv/core` ([packages/core](../packages/core)): Isomorphic determinism helpers (seeded rng, easing, test swatches) and the shared zod contracts.
 - `@aiv/pipeline` ([packages/pipeline](../packages/pipeline)): Node pipeline stages shared by every engine: host safety, ffmpeg/encode presets, chunk runner, QA and release.
 - `@aiv/remotion-kit` ([packages/remotion-kit](../packages/remotion-kit)): Deterministic React/Remotion building blocks: a Stage3D for R3F under Remotion, titles, test swatches.
+- `@aiv/web-kit` ([packages/web-kit](../packages/web-kit)): Deterministic building blocks for web-engine pages: a small WebGL2 stage (shapes, ribbons, glyphs, images), a CPU-canvas glyph atlas, a perspective camera rig and frame-grid timing helpers.
 - `@aiv/engine-remotion` ([engines/remotion](../engines/remotion)): Remotion engine adapter: bundles a video's Remotion entry and renders compositions to a mezzanine plus render.json.
 - `@aiv/engine-web` ([engines/web](../engines/web)): Web engine: Playwright harness that captures page-contract pages (canvas, WebGL, WebGPU, SVG) deterministically, plus the in-page runtime.
 - `@aiv/cli` ([tools/aiv](../tools/aiv)): The aiv command line: new, doctor, check, render, audio, post, qa, release, heavy.
@@ -93,6 +95,7 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [A Fable-made explainer of the Super-agent article: the benchmark for #4 V2 (2026-11)](../references/fable-explainer-benchmark-2026-11.md): An 88-second explainer of the DeepSeek Harness team's Super-agent article, made with Claude Fable 5.2 by another creator and published inside their review of the model.
 - [Generative AI for video assets — landscape, rights, provenance (2026-11)](../references/genai-landscape-2026-11.md): The state of hosted and open-weight generators for video, image, voice and music, the terms that decide whether their output can appear in a monetised, worldwide YouTube video and…
 - [GitHub storage limits — files, LFS, Releases, Pages, runners](../references/github-storage-limits.md): The size, bandwidth and hosting limits that decide where each kind of file in this repo lives.
+- [guizang product video skill: a method for code-made software launch films (2026-11)](../references/guizang-product-video-skill.md): A Claude Code and Codex skill for making software-update promos and changelog films in code.
 - [HyperFrames — candidate HTML engine](../references/hyperframes.md): HeyGen's open-source HTML-to-video renderer, built for coding agents: a composition is an HTML file whose timed elements carry data attributes, animated by paused GSAP timelines…
 - [lemo-opuscar — engine and method](../references/lemo-opuscar.md): A library of 66 film styles (plus styles/_template) that Claude Code agents use to make short films entirely in code, with a deliberately small shared core/: Node ESM capture…
 - [Licensing tooling — REUSE 3.3, SPDX headers, secret scanning, licence traps](../references/licensing-tooling.md): The tools and facts behind the repo's per-path licence matrix, provenance headers and secret hygiene, plus a list of upstream licences that must never be mixed in.
