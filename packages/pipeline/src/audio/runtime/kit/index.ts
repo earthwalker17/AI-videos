@@ -2,7 +2,8 @@
 // and sound design from (docs/ARCHITECTURE.md, decision 29). It lies inside the stage's runtime,
 // so every scored video's audio input hash covers it, and it has the runtime's rules: a pure
 // function of its inputs (no clocks, no unseeded randomness, no Node built-ins, no files).
-// Musical content (instruments, presets, arrangements, the mix) stays in the video's audio/.
+// Musical content (instruments, presets, arrangements, the mix) stays in the video's audio/
+// until a second score needs it; then its generic skeleton moves here (voices.ts).
 //
 //   dsp.ts       units, pan law, seeded noise, biquad / SVF / one-pole filters, resonators and
 //                the modal bank, breakpoint curves, peak levelling (norm)
@@ -14,6 +15,7 @@
 //   mixer.ts     named buses and sends, cut-aware placement, ducking, levels
 //   master.ts    BS.1770-4 meter, true peak, glue, look-ahead limiter, the iterated master
 //   timeline.ts  the cue sheet's bar grid and cues in samples
+//   voices.ts    voices two scores share: a detuned pad, a filtered bass, a noise clap and hat
 export * from './dsp.ts';
 export * from './osc.ts';
 export * from './adsr.ts';
@@ -25,3 +27,4 @@ export * from './reverb.ts';
 export * from './mixer.ts';
 export * from './master.ts';
 export * from './timeline.ts';
+export * from './voices.ts';

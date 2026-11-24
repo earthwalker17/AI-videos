@@ -113,8 +113,9 @@ videos/<slug>/src/cues.ts ─aiv captions▶ videos/<slug>/publish/captions/<lan
   `@aiv/pipeline/audio/kit` (`packages/pipeline/src/audio/runtime/kit/`: oscillators,
   envelopes, filters, Karplus–Strong, delay, ducking, convolution reverb, a mixer with named
   buses and sends, the BS.1770 meter and the master, and the bar grid in samples). The kit lies
-  inside the runtime, so the audio hash covers it; a score's instruments and arrangement stay
-  in its video (decision 29).
+  inside the runtime, so the audio hash covers it. Voices two scores play (a detuned pad, a
+  filtered bass, a noise clap and hat) are in the kit as skeletons with options; a score's presets,
+  other instruments and arrangement stay in its video (decision 29).
 - **The runner** also writes `inputs.json` next to `render.json`: the picture hash's per-file
   hashes and settings, so post can tell which cue sheet a picture was rendered against and
   release can recompute the picture hash against the tree it releases.
@@ -368,7 +369,13 @@ new entry that supersedes it, not editing history.
     its instruments, effects and arrangement. A video's own musical content stays in
     `videos/<slug>/audio/` until a second film needs it. The frozen film keeps its own copies,
     unchanged, and is rebuilt from its tag. The kit imports only `@aiv/core` and the score
-    contract, never Node or a video (a lint block and a test check it). Cost: every scored
+    contract, never Node or a video (a lint block and a test check it).
+
+    *2026-11-24, video #5:* the second film to play #4's pad, bass, clap and hat promoted them as
+    skeletons (`kit/voices.ts`: `detunedPad`, `filteredBass`, `noiseClap`, `noiseHat`). What
+    makes a voice one film's (oscillators, levels, filters, envelope) is an option; the defaults
+    are #4's values and gave its samples when promoted (checked once against the frozen film). The
+    presets stay in the video. Cost: every scored
     video's audio hash covers the whole kit, so any kit edit makes every unfrozen scored
     video's tracks stale until `aiv audio` rebuilds them. Their pictures are never affected.
 30. **2026-11-09 · A diagram film is a lit WebGL world under DOM text.** *Who Routes the
