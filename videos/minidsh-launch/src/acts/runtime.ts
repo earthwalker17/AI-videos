@@ -4,17 +4,20 @@
  * from one bar beside the web page and the terminal, overlapping, one cluster. They are drawn up
  * into the bar and four paper strips unroll from it instead: MiniDSH 2.0.0's src/ (app/
  * capabilities/ core/ kernel/) with every module name. The camera reads the four ways in as they
- * dock on app/ on the beats of bar 28, trucks right across the map on bar 29 and holds a close
- * framing where each callback's stamp prints at 36 px or more: a one-beat insert of a real moment
- * slams onto the module that did it and stamps it (the refused edit, Allow once, the kept session,
- * the model picker). It pulls back to the whole map for the bar-33 downbeat: everything lit, the
- * surfaces back at the outer ends of their ways in, and the teal dot lands as the full stop of
- * "One runtime."
+ * dock in their column beside app/ on the beats of bar 28, trucks across the map on bar 29 and
+ * holds a close framing where each callback's stamp prints at 36 px or more: a one-beat insert of
+ * a real moment rises beside the module that did it (never over its row), and on the hit the insert
+ * presses and the module is stamped (the refused edit, Allow once, the kept session, the model
+ * picker). No framing cuts a label, strip or pane at the frame's edge: what is not wholly in frame
+ * is wholly out of it, or a bold bleed (the long strips hanging past the bottom). It pulls back to
+ * the whole map for the bar-33 downbeat, where the five stamped code paths are promoted and the
+ * rest dims; the teal dot lands as the full stop of "One runtime."; and a slow push towards the
+ * stamps carries the hold into the close, which contracts the map from wherever the push has got.
  */
 import { clamp, easings } from '@aiv/core';
-import { settle, type StageTexture, type Vec2 } from '@aiv/web-kit';
+import { bump, settle, type StageTexture, type Vec2 } from '@aiv/web-kit';
 import { CAPTURES, show, themed, type CaptureKey, type View as CaptureView } from '../captures.ts';
-import { ACTS, BEAT, HITS, TEXT_IN, TEXT_OUT, TITLES, at } from '../cues.ts';
+import { ACTS, BEAT, HITS, TITLES, at } from '../cues.ts';
 import { PAL, SHADOW, SHADOW_NEAR, TITLE_X, TITLE_Y } from '../look.ts';
 import { TUI_H, TUI_W } from '../tui.ts';
 import type { ActModule, Ctx } from './common.ts';
@@ -25,18 +28,17 @@ import {
   CAPS,
   CORE,
   STRIPS,
-  SURFACE_KEYS,
   TERM_PAINT,
   TITLE_DOT_R,
   between,
   drawMap,
   framing,
   pt,
-  rowBox,
+  rowBase,
   runtimeWords,
   titleDot,
+  titleMotion,
   toward,
-  unpt,
   type MapState,
   type View,
 } from './runtime-map.ts';
@@ -85,12 +87,21 @@ const drop = (f: number, i: number): number => easings.outCubic(clamp((f - DROP0
 
 /** the desktop act's last picture, as a view of the cluster */
 const V_START = framing([DESK_X0 + KEPT_C[0] * DESK_S, BAR_A + KEPT_C[1] * DESK_S], KEPT_AT, K0);
-/** the four ways in and app/, their type at 37-39 px, under "Four ways in." */
-const V_APP = framing([629, 300], [960, 330], 1.75);
-/** capabilities/ and core/ rows 0-15, every stamp at 36 px or more, the bar clear of the title */
-const V_CB = framing([1150, 300], [960, 300], 1.62);
-/** the whole map and its surfaces */
-const V_LIT = framing([954, 300], [930, 318], 0.9);
+/**
+ * The four ways in and app/, their type at 37-39 px, under "Four ways in.": the label column, app/
+ * and capabilities/ wholly in frame, core/ just past the right edge (wholly out), capabilities/
+ * hanging past the bottom.
+ */
+const V_APP = framing([STRIPS[CORE]!.x, BAR_Y], [1924, 330], 1.75);
+/**
+ * The callbacks: every stamp at 36 px or more, the label column wholly in frame (its left edge at
+ * x 165, at least 155 after the hold's push), app/ capabilities/ core/ in frame, kernel/ just past
+ * the right edge (wholly out); the bar clear of the title above it, core/sandbox/ (row 15) above
+ * y 1020.
+ */
+const V_CB = framing([STRIPS[CAPS]!.x, BAR_Y], [912, 262], 1.62);
+/** the whole map, its right edge at x 1800, the bar at y 300 under "One runtime." */
+const V_LIT = framing([STRIPS[3]!.x + STRIPS[3]!.w, BAR_Y], [1800, 300], 0.9);
 
 const PULL = [R0, R0 + 66] as const;
 const PUSH = [R0 + 108, R0 + 148] as const;
@@ -98,11 +109,17 @@ const PUSH = [R0 + 108, R0 + 148] as const;
 const TRUCK = [Math.min(Math.max(at(29, 1) + 14, HITS.cbRead - BEAT - 76), HITS.cbRead - BEAT - 40), HITS.cbRead - BEAT - 4] as const;
 /** back out to the whole map, landing on the bar-33 downbeat (never sooner than the last stamp allows) */
 const PULL_LIT = [Math.max(HITS.cbModels + 6, HITS.lit - 114), HITS.lit] as const;
-const DRIFT_END = at(36);
+/**
+ * The lit hold is never dead: from the downbeat a slow push (7%) towards the stamped modules, about
+ * a point low on them so the long strips' torn ends stay in frame; it runs on into the close, whose
+ * contraction starts from wherever it has got.
+ */
+const LIT_PUSH = [HITS.lit, at(36)] as const;
+const LIT_TO: Vec2 = [1300, 700];
 
 const holdApp = (f: number): View => toward(V_APP, [960, 600], 1 + 0.015 * clamp((f - PUSH[1]) / (TRUCK[0] - PUSH[1])));
-const holdCb = (f: number): View => toward(V_CB, [1000, 1000], 1 + 0.025 * clamp((f - TRUCK[1]) / (PULL_LIT[0] - TRUCK[1])));
-const holdLit = (f: number): View => toward(V_LIT, [960, 560], 1 + 0.018 * clamp((f - (HITS.lit + 6)) / (DRIFT_END - HITS.lit - 6)));
+const holdCb = (f: number): View => toward(V_CB, [800, 800], 1 + 0.015 * clamp((f - TRUCK[1]) / (PULL_LIT[0] - TRUCK[1])));
+const holdLit = (f: number): View => toward(V_LIT, LIT_TO, 1 + 0.07 * easings.inOutSine(clamp((f - LIT_PUSH[0]) / (LIT_PUSH[1] - LIT_PUSH[0]))));
 
 function camera(f: number): View {
   const io = easings.inOutCubic;
@@ -141,8 +158,6 @@ export function mapAt(f: number): MapState {
     bar: bar(f),
     unroll: STRIPS.map((_, i) => easings.outExpo(clamp((f - (UNROLL0 + 6 * i)) / 72))),
     light: easings.outCubic(clamp((f - (HITS.lit - 2)) / 8)),
-    // the surfaces come back with the pull-back's last beat and land on the downbeat
-    surfaces: easings.inOutCubic(clamp((f - (HITS.lit - 18)) / 18)),
   };
 }
 
@@ -199,65 +214,105 @@ interface Insert {
   key: CaptureKey | null;
   /** texture px */
   crop: readonly [number, number, number, number];
-  /** design width; the height follows the crop */
-  w: number;
+  /**
+   * the strip rows it covers, first and last: its top edge sits just above the first row's type and
+   * its bottom just below the last row's, so it never cuts a line of type in half; its scale
+   * follows (each insert's one key word reads at 36 px or more, noted at its crop)
+   */
+  rows: readonly [number, number];
+  /** its right edge, design px: beside the module it stamps, never over that row */
+  x1: number;
   radius: number;
-  /** where it pops up, on the screen of the callbacks' framing */
-  pop: Vec2;
-  /** the rows it lands on */
-  si: number;
-  row: number;
-  n: number;
+  /**
+   * a fixed scale (screen px per texture px in the callbacks' framing) for a crop shorter than its
+   * rows, padded to their height with `bg`, a plain stretch of the same texture's background
+   */
+  k?: number;
+  bg?: readonly [number, number, number, number];
 }
 const css = (k: CaptureKey, x: number, y: number, w: number, h: number) => {
   const s = CAPTURES[k].scale;
   return [x * s, y * s, w * s, h * s] as const;
 };
-/** paint 423: the refused edit, row 5 of the terminal ("✕ Edit file  src/table.js · FS_NOT_OBSERVED") */
-const REFUSAL_PAINT = 423;
-const INSERTS: readonly Insert[] = [
-  { hit: HITS.cbRead, key: null, crop: [40, 342, 1112, 76], w: 600, radius: 8, pop: [930, 600], si: CAPS, row: 8, n: 1 },
-  { hit: HITS.cbAllow, key: 'webApproval', crop: css('webApproval', 437, 451, 677, 336), w: 440, radius: 12, pop: [1290, 760], si: CORE, row: 1, n: 1 },
-  { hit: HITS.cbKept, key: 'deskSession', crop: css('deskSession', 438, 461, 640, 62), w: 540, radius: 9, pop: [900, 870], si: CAPS, row: 14, n: 1 },
-  { hit: HITS.cbModels, key: 'deskModels', crop: css('deskModels', 853, 205, 196, 478), w: 150, radius: 8, pop: [1420, 640], si: CAPS, row: 9, n: 3 },
-];
+/** design px between an insert and the strip it stands beside: 24 screen px in the callbacks' framing */
+const NEAR = 24 / V_CB.k;
+/** An insert's box in design px: centre and half size. */
+function insertBox(ins: Insert): { c: Vec2; half: Vec2 } {
+  const top = rowBase(ins.rows[0]) - 18;
+  const bottom = rowBase(ins.rows[1]) + 6;
+  const hh = (bottom - top) / 2;
+  const hw = ins.k ? (ins.crop[2] * ins.k) / V_CB.k / 2 : (hh * ins.crop[2]) / ins.crop[3];
+  return { c: [ins.x1 - hw, top + hh], half: [hw, hh] };
+}
 
-/** One beat up, then it slams onto its rows; the stamp presses on the hit. */
+/**
+ * paint 423: the refused edit, row 5 of the terminal ("✕ Edit file  src/table.js · FS_NOT_OBSERVED",
+ * canvas y 354-406; the diff follows from 408): its 40 px glyphs at 37 px, padded to rows 5-6 with
+ * the empty row above it, a row clear above fs-observation-policy/ (row 8), overhanging
+ * capabilities/ into the gutter so it keeps clear of the label column
+ */
+const REFUSAL_PAINT = 423;
+const REFUSAL_CROP = [52, 356, 1064, 50] as const;
+const REFUSAL_BG = [52, 306, 1064, 44] as const;
+/** the approval card's last two buttons: over capabilities/ rows 0-3, "Allow once" (16 px) at 41 px, left of core/approval/ */
+const ALLOW_CROP = css('webApproval', 822, 722, 284, 60);
+/** the kept session's note: over rows 11-14 left of capabilities/, "Stopped" (13 px) at 37 px, level with persistence-jsonl/ */
+const KEPT_CROP = css('deskSession', 444, 463, 268, 54);
+/** the model picker's names: DeepSeek's models, the anthropic group, its first model; over rows 2-13 left of the llm-* rows (clear of the session file below), the names (14 px) at 38 px */
+const MODELS_CROP = css('deskModels', 858, 238, 134, 174);
+const CAPS_X1 = STRIPS[CAPS]!.x + STRIPS[CAPS]!.w;
+const INSERTS: readonly Insert[] = [
+  { hit: HITS.cbRead, key: null, crop: REFUSAL_CROP, rows: [5, 6], x1: CAPS_X1 + 40 / V_CB.k, radius: 8, k: 0.926, bg: REFUSAL_BG },
+  { hit: HITS.cbAllow, key: 'webApproval', crop: ALLOW_CROP, rows: [0, 3], x1: STRIPS[CORE]!.x - NEAR, radius: 12 },
+  { hit: HITS.cbKept, key: 'deskSession', crop: KEPT_CROP, rows: [11, 14], x1: STRIPS[CAPS]!.x - NEAR, radius: 12 },
+  { hit: HITS.cbModels, key: 'deskModels', crop: MODELS_CROP, rows: [2, 13], x1: STRIPS[CAPS]!.x - NEAR, radius: 12 },
+];
+/** an insert rises a beat before its hit, presses with the stamp on the hit, and leaves soon after */
+const OUT = [6, 16] as const;
+const insertLive = (ins: Insert, f: number): boolean => f >= ins.hit - BEAT && f < ins.hit + OUT[1];
+
+/** One beat up beside its module, a press with the stamp on the hit, then it sinks away. */
 function drawInsert(c: Ctx, ins: Insert, f: number, v: View): void {
+  if (!insertLive(ins, f)) return;
   const t = f - (ins.hit - BEAT);
-  if (t < 0 || f >= ins.hit) return;
   const tex = ins.key ? c.tex(themed(ins.key)) : c.term(REFUSAL_PAINT);
-  const from = unpt(V_CB, ins.pop);
-  const h = (ins.w * ins.crop[3]) / ins.crop[2];
-  const pop = 0.9 + 0.1 * settle(t, 3);
-  const slam = easings.inCubic(clamp((f - (ins.hit - 9)) / 9));
-  const box = rowBox(ins.si, ins.row, ins.n);
-  const x = lerp(from[0], box.c[0], slam);
-  const y = lerp(from[1] - 6 * clamp(t / 21), box.c[1], slam);
-  const hw = lerp((ins.w / 2) * pop, box.half[0], slam);
-  const hh = lerp((h / 2) * pop, box.half[1], slam);
-  const alpha = clamp(t / 4) * (1 - clamp((slam - 0.55) / 0.45));
-  const centre = pt(v, x, y);
-  const half: Vec2 = [hw * v.k, hh * v.k];
-  const radius = lerp(ins.radius, 6, slam) * v.k;
-  c.d.screenPane(centre, half, tex, { crop: ins.crop, radius, opacity: alpha, shadow: { ...SHADOW_NEAR, alpha: SHADOW_NEAR.alpha * (1 - slam) } });
-  if (!ins.key) c.d.box(centre, half, radius, PAL.chromeLine, { stroke: 1.4, alpha });
+  const leave = easings.inCubic(clamp((f - (ins.hit + OUT[0])) / (OUT[1] - OUT[0])));
+  const pop = 0.94 + 0.06 * settle(t, 3);
+  const press = 1 - 0.03 * bump(f, ins.hit - 3, ins.hit, ins.hit + 10);
+  const s = pop * press * (1 - 0.05 * leave);
+  const alpha = clamp(t / 4) * (1 - leave);
+  const b = insertBox(ins);
+  const centre = pt(v, b.c[0], b.c[1] + 10 * (1 - settle(t, 4)) + 14 * leave);
+  const half: Vec2 = [b.half[0] * s * v.k, b.half[1] * s * v.k];
+  const radius = (ins.radius / V_CB.k) * v.k;
+  const shadow = { ...SHADOW_NEAR, alpha: SHADOW_NEAR.alpha * alpha };
+  if (ins.bg && ins.k) {
+    // the plain background to the rows' height, the crop at its own scale centred on it
+    c.d.screenPane(centre, half, tex, { crop: ins.bg, radius, opacity: alpha, shadow });
+    const ch = ((ins.crop[3] * ins.k) / V_CB.k / 2) * s * v.k;
+    c.d.screenPane(centre, [half[0], ch], tex, { crop: ins.crop, opacity: alpha });
+  } else {
+    c.d.screenPane(centre, half, tex, { crop: ins.crop, radius, opacity: alpha, shadow });
+  }
+  // a dark contact edge, so a light card reads on the paper (and the dark terminal on the ink)
+  c.d.box(centre, half, radius, ins.key ? PAL.paperInk : PAL.chromeLine, { stroke: (ins.key ? 2.4 : 1.6) * (v.k / V_CB.k), alpha: alpha * (ins.key ? 0.85 : 1) });
 }
 
 // ── titles ────────────────────────────────────────────────────────────────────────────────────
 
-/** The act's titles but "One runtime.", which is drawn with its teal full stop. */
+/** The act's titles but "One runtime.", which is drawn with its teal full stop; each rises as one line, none over another. */
 function titles(f: number, c: Ctx): void {
   for (const t of TITLES) {
     if (t.act !== 'runtime' || t.id === 't-runtime') continue;
-    const enter = clamp((f - (t.frame - TEXT_IN)) / TEXT_IN);
-    const exit = clamp((f - t.end) / TEXT_OUT);
+    const { enter, exit } = titleMotion(f, t.id);
     if (enter <= 0 || exit >= 1) continue;
-    c.d.text('title', t.text, TITLE_X, TITLE_Y, { enter, exit });
+    c.d.text('title', t.text, TITLE_X, TITLE_Y, { enter, exit, by: 'line' });
   }
   runtimeWords(f, c);
-  // the teal dot drops into the full stop on the bar-33 downbeat
-  const p = clamp((f - (HITS.lit - 14)) / 14);
+  // the teal dot drops into the full stop with the words' rise (over 6 frames at least), landing on the bar-33 downbeat
+  const [w0, w1] = titleMotion(f, 't-runtime').in;
+  const d0 = Math.min(w0, w1 - 6);
+  const p = clamp((f - d0) / (w1 - d0));
   if (p > 0) {
     const d = titleDot(c);
     const y = d[1] - 120 * (1 - easings.inQuad(p));
@@ -270,8 +325,7 @@ export const runtime: ActModule = {
     const keys: CaptureKey[] = [];
     if (f < RETRACT_END) keys.push('webFinal', 'deskSessionWindow');
     if (f < PULL[1]) keys.push('deskSession');
-    for (const ins of INSERTS) if (ins.key && f >= ins.hit - BEAT && f < ins.hit) keys.push(ins.key);
-    if (f >= HITS.lit - 18) keys.push(...SURFACE_KEYS);
+    for (const ins of INSERTS) if (ins.key && insertLive(ins, f)) keys.push(ins.key);
     return keys;
   },
 

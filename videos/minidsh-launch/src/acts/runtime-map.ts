@@ -1,9 +1,11 @@
 /**
  * The runtime map: MiniDSH 2.0.0's src/ as four paper strips of receipt stock hanging from one bar,
- * each printed with its complete module list; the four ways in docked on app/; the stamps the
- * callbacks press; the session file on disk beside the strips (storage, not a layer); the four
- * surfaces back at the outer ends of their ways in once everything is lit; and "One runtime."
- * whose full stop is the teal dot. The runtime act draws it, and the close act draws its last state
+ * each printed with its complete module list; the four ways in, a label column a fixed gap left of
+ * app/ (the desktop's tab houses the web's: the desktop runs `minidsh web --json`); the stamps the
+ * callbacks press; the session file on disk beside the strips (storage, not a layer); and "One
+ * runtime." whose full stop is the teal dot. On the bar-33 downbeat the stamped modules are
+ * promoted (their stamps re-ink) and everything else dims to about 40%, so the eye lands on the
+ * five code paths and the title. The runtime act draws it, and the close act draws its last state
  * contracting into the dot.
  *
  * Positions are design px; a `View` maps them to the screen (a uniform scale and a shift), so the
@@ -13,11 +15,9 @@
  * layer heads read at 36 px or more in every framing.
  */
 import { clamp, easings } from '@aiv/core';
-import { hex, mix, scale, settle, type Rgb, type StageTexture, type Vec2 } from '@aiv/web-kit';
-import { CAPTURES, themed, type CaptureKey } from '../captures.ts';
-import { HITS, TEXT_IN, TEXT_OUT, at, title } from '../cues.ts';
-import { PAL, SHADOW_NEAR, TITLE_X, TITLE_Y } from '../look.ts';
-import { TUI_H, TUI_W } from '../tui.ts';
+import { hex, mix, scale, settle, type Rgb, type Vec2 } from '@aiv/web-kit';
+import { HITS, TEXT_IN, TEXT_OUT, TITLES, at } from '../cues.ts';
+import { PAL, TITLE_X, TITLE_Y } from '../look.ts';
 import type { Ctx } from './common.ts';
 
 // ── views ─────────────────────────────────────────────────────────────────────────────────────
@@ -117,7 +117,7 @@ const HS = 0.62;
 export const TS = 0.53;
 /** the session file, read in the callbacks' framing (36 px there) */
 const FS = 0.56;
-const ROW = 24;
+export const ROW = 24;
 const HEAD_BASE = 57;
 const RULE_Y = 70;
 const ROW0 = 98;
@@ -144,15 +144,22 @@ export interface Stamp {
   rgb: Rgb;
   /** the frame it lands */
   at: number;
+  /**
+   * a sign pressed at the row's end, so a stamp never differs by hue alone: the refusal a cross
+   * (and a heavier rim), the approvals a tick; the ink stamps none
+   */
+  sign?: 'cross' | 'tick';
 }
 /** What each callback lights: the real code path of the moment it recalls. */
 export const STAMPS: readonly Stamp[] = [
-  { si: CAPS, row: 8, rgb: RED, at: HITS.cbRead }, // fs-observation-policy/: the refused edit
-  { si: CORE, row: 1, rgb: PAL.amber, at: HITS.cbAllow }, // core/approval/: Allow once
-  { si: CORE, row: 15, rgb: PAL.amber, at: HITS.cbAllow + 4 }, // core/sandbox/: the refusal that asked for it
+  { si: CAPS, row: 8, rgb: RED, at: HITS.cbRead, sign: 'cross' }, // fs-observation-policy/: the refused edit
+  { si: CORE, row: 1, rgb: PAL.amber, at: HITS.cbAllow, sign: 'tick' }, // core/approval/: Allow once
+  { si: CORE, row: 15, rgb: PAL.amber, at: HITS.cbAllow + 4, sign: 'tick' }, // core/sandbox/: the refusal that asked for it
   { si: CAPS, row: 14, rgb: PAL.paperInk, at: HITS.cbKept }, // persistence-jsonl/: the kept session
   { si: CAPS, row: 9, n: 3, rgb: PAL.paperInk, at: HITS.cbModels }, // llm-anthropic/, llm-deepseek/, llm-openai/: the picker
 ];
+/** Whether row `row` of strip `si` is stamped by frame `f`. */
+const stamped = (si: number, row: number, f: number): boolean => STAMPS.some((st) => st.si === si && row >= st.row && row < st.row + (st.n ?? 1) && f >= st.at);
 
 export interface Tab {
   label: string;
@@ -160,7 +167,7 @@ export interface Tab {
   row: number;
   /** the beat it docks on */
   at: number;
-  /** plugs into that tab instead of the strip */
+  /** houses that tab instead of entering the strip itself */
   into?: number;
 }
 /** The four ways in: each enters app/ where the code takes it. */
@@ -172,12 +179,10 @@ export const TABS: readonly Tab[] = [
 ];
 
 /** The session file persistence-jsonl writes: storage on disk beside the strips, not a layer. */
-export const FILE = { label: 'sessions/<id>.jsonl', row: 14, at: HITS.cbKept + 5 } as const;
+export const FILE = { label: 'sessions/<id>.jsonl', row: 14, at: HITS.cbKept + 10 } as const;
 
 /** The terminal's last paint (its pass), shown wherever the film recalls the terminal as a whole. */
 export const TERM_PAINT = 535;
-/** The captures the lit map's surfaces show. */
-export const SURFACE_KEYS: readonly CaptureKey[] = ['webFinal', 'deskSessionWindow'];
 
 export interface MapState {
   /** the frame: stamps press by it */
@@ -186,20 +191,22 @@ export interface MapState {
   bar: { y: number; x0: number; x1: number };
   /** per strip, 0..1: how far it has unrolled from the bar */
   unroll: readonly number[];
-  /** 0: the half-light of the callbacks; 1: lit */
+  /** 0: the half-light of the callbacks; 1: lit (the stamped modules promoted, the rest dimmed) */
   light: number;
-  /** 0..1: the surfaces back at the ends of their ways in */
-  surfaces: number;
-  /** the close: everything contracting into a screen point, by element (0-3 strips, 4 tabs, 5 file, 6 bar, 7 surfaces) */
+  /** the close: everything contracting into a screen point, by element (0-3 strips, 4 tabs, 5 file, 6 bar) */
   shrink?: { to: Vec2; s: (el: number) => number };
 }
 
 const SHADE = hex('#05070a');
 const TAB_RGB = hex('#2a2f38');
+const HOUSE_RGB = hex('#1f232a');
 const TAB_LINE = hex('#4a515d');
 const BAR_RGB = hex('#262a32');
 const BAR_LIGHT = hex('#59606c');
 const PAPER_DIM = scale(PAL.paper, 0.72);
+/** unstamped rows: their ink in the callbacks' half-light, and once the stamped ones are promoted */
+const ROW_DIM = 0.55;
+const ROW_LIT = 0.4;
 
 /** an element's view: the camera, the strips hanging from wherever the bar is, and the close's contraction */
 function viewOf(m: MapState, el: number): View {
@@ -209,12 +216,24 @@ function viewOf(m: MapState, el: number): View {
 }
 
 const TAB_HALF = 13;
-/** A tab's box (design px): its left and right edges and its centre line. */
-export function tabBox(c: Ctx, k: number): { x0: number; x1: number; y: number } {
+/** labels keep this far (design px) from the paper beside them: 25 px in the lit wide, more in every closer framing */
+const LABEL_GAP = 28;
+/** the label column's right edge: a fixed gap left of app/ (never tucked under it) */
+export const COL_X1 = STRIPS[APP]!.x - LABEL_GAP;
+/** the desktop's housing around the web tab: its half height, its rim right of the web tab, and the gap between its label and the web tab */
+const HOUSE_HALF = TAB_HALF + 5;
+const RIM = 7;
+const HOUSE_GAP = 28;
+const housed = (k: number): boolean => TABS.some((t) => t.into === k);
+
+/** A tab's box (design px): its left and right edges, its centre line and half height. */
+export function tabBox(c: Ctx, k: number): { x0: number; x1: number; y: number; half: number } {
   const t = TABS[k]!;
-  const w = c.d.type.layout('mono', t.label).widths[0]! * TS + 28;
-  const x1 = t.into === undefined ? STRIPS[APP]!.x + 12 : tabBox(c, t.into).x0 + 10;
-  return { x0: x1 - w, x1, y: rowBase(t.row) - 7 };
+  const tw = c.d.type.layout('mono', t.label).widths[0]! * TS;
+  const y = rowBase(t.row) - 7;
+  if (t.into !== undefined) return { x0: tabBox(c, t.into).x0 - HOUSE_GAP - tw - 14, x1: COL_X1, y, half: HOUSE_HALF };
+  const x1 = housed(k) ? COL_X1 - RIM : COL_X1;
+  return { x0: x1 - tw - 28, x1, y, half: TAB_HALF };
 }
 
 /** The tab's slide in: 0 off to the left, 1 docked (most of the way on its beat, a long tail after). */
@@ -235,12 +254,11 @@ export function drawMap(c: Ctx, m: MapState): void {
     d.box(pt(v, s.x + s.w / 2 + 22, BAR_Y + h / 2 + 40), [(s.w / 2) * v.k, (h / 2) * v.k], 8 * v.k, SHADE, { alpha: 0.6 * lift, feather: 42 * v.k });
   }
 
-  // the ways in, tucked under app/
+  // the ways in, in their column left of app/ (a housing before the tab it houses)
   const tv = viewOf(m, 4);
   if (tv.k > 0.02) {
     for (let k = TABS.length - 1; k >= 0; k--) drawTab(c, m, tv, k);
   }
-  drawSurfaces(c, m, viewOf(m, 7));
   drawFile(c, m, viewOf(m, 5));
 
   for (let si = 0; si < STRIPS.length; si++) drawStrip(c, m, si, viewOf(m, si));
@@ -255,46 +273,14 @@ function drawTab(c: Ctx, m: MapState, v: View, k: number): void {
   const slide = (1 - p) * -260;
   const a = clamp((m.f - (TABS[k]!.at - 12)) / 6);
   const cx = (b.x0 + b.x1) / 2 + slide;
-  const half: Vec2 = [((b.x1 - b.x0) / 2) * v.k, TAB_HALF * v.k];
+  const house = TABS[k]!.into !== undefined;
+  const half: Vec2 = [((b.x1 - b.x0) / 2) * v.k, b.half * v.k];
+  const r = (house ? 7 : 5) * v.k;
   d.box(pt(v, cx + 4, b.y + 8), half, 6 * v.k, SHADE, { alpha: 0.5 * a, feather: 10 * v.k });
-  d.box(pt(v, cx, b.y), half, 5 * v.k, TAB_RGB, { alpha: a });
-  d.box(pt(v, cx, b.y), half, 5 * v.k, TAB_LINE, { alpha: a, stroke: 1.3 * v.k });
-  d.text('mono', TABS[k]!.label, ...pt(v, b.x0 + 14 + slide, b.y + 7.5), { scale: TS * v.k, rgb: PAL.ink, alpha: a });
-}
-
-/** The surfaces, back on the lit downbeat at the outer ends of their ways in: the terminal's pass, the run line, the web page, the desktop window. */
-function drawSurfaces(c: Ctx, m: MapState, v: View): void {
-  const p = m.surfaces;
-  if (p <= 0 || v.k < 0.02) return;
-  const { d } = c;
-  const g = 0.9 + 0.1 * p;
-  const slide = (1 - p) * -36;
-  const pane = (right: number, cy: number, w: number, h: number, tex: StageTexture, crop: readonly [number, number, number, number], line: boolean) => {
-    const centre = pt(v, right - w / 2 + slide, cy);
-    const half: Vec2 = [(w / 2) * g * v.k, (h / 2) * g * v.k];
-    d.screenPane(centre, half, tex, { crop, radius: 7 * v.k, opacity: p, shadow: { ...SHADOW_NEAR, alpha: SHADOW_NEAR.alpha * p } });
-    if (line) d.box(centre, half, 7 * v.k, PAL.chromeLine, { stroke: 1.4 * v.k, alpha: p });
-  };
-  const term = tabBox(c, 0);
-  pane(term.x0 - 16, term.y, 200, (200 * TUI_H) / TUI_W, c.term(TERM_PAINT), [0, 0, TUI_W, TUI_H], true);
-  // the web page stands on its tab; the desktop window hangs from the outer end of its own, which plugs into the web's
-  const web = tabBox(c, 1);
-  const ws = CAPTURES.webFinal.scale;
-  const wh = (190 * 800) / 1280;
-  pane(web.x1 - 22, web.y - TAB_HALF - 3 - wh / 2, 190, wh, c.tex(themed('webFinal')), [0, 0, 1280 * ws, 800 * ws], false);
-  const desk = tabBox(c, 2);
-  const dh = (290 * 753) / 1266;
-  pane(desk.x0 + 150, desk.y + TAB_HALF + 4 + dh / 2, 290, dh, c.tex('deskSessionWindow'), [0, 0, 1266, 753], false);
-  // the headless run: its command line
-  const run = tabBox(c, 3);
-  const label = 'minidsh run';
-  const w = d.type.layout('mono', label).widths[0]! * TS + 28;
-  const cx = run.x0 - 16 - w / 2 + slide;
-  const half: Vec2 = [(w / 2) * g * v.k, 15 * g * v.k];
-  d.box(pt(v, cx + 4, run.y + 8), half, 6 * v.k, SHADE, { alpha: 0.45 * p, feather: 10 * v.k });
-  d.box(pt(v, cx, run.y), half, 6 * v.k, PAL.term, { alpha: p });
-  d.box(pt(v, cx, run.y), half, 6 * v.k, PAL.chromeLine, { alpha: p, stroke: 1.4 * v.k });
-  d.text('mono', label, ...pt(v, cx, run.y + 7.5), { scale: TS * g * v.k, rgb: PAL.ink, alpha: p, align: 'centre' });
+  d.box(pt(v, cx, b.y), half, r, house ? HOUSE_RGB : TAB_RGB, { alpha: a });
+  d.box(pt(v, cx, b.y), half, r, TAB_LINE, { alpha: a, stroke: 1.3 * v.k });
+  // the labels step back with the rest once the stamped modules are promoted
+  d.text('mono', TABS[k]!.label, ...pt(v, b.x0 + 14 + slide, b.y + 7.5), { scale: TS * v.k, rgb: PAL.ink, alpha: a * (1 - 0.4 * m.light) });
 }
 
 function drawFile(c: Ctx, m: MapState, v: View): void {
@@ -302,16 +288,17 @@ function drawFile(c: Ctx, m: MapState, v: View): void {
   if (p <= 0 || v.k < 0.02) return;
   const { d } = c;
   const w = d.type.layout('mono', FILE.label).widths[0]! * FS + 32;
-  const x1 = STRIPS[CAPS]!.x - 24;
-  // it slides out from under capabilities/, where persistence-jsonl wrote it
+  const x1 = STRIPS[CAPS]!.x - LABEL_GAP;
+  // it slides out from under capabilities/, where persistence-jsonl wrote it, a little below its
+  // row so it keeps clear of the desktop's tab above it
   const cx = x1 - w / 2 + (1 - p) * (w * 0.8);
-  const y = rowBase(FILE.row) - 3;
-  const half: Vec2 = [(w / 2) * v.k, 16 * v.k];
+  const y = rowBase(FILE.row) + 8;
+  const half: Vec2 = [(w / 2) * v.k, 15 * v.k];
   const a = clamp((m.f - FILE.at) / 4);
   d.box(pt(v, cx + 8, y + 16), half, 8 * v.k, SHADE, { alpha: 0.5 * a, feather: 16 * v.k });
   d.box(pt(v, cx, y), half, 7 * v.k, PAL.term, { alpha: a });
   d.box(pt(v, cx, y), half, 7 * v.k, PAL.dim, { alpha: a, stroke: 1.8 * v.k });
-  d.text('mono', FILE.label, ...pt(v, cx - w / 2 + 16, y + 8), { scale: FS * v.k, rgb: PAL.ink, alpha: a });
+  d.text('mono', FILE.label, ...pt(v, cx - w / 2 + 16, y + 8), { scale: FS * v.k, rgb: PAL.ink, alpha: a * (1 - 0.25 * m.light) });
 }
 
 function drawStrip(c: Ctx, m: MapState, si: number, v: View): void {
@@ -333,18 +320,20 @@ function drawStrip(c: Ctx, m: MapState, si: number, v: View): void {
   const ink = PAL.paperInk;
   const head = shown(BAR_Y + HEAD_BASE);
   if (head > 0) {
-    d.text('table', s.head, ...pt(v, s.x + PAD_X, BAR_Y + HEAD_BASE), { scale: HS * v.k, rgb: ink, enter: head });
+    d.text('table', s.head, ...pt(v, s.x + PAD_X, BAR_Y + HEAD_BASE), { scale: HS * v.k, rgb: ink, enter: head, alpha: 1 - 0.2 * m.light });
     d.box(pt(v, cx, BAR_Y + RULE_Y), [(s.w / 2 - PAD_X) * v.k, 0.9 * v.k], 0, ink, { alpha: 0.3 * head });
   }
   // stamps under their names
-  for (const st of STAMPS) if (st.si === si) stamp(c, v, st, m.f);
-  const dim = 0.55 + 0.45 * m.light;
+  for (const st of STAMPS) if (st.si === si) stamp(c, v, st, m.f, m.light);
+  const rest = ROW_DIM + (ROW_LIT - ROW_DIM) * m.light;
   s.rows.forEach((name, row) => {
     const base = rowBase(row);
     const e = shown(base);
     if (e <= 0) return;
-    const lit = STAMPS.some((st) => st.si === si && row >= st.row && row < st.row + (st.n ?? 1) && m.f >= st.at) || (si === APP && TABS.some((t, k) => t.row === row && dock(m.f, k) > 0.85));
-    d.text('mono', name, ...pt(v, s.x + PAD_X, base), { scale: NS * v.k, rgb: ink, alpha: lit ? 1 : dim, enter: e });
+    // a docked way in lights its row until the stamped modules are promoted; a stamped row stays lit
+    const docked = si === APP && TABS.some((t, k) => t.row === row && dock(m.f, k) > 0.85);
+    const alpha = stamped(si, row, m.f) ? 1 : docked ? 1 + (ROW_LIT - 1) * m.light : rest;
+    d.text('mono', name, ...pt(v, s.x + PAD_X, base), { scale: NS * v.k, rgb: ink, alpha, enter: e });
   });
 }
 
@@ -361,8 +350,12 @@ function teeth(c: Ctx, v: View, x: number, w: number, edge: number, rgb: Rgb): v
   }
 }
 
-/** A stamp: a rounded outline and fill in its colour, pressed with a quick drop onto the paper. */
-function stamp(c: Ctx, v: View, st: Stamp, f: number): void {
+/**
+ * A stamp: a rounded rim and a fill in its colour, pressed with a quick drop onto the paper, and
+ * its sign (a cross or a tick) at the row's end. On the bar-33 downbeat every stamp re-inks at
+ * once: the promoted code paths.
+ */
+function stamp(c: Ctx, v: View, st: Stamp, f: number, light: number): void {
   const t = f - st.at;
   if (t < 0) return;
   const { d } = c;
@@ -374,8 +367,25 @@ function stamp(c: Ctx, v: View, st: Stamp, f: number): void {
   // in the air it casts a shadow; on the paper the fresh ink settles
   if (press > 0) d.box([p[0] + 4 * press * v.k, p[1] + 7 * press * v.k], half, 6 * v.k, SHADE, { alpha: 0.28 * press, feather: 8 * v.k });
   const fresh = 1 - settle(t, 5);
-  d.box(p, half, 6 * v.k, st.rgb, { alpha: 0.2 + 0.3 * fresh });
-  d.box(p, half, 6 * v.k, st.rgb, { stroke: 2.2 * v.k });
+  const relit = f >= HITS.lit ? 1 - settle(f - HITS.lit, 7) : 0;
+  const ink = st.rgb === PAL.paperInk;
+  // the coloured stamps' fill deepens when promoted; the ink ones stay a light wash under their rim
+  const fill = ink ? 0.1 + 0.25 * fresh + 0.15 * relit : 0.2 + 0.3 * fresh + 0.14 * light + 0.25 * relit;
+  d.box(p, half, 6 * v.k, st.rgb, { alpha: Math.min(0.75, fill) });
+  const rim = st.sign === 'cross' ? 3.6 : 2.2;
+  d.box(p, half, 6 * v.k, st.rgb, { stroke: (rim + 0.6 * light) * v.k });
+  if (!st.sign) return;
+  // the sign, in the stamp's colour darkened towards the ink so its shape reads without its hue
+  const s = 6.5 * k * v.k;
+  const g = pt(v, b.c[0] + b.half[0] - 17, b.c[1]);
+  const sign = mix(st.rgb, PAL.paperInk, 0.4);
+  const w = (st.sign === 'cross' ? 3.4 : 3) * v.k;
+  if (st.sign === 'cross') {
+    d.path([[g[0] - s, g[1] - s], [g[0] + s, g[1] + s]], w, sign);
+    d.path([[g[0] + s, g[1] - s], [g[0] - s, g[1] + s]], w, sign);
+  } else {
+    d.path([[g[0] - s, g[1] + 0.1 * s], [g[0] - 0.3 * s, g[1] + 0.8 * s], [g[0] + s, g[1] - 0.8 * s]], w, sign);
+  }
 }
 
 function drawBar(c: Ctx, m: MapState, v: View): void {
@@ -404,10 +414,28 @@ export function titleDot(c: Ctx): Vec2 {
   return [TITLE_X + w + 5 + TITLE_DOT_R, TITLE_Y - TITLE_DOT_R];
 }
 
-/** "One runtime" without its full stop, entering and leaving at its cues. */
+const RUNTIME_TITLES = TITLES.filter((t) => t.act === 'runtime');
+
+/**
+ * A runtime-act title's entrance window and its entrance and exit at frame `f`: at its cues, except
+ * where the next title would rise in the same place while this one is still sinking (the providers'
+ * line and "One runtime." on the bar-33 downbeat). There the gap between the one's end and the
+ * other's cue is split: the first sinks in its first half, the next rises in the second, so the two
+ * never show at once; each is still readable from its cue to its end.
+ */
+export function titleMotion(f: number, id: string): { enter: number; exit: number; in: Vec2 } {
+  const i = RUNTIME_TITLES.findIndex((t) => t.id === id);
+  const t = RUNTIME_TITLES[i]!;
+  const prev = RUNTIME_TITLES[i - 1];
+  const next = RUNTIME_TITLES[i + 1];
+  let in0 = t.frame - TEXT_IN;
+  if (prev && prev.end + TEXT_OUT > in0) in0 = Math.max(in0, (prev.end + t.frame) / 2);
+  const out = next && t.end + TEXT_OUT > next.frame - TEXT_IN ? Math.max(2, (next.frame - t.end) / 2) : TEXT_OUT;
+  return { enter: clamp((f - in0) / (t.frame - in0)), exit: clamp((f - t.end) / out), in: [in0, t.frame] };
+}
+
+/** "One runtime" without its full stop, entering and leaving as one line (never typed on). */
 export function runtimeWords(f: number, c: Ctx): void {
-  const t = title('t-runtime');
-  const enter = clamp((f - (t.frame - TEXT_IN)) / TEXT_IN);
-  const exit = clamp((f - t.end) / TEXT_OUT);
-  if (enter > 0 && exit < 1) c.d.text('title', 'One runtime', TITLE_X, TITLE_Y, { enter, exit });
+  const { enter, exit } = titleMotion(f, 't-runtime');
+  if (enter > 0 && exit < 1) c.d.text('title', 'One runtime', TITLE_X, TITLE_Y, { enter, exit, by: 'line' });
 }

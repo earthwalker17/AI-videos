@@ -78,15 +78,15 @@ export const TITLES: Title[] = [
   { id: 't-window', act: 'desktop', tier: 'title', text: 'Its own window. Its own Node.', frame: at(21, 3), end: at(23, 3) },
   { id: 't-kept', act: 'desktop', tier: 'title', text: 'Quit mid-turn. The session is kept.', frame: at(24, 1), end: at(26, 3) },
   { id: 't-ways', act: 'runtime', tier: 'title', text: 'Four ways in.', frame: at(28, 1), end: at(29, 3) },
-  { id: 't-providers', act: 'runtime', tier: 'title', text: 'DeepSeek, Anthropic or OpenAI.', frame: at(32, 1) - 34, end: at(33, 1) - TEXT_OUT },
+  { id: 't-providers', act: 'runtime', tier: 'title', text: 'DeepSeek, Anthropic or OpenAI.', frame: at(32, 1) - 44, end: at(33, 1) - TEXT_IN - TEXT_OUT },
   { id: 't-runtime', act: 'runtime', tier: 'title', text: 'One runtime.', frame: at(33, 1), end: at(35, 1) },
-  { id: 'c-name', act: 'close', tier: 'name', text: 'MiniDSH 2.0', frame: at(36, 3), end: FILM_FRAMES },
+  { id: 'c-name', act: 'close', tier: 'name', text: 'MiniDSH 2.0', frame: at(37, 1), end: FILM_FRAMES },
   { id: 'c-tag', act: 'close', tier: 'sub', text: 'An architecture-first, local-first agent harness.', frame: at(37, 1), end: FILM_FRAMES },
   { id: 'c-install', act: 'close', tier: 'mono', text: 'npm install -g minidsh', frame: at(38, 1), end: FILM_FRAMES },
-  { id: 'c-dep', act: 'close', tier: 'small', text: 'One package. One runtime dependency. Node 24+.', frame: at(38, 3), end: FILM_FRAMES },
-  { id: 'c-url', act: 'close', tier: 'mono', text: 'github.com/earthwalker17/MiniDSH', frame: at(39, 1), end: FILM_FRAMES },
-  { id: 'c-legal', act: 'close', tier: 'small', text: 'An independent project inspired by DeepSeek Harness.\nNot affiliated with or endorsed by DeepSeek.', frame: at(39, 3), end: FILM_FRAMES },
-  { id: 'c-real', act: 'close', tier: 'small', text: 'Real sessions, recorded live; waits shortened.', frame: at(40, 1), end: FILM_FRAMES },
+  { id: 'c-dep', act: 'close', tier: 'small', text: 'One package. One runtime dependency. Node 24+.', frame: at(38, 1), end: FILM_FRAMES },
+  { id: 'c-url', act: 'close', tier: 'mono', text: 'github.com/earthwalker17/MiniDSH', frame: at(38, 1), end: FILM_FRAMES },
+  { id: 'c-legal', act: 'close', tier: 'small', text: 'An independent project inspired by DeepSeek Harness.\nNot affiliated with or endorsed by DeepSeek.', frame: at(39, 1), end: FILM_FRAMES },
+  { id: 'c-real', act: 'close', tier: 'small', text: 'Real sessions, recorded live; waits shortened.', frame: at(39, 1), end: FILM_FRAMES },
 ];
 
 const BY_ID = new Map(TITLES.map((t) => [t.id, t]));
