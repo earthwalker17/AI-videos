@@ -62,7 +62,8 @@ export const hook: ActModule = {
   draw(f, c) {
     // the slow push through the hold, then the pull-back and flat into the terminal act's framing
     const hold = mixShot(POSTER, POSTER_IN, easings.inOutSine(clamp(f / SWING[0])));
-    const s = mixShot(hold, WIDE, prog(f, SWING[0], SWING[1], easings.inOutCubic));
+    // the pull-back starts slowly (the pane stays below the line until it has gone) and lands on Enter
+    const s = mixShot(hold, WIDE, prog(f, SWING[0], SWING[1], easings.inQuad));
     const half: Vec2 = [(s.crop[2] * s.k) / 2, (s.crop[3] * s.k) / 2];
     c.d.pane(world(s.centre), half, c.term(TYPED), { crop: s.crop, yaw: s.yaw, pitch: s.pitch, radius: 16, shadow: SHADOW });
 

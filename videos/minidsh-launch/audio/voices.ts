@@ -137,10 +137,12 @@ export function clap(seed: number): Float32Array {
 
 // ── bass ──────────────────────────────────────────────────────────────────────────────────────
 
-/** The sub: a sine with a little of its octave and twelfth, what a laptop's speaker can play of it. */
-export function sub(m: number, hold: number, release = 0.22): Float32Array {
-  // a 12 ms rise: the kick on the same downbeat speaks first
-  const env = adsr({ attack: 0.012, decay: 0.35, sustain: 0.7, release, curve: 2 }, hold);
+/**
+ * The sub: a sine with a little of its octave and twelfth, what a laptop's speaker can play of it.
+ * It rises in 12 ms (the kick on the same downbeat speaks first), or in `attack` s.
+ */
+export function sub(m: number, hold: number, release = 0.22, attack = 0.012): Float32Array {
+  const env = adsr({ attack, decay: 0.35, sustain: 0.7, release, curve: 2 }, hold);
   const n = env.length;
   const w = (TAU * midiHz(m)) / SR;
   const out = new Float32Array(n);
@@ -382,6 +384,8 @@ export function slide(seed: number, len = 0.42): StereoClip {
 /**
  * A tight whoosh: noise swept up to its peak `pre` s in and down after, moving from `pan0` to
  * `pan1`, with a short bright contact at the peak. The peak is `pre` s from the clip's start.
+ * The pre-roll stays low until the last moment and breaks off 5 ms before the peak (a 4 ms fade,
+ * as the kit's swells leave a gap before what they lead into), so the contact lands as the onset.
  */
 export function whoosh(seed: number, pre: number, post: number, pan0: number, pan1: number): StereoClip {
   const k = sec(pre);
@@ -404,8 +408,9 @@ export function whoosh(seed: number, pre: number, post: number, pan0: number, pa
     }
     fl.tick(nl());
     fr.tick(nr());
-    // the pre-roll stays low until the last moment, so the peak lands as an onset
-    const e = before ? u ** 3.5 : Math.exp(-(i - k) / (0.07 * SR));
+    // the pre-roll stays low until the last moment, then breaks off just before the peak
+    const gap = clamp((k - sec(0.001) - i) / sec(0.004));
+    const e = before ? u ** 5 * (0.5 - 0.5 * Math.cos(Math.PI * gap)) : Math.exp(-(i - k) / (0.07 * SR));
     const bright = hp.tick(nc());
     const contact = i >= k ? bright * Math.exp(-(i - k) / (0.0015 * SR)) * 1.2 : 0;
     const [gl, gr] = panGains(pan0 + (pan1 - pan0) * smooth(i / n));
@@ -415,7 +420,13 @@ export function whoosh(seed: number, pre: number, post: number, pan0: number, pa
   return norm({ l, r }, -1, 0.02);
 }
 
-/** A receipt printing: seven quick ticks of a print head, 10.5 ms apart (the first the strongest), over a short rasp of paper. */
+/**
+ * A receipt printing: seven quick ticks of a print head, 10.5 ms apart, over a short rasp of
+ * paper. The first is the head's heavy strike (a 1.5 ms burst, the others 0.5 ms), and the whole
+ * is soft-clipped hard: at the same peak its first 5 ms carry 3.4 dB more than a 0.5 ms tick did
+ * (and the print 3 dB more in 2-8 kHz), every later 5 ms at least 9.8 dB under them, so the print
+ * reads over the groove and its first block is the rise QA's onset finder reads.
+ */
 export function printer(seed: number): Float32Array {
   const n = sec(0.22);
   const out = new Float32Array(n);
@@ -432,12 +443,13 @@ export function printer(seed: number): Float32Array {
     const t = i / SR;
     const j = Math.floor(i / step);
     const p = i - j * step;
-    const x = j < 7 && p < 24 ? nz() * (1 - p / 24) * amp(j) : 0;
+    const len = j === 0 ? 72 : 24;
+    const x = j < 7 && p < len ? nz() * (1 - p / len) * amp(j) : 0;
     const band = paper.tick(nz());
     const rasp = t >= 0.015 ? band * Math.min(1, (t - 0.015) / 0.006) * Math.exp(-(t - 0.015) / 0.05) * 0.22 : 0;
     out[i] = head.tick(x) + rasp;
   }
-  return norm(soften(out, 1.5), -1, 0.02);
+  return norm(soften(out, 2.5), -1, 0.02);
 }
 
 /** The sandbox's bolt: a muted low knock, a door that does not open. */
@@ -566,32 +578,57 @@ export function shimmer(seed: number, len = 2): StereoClip {
   return norm({ l, r }, -1, 0.05);
 }
 
-/** A deep, soft boom: a sine falling to 38 Hz, saturated just enough to be heard on small speakers, with a low knock. */
-export function boom(seed: number): Float32Array {
+export interface BoomOptions {
+  /** how hard the body is driven into its soft clip (default 1.6) */
+  drive?: number;
+  /** the body after the first 5 ms against them, dB (default 0: one envelope) */
+  bodyDb?: number;
+}
+
+/**
+ * A deep, soft boom: a sine falling to 38 Hz, saturated just enough to be heard on small speakers
+ * (`drive`), with a low knock. Driven harder (2.5 and over) its body is near square while it is
+ * loud, so its power does not dip twice a cycle as a sine's does; with its body under its first
+ * 5 ms (`bodyDb`), those 5 ms are the rise QA's onset finder reads, not a later one.
+ */
+export function boom(seed: number, o: BoomOptions = {}): Float32Array {
   const n = sec(1.8);
   const out = new Float32Array(n);
   const nz = whiteNoise(seed);
   const lp = new Biquad('lowpass', 700, 0.7);
+  const drive = o.drive ?? 1.6;
+  const bodyGain = dbToGain(o.bodyDb ?? 0);
+  const a = sec(0.005);
+  const turn = sec(0.003);
   let ph = 0;
   for (let i = 0; i < n; i++) {
     const t = i / SR;
     ph += (TAU * (38 + 34 * Math.exp(-t / 0.09))) / SR;
     const body = Math.sin(ph) * Math.exp(-t / 0.45) * Math.min(1, t / 0.0015);
     const knock = lp.tick(nz()) * Math.exp(-t / 0.012);
-    out[i] = Math.tanh(1.6 * body + 0.4 * knock);
+    const w = i < a ? 1 : i < a + turn ? 0.5 + 0.5 * Math.cos((Math.PI * (i - a)) / turn) : 0;
+    out[i] = (w + (1 - w) * bodyGain) * Math.tanh(drive * body + 0.4 * knock);
   }
   return norm(out, -1, 0.08);
 }
 
-/** How loud every stamp is, alone (its loudest 400 ms, LUFS; its peak then -3 to -1 dBFS): its level in the mix is set where it is placed. */
-const STAMP_LUFS = -8;
+/** How loud every stamp is, alone (its loudest 400 ms, LUFS; its peak, its strike's, then -2.7 to -1.1 dBFS, as before the strike): its level in the mix is set where it is placed. */
+const STAMP_LUFS = -11.5;
+/**
+ * The stamp's strike: its first 5 ms driven harder (denser at the same peak), the body after it
+ * 4.5 dB lower (a 3 ms turn). Flat from its first block, the stamp let any low note under it
+ * (the G2 sub against D3 beats at 49 Hz) push a later 5 ms block over its first in QA's onset
+ * finder; now its first block stands 4 to 6 dB clear of what follows it.
+ */
+const STRIKE = { s: 0.005, turn: 0.003, drive: 2, bodyDb: -4.5 } as const;
 
 /**
  * A stamp: a pitched, dense hit (a tuned body at `m` with its fifth and octave, driven into a
- * soft clip; a pitch-dropping thwack) and the slap of paper on top. Each callback of the runtime
- * gets its own note. A 1.5 ms strike of seeded noise excites a low mode by the burst's sum, which
- * the seed sets, so the body is levelled (by its first 30 ms) before the clip, and the stamp by
- * its loudness after it: levelled by their peaks, the four came out up to 3.3 LU apart.
+ * soft clip; a pitch-dropping thwack) and the slap of paper on top, its strike sharper than its
+ * body (STRIKE). Each callback of the runtime gets its own note. A 1.5 ms strike of seeded noise
+ * excites a low mode by the burst's sum, which the seed sets, so the body is levelled (by its
+ * first 30 ms) before the clip, and the stamp by its loudness after it: levelled by their peaks,
+ * the four came out up to 3.3 LU apart.
  */
 export function stamp(m: number, seed: number): Float32Array {
   const f = midiHz(m);
@@ -616,13 +653,19 @@ export function stamp(m: number, seed: number): Float32Array {
   const level = Math.sqrt((2 * e) / sec(0.03));
   const nz = whiteNoise(seedOf(seed, 'paper'));
   const paper = new Biquad('bandpass', 2300, 0.9);
+  const a = sec(STRIKE.s);
+  const turn = sec(STRIKE.turn);
+  const bodyGain = dbToGain(STRIKE.bodyDb);
   let ph = 0;
   for (let i = 0; i < n; i++) {
     const t = i / SR;
     ph += (TAU * f * (1 + 0.7 * Math.exp(-t / 0.006))) / SR;
     const thwack = Math.sin(ph) * Math.exp(-t / 0.035) * Math.min(1, t / 0.0005);
     const slap = paper.tick(nz()) * Math.exp(-t / 0.006);
-    out[i] = Math.tanh((2.6 * ring[i]) / level + 0.9 * thwack + 0.7 * slap);
+    // 1 in the strike, 0 in the body, a half cosine between
+    const w = i < a ? 1 : i < a + turn ? 0.5 + 0.5 * Math.cos((Math.PI * (i - a)) / turn) : 0;
+    const drive = 1 + (STRIKE.drive - 1) * w;
+    out[i] = (w + (1 - w) * bodyGain) * Math.tanh(drive * ((2.6 * ring[i]) / level + 0.9 * thwack + 0.7 * slap));
   }
   norm(out, -1, 0.04);
   scale(out, dbToGain(STAMP_LUFS - loudness(out, out).maxMomentary));

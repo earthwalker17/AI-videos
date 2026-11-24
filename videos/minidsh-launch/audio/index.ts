@@ -8,13 +8,16 @@
  *   measure.ts      what QA will measure (the rests, the hits' onsets), measured here on every build
  *   index.ts        the desk, the quit's muffle, the ducking, the master and the report
  *
- * The desk: seven buses (drums, bass, pad, keys, bell, air for the music; fx for the sound
+ * The desk: eight buses (kick, drums, bass, pad, keys, bell, air for the music; fx for the sound
  * design), a hall and a ping-pong echo for the music and a small room for the sound design. The
  * music ducks 2.5 dB under the sound design (its sends too, so its reverb steps back with it),
- * the pad and the bass a little under the kick. The drum and bass buses are soft-clipped. Every
- * music bus and send stops for the beat after the refusal; every bus and send stops at each rest.
- * The quit muffles the drum, bass, pad and keys buses and the hall and echo returns
- * (arrangement.ts, muffler); the bells and the sound design stay clear.
+ * the pad and the bass a little under the kick. The kick and bass buses are soft-clipped; the
+ * rest of the kit (ticks, shaker, rim, clap) has its own clean bus, so the kick's spikes do not
+ * squeeze it. Every music bus and send stops for the beat after the refusal; every bus and send
+ * stops at each rest, and the mix falls away over the 280 ms before the first (after Allow
+ * once), so that rest arrives as a decay, not a gate. The quit muffles the kick, drum, bass, pad
+ * and keys buses and the hall and echo returns (arrangement.ts, muffler); the bells and the sound
+ * design stay clear.
  *
  * The mix bus is tilted (2 dB less under 110 Hz, 3 dB more over 3.5 kHz), for laptop speakers.
  * The master is the kit's: a 28 Hz high-pass, glue, iterated loudness to -14 LUFS and a
@@ -36,9 +39,11 @@ const AAC_MARGIN_DB = 2.0;
 /** how far under the mix a rest must stay (QA's REST_UNDER_DB) */
 const REST_UNDER_DB = 20;
 
-const MUSIC = ['drums', 'bass', 'pad', 'keys', 'bell', 'air'] as const;
+const MUSIC = ['kick', 'drums', 'bass', 'pad', 'keys', 'bell', 'air'] as const;
 /** what the quit muffles: the band (the bells and the sound design stay clear) */
-const MUFFLED = ['drums', 'bass', 'pad', 'keys'] as const;
+const MUFFLED = ['kick', 'drums', 'bass', 'pad', 'keys'] as const;
+/** how long the mix takes to fall away into the rest after Allow once, s */
+const INTO_REST_S = 0.28;
 
 const db = (x: number): string => (Number.isFinite(x) ? x.toFixed(1) : '-inf');
 
@@ -52,6 +57,19 @@ function saturate(b: StereoClip, thresholdDb: number): void {
   for (const ch of [b.l, b.r]) for (let i = 0; i < ch.length; i++) ch[i] = t * Math.tanh(ch[i] / t);
 }
 
+/**
+ * A fade to nothing over the `len` samples before `at` (a half cosine, the master's fade-out
+ * shape), so what still rings there (the reverb and the echo, the bells' tails) dies away into a
+ * rest instead of being cut at its start.
+ */
+function fadeInto(m: { l: Float64Array; r: Float64Array }, at: number, len: number): void {
+  for (let i = Math.max(0, at - len); i < at; i++) {
+    const g = 0.5 + 0.5 * Math.cos((Math.PI * (i - (at - len))) / len);
+    m.l[i] *= g;
+    m.r[i] *= g;
+  }
+}
+
 const mix = (ctx: ScoreContext): Stereo => {
   const T = timeline(ctx);
   const restAllow = T.span('rest-allow');
@@ -60,21 +78,22 @@ const mix = (ctx: ScoreContext): Stereo => {
   const sfxCuts = T.cuts(restAllow[0], restEnd[0]);
   const mx = new Mixer({
     n: T.n,
-    buses: { drums: musicCuts, bass: musicCuts, pad: musicCuts, keys: musicCuts, bell: musicCuts, air: musicCuts, fx: sfxCuts },
+    buses: { kick: musicCuts, drums: musicCuts, bass: musicCuts, pad: musicCuts, keys: musicCuts, bell: musicCuts, air: musicCuts, fx: sfxCuts },
     sends: { hall: musicCuts, echo: musicCuts, room: sfxCuts },
   });
   const a = arrange(T, mx, ctx.seed);
   for (const e of ctx.cues.events) {
     if (e.kind === 'hit' && a.accents.get(e.id) !== T.cue(e.id)) throw new Error(`score: hit '${e.id}' has no sound on its frame`);
   }
-  saturate(mx.bus('drums'), -19);
+  // the kick alone is soft-clipped: the ticks, the shaker, the rim and the clap stay clean
+  saturate(mx.bus('kick'), -19);
   saturate(mx.bus('bass'), -18);
   const muffle = muffler(T);
   for (const b of MUFFLED) muffle(mx.bus(b));
   // the music steps back under the sound design; the pad and the bass make room for the kick
   for (const b of [...MUSIC, 'hall', 'echo']) mx.duck(b, 'fx', { depthDb: 2.5, thresholdDb: -32, attack: 0.004, release: 0.22 });
-  mx.duck('pad', 'drums', { depthDb: 2, thresholdDb: -24, attack: 0.005, release: 0.15 });
-  mx.duck('bass', 'drums', { depthDb: 1.5, thresholdDb: -22, attack: 0.003, release: 0.1 });
+  mx.duck('pad', 'kick', { depthDb: 2, thresholdDb: -24, attack: 0.005, release: 0.15 });
+  mx.duck('bass', 'kick', { depthDb: 1.5, thresholdDb: -22, attack: 0.003, release: 0.1 });
   const hall = convolver(synthIr({ ...HALL, seed: seedOf(ctx.seed, 'hall'), rt60: 2.0, length: 2.3 }));
   const room = convolver(synthIr({ ...ROOM, seed: seedOf(ctx.seed, 'room') }));
   const mixed = mx.mixdown({
@@ -82,6 +101,7 @@ const mix = (ctx: ScoreContext): Stereo => {
     echo: { process: (l, r, c) => muffle(delay(l, r, { time: T.beats(0.75), feedback: 0.3, pingPong: true, damp: 3400, cuts: c })), level: 0.38 },
     room: { process: room, level: 0.3 },
   });
+  fadeInto(mixed, restAllow[0], T.s(INTO_REST_S));
   // a gentle tilt on the mix bus: less weight a laptop cannot play, more of the presence it can
   for (const ch of [mixed.l, mixed.r]) {
     new Biquad('lowshelf', 110, Math.SQRT1_2, -2).run(ch);

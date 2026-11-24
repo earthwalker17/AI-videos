@@ -21,8 +21,9 @@
  * - The runtime's four callbacks are stamps on D3, F♯3, A3 and E4, the notes of the chord that
  *   lights at bar 33 (Dmaj9), where all of it sounds at once with the bells.
  *
- * Buses: drums, bass, pad, keys (piano and plucks), bell (the glass), air (risers and shimmer)
- * and fx (the sound design, with its own small room). See index.ts.
+ * Buses: kick, drums (the rest of the kit: ticks, shaker, rim, clap), bass, pad, keys (piano and
+ * plucks), bell (the glass), air (risers and shimmer) and fx (the sound design, with its own small
+ * room). See index.ts.
  */
 import { SR, Svf, curve, dbToGain, seedOf, type Mixer, type StereoClip, type Timeline } from '@aiv/pipeline/audio/kit';
 import { ACTS, HITS, actAt, type Act, type Hit } from '../src/cues.ts';
@@ -98,10 +99,13 @@ const PLAN: readonly Segment[] = [
   { bar: 3, chord: 'dmaj9', root: ROOT.D, attack: 0.35 },
   { bar: 5, beat: 2, chord: 'bm11', root: ROOT.B, attack: 0.1 },
   { bar: 7, chord: 'gmaj9', root: ROOT.G },
-  { bar: 7, beat: 3, chord: 'a9sus', root: ROOT.A, attack: 0.3 },
+  // the pad breathes out half a beat before the pass, the hand-off and the runtime (a short
+  // release): its close seconds beat in QA's 5 ms onset blocks and outgrew those hits' own rise
+  { bar: 7, beat: 3, chord: 'a9sus', root: ROOT.A, attack: 0.3, release: 0.3, until: [7, 4.5] },
   { bar: 8, chord: 'dadd9', root: ROOT.D, db: -19.5, bright: 0.55, attack: 0.04 },
-  { bar: 9, chord: 'gmaj9', root: ROOT.G },
-  { bar: 10, chord: 'dmaj9', root: ROOT.D, attack: 0.1 },
+  { bar: 9, chord: 'gmaj9', root: ROOT.G, release: 0.3, until: [9, 4.5] },
+  // and comes back under the whoosh and the boom (rising over 0.3 s), not with them
+  { bar: 10, chord: 'dmaj9', root: ROOT.D, attack: 0.3 },
   { bar: 11, chord: 'bm11', root: ROOT.B },
   { bar: 12, chord: 'gmaj9', root: ROOT.G },
   { bar: 13, chord: 'a9sus', root: ROOT.A },
@@ -121,8 +125,8 @@ const PLAN: readonly Segment[] = [
   { bar: 24, chord: 'a9sus', root: ROOT.A, bright: 0.45 },
   { bar: 25, chord: 'bm11', root: ROOT.B, attack: 0.3 },
   { bar: 26, chord: 'gmaj9', root: ROOT.G, bright: 0.55, attack: 0.08 },
-  { bar: 26, beat: 3, chord: 'a9sus', root: ROOT.A, bright: 0.5 },
-  { bar: 27, chord: 'bm11', root: ROOT.B, db: -19.5, bright: 0.35, attack: 0.05, release: 1.0 },
+  { bar: 26, beat: 3, chord: 'a9sus', root: ROOT.A, bright: 0.5, release: 0.3, until: [26, 4.5] },
+  { bar: 27, chord: 'bm11', root: ROOT.B, db: -19.5, bright: 0.35, attack: 0.3, release: 1.0 },
   { bar: 29, chord: 'gmaj9', root: ROOT.G2, bright: 0.45 },
   { bar: 31, chord: 'dmaj9', root: ROOT.Fs, bright: 0.5 },
   { bar: 32, chord: 'a9sus', root: ROOT.A, bright: 0.55 },
@@ -164,7 +168,7 @@ const WRITTEN: Record<Hit, readonly [number, number]> = {
 };
 const WRITTEN_ACTS: Record<Act, number> = { hook: 1, terminal: 3, handoff: 10, record: 12, permission: 15, desktop: 21, runtime: 27, close: 35 };
 
-/** The cue id src/cues.ts gives a hit (dotDrop → hit-dot-drop). */
+/** The cue id src/cues.ts gives a hit (dotDrop → hit-dot-drop): its rule, which cues.ts writes inline in its events and does not export. */
 export const hitId = (k: Hit): string => `hit-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 
 export interface Arrangement {
@@ -224,8 +228,8 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
   const RIM = V.rim(seedOf(seed, 'rim'));
   const CLAP = V.clap(seedOf(seed, 'clap'));
   const subClip = memo((key) => {
-    const [m, b, rel] = nums(key);
-    return V.sub(m!, secs(b!), rel);
+    const [m, b, rel, attack] = nums(key);
+    return V.sub(m!, secs(b!), rel, attack);
   });
   const bassClip = memo((key) => V.bass(nums(key)[0]!, 0.2));
   const glassClip = memo((key) => {
@@ -246,12 +250,13 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
     const k = BUILD_LIFT.findIndex((_, j) => s >= S(BUILD_BARS[j]!) && s < S(BUILD_BARS[j + 1]!));
     return dyn(s) + (k < 0 ? 0 : BUILD_LIFT[k]!);
   };
-  const kickAt = (s: number, db = -9): void => mx.add(s, KICK, { bus: 'drums', part: 'kick', db: db + TRIM.kick + dyn(s) });
+  const kickAt = (s: number, db = -9): void => mx.add(s, KICK, { bus: 'kick', part: 'kick', db: db + TRIM.kick + dyn(s) });
   const tickAt = (s: number, db: number, k: number, pan = 0.2): void => mx.add(s, TICKS[k & 3]!, { bus: 'drums', part: 'tick', db: db + TRIM.tick + dyn(s), pan });
   const shakeAt = (s: number, db: number, k: number): void => mx.add(s, SHAKES[k % 3]!, { bus: 'drums', part: 'shaker', db: db + TRIM.shaker + dyn(s), pan: -0.25 });
   const rimAt = (s: number, db = -21): void => mx.add(s, RIM, { bus: 'drums', part: 'rim', db: db + TRIM.rim + dyn(s), pan: -0.1, sends: { hall: 0.15 } });
   const clapAt = (s: number, db = -19): void => mx.add(s, CLAP, { bus: 'drums', part: 'clap', db: db + TRIM.clap + dyn(s), pan: 0.05, sends: { hall: 0.28 } });
-  const subAt = (s: number, m: number, b: number, db = -12, rel = 0.22): void => mx.add(s, subClip(`${m}:${b}:${rel}`), { bus: 'bass', part: 'sub', db: db + TRIM.sub + dyn(s) });
+  const subAt = (s: number, m: number, b: number, db = -12, rel = 0.22, attack = 0.012): void =>
+    mx.add(s, subClip(`${m}:${b}:${rel}:${attack}`), { bus: 'bass', part: 'sub', db: db + TRIM.sub + dyn(s) });
   const bassAt = (s: number, m: number, db = -15): void => mx.add(s, bassClip(`${m}`), { bus: 'bass', part: 'bass', db: db + TRIM.bass + dyn(s) });
   interface BellOptions {
     len?: number;
@@ -301,40 +306,66 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
     /** sixteenth ticks from here */
     ticksFrom?: number;
   }
-  /** beats where a hit takes the kick's place (the quit's click, the stamps), and where the kick is an accent */
-  const KICKLESS = new Set((['quit', 'cbRead', 'cbAllow', 'cbKept', 'cbModels'] as const).map(H));
-  const KICK_ACCENT = new Map([
+  /** beats where a hit takes the kick's place (the quit's click, the receipt's printer, the stamps) */
+  const KICKLESS = new Set((['quit', 'receipt', 'cbRead', 'cbAllow', 'cbKept', 'cbModels'] as const).map(H));
+  /** the kick's level (dB) on the beats where a hit sets it, over the pulse's own (the hand-off's accent, the light's) */
+  const KICK_LEVEL_AT = new Map([
     [H('handoff'), -7],
     [H('lit'), -11],
   ]);
+  /** beats where a hit takes the arpeggio's pluck's place (the receipt's printer, which the pluck masked) */
+  const PLUCKLESS = new Set((['receipt'] as const).map(H));
+  /**
+   * What a tick, the rim or the clap gets when it sounds with a kick (dB). The kit and the kick
+   * shared one soft clip once, which took about this much off them on those beats (3.3 to 3.9 dB
+   * above 2 kHz, and with it the kick's ripple); on their own clean bus they keep the balance by
+   * level, and the master's limiter is not asked for more.
+   */
+  const WITH_KICK_DB = -3;
   /** the straight pulse: a kick a beat, a shaker on the offbeats, a rim or a clap on 2 and 4 */
   const pulse = (from: number, to: number, o: Pulse = {}): void => {
     for (const { s, beat, j } of steps(from, to, 0.25)) {
       const whole = isWhole(beat);
       const half = isWhole(beat * 2);
-      if (whole && (o.kickOn ? o.kickOn(beat) : true) && !KICKLESS.has(s)) kickAt(s, KICK_ACCENT.get(s) ?? o.kickDb ?? -10);
+      const kicked = whole && (o.kickOn ? o.kickOn(beat) : true) && !KICKLESS.has(s);
+      if (kicked) kickAt(s, KICK_LEVEL_AT.get(s) ?? o.kickDb ?? -10);
+      const under = kicked ? WITH_KICK_DB : 0;
       if (half && !whole) shakeAt(s, o.shakeDb ?? -26, j);
-      if (whole && (beat === 1 || beat === 3) && s >= (o.rimFrom ?? Infinity)) rimAt(s);
-      if (whole && (beat === 1 || beat === 3) && s >= (o.clapFrom ?? Infinity)) clapAt(s);
-      if (s >= (o.ticksFrom ?? Infinity)) tickAt(s, whole ? -31 : half ? -34 : -36, j, 0.25);
+      if (whole && (beat === 1 || beat === 3) && s >= (o.rimFrom ?? Infinity)) rimAt(s, -21 + under);
+      if (whole && (beat === 1 || beat === 3) && s >= (o.clapFrom ?? Infinity)) clapAt(s, -19 + under);
+      if (s >= (o.ticksFrom ?? Infinity)) tickAt(s, (whole ? -31 : half ? -34 : -36) + under, j, 0.25);
     }
   };
   /** the offbeat bass: a short note on every "and", on the chord's root */
   const offbeats = (from: number, to: number, db = -15): void => {
     for (const { s, beat } of steps(from, to, 0.5)) if (!isWhole(beat)) bassAt(s, rootAt(s), db);
   };
+  /**
+   * Downbeats whose hit brings its own low sound (the runtime's boom, the first stamp's D3): the
+   * sub leaves it the first beat (the note before ends half a beat early, the next starts on beat
+   * 2), so the two do not beat against each other, a ripple QA's 5 ms onset blocks read as rises
+   * after the hit's own.
+   */
+  const SUB_RESTS = new Set((['runtime', 'cbRead'] as const).map(H));
+  /** downbeats where the sub's note rises in 50 ms, not 12: the desktop's soft clicks, whose first blocks its rise against the kick outgrew */
+  const SUB_SLOW = new Set((['desktop'] as const).map(H));
   /** the sub: a note on every downbeat and chord change in [from, to), held to the next */
   const subs = (from: number, to: number, db = -12.5): void => {
     const at = steps(from, to, 0.5)
       .filter(({ s, beat }, k) => k === 0 || beat === 0 || segs.some((g) => g.from === s))
       .map(({ s }) => s);
-    at.forEach((s, k) => subAt(s, rootAt(s), ((at[k + 1] ?? to) - s) / T.beatSamples - 0.15, db));
+    at.forEach((s, k) => {
+      const next = at[k + 1] ?? to;
+      const start = SUB_RESTS.has(s) ? s + beats(1) : s;
+      const end = next - beats(SUB_RESTS.has(next) ? 0.5 : 0.15);
+      if (end > start) subAt(start, rootAt(s), (end - start) / T.beatSamples, db, 0.22, SUB_SLOW.has(s) ? 0.05 : 0.012);
+    });
   };
   const ORDER = [0, 2, 1, 3, 2, 1, 3, 0];
   /** plucks through the chord's upper notes, an octave up, every `step` beats; the downbeat is left to the kick */
   const arp = (from: number, to: number, step: number, db: number): void => {
     for (const { s, beat, j } of steps(from, to, step)) {
-      if (beat === 0) continue;
+      if (beat === 0 || PLUCKLESS.has(s)) continue;
       const tones = chordAt(s)
         .slice(1)
         .map((m) => m + 12);
@@ -372,14 +403,14 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
     motif(s, -15.5);
     subAt(s, ROOT.D, 2, -15);
   });
-  swellTo(H('enter'), 1, -27, { f0: 400, f1: 4000, curve: 3 });
 
   // ── Terminal (bars 3-9): half-time; the refusal stops the music for a beat ─────────────────
   const dropFrom = H('refused');
   const dropTo = H('refused') + beats(1);
   const dropped = (s: number): boolean => s >= dropFrom && s < dropTo;
   {
-    const VEL = [-27, -34, -31, -34, -28, -34, -31, -33];
+    // the downbeat's tick sounds with the kick: it sits under it (WITH_KICK_DB)
+    const VEL = [-27 + WITH_KICK_DB, -34, -31, -34, -28, -34, -31, -33];
     for (const { s, beat, j } of steps(S(3), S(10), 0.5)) {
       if (dropped(s)) continue;
       const k = j % 8;
@@ -419,9 +450,10 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
     fx(s, V.uiTick(3100, seedOf(seed, 'edit', 0)), 'ui tick', -15, 0.1);
     fx(s + T.s(0.045), V.uiTick(3500, seedOf(seed, 'edit', 1)), 'ui tick', -19, 0.15);
   });
-  swellTo(H('pass'), 1, -26, { f0: 400, f1: 4500, curve: 3 });
-  hit('pass', 'a warm resolving chord: piano D4 F#4 A4 D5 over a brighter Dadd9 pad and the D sub, a soft glass A5', (s) => {
+  hit('pass', 'a warm resolving chord: piano D4 F#4 A4 D5 over a brighter Dadd9 pad and the D sub, a soft glass A5, a small contact on the frame', (s) => {
     for (const [k, m] of [62, 66, 69, 74].entries()) epAt(s, m, -20, 3, 0.45, (k - 1.5) * 0.25);
+    // a small contact on the frame: the chord's first 5 ms, and the music steps back under it
+    fx(s, V.uiTick(3000, seedOf(seed, 'pass')), 'ui tick', -19);
     bell(s, 81, -22, { len: 2.2, pan: 0.2, part: 'bell' });
   });
   hit('table', 'a soft slide (noise moving left to right, rising a little), on the bar kick', (s) => fx(s, V.slide(seedOf(seed, 'slide')), 'slide', -13));
@@ -433,10 +465,10 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
   offbeats(S(10), sandbox);
   subs(S(10), sandbox);
   arp(S(12), sandbox, 0.5, -25);
-  hit('handoff', 'a tight whoosh (left to right, its peak and a bright contact on the frame); the pulse starts under it with an accented kick', (s) =>
-    fx(s - T.s(0.28), V.whoosh(seedOf(seed, 'whoosh'), 0.28, 0.32, -0.6, 0.6), 'whoosh', -13),
+  hit('handoff', 'a tight whoosh (left to right, breaking off just before its peak and a bright contact on the frame); the pulse starts under it with an accented kick', (s) =>
+    fx(s - T.s(0.28), V.whoosh(seedOf(seed, 'whoosh'), 0.28, 0.32, -0.6, 0.6), 'whoosh', -15),
   );
-  hit('receipt', 'the receipt printing (seven print-head ticks over a rasp of paper)', (s) => fx(s, V.printer(seedOf(seed, 'printer')), 'printer', -14, 0.2));
+  hit('receipt', 'the receipt printing (a heavy first strike, six print-head ticks, a rasp of paper) in place of the kick and the pluck', (s) => fx(s, V.printer(seedOf(seed, 'printer')), 'printer', -12.5, 0.2));
 
   // ── the sandbox and the amber card (bars 16-19): the pulse stops; a clock; a question ──────
   hit('sandbox', 'the bolt (a muted low knock); the kick stops; the pad swells into G minor 6/9, drifting', (s) => fx(s, V.bolt(seedOf(seed, 'bolt')), 'bolt', -16));
@@ -450,7 +482,6 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
     bell(s, 76, -13, { warm: 0.8, bright: 0.35, len: 2.6, pan: -0.15, part: 'amber' });
     bell(s + beats(0.5), 81, -13.5, { warm: 0.8, bright: 0.35, len: 3, pan: 0.15, part: 'amber' });
   });
-  swellTo(allow, 1, -25, { f0: 400, f1: 4000, curve: 3 });
   hit('allow', 'Allow once: a crisp click, the resolving bells D5 and F#5, Dadd9 and a D sub; all of it gone before the rest', (s) => {
     fx(s, V.click(seedOf(seed, 'allow')), 'click', -13);
     bell(s, 74, -15, { warm: 0.5, len: 2, pan: -0.1, part: 'resolve', echo: 0.1 });
@@ -486,8 +517,8 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
   swellTo(S(27), 2, -22, { f0: 300, f1: 6000, curve: 3 });
 
   // ── One runtime (bars 27-34): a build; the callbacks stamp, closer and closer; it lights ────
-  hit('runtime', 'a deep soft boom and air; the build starts on Bm11 (kick on 1 and 3)', (s) => {
-    fx(s, V.boom(seedOf(seed, 'boom')), 'boom', -11, 0, 0.3);
+  hit('runtime', 'a deep boom (driven near square while it is loud, its first 5 ms over its body) and air; the build starts on Bm11 (kick on 1 and 3, the sub from beat 2)', (s) => {
+    fx(s, V.boom(seedOf(seed, 'boom'), { drive: 3, bodyDb: -3 }), 'boom', -12, 0, 0.3);
     airAt(s, V.shimmer(seedOf(seed, 'shimmer', 0), 2.2), 'shimmer', -23);
   });
   pulse(S(27), S(29), { kickOn: (b) => b === 0 || b === 2, kickDb: -10, shakeDb: -27 });
@@ -505,8 +536,8 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
   subs(S(31), breath);
   arp(S(31), breath, 0.25, -25.5);
   // levelled by loudness (voices.ts, stamp), so they sound alike: they come closer in time, and
-  // they stay under the light they lead to. The first sits half a dB up (its onset is on the G2
-  // sub, whose ripple QA's 5 ms blocks see), A3 a dB down (its crest is 2 dB over the others')
+  // they stay under the light they lead to. The first sits half a dB up and has its beat to itself
+  // (the G2 sub starts on beat 2: SUB_RESTS), A3 a dB down (its crest is 2 dB over the others')
   const STAMPS: readonly [Hit, number, number, number][] = [
     ['cbRead', 50, -11, -0.25],
     ['cbAllow', 54, -11.5, -0.08],
@@ -514,7 +545,7 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
     ['cbModels', 64, -11.5, 0.25],
   ];
   const NAMES = ['D3', 'F#3', 'A3', 'E4'];
-  STAMPS.forEach(([k, m, db, pan], i) => hit(k, `a stamp on ${NAMES[i]} (a tuned body, a thwack, a slap of paper), in place of the kick`, (s) => fx(s, V.stamp(m, seedOf(seed, 'stamp', i)), 'stamp', db, pan)));
+  STAMPS.forEach(([k, m, db, pan], i) => hit(k, `a stamp on ${NAMES[i]} (a sharp strike, then a tuned body, a thwack, a slap of paper), in place of the kick${i === 0 ? ' and the sub' : ''}`, (s) => fx(s, V.stamp(m, seedOf(seed, 'stamp', i)), 'stamp', db, pan)));
   swellTo(H('lit'), 4, -19, { f0: 250, f1: 7000, curve: 3 });
   hit('lit', 'the peak: the whole chord (Dmaj9 pad, piano D4 F#4 A4 C#5 E5 rolled over 28 ms), glass F#5 A5 D6 E6 (rolled over 27 ms), air, a low boom and the kick', (s) => {
     // rolled by a few milliseconds, low to high: one strike to the ear, but the peaks do not stack
@@ -534,7 +565,6 @@ export function arrange(T: Timeline, mx: Mixer, seed: number): Arrangement {
   // ── Close (bars 35-42): resolve; the dot comes to rest in the mark; a long tail; quiet ──────
   kickAt(S(35), -13);
   subs(S(35), H('mark'), -13);
-  swellTo(H('mark'), 2, -25, { f0: 400, f1: 5000, curve: 3 });
   hit('mark', 'the motif (glass E6 A5 F#5) coming to rest on D5 a half bar later; Dadd9, the D sub, a breath of air', (s) => {
     motif(s);
     bell(s + beats(2), 74, -18, { len: 4, part: 'motif' });
