@@ -23,7 +23,9 @@ and the review cut. The timeline is `src/cues.ts`; each act is a module in `src/
   - Titles: IBM Plex Sans 600, 88 px, tracking −1.8%.
   - Line: 46 px. End card name: 128 px.
   - Mono (Plex Mono 500): 40 px for commands, 66 px for the payoff table.
-  - Small print: 36 px. Texture (strip micro-print, the browser address): 26 px.
+  - Small print: 36 px. Texture (the browser address): 26 px.
+  - Runtime strips: module names Plex Mono at 22.4 design px, read at 36-40 px in the docked and
+    callback framings (k 1.6-1.75), texture (about 20 px) in the lit wide shot.
 - **Readable text.** At least 36 px (font size; the creator's choice, 2026-11-24).
 - **UI magnification** (target px ÷ product px):
   - web UI body (14 px) ×2.25–2.7 in close-ups;
