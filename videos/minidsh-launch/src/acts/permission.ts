@@ -28,11 +28,11 @@ const P0 = ACTS.permission;
 const SEND = at(15, 3) + 4;
 // the page scrolls: long enough that motion blur stays smooth; the two states cross at top speed
 const TO_RUN = [SEND, SEND + 40] as const;
-const TO_SANDBOX = [HITS.sandbox - 32, HITS.sandbox + 8] as const;
-const TO_CARD = [HITS.approval - 28, HITS.approval + 2] as const;
+const TO_SANDBOX = [HITS.sandbox - 50, HITS.sandbox - 10] as const;
+const TO_CARD = [HITS.approval - 20, HITS.approval + 10] as const;
 const cross = (p: number) => clamp((p - 0.3) / 0.4);
 const PAN = [at(18, 1), at(18, 3)] as const;
-const PRESS = [HITS.allow - 8, HITS.allow - 4] as const;
+const PRESS = [HITS.allow - 4, HITS.allow - 1] as const;
 const PUSH = [HITS.approval + 4, HITS.approval + 96] as const;
 const CURSOR_IN = [at(18, 1), at(18, 4)] as const;
 

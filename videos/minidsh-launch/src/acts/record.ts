@@ -43,7 +43,8 @@ export const record: ActModule = {
     // the pointer leaves the sidebar as the card fills the frame
     if (f < PUSH[1]) {
       const from = screenOf(V_PAGE, 150, 178);
-      pointer(c, [from[0] + 600 * push, from[1] + 700 * push]);
+      const out = clamp(push * 2.2);
+      pointer(c, [from[0] + 1500 * out, from[1] + 900 * out]);
     }
     titles(f, c.d, 'record');
   },

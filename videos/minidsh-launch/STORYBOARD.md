@@ -34,6 +34,7 @@ and the review cut. The timeline is `src/cues.ts`; each act is a module in `src/
 - **Motion.**
   - Titles rise through their baseline, 12 frames in, 8 out.
   - Camera moves ease in and out (cubic). One hero move per shot. Hard cuts on bars.
+  - Holds are never dead: a slow camera drift of at most 0.15 px a frame is allowed under text being read.
   - Motion blur: 6 sub-frames over a 180° shutter, never across a cut.
 - **Colour.** Lit ink ground (#0b0d10 → #272c35). Light-theme panes (the look check's choice). Teal at four moments (the dot); amber only in the permission beat.
 

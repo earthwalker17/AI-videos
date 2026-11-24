@@ -2,8 +2,8 @@
  * Bars 21-26: the desktop app (Windows, the official 2.0.0 installer; its own session, a different
  * task on the same project). Its own window arrives under the title; the camera narrows onto its own
  * line ("A new session works in tinytable. Its log is kept; nothing it does is hidden from you.");
- * a glance at the turn running (Working, the stop button); the whole window mid-turn, and the
- * pointer closes it on the quit hit (the close button lights red, as Windows does); the window
+ * a cut on bar 23 to the whole window mid-turn (Working, the stop button), and the pointer closes
+ * it on the quit hit (the close button lights red, as Windows does); the window
  * stops and recedes, collapses into the teal dot, rests, and reopens from it with the session kept
  * ("Stopped · The turn was cancelled before it finished.").
  */
@@ -35,8 +35,6 @@ function asContent(key: CaptureKey, v: View): View {
 /** the mark, the name and its line (content CSS px), read at 2.9x: the line's 12.5 px text at 36 px */
 const HERO: readonly [number, number, number, number] = [470, 214, 586, 100];
 const HERO_K = 2.9;
-/** the turn running (desk-run-01, the same turn 2 s earlier): Working, and the stop button in the composer */
-const RUNNING: View = { key: 'deskRun', rect: [420, 372, 700, 290], centre: [960, 540], k: 2.6 };
 /** the kept session: the "Stopped" note, the composer and its context line, whole */
 export const KEPT: readonly [number, number, number, number] = [424, 446, 680, 240];
 export const KEPT_K = 2.65;
@@ -46,9 +44,9 @@ export const KEPT_AT: Vec2 = [960, 708];
 export { CONTENT_AT };
 
 const ARRIVE = [ACTS.desktop, ACTS.desktop + 24] as const;
-const PUSH = [at(21, 4), at(22, 4)] as const;
-const MIDTURN = at(23, 3);
-const WIDE_AGAIN = at(23, 4);
+const PUSH = [at(21, 3), at(22, 3)] as const;
+/** the cut to the whole window mid-turn, on bar 23: two seconds of it before the quit */
+const MIDTURN = at(23, 1);
 const COLLAPSE = [HITS.collapse - 20, HITS.collapse + 4] as const;
 const STOPPING = [HITS.quit + 4, COLLAPSE[0]] as const;
 const REOPEN = [HITS.reopen, HITS.reopen + 26] as const;
@@ -61,11 +59,10 @@ const DOT_R = 17;
 const DOT_REST: Vec2 = [1040, 640];
 
 export const desktop: ActModule = {
-  // from its line to the turn running, and to the whole window
-  cuts: [MIDTURN, WIDE_AGAIN],
+  // from its line to the whole window mid-turn
+  cuts: [MIDTURN],
   needs(f) {
     if (f < MIDTURN) return f < PUSH[0] ? ['deskReadyWindow'] : ['deskReadyWindow', 'deskReady'];
-    if (f < WIDE_AGAIN) return ['deskRun'];
     if (f < HITS.reopen) return ['deskBeforeQuitWindow'];
     return f < READ_KEPT[0] ? ['deskSessionWindow'] : ['deskSessionWindow', 'deskSession'];
   },
@@ -83,14 +80,12 @@ export const desktop: ActModule = {
       show(d, tex, v, { radius: 10 + 6 * push, shadow: SHADOW });
       const sharp = clamp((v.k - 1.25) / 0.25);
       if (sharp > 0) show(d, tex, asContent('deskReady', v), { radius: 10 + 6 * push, opacity: sharp });
-    } else if (f < WIDE_AGAIN) {
-      // a glance at the turn running: Working, and the composer's stop button
-      show(d, tex, { ...RUNNING, k: RUNNING.k * (1 + 0.02 * prog(f, MIDTURN, WIDE_AGAIN)) }, { radius: 16, shadow: SHADOW });
     } else if (f < HITS.reopen) {
       // the whole window mid-turn; the pointer closes it; it stops, recedes, and collapses into the dot
       const stopping = prog(f, STOPPING[0], STOPPING[1], easings.inOutSine);
       const collapse = prog(f, COLLAPSE[0], COLLAPSE[1], easings.inCubic);
-      const v = winView('deskBeforeQuitWindow', (1 - 0.1 * stopping) * (1 - 0.985 * collapse));
+      const approach = prog(f, MIDTURN, HITS.quit, easings.inOutSine);
+      const v = winView('deskBeforeQuitWindow', (1 + 0.05 * approach) * (1 - 0.1 * stopping) * (1 - 0.985 * collapse));
       if (collapse < 1) {
         show(d, tex, v, { radius: 10 * v.k, shadow: SHADOW, gain: 1 - 0.28 * stopping, opacity: 1 - 0.6 * clamp((collapse - 0.7) / 0.3) });
         closeButton(f, c, v);
@@ -105,7 +100,7 @@ export const desktop: ActModule = {
       if (f < COLLAPSE[0]) {
         const btn = screenOf(v, CLOSE_BTN[0] + CLOSE_BTN[2] / 2 + 4, CLOSE_BTN[1] + CLOSE_BTN[3] / 2 + 3);
         const from: Vec2 = [1640, 980];
-        const q = prog(f, WIDE_AGAIN, HITS.quit - 6, easings.inOutCubic);
+        const q = prog(f, MIDTURN + 50, HITS.quit - 6, easings.inOutCubic);
         const away = prog(f, HITS.quit + 8, HITS.quit + 50, easings.inCubic);
         const press = clamp(1 - Math.abs(f - (HITS.quit - 1)) / 5);
         const tip: Vec2 = [from[0] + (btn[0] - from[0]) * q + 260 * away, from[1] + (btn[1] - from[1]) * q + 160 * away];

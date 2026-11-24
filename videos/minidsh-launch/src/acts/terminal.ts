@@ -21,9 +21,12 @@ import { titles, type ActModule, type Ctx } from './common.ts';
 const RETIME: readonly (readonly [number, number])[] = [
   [ACTS.terminal, 7241], // Enter
   [at(4, 3), 16900], // the commands, the failing test and the thinking, about 3x
+  [at(4, 4) - 15, 17150], // its last scroll lands before the push starts ...
+  [HITS.refused - 1, 17160], // ... and holds while the camera pushes in
   [HITS.refused, 17171], // the refused edit lands on the downbeat of bar 5
   [at(5, 4) + 20, 18250], // held while the push lands and pans (its rows do not move)
   [HITS.read, 20578], // the cut: the read and the edit that went through
+  [at(7, 1) - 1, 21530], // the read close-up holds its last line until the cut
   [at(7, 1), 21600],
   [HITS.pass, 22963], // "Both tests pass."
   [HITS.pass + 12, 23717], // the reply streams in quickly and the turn is over: it is still when read
@@ -48,11 +51,18 @@ interface Frame {
   k: number;
 }
 const WIDE: Frame = { crop: [0, 0, TUI_W, TUI_H], centre: [1215, 640], k: 0.5 };
-/** rows `a`..`b` (inclusive), columns 0..`cols`, at scale k: 40 px text reads at 36 px from k 0.9 */
+/**
+ * Rows `a`..`b` (inclusive) at scale k (40 px text reads at 36 px from k 0.9), framed as if
+ * `cols` columns were centred at `centre`: the pane keeps that left edge and runs on past the
+ * frame's right edge (no word is cut at a pane edge inside the frame), and its top and bottom fall
+ * between rows (no half row of the line above).
+ */
 function rows(a: number, b: number, cols: number, centre: Vec2, k: number): Frame {
   const [x0, y0] = cellPx(0, a);
   const [x1, y1] = cellPx(cols, b + 1);
-  return { crop: [x0 - 30, y0 - 14, x1 - x0 + 60, y1 - y0 + 28], centre, k };
+  const left = centre[0] - ((x1 - x0 + 60) * k) / 2;
+  const crop = [x0 - 30, y0 - 3, TUI_W - (x0 - 30), y1 - y0 + 11] as const;
+  return { crop, centre: [left + (crop[2] * k) / 2, centre[1] + 2.5 * k], k };
 }
 const REFUSED = rows(1, 9, 62, [1130, 650], 0.9);
 const ERROR = rows(14, 22, 62, [1130, 650], 0.9);

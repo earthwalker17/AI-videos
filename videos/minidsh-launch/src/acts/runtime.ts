@@ -102,6 +102,13 @@ const V_APP = framing([STRIPS[CORE]!.x, BAR_Y], [1924, 330], 1.75);
 const V_CB = framing([STRIPS[CAPS]!.x, BAR_Y], [912, 262], 1.62);
 /** the whole map, its right edge at x 1800, the bar at y 300 under "One runtime." */
 const V_LIT = framing([STRIPS[3]!.x + STRIPS[3]!.w, BAR_Y], [1800, 300], 0.9);
+/**
+ * The lit moment, close: capabilities/ and core/ with every stamped module (their names at about
+ * 30 px), the bar at y 330 under "One runtime."; app/ and kernel/ at the sides.
+ */
+const V_MID = framing([STRIPS[CAPS]!.x, BAR_Y], [690, 330], 1.36);
+/** after "One runtime." has landed and been read: back out to the whole map for the close */
+const OUT_LIT = [at(34, 3), ACTS.close] as const;
 
 const PULL = [R0, R0 + 66] as const;
 const PUSH = [R0 + 108, R0 + 148] as const;
@@ -119,7 +126,8 @@ const LIT_TO: Vec2 = [1300, 700];
 
 const holdApp = (f: number): View => toward(V_APP, [960, 600], 1 + 0.015 * clamp((f - PUSH[1]) / (TRUCK[0] - PUSH[1])));
 const holdCb = (f: number): View => toward(V_CB, [800, 800], 1 + 0.015 * clamp((f - TRUCK[1]) / (PULL_LIT[0] - TRUCK[1])));
-const holdLit = (f: number): View => toward(V_LIT, LIT_TO, 1 + 0.07 * easings.inOutSine(clamp((f - LIT_PUSH[0]) / (LIT_PUSH[1] - LIT_PUSH[0]))));
+const holdMid = (f: number): View => toward(V_MID, [960, 640], 1 + 0.03 * easings.inOutSine(clamp((f - HITS.lit) / (OUT_LIT[0] - HITS.lit))));
+const holdLit = (f: number): View => toward(V_LIT, LIT_TO, 1 + 0.05 * easings.inOutSine(clamp((f - OUT_LIT[1]) / (LIT_PUSH[1] - OUT_LIT[1]))));
 
 function camera(f: number): View {
   const io = easings.inOutCubic;
@@ -128,7 +136,9 @@ function camera(f: number): View {
   if (f < TRUCK[0]) return holdApp(f);
   if (f < TRUCK[1]) return between(holdApp(TRUCK[0]), V_CB, io((f - TRUCK[0]) / (TRUCK[1] - TRUCK[0])));
   if (f < PULL_LIT[0]) return holdCb(f);
-  if (f < PULL_LIT[1]) return between(holdCb(PULL_LIT[0]), V_LIT, io((f - PULL_LIT[0]) / (PULL_LIT[1] - PULL_LIT[0])));
+  if (f < PULL_LIT[1]) return between(holdCb(PULL_LIT[0]), V_MID, io((f - PULL_LIT[0]) / (PULL_LIT[1] - PULL_LIT[0])));
+  if (f < OUT_LIT[0]) return holdMid(f);
+  if (f < OUT_LIT[1]) return between(holdMid(OUT_LIT[0]), V_LIT, io((f - OUT_LIT[0]) / (OUT_LIT[1] - OUT_LIT[0])));
   return holdLit(f);
 }
 
