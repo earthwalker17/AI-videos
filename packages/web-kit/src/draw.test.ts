@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { Camera, type Vec3 } from './camera.ts';
-import { paneAxes } from './draw.ts';
+import { paneAxes, riseTiming } from './draw.ts';
 
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
@@ -31,5 +31,21 @@ describe('paneAxes', () => {
     const top = cam.project([-lean[0] * 300, -lean[1] * 300, -lean[2] * 300]);
     expect(top.depth).toBeGreaterThan(cam.project([0, 0, 0]).depth);
     expect(v[1]).toBeCloseTo(-1, 12);
+  });
+});
+
+describe('riseTiming', () => {
+  it('lets one piece (a line rising whole) take the whole entrance', () => {
+    expect(riseTiming(0, 0, 0, 1).pin).toBe(0);
+    expect(riseTiming(1, 0, 0, 1).pin).toBe(1);
+    expect(riseTiming(0.5, 0, 0, 1).pin).toBeGreaterThan(riseTiming(0.5, 0, 1, 2).pin);
+  });
+
+  it('staggers pieces: a later piece is never further in than an earlier one, and all are in at 1', () => {
+    for (const e of [0.05, 0.3, 0.6, 0.9]) {
+      expect(riseTiming(e, 0, 3, 8).pin).toBeLessThanOrEqual(riseTiming(e, 0, 2, 8).pin);
+    }
+    for (let i = 0; i < 8; i++) expect(riseTiming(1, 0, i, 8).pin).toBeCloseTo(1, 6);
+    for (let i = 0; i < 8; i++) expect(riseTiming(1, 1, i, 8).pout).toBeCloseTo(1, 6);
   });
 });

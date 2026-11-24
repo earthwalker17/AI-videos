@@ -14,7 +14,7 @@ import { P_COMPOSER } from './permission.ts';
 import { V_PAGE, browserFrame } from './handoff.ts';
 
 /** the edit card: its rows, the Record and the start of the diff */
-const V_CARD: View = { key: 'webDiff', rect: [486, 70, 620, 290], centre: [1130, 700], k: 2.4 };
+const V_CARD: View = { key: 'webDiff', rect: [486, 70, 620, 262], centre: [1000, 700], k: 2.6 };
 /** the receipt chip itself (CSS px in the page) */
 const CHIP = [512, 145, 318, 28] as const;
 
@@ -36,7 +36,7 @@ export const record: ActModule = {
     if (lift > 0) {
       const [x, y, w, h] = CHIP;
       const centre = screenOf(v, x + w / 2, y + h / 2);
-      const s = 1 + 0.25 * lift * settle(f - LIFT[0], 5);
+      const s = 1 + 0.4 * lift * settle(f - LIFT[0], 5);
       const chip: View = { key: 'webDiff', rect: [x, y, w, h], centre: [centre[0], centre[1] - 18 * lift], k: v.k * s };
       show(c.d, c.tex, chip, { radius: 10, shadow: SHADOW_NEAR });
     }

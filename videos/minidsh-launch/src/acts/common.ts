@@ -36,7 +36,7 @@ export function titles(f: number, d: Draw<StyleId, Pal>, act: Act): void {
     const enter = clamp((f - (t.frame - TEXT_IN)) / TEXT_IN);
     const exit = clamp((f - t.end) / TEXT_OUT);
     if (enter <= 0 || exit >= 1) continue;
-    d.text(TIER_STYLE[t.tier], t.text, TITLE_X, TITLE_Y, { enter, exit });
+    d.text(TIER_STYLE[t.tier], t.text, TITLE_X, TITLE_Y, { enter, exit, by: 'line' });
   }
 }
 

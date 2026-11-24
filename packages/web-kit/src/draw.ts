@@ -61,11 +61,31 @@ export interface TextOptions {
   enter?: number;
   /** exit progress 0..1 (glyphs sink back into the baseline) */
   exit?: number;
+  /**
+   * what rises together: each glyph in turn (the default), or each line as one piece (a title
+   * that must never read as typed on)
+   */
+  by?: 'glyph' | 'line';
   /** uniform scale about the anchor */
   scale?: number;
   add?: number;
   /** a colour for some glyphs, by their index among the visible glyphs (a word that names its mark) */
   tint?: (k: number) => Rgb | undefined;
+}
+
+/**
+ * The entrance and exit of piece `i` of `n` (a glyph, or a line): each piece takes 42% of the
+ * entrance, the pieces start one after another and the last starts at 58%; the exit staggers at half
+ * the pace. One piece takes the whole entrance. Eased progress, 0..1 each.
+ */
+export function riseTiming(enter: number, exit: number, i: number, n: number): { pin: number; pout: number } {
+  const own = n <= 1 ? 1 : 0.42;
+  const step = n <= 1 ? 0 : (1 - own) / (n - 1);
+  const stepOut = step * 0.5;
+  // fully in at 1 exactly (float steps would leave the last piece a hair short)
+  const pin = enter >= 1 ? 1 : easings.outExpo(clamp((enter - i * step) / own));
+  const pout = easings.inCubic(clamp((exit - i * stepOut) / (1 - (n - 1) * stepOut)));
+  return { pin, pout };
 }
 
 export interface PaneOptions {
@@ -199,18 +219,14 @@ export class Draw<S extends string = string, P extends Roles = Roles> {
     const rgb = o.rgb ?? this.pal.ink;
     const k = o.scale ?? 1;
     const align = o.align ?? 'left';
-    const n = Math.max(1, lay.count);
-    // each glyph takes `own` of the entrance, and the last one starts at 1 - own
-    const own = n === 1 ? 1 : 0.42;
-    const step = n === 1 ? 0 : (1 - own) / (n - 1);
+    const byLine = o.by === 'line';
+    const n = byLine ? lay.widths.length : Math.max(1, lay.count);
     const rise = lay.cap * 1.12 * k;
     for (const pg of lay.glyphs) {
       const lw = lay.widths[pg.line]!;
       const left = align === 'left' ? x : align === 'centre' ? x - (lw * k) / 2 : x - lw * k;
       const base = y + pg.line * lay.lineStep * k;
-      const pin = easings.outExpo(clamp((enter - pg.k * step) / own));
-      const stepOut = step * 0.5;
-      const pout = easings.inCubic(clamp((exit - pg.k * stepOut) / (1 - (n - 1) * stepOut)));
+      const { pin, pout } = riseTiming(enter, exit, byLine ? pg.line : pg.k, n);
       const dy = (1 - pin) * rise + pout * rise;
       const gx = left + (pg.x + pg.g.ox) * k;
       const gy = base + pg.g.oy * k + dy;

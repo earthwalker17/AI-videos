@@ -70,7 +70,7 @@ export interface Title {
  * The product's own on-screen strings (inside the captured UI) are not listed: they are pictures.
  */
 export const TITLES: Title[] = [
-  { id: 't-hook', act: 'hook', tier: 'sub', text: 'A coding agent for your terminal, browser and desktop.', frame: 0, end: at(2, 4.6) },
+  { id: 't-hook', act: 'hook', tier: 'sub', text: 'A coding agent for your terminal, browser and desktop.', frame: 0, end: at(2, 3) - 8 - TEXT_OUT },
   { id: 't-read', act: 'terminal', tier: 'title', text: 'No edit before a read.', frame: at(5, 2), end: at(7, 1) },
   { id: 't-session', act: 'handoff', tier: 'title', text: 'Same session. In your browser.', frame: at(10, 2), end: at(12, 1) },
   { id: 't-record', act: 'record', tier: 'title', text: "The runtime's record, not the model's word.", frame: at(12, 3), end: at(15, 1) },

@@ -26,7 +26,7 @@ const RETIME: readonly (readonly [number, number])[] = [
   [HITS.read, 20578], // the cut: the read and the edit that went through
   [at(7, 1), 21600],
   [HITS.pass, 22963], // "Both tests pass."
-  [at(8, 3), 23717], // the turn is over
+  [HITS.pass + 12, 23717], // the reply streams in quickly and the turn is over: it is still when read
   [ACTS.handoff, 23717],
 ];
 export function realTime(f: number): number {
@@ -59,24 +59,28 @@ const ERROR = rows(14, 22, 62, [1130, 650], 0.9);
 const READ = rows(1, 8, 62, [1130, 650], 0.9);
 const REPLY = rows(12, 24, 60, [1130, 680], 0.9);
 
+/** A camera move: the scale changes geometrically, the pane's size on screen linearly. */
 function mix(a: Frame, b: Frame, t: number): Frame {
   const m = (x: number, y: number) => x + (y - x) * t;
-  return {
-    crop: [m(a.crop[0], b.crop[0]), m(a.crop[1], b.crop[1]), m(a.crop[2], b.crop[2]), m(a.crop[3], b.crop[3])],
-    centre: [m(a.centre[0], b.centre[0]), m(a.centre[1], b.centre[1])],
-    k: m(a.k, b.k),
-  };
+  const k = a.k * Math.pow(b.k / a.k, t);
+  const w = m(a.crop[2] * a.k, b.crop[2] * b.k) / k;
+  const h = m(a.crop[3] * a.k, b.crop[3] * b.k) / k;
+  const cx = m(a.crop[0] + a.crop[2] / 2, b.crop[0] + b.crop[2] / 2);
+  const cy = m(a.crop[1] + a.crop[3] / 2, b.crop[1] + b.crop[3] / 2);
+  return { crop: [cx - w / 2, cy - h / 2, w, h], centre: [m(a.centre[0], b.centre[0]), m(a.centre[1], b.centre[1])], k };
 }
+/** the wide shot, pushed in a little: the stream of commands is never a dead hold */
+const WIDE_IN: Frame = { ...WIDE, centre: [1190, 655], k: 0.56 };
 
 /** The camera on the terminal at film frame f. */
 function frameAt(f: number): Frame {
-  if (f < at(4, 4)) return WIDE;
-  if (f < HITS.refused) return mix(WIDE, REFUSED, prog(f, at(4, 4), HITS.refused, easings.inOutCubic));
+  if (f < at(4, 4) - 15) return mix(WIDE, WIDE_IN, prog(f, ACTS.terminal, at(4, 4) - 15, easings.inOutSine));
+  if (f < HITS.refused) return mix(WIDE_IN, REFUSED, prog(f, at(4, 4) - 15, HITS.refused, easings.inOutCubic));
   if (f < at(5, 3) - 10) return REFUSED;
   if (f < HITS.read) return mix(REFUSED, ERROR, prog(f, at(5, 3) - 10, at(6, 1) - 4, easings.inOutSine));
   if (f < at(7, 1)) return READ;
   if (f < HITS.pass - 30) return WIDE;
-  if (f < HITS.table) return mix(WIDE, REPLY, prog(f, HITS.pass - 30, HITS.pass + 10, easings.inOutCubic));
+  if (f < HITS.table) return mix(WIDE, REPLY, prog(f, HITS.pass - 30, HITS.pass + 16, easings.inOutCubic));
   return REPLY;
 }
 
@@ -114,7 +118,7 @@ function payoff(f: number, c: Ctx): void {
     const rightAligned = left + (7 + 3 - qty.length) * charW;
     const isNum = i > 0;
     const x = isNum ? leftAligned + (rightAligned - leftAligned) * slide : leftAligned;
-    c.d.text('table', qty, x, y, { rgb: isNum ? PAL.teal : PAL.paperInk, alpha: show });
+    c.d.text('table', qty, x, y, { rgb: PAL.paperInk, alpha: show });
   });
 }
 
@@ -124,7 +128,7 @@ export const terminal: ActModule = {
   cuts: [HITS.read, at(7, 1)],
   draw(f, c) {
     const fr = frameAt(f);
-    const dim = 1 - 0.55 * prog(f, HITS.table - 24, HITS.table, easings.outCubic) * (1 - prog(f, at(9, 3) + 16, at(9, 4) + 4, easings.inCubic));
+    const dim = 1 - 0.75 * prog(f, HITS.table - 24, HITS.table, easings.outCubic) * (1 - prog(f, at(9, 3) + 16, at(9, 4) + 4, easings.inCubic));
     drawTerminal(c, paintOf(f), fr, { gain: dim });
     payoff(f, c);
     titles(f, c.d, 'terminal');
