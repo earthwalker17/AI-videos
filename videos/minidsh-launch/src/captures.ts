@@ -101,13 +101,15 @@ export interface View {
 
 /** Linear blend of two views (same capture geometry assumed): a camera move. */
 export function mixView(a: View, b: View, t: number, key: CaptureKey = t < 0.5 ? a.key : b.key): View {
+  // a camera move, not two lerps: the scale changes geometrically (a steady zoom), the pane's size
+  // on screen linearly, so a pane never grows past both its ends mid-move; the crop follows
   const m = (x: number, y: number) => x + (y - x) * t;
-  return {
-    key,
-    rect: [m(a.rect[0], b.rect[0]), m(a.rect[1], b.rect[1]), m(a.rect[2], b.rect[2]), m(a.rect[3], b.rect[3])],
-    centre: [m(a.centre[0], b.centre[0]), m(a.centre[1], b.centre[1])],
-    k: m(a.k, b.k),
-  };
+  const k = a.k * Math.pow(b.k / a.k, t);
+  const w = m(a.rect[2] * a.k, b.rect[2] * b.k) / k;
+  const h = m(a.rect[3] * a.k, b.rect[3] * b.k) / k;
+  const cx = m(a.rect[0] + a.rect[2] / 2, b.rect[0] + b.rect[2] / 2);
+  const cy = m(a.rect[1] + a.rect[3] / 2, b.rect[1] + b.rect[3] / 2);
+  return { key, rect: [cx - w / 2, cy - h / 2, w, h], centre: [m(a.centre[0], b.centre[0]), m(a.centre[1], b.centre[1])], k };
 }
 
 /** The screen point of a CSS point of a view (for the cursor and for marks pinned to the UI). */

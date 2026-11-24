@@ -23,6 +23,8 @@ export interface Ctx {
 export interface ActModule {
   needs(f: number): CaptureKey[];
   draw(f: number, c: Ctx): void;
+  /** film frames where the act cuts hard inside itself (motion blur never crosses them) */
+  cuts?: readonly number[];
 }
 
 const TIER_STYLE: Record<Tier, StyleId> = { title: 'title', sub: 'sub', name: 'name', mono: 'mono', small: 'small' };

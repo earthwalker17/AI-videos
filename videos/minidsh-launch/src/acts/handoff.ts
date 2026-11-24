@@ -15,7 +15,7 @@ import { pointer, titles, type ActModule, type Ctx } from './common.ts';
  * The web page at the cut: its "Both tests pass." (CSS 454, 591, 14 px) where the terminal's (col 3,
  * row 14 of REPLY, 36 px) was: left edge at x 547, the line's middle at y 493, the same height.
  */
-export const V_MATCH: View = { key: 'webDiff', rect: [400, 470, 560, 300], centre: [1128, 568], k: 2.57 };
+export const V_MATCH: View = { key: 'webDiff', rect: [400, 520, 560, 250], centre: [1128, 632], k: 2.57 };
 /** The whole page, framed in our browser window. */
 export const V_PAGE: View = { key: 'webDiff', rect: [0, 0, 1280, 800], centre: [1172, 668], k: 0.94 };
 

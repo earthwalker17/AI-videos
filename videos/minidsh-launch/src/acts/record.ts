@@ -4,7 +4,7 @@
  * ("wrote table.js · 641 B · sha256 3e895076e748"). The receipt lifts out of the card on the hit;
  * then the camera moves down the same page to the composer, where the permission act begins.
  */
-import { easings } from '@aiv/core';
+import { clamp, easings } from '@aiv/core';
 import { bump, prog, settle } from '@aiv/web-kit';
 import { mixView, screenOf, show, type View } from '../captures.ts';
 import { ACTS, HITS, at } from '../cues.ts';
@@ -28,7 +28,7 @@ export const record: ActModule = {
     const push = prog(f, PUSH[0], PUSH[1], easings.inOutCubic);
     let v = mixView(V_PAGE, V_CARD, push);
     if (f >= DOWN[0]) v = mixView(V_CARD, { ...P_COMPOSER, key: 'webDiff' }, prog(f, DOWN[0], DOWN[1], easings.inOutCubic));
-    browserFrame(c, v, 1 - push);
+    browserFrame(c, v, clamp(1 - 2.5 * push));
     const lift = f < DOWN[0] ? bump(f, LIFT[0], LIFT[1], DOWN[0] - 10) : 0;
     show(c.d, c.tex, v, { radius: 14, shadow: SHADOW, gain: 1 - 0.15 * lift });
 

@@ -72,7 +72,7 @@ function mix(a: Frame, b: Frame, t: number): Frame {
 function frameAt(f: number): Frame {
   if (f < at(4, 4)) return WIDE;
   if (f < HITS.refused) return mix(WIDE, REFUSED, prog(f, at(4, 4), HITS.refused, easings.inOutCubic));
-  if (f < at(5, 3)) return REFUSED;
+  if (f < at(5, 3) - 10) return REFUSED;
   if (f < HITS.read) return mix(REFUSED, ERROR, prog(f, at(5, 3) - 10, at(6, 1) - 4, easings.inOutSine));
   if (f < at(7, 1)) return READ;
   if (f < HITS.pass - 30) return WIDE;
@@ -120,6 +120,8 @@ function payoff(f: number, c: Ctx): void {
 
 export const terminal: ActModule = {
   needs: () => [],
+  // the cut to the read and the edit, and the cut back to wide
+  cuts: [HITS.read, at(7, 1)],
   draw(f, c) {
     const fr = frameAt(f);
     const dim = 1 - 0.55 * prog(f, HITS.table - 24, HITS.table, easings.outCubic) * (1 - prog(f, at(9, 3) + 16, at(9, 4) + 4, easings.inCubic));

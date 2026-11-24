@@ -4,7 +4,7 @@
  * (motion blur averages sub-frames), but never across a hard cut.
  */
 import { themed, type CaptureKey } from './captures.ts';
-import { ACTS, HITS, actAt, type Act } from './cues.ts';
+import { ACTS, actAt, type Act } from './cues.ts';
 import type { ActModule, Ctx } from './acts/common.ts';
 import { close } from './acts/close.ts';
 import { desktop } from './acts/desktop.ts';
@@ -29,9 +29,9 @@ export function draw(f: number, c: Ctx): void {
 
 /**
  * Hard cuts: a frame's motion-blur sub-frames never cross one (each would show the other shot).
- * Act starts, and the click on Allow once.
+ * Act starts, and the cuts each act declares inside itself.
  */
-export const CUTS: readonly number[] = [...Object.values(ACTS).filter((f) => f > 0), HITS.allow].sort((a, b) => a - b);
+export const CUTS: readonly number[] = [...Object.values(ACTS).filter((f) => f > 0), ...Object.values(MODULES).flatMap((m) => m.cuts ?? [])].sort((a, b) => a - b);
 
 /** A sub-frame instant `s` of frame `f`, kept on the frame's side of any cut between them. */
 export function sameShot(f: number, s: number): number {

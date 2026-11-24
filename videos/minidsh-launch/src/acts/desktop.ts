@@ -33,8 +33,12 @@ function asContent(key: CaptureKey, v: View): View {
 const HERO: readonly [number, number, number, number] = [470, 214, 586, 100];
 const HERO_K = 2.7;
 /** the kept session: the "Stopped" note and the composer below it */
-const KEPT: readonly [number, number, number, number] = [425, 440, 665, 230];
-const KEPT_K = 2.6;
+export const KEPT: readonly [number, number, number, number] = [425, 440, 665, 230];
+export const KEPT_K = 2.6;
+/** where the kept card sits on screen when read (the runtime act opens on this framing) */
+export const KEPT_AT: Vec2 = [1010, 720];
+/** the window px of the content area's origin */
+export { CONTENT_AT };
 
 const ARRIVE = [ACTS.desktop, ACTS.desktop + 24] as const;
 const PUSH = [at(22, 3), at(23, 2)] as const;
@@ -45,6 +49,8 @@ const REOPEN = [HITS.reopen, HITS.reopen + 26] as const;
 const READ_KEPT = [at(26, 2), at(26, 4)] as const;
 
 export const desktop: ActModule = {
+  // from its line to the window mid-turn
+  cuts: [MIDTURN],
   needs(f) {
     if (f < MIDTURN) return f < PUSH[0] ? ['deskReadyWindow'] : ['deskReadyWindow', 'deskReady'];
     if (f < HITS.reopen) return ['deskBeforeQuitWindow'];
@@ -82,7 +88,7 @@ export const desktop: ActModule = {
       const open = prog(f, REOPEN[0], REOPEN[1], easings.outExpo);
       const read = prog(f, READ_KEPT[0], READ_KEPT[1], easings.inOutCubic);
       const base = winView('deskSessionWindow', 0.02 + 0.98 * open);
-      const v = mixView(base, contentWindowView('deskSessionWindow', KEPT, KEPT_K, [1010, 720]), read);
+      const v = mixView(base, contentWindowView('deskSessionWindow', KEPT, KEPT_K, KEPT_AT), read);
       show(d, tex, v, { radius: 10 + 6 * read, shadow: SHADOW, opacity: clamp(open * 3) });
       if (open < 0.4) d.dot(world(WIN), 9 * (1 - open / 0.4), PAL.teal);
       const sharp = clamp((v.k - 1.25) / 0.25);

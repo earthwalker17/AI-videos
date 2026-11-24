@@ -28,6 +28,8 @@ const PUSH = [HITS.approval + 4, HITS.approval + 96] as const;
 const CURSOR_IN = [at(18, 1), at(18, 4)] as const;
 
 export const permission: ActModule = {
+  // the hard cut from the pressed card to the receipt
+  cuts: [HITS.allow],
   needs(f) {
     if (f < SEND) return [TYPE_STEPS[Math.min(3, Math.max(0, Math.floor((f - P0) / 12)))]!, 'webType4'];
     if (f < TO_RUN[1]) return ['webType4', 'webRun1'];
