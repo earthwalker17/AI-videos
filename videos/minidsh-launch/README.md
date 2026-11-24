@@ -15,7 +15,7 @@ Video #5, the first film in [Product & Launch](../../series/product-launch/SERIE
   (`packages/web-kit`); the pilot look check (light panes, 60 fps); the hook, terminal, hand-off,
   record, permission and desktop acts; [FACTS.md](FACTS.md), [SCRIPT.md](SCRIPT.md),
   [STORYBOARD.md](STORYBOARD.md).
-- **Now.** The runtime and close acts and the score; then the full draft and its critique.
+- **Now.** All eight acts and the score are built; the draft passed QA and is in its second critique round.
 - **Next.** The review cut (gate 2).
 
 ## Watch

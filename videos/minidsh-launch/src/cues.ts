@@ -137,7 +137,7 @@ const events: CueEvent[] = [
   { id: 'rest-allow', kind: 'rest', frame: RESTS.allow[0], end: RESTS.allow[1] },
   { id: 'rest-end', kind: 'rest', frame: RESTS.end[0], end: RESTS.end[1] },
   // the end card stands still while it is read
-  { id: 'hold-close', kind: 'hold', frame: at(40, 1), end: FILM_FRAMES },
+  { id: 'hold-close', kind: 'hold', frame: at(39, 1), end: FILM_FRAMES },
 ];
 events.sort((a, b) => a.frame - b.frame || a.id.localeCompare(b.id));
 
