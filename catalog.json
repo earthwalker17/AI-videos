@@ -322,7 +322,9 @@
       "name": "@aiv/web-kit",
       "path": "packages/web-kit",
       "description": "Deterministic building blocks for web-engine pages: a small WebGL2 stage (shapes, ribbons, glyphs, images), a CPU-canvas glyph atlas, a perspective camera rig and frame-grid timing helpers.",
-      "usedBy": []
+      "usedBy": [
+        "minidsh-launch"
+      ]
     },
     {
       "name": "@aiv/engine-remotion",

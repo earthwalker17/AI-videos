@@ -53,6 +53,10 @@ def main() -> int:
         "LANG": "C.UTF-8",
         "LC_ALL": "C.UTF-8",
     }
+    # The provider key may come from the environment (e.g. shared from Windows through WSLENV):
+    # handed to MiniDSH as is, never printed or written anywhere.
+    if os.environ.get("DEEPSEEK_API_KEY"):
+        env["DEEPSEEK_API_KEY"] = os.environ["DEEPSEEK_API_KEY"]
     pid, fd = os.forkpty()
     if pid == 0:
         fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", a.rows, a.cols, 0, 0))

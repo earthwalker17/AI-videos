@@ -137,14 +137,17 @@ export function convert(lines: string[]): PaintTable {
   };
 
   const apply = (text: string, t: number): void => {
-    let s = pending + text;
+    const s = pending + text;
     pending = '';
     let i = 0;
     while (i < s.length) {
       const ch = s[i]!;
       if (ch === '\x1b') {
         const rest = s.slice(i);
+        // Terminal escape sequences are what this parses, so the patterns hold control characters.
+        // eslint-disable-next-line no-control-regex
         const csi = /^\x1b\[([?]?)([0-9;]*)([$]?)([A-Za-z@])/.exec(rest);
+        // eslint-disable-next-line no-control-regex
         const osc = /^\x1b\][^\x07\x1b]*(\x07|\x1b\\)/.exec(rest);
         if (csi) {
           const [all, priv, params, , final] = csi;

@@ -1,52 +1,83 @@
 /**
- * The web template: 5 s at the page's fps. Frames [0, 0.5 s) are a test card with the colour
- * swatch strip, declared to the harness as swatchFrames (it refuses to render when video.json
- * qa.swatchFrames, what QA measures, says otherwise, e.g. after an fps change). The rest is a
- * three.js scene composited onto the 2D output canvas with a title in Inter. Everything is sized
- * from the frame size the harness passes in the URL, and every frame is a pure function of its
- * index.
+ * The page the web engine captures: "MiniDSH 2.0: One Runtime, Every Surface". One WebGL2 stage
+ * (@aiv/web-kit) draws the lit ink, the real product captures as panes, the type and the cursor;
+ * the frame is copied to a CPU 2D canvas the engine reads. Frames [0, LEADER) are the test card
+ * with the colour swatches (video.json qa.swatchFrames). Every frame is a pure function of its
+ * index: fonts and every capture's bytes are loaded in setup, before frame 0.
  */
 import { installCapture, pageParams } from '@aiv/engine-web/page';
-import interUrl from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
-import { drawOverlay, drawTestCard, FONT_FAMILY, type Frame } from './card.ts';
-import { createScene } from './scene.ts';
+import monoUrl from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2?url';
+import sansUrl from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2?url';
+import { Camera, Draw, ImageBank, Stage, Textures, Type, drawTestCard, fontSpecs, loadFaces, subframes } from '@aiv/web-kit';
+import { canvasTexture, drawCursor, type CanvasTexture } from './canvasTex.ts';
+import { URLS, type CaptureKey } from './captures.ts';
+import { FILM_FRAMES, FPS, LEADER, at } from './cues.ts';
+import { draw, needs, sameShot } from './film.ts';
+import { FINISH, GROUND, MONO, PAL, POSE, SANS, STYLES, type StyleId } from './look.ts';
 
-const { width, height, fps } = pageParams({ width: 1920, height: 1080, fps: 30 });
-const durationFrames = Math.round(5 * fps);
-const cardFrames = Math.round(0.5 * fps);
-const frame: Frame = { width, height, fps, durationFrames };
+const { width, height, fps } = pageParams({ width: 1920, height: 1080, fps: FPS });
+if (fps !== FPS) throw new Error(`the film is timed at ${FPS} fps, not ${fps}`);
+const durationFrames = LEADER + FILM_FRAMES;
 
-const canvas = document.querySelector<HTMLCanvasElement>('#frame')!;
-canvas.width = width;
-canvas.height = height;
-// a CPU-backed 2D canvas: getImageData every frame, and text rasterised the same way every time
-const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true, colorSpace: 'srgb' })!;
+const out = document.querySelector<HTMLCanvasElement>('#frame')!;
+out.width = width;
+out.height = height;
+// a CPU-backed 2D canvas: the engine reads it with getImageData on every frame
+const ctx = out.getContext('2d', { alpha: false, willReadFrequently: true, colorSpace: 'srgb' })!;
+const glCanvas = document.createElement('canvas');
+/** motion blur: sub-frames averaged per frame (fewer at draft size) */
+const SUBS = height >= 1000 ? 6 : 3;
+const SHUTTER = 0.5;
 
-// the font file comes from the pinned @fontsource-variable/inter package, through Vite (?url)
-const inter = new FontFace(FONT_FAMILY, `url(${interUrl})`, { weight: '100 900' });
-const setup = inter.load().then((face) => {
-  document.fonts.add(face);
+let stage: Stage;
+let type: Type<StyleId>;
+let textures: Textures;
+let cursor: CanvasTexture;
+
+const setup = Promise.all([
+  loadFaces([
+    { family: SANS, url: sansUrl, weight: '100 700' },
+    { family: MONO, url: monoUrl, weight: '500' },
+  ]),
+  ImageBank.load(URLS),
+]).then(([, bank]) => {
+  type = new Type(STYLES, height / 1080);
+  stage = new Stage(glCanvas, width, height, { atlas: type.image, finish: FINISH });
+  textures = new Textures(stage, bank, { cap: 4 });
+  cursor = canvasTexture(stage.gl, drawCursor(4));
 });
-
-const scene = createScene(width, height, fps, cardFrames, durationFrames);
 
 installCapture({
   fps,
   durationFrames,
   width,
   height,
-  canvas,
+  canvas: out,
   setup,
-  fonts: [`650 72px "${FONT_FAMILY}"`, `400 34px "${FONT_FAMILY}"`],
+  fonts: fontSpecs(STYLES),
   gpu: 'webgl',
-  swatchFrames: [0, cardFrames],
-  renderFrame(i) {
-    if (i < cardFrames) {
-      drawTestCard(ctx, i, frame);
+  swatchFrames: [0, LEADER],
+  // the engine re-renders the last warm-up frame as its purity probe: ending on the receipt after
+  // the approval card makes that check cross a change of capture (and of texture residency)
+  warmupFrames: [LEADER + at(16, 2), LEADER + at(18, 2), LEADER + at(15, 1), LEADER + at(19, 3)],
+  async renderFrame(i) {
+    if (i < LEADER) {
+      drawTestCard(ctx, i, { width, height, fps, durationFrames }, { family: SANS, title: 'MiniDSH 2.0: One Runtime, Every Surface' });
       return;
     }
-    scene.render(i);
-    ctx.drawImage(scene.canvas, 0, 0);
-    drawOverlay(ctx, i, frame, cardFrames);
+    const f = i - LEADER;
+    // motion blur, but never across a hard cut
+    const subs = subframes(f, SUBS, SHUTTER).map((s) => sameShot(f, s));
+    const need = [...new Set(subs.flatMap((s) => needs(s)))] as CaptureKey[];
+    await textures.need(need);
+    stage.beginFrame();
+    for (const s of subs) {
+      const cam = new Camera(POSE);
+      stage.beginSub(cam);
+      draw(s, { d: new Draw(stage, type, cam, PAL, s), tex: (k) => textures.get(k), cursor });
+      stage.endSub(GROUND, 1 / subs.length);
+    }
+    stage.present();
+    ctx.drawImage(glCanvas, 0, 0);
   },
 });

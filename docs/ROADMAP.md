@@ -59,9 +59,9 @@ its kit stays in its slot, and the 60 fps measurements are in `engines/web/ENGIN
 - [ ] **Unused dependencies.** Nothing at HEAD imports fontsource Noto Sans SC, `@remotion/paths`
   or `@remotion/layout-utils`: remove them (V1 rebuilds from its tag's own lockfile).
 - [ ] **Two-user promotions.** Only at V1's tag: the caption pattern and cue-text helpers,
-  `planSlices`, `PreToeEffect`, the analytic footprint light, the 2D motion kit. Only in V2's
-  frozen slot: its WebGL2 stage, glyph atlas and camera rig. Each moves to a shared package
-  when a second film needs it.
+  `planSlices`, `PreToeEffect`, the analytic footprint light, the 2D motion kit. Each moves to
+  a shared package when a second film needs it. (V2's WebGL2 kit moved to `@aiv/web-kit` with #5,
+  decision 36.)
 
 ## Next: built when a film needs it
 Built when a film needs them, not before:
@@ -74,8 +74,6 @@ Built when a film needs them, not before:
   `video.json` `license.film`.
 - **Colour on the final**: a test-card leader that QA measures and post trims from the
   delivery, so the final itself is colour-verified (today the review cut is the evidence).
-- **Web kit**: promote the web template's test card and font loader to a shared package
-  when the second web video exists (the Remotion side already shares them).
 - **Several formats per piece** (16:9 plus a 9:16 Short, as three series plan): decide
   between `deliverables[]` in `video.json` and linked slots, with the first such piece.
 - **A voice track**: text-to-speech or a recorded voice in `media/`, with captions aligned from

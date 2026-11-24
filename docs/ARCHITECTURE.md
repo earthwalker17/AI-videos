@@ -14,7 +14,7 @@ its home here first, then write the code.
 | Library | `knowledge/` | Technique cards: method first, then "in this repo", each with the evidence that verified it. | something is learned and verified |
 | Library | `references/` | Pinned notes on external projects, platforms and licences, plus `sources.json`. Maps, not copies. | research |
 | Library | `prompts/<modality>/` | Versioned prompt templates for generated assets (created with the first one). | the first generated asset |
-| Code | `packages/` | `@aiv/core` (browser-safe: seeded rng, easing, swatches, the file contracts and the cue sheet), `@aiv/pipeline` (Node: host safety, encode, chunk runner, the audio stage, QA, captions, release), `@aiv/remotion-kit` (React/R3F building blocks). | code is promoted (rule of two) |
+| Code | `packages/` | `@aiv/core` (browser-safe: seeded rng, easing, swatches, the file contracts and the cue sheet), `@aiv/pipeline` (Node: host safety, encode, chunk runner, the audio stage, QA, captions, release), `@aiv/remotion-kit` (React/R3F building blocks), `@aiv/web-kit` (web-engine pages: a WebGL2 stage with an image mark for real captures, a glyph atlas, a camera rig, frame-grid timing, the test card). | code is promoted (rule of two) |
 | Code | `engines/<id>/` | One adapter per renderer: produces a video's frames for the shared runner, which writes the mezzanine and `render.json`. `ENGINE.md` documents it. | a video needs another renderer |
 | Code | `templates/<engine>/` | A runnable scaffold per engine, which doubles as that engine's end-to-end fixture. `templates/_video/` holds the stage-document stubs. | an engine is added |
 | Code | `tools/aiv/` | The `aiv` CLI, including the repository model (slot and series schemas, gates, generators, checks). | a workflow becomes a command |
@@ -33,7 +33,7 @@ Root files: `README.md`, `CLAUDE.md` (rules for agents), `CONTRIBUTING.md`, `LIC
 | Code only one video needs | `videos/<slug>/src/` (picture) or `videos/<slug>/audio/` (score and sound effects). |
 | The timing a video's picture and sound share | `videos/<slug>/src/cues.ts`: one `CueSheet` (`@aiv/core`), imported by both (decision 22). |
 | A sample library a score plays | Pinned per video in `audio/library.json` (files, sha256, upstream commit); the files live in `.cache/libraries/` and are never committed (decision 23). |
-| Code a second video needs | Promote it, never copy it: frame maths and contracts → `@aiv/core`; React, Remotion or R3F components → `@aiv/remotion-kit`; plain three.js or page helpers → a new `packages/web-kit` (created with the first promotion); Node-side media work → `@aiv/pipeline`; a look → `styles/<id>/`. From a published (frozen) video, the promoted copy lives in the package and the frozen video keeps its own, unchanged: it is rebuilt from its tag. |
+| Code a second video needs | Promote it, never copy it: frame maths and contracts → `@aiv/core`; React, Remotion or R3F components → `@aiv/remotion-kit`; web-engine page helpers (the WebGL2 stage, type, camera, timing, captures as panes) → `@aiv/web-kit`; Node-side media work → `@aiv/pipeline`; a look → `styles/<id>/`. From a published (frozen) video, the promoted copy lives in the package and the frozen video keeps its own, unchanged: it is rebuilt from its tag. |
 | A new renderer (Manim, Blender, …) | `engines/<id>/`; see [Adding an engine](#adding-an-engine). |
 | A verified technique | `knowledge/<topic>.md`, method first, with the evidence. |
 | Notes on an outside project or rule | `references/<topic>.md` and an entry in `references/sources.json`. |
@@ -173,7 +173,7 @@ edited to keep up.
 
 ## Determinism
 
-- A frame is a pure function of its index. Frame code (`packages/core`, `packages/remotion-kit`,
+- A frame is a pure function of its index. Frame code (`packages/core`, `packages/remotion-kit`, `packages/web-kit`,
   `engines/web/src/page`, `templates/*/src`, `videos/*/src`) may not read clocks, timers or
   unseeded randomness, nor use `useFrame` or clock-driven drei helpers. A DOM page may not
   animate on the compositor's clock either: no CSS `transition` or `animation`, no
@@ -479,3 +479,24 @@ new entry that supersedes it, not editing history.
       produced is in `assets/` with its provenance.
     - **Cost.** A reader checks a skill's licence and reuse rule by hand until the gate exists; the
       README table can drift from `sources.json` until it is generated.
+36. **2026-11-24 · The web kit is shared, and real UI captures are panes in it.** Video #5
+    (`minidsh-launch`) is the second web-engine film, so #4 V2's WebGL2 kit was promoted to
+    `@aiv/web-kit` (the rule of two; #4 keeps its frozen copies). #5 shows real product captures,
+    so the stage gained a fourth mark, the **image mark**.
+    - **Promotion.** The stage, glyph atlas, camera, the generic timing helpers, colour, `draw` and
+      the template's test card and font loader. The finish (bloom, shoulder, vignette, grain) and
+      the style table are parameters: the kit has no default look. With no image on screen a frame
+      is byte-identical to #4's stage (measured on a probe with and without sub-frames).
+    - **Image mark.** A capture is a textured quad placed like a shape, in world or screen space,
+      with a crop in image pixels (a push-in narrows the crop), a rounded clip, a soft shadow,
+      opacity, gain and a mip bias. Textures are SRGB8_ALPHA8 with mipmaps; a capture shown 1:1
+      comes out with its file's 8-bit values.
+    - **Display-referred.** Panes bypass the tone shoulder and the vignette (the scene's alpha is
+      their coverage mask), and never feed the bloom: real UI keeps its own colours.
+    - **Residency.** At most four textures are on the GPU. A frame names its captures with
+      `need()` before drawing, `get()` refuses anything it did not name, and an evicted handle is
+      dead. A texture is a pure function of its file, so residency changes timing, never pixels; a
+      page sets `warmupFrames` so the engine's purity probe crosses a change of capture.
+    - **Cost.** Every web film's input hash covers the kit, so a kit edit invalidates every unfrozen
+      web film's runs. A 3840x2400 capture takes about 49 MB of GPU memory with its mips, and its
+      first use in a chunk about 0.15 s to decode and upload.

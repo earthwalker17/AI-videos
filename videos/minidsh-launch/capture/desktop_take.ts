@@ -64,14 +64,17 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const notes: Record<string, unknown> = {};
 const SHOWN = `document.querySelector('#hero').hidden && document.querySelector('#log').children.length > 0`;
 const WORKING = `!document.querySelector('#working').hidden`;
-const DROP = ['DEEPSEEK_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'MINIDSH_MODEL'];
+// The DeepSeek key comes from the user's environment (passed through, never printed); other
+// providers' keys and a model override are dropped so the take runs on DeepSeek as filmed.
+const DROP = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'MINIDSH_MODEL'];
 
-function windowShot(name: string, target: { pid?: number; title?: string }): void {
+function windowShot(name: string, target: { pid?: number; title?: string }): boolean {
   const args = ['-NoLogo', '-NoProfile', '-File', CAPTURE_WINDOW, '-Out', join(out, `${name}.png`)];
   if (target.title) args.push('-Title', target.title);
   else args.push('-ProcessId', String(target.pid));
   const r = spawnSync('pwsh', args, { encoding: 'utf8', timeout: 60_000 });
   console.log(r.status === 0 ? `${name} (window)` : `${name}: window capture failed: ${(r.stderr || r.stdout).slice(0, 300)}`);
+  return r.status === 0;
 }
 async function settle(page: Page, ms = 450): Promise<void> {
   await pause(ms);
@@ -170,19 +173,20 @@ if (phases.has('B')) {
     }
     windowShot('d06-before-quit-window', { pid: app.pid });
     app.closeWindow();
-    await pause(1200);
-    windowShot('d07-quit-dialog', { title: 'MiniDSH' });
+    // The box appears once the app has asked its runtime whether work is running: poll for it.
+    let boxed = false;
+    for (let tries = 0; tries < 20 && !boxed; tries++) {
+      await pause(500);
+      boxed = windowShot('d07-quit-dialog', { title: 'MiniDSH' });
+    }
     windowShot('d07-quit-window', { pid: app.pid });
     const answered = answerNativeDialog(app.pid, 'Quit', 20_000);
     notes.quitDialog = answered;
     console.log(`quit dialog: ${JSON.stringify(answered)}`);
-    try {
-      const shell = (await app.page('minidsh-shell:', 5_000)) as Page;
-      await shell.waitFor(`document.body.innerText.includes('Stopping')`, 5_000);
-      await contentShot(shell, 'd08-stopping');
-      windowShot('d08-stopping-window', { pid: app.pid });
-    } catch (e) {
-      notes.stopping = `not captured: ${e instanceof Error ? e.message.slice(0, 160) : String(e)}`;
+    // The debugging pipe closes with the quit: the stopping view is taken from the window itself.
+    for (let k = 1; k <= 3; k++) {
+      windowShot(`d08-stopping-window-${k}`, { pid: app.pid });
+      await pause(250);
     }
     await app.waitForExit(60_000);
     exited = true;

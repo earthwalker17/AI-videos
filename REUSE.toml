@@ -34,3 +34,10 @@ SPDX-License-Identifier = "CC-BY-4.0"
 path = ["videos/halloween-gift/publish/thumbnail.jpg", "videos/super-agent/publish/thumbnail.jpg"]
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "LicenseRef-AI-Output"
+
+# Video #5: real captures of MiniDSH 2.0.0 (MIT) and its terminal output; its web UI adapts design
+# tokens and icons from DeepSeek Harness (MIT). Provenance per file: videos/minidsh-launch/CREDITS.md.
+[[annotations]]
+path = ["videos/minidsh-launch/assets/ui/**", "videos/minidsh-launch/assets/tui/**", "videos/minidsh-launch/assets/probe/**"]
+SPDX-FileCopyrightText = ["2026 MiniDSH contributors", "2026 DeepSeek"]
+SPDX-License-Identifier = "MIT"
