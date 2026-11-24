@@ -15,8 +15,10 @@ Video #5, the first film in [Product & Launch](../../series/product-launch/SERIE
   (`packages/web-kit`); the pilot look check (light panes, 60 fps); the hook, terminal, hand-off,
   record, permission and desktop acts; [FACTS.md](FACTS.md), [SCRIPT.md](SCRIPT.md),
   [STORYBOARD.md](STORYBOARD.md).
-- **Now.** All eight acts and the score are built. The draft's QA passed except the end card's hold cue (since fixed); the draft is in its second critique round.
-- **Next.** The review cut (gate 2).
+- **Now.** The review cut (gate 2): rendered at d8d06bf after two frame-critic rounds, QA passed
+  except the end card's hold-cue bookkeeping (since fixed for the final). Waiting for the creator.
+- **Next.** Notes into a second cut, or the final (no leader, frame 0 the poster), captions,
+  publish texts.
 
 ## Watch
 Not published yet.
