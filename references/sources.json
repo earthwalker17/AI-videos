@@ -1200,6 +1200,17 @@
       "why": "The embedded explainer film is the quality bar the user named for video #4 V2: its clock, its two scales of beat and its transitions were measured; its signatures are on the do-not-copy list.",
       "note": "fable-explainer-benchmark-2026-11.md",
       "status": "verified"
+    },
+    {
+      "id": "dsh-creator-mode-film",
+      "title": "DeepSeek Harness, \"Creator Mode\" launch film (X post 2117256196227019194, 2026-11-02): the creative reference for video #5",
+      "url": "https://x.com/DeepSeekHarness/status/2117256196227019194",
+      "pin": "film as served 2026-11-24: 99.38 s, 1920x1080, 30 fps; sha256 fc57b5921b570c1d783ab81cae2ec6e9c35b79a60afe942e8da0563544ecc8e1 (1080p variant)",
+      "license": "owner's rights: descriptions and measured facts only; file and frames kept local, never committed",
+      "excerpt_policy": "link-only",
+      "why": "The bar the creator named for the MiniDSH launch film: real UI close-ups, pointer-driven demos, demo-then-statement rhythm; and the do-not-copy list.",
+      "note": "dsh-creator-mode-film-2026-11.md",
+      "status": "verified"
     }
   ]
 }
