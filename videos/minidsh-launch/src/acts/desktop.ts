@@ -21,20 +21,20 @@ const WIN: Vec2 = [1150, 612];
 
 const winView = (key: CaptureKey, k = 1, centre: Vec2 = WIN): View => ({ key, rect: [0, 0, WIN_W, WIN_H], centre, k });
 /** A view (in window px) of a content rectangle, at a screen centre and scale, right and low under the title. */
-function contentWindowView(key: CaptureKey, rect: readonly [number, number, number, number], k: number): View {
-  return { key, rect: [rect[0] + CONTENT_AT[0], rect[1] + CONTENT_AT[1], rect[2], rect[3]], centre: [1150, 700], k };
+function contentWindowView(key: CaptureKey, rect: readonly [number, number, number, number], k: number, centre: Vec2): View {
+  return { key, rect: [rect[0] + CONTENT_AT[0], rect[1] + CONTENT_AT[1], rect[2], rect[3]], centre, k };
 }
 /** The same view on the 3x content capture (its CSS px are the window's minus the content offset). */
 function asContent(key: CaptureKey, v: View): View {
   return { key, rect: [v.rect[0] - CONTENT_AT[0], v.rect[1] - CONTENT_AT[1], v.rect[2], v.rect[3]], centre: v.centre, k: v.k };
 }
 
-/** the hero line and the composer of the ready window */
-const HERO: readonly [number, number, number, number] = [380, 218, 760, 284];
-const HERO_K = 2.0;
+/** the mark, the name and its line (content CSS px), read at 2.7x: 14 px text at 38 px */
+const HERO: readonly [number, number, number, number] = [470, 214, 586, 100];
+const HERO_K = 2.7;
 /** the kept session: the "Stopped" note and the composer below it */
-const KEPT: readonly [number, number, number, number] = [400, 380, 720, 300];
-const KEPT_K = 2.0;
+const KEPT: readonly [number, number, number, number] = [425, 440, 665, 230];
+const KEPT_K = 2.6;
 
 const ARRIVE = [ACTS.desktop, ACTS.desktop + 24] as const;
 const PUSH = [at(22, 3), at(23, 2)] as const;
@@ -58,7 +58,7 @@ export const desktop: ActModule = {
       // bigger window), with the 3x content laid over the 1x window once it is magnified
       const k = 0.94 + 0.06 * settle(f - ARRIVE[0], 7);
       const push = prog(f, PUSH[0], PUSH[1], easings.inOutCubic);
-      const v = mixView(winView('deskReadyWindow', k), contentWindowView('deskReadyWindow', HERO, HERO_K), push);
+      const v = mixView(winView('deskReadyWindow', k), contentWindowView('deskReadyWindow', HERO, HERO_K, [1100, 680]), push);
       show(d, tex, v, { radius: 10 + 6 * push, shadow: SHADOW });
       const sharp = clamp((v.k - 1.25) / 0.25);
       if (sharp > 0) show(d, tex, asContent('deskReady', v), { radius: 10 + 6 * push, opacity: sharp });
@@ -82,7 +82,7 @@ export const desktop: ActModule = {
       const open = prog(f, REOPEN[0], REOPEN[1], easings.outExpo);
       const read = prog(f, READ_KEPT[0], READ_KEPT[1], easings.inOutCubic);
       const base = winView('deskSessionWindow', 0.02 + 0.98 * open);
-      const v = mixView(base, contentWindowView('deskSessionWindow', KEPT, KEPT_K), read);
+      const v = mixView(base, contentWindowView('deskSessionWindow', KEPT, KEPT_K, [1010, 720]), read);
       show(d, tex, v, { radius: 10 + 6 * read, shadow: SHADOW, opacity: clamp(open * 3) });
       if (open < 0.4) d.dot(world(WIN), 9 * (1 - open / 0.4), PAL.teal);
       const sharp = clamp((v.k - 1.25) / 0.25);

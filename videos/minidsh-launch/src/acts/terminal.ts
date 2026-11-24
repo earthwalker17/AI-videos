@@ -57,7 +57,7 @@ function rows(a: number, b: number, cols: number, centre: Vec2, k: number): Fram
 const REFUSED = rows(1, 9, 62, [1130, 650], 0.9);
 const ERROR = rows(14, 22, 62, [1130, 650], 0.9);
 const READ = rows(1, 8, 62, [1130, 650], 0.9);
-const REPLY = rows(11, 26, 78, [1100, 650], 0.62);
+const REPLY = rows(12, 24, 60, [1130, 680], 0.9);
 
 function mix(a: Frame, b: Frame, t: number): Frame {
   const m = (x: number, y: number) => x + (y - x) * t;

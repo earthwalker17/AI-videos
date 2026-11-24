@@ -14,7 +14,7 @@ import { P_COMPOSER } from './permission.ts';
 import { V_PAGE, browserFrame } from './handoff.ts';
 
 /** the edit card: its rows, the Record and the start of the diff */
-const V_CARD: View = { key: 'webDiff', rect: [480, 64, 760, 330], centre: [1130, 700], k: 2.05 };
+const V_CARD: View = { key: 'webDiff', rect: [486, 70, 620, 290], centre: [1130, 700], k: 2.4 };
 /** the receipt chip itself (CSS px in the page) */
 const CHIP = [512, 145, 318, 28] as const;
 
@@ -30,13 +30,13 @@ export const record: ActModule = {
     if (f >= DOWN[0]) v = mixView(V_CARD, { ...P_COMPOSER, key: 'webDiff' }, prog(f, DOWN[0], DOWN[1], easings.inOutCubic));
     browserFrame(c, v, 1 - push);
     const lift = f < DOWN[0] ? bump(f, LIFT[0], LIFT[1], DOWN[0] - 10) : 0;
-    show(c.d, c.tex, v, { radius: 14, shadow: SHADOW, gain: 1 - 0.28 * lift });
+    show(c.d, c.tex, v, { radius: 14, shadow: SHADOW, gain: 1 - 0.15 * lift });
 
     // the receipt lifts out of the card: the same pixels, nearer, with a closer shadow
     if (lift > 0) {
       const [x, y, w, h] = CHIP;
       const centre = screenOf(v, x + w / 2, y + h / 2);
-      const s = 1 + 0.16 * lift * settle(f - LIFT[0], 5);
+      const s = 1 + 0.25 * lift * settle(f - LIFT[0], 5);
       const chip: View = { key: 'webDiff', rect: [x, y, w, h], centre: [centre[0], centre[1] - 18 * lift], k: v.k * s };
       show(c.d, c.tex, chip, { radius: 10, shadow: SHADOW_NEAR });
     }
