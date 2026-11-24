@@ -18,7 +18,7 @@
       "note": "Shown the 1080p60 review cut (84.5 s, out/minidsh-launch/post/review/minidsh-launch.mp4) with the side-by-side against the DSH reference, what was and was not verified (nobody had listened to the score), and the known weak spots, and asked for the review approval or notes, the user answered: \"Approved, use \"Node inside.\" and render the final\". The desktop title became \"Its own window. Node inside.\" as they chose."
     }
   ],
-  "next": "Render the final (no leader, frame 0 the poster), post and qa it (both reports), draft the captions and finish publish/; then gate 3, the final approval.",
+  "next": "Gate 3: the creator watches the final (out/minidsh-launch/post/final/minidsh-launch.mp4) and the publish kit, adds a thumbnail, uploads; then aiv release, the release commit and tag, the push when asked.",
   "languages": [
     "en"
   ],

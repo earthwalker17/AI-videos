@@ -16,7 +16,9 @@ Video #5, the first film in [Product & Launch](../../series/product-launch/SERIE
   two frame-critic rounds; [FACTS.md](FACTS.md), [SCRIPT.md](SCRIPT.md),
   [STORYBOARD.md](STORYBOARD.md). The creator approved the review cut on 2026-11-24, with the
   desktop title changed to "Its own window. Node inside."
-- **Now.** The final: no leader, frame 0 the poster; then captions and the publish texts (gate 3).
+- **Now.** The final (gate 3): rendered at f5983de, frame for frame the approved review cut except
+  the new desktop title; QA passed on the delivery and the archive master. Captions and the publish
+  kit (YouTube, X, Product Hunt, AI use) are drafted and audited. Waiting for the creator.
 
 ## Watch
 Not published yet.
