@@ -7,9 +7,12 @@
  */
 import { installCapture, pageParams } from '@aiv/engine-web/page';
 import monoUrl from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2?url';
+import mono600Url from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2?url';
 import sansUrl from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2?url';
 import { Camera, Draw, ImageBank, Stage, Textures, Type, drawTestCard, fontSpecs, loadFaces, subframes } from '@aiv/web-kit';
-import { canvasTexture, drawCursor, type CanvasTexture } from './canvasTex.ts';
+import { CanvasTextures, canvasTexture, drawCursor, type CanvasTexture } from './canvasTex.ts';
+import { drawMark } from './mark.ts';
+import { drawPaint } from './tui.ts';
 import { URLS, type CaptureKey } from './captures.ts';
 import { FILM_FRAMES, FPS, LEADER, at } from './cues.ts';
 import { draw, needs, sameShot } from './film.ts';
@@ -33,11 +36,15 @@ let stage: Stage;
 let type: Type<StyleId>;
 let textures: Textures;
 let cursor: CanvasTexture;
+let mark: CanvasTexture;
+/** the terminal pane per paint index: a pure function of the index */
+let term: CanvasTextures<number>;
 
 const setup = Promise.all([
   loadFaces([
     { family: SANS, url: sansUrl, weight: '100 700' },
     { family: MONO, url: monoUrl, weight: '500' },
+    { family: MONO, url: mono600Url, weight: '600' },
   ]),
   ImageBank.load(URLS),
 ]).then(([, bank]) => {
@@ -45,6 +52,8 @@ const setup = Promise.all([
   stage = new Stage(glCanvas, width, height, { atlas: type.image, finish: FINISH });
   textures = new Textures(stage, bank, { cap: 4 });
   cursor = canvasTexture(stage.gl, drawCursor(4));
+  mark = canvasTexture(stage.gl, drawMark(512));
+  term = new CanvasTextures(stage.gl, (k) => drawPaint(k, { left: 'minidsh chat', right: 'recorded live · deepseek-flash' }), 3);
 });
 
 installCapture({
@@ -54,7 +63,8 @@ installCapture({
   height,
   canvas: out,
   setup,
-  fonts: fontSpecs(STYLES),
+  // the atlas styles, and the faces the terminal pane draws with on its own canvas
+  fonts: [...fontSpecs(STYLES), `500 40px "${MONO}"`, `600 40px "${MONO}"`, `500 30px "${MONO}"`],
   gpu: 'webgl',
   swatchFrames: [0, LEADER],
   // the engine re-renders the last warm-up frame as its purity probe: ending on the receipt after
@@ -74,7 +84,7 @@ installCapture({
     for (const s of subs) {
       const cam = new Camera(POSE);
       stage.beginSub(cam);
-      draw(s, { d: new Draw(stage, type, cam, PAL, s), tex: (k) => textures.get(k), cursor });
+      draw(s, { d: new Draw(stage, type, cam, PAL, s), tex: (k) => textures.get(k), cursor, mark, term: (k) => term.get(k) });
       stage.endSub(GROUND, 1 / subs.length);
     }
     stage.present();
