@@ -11,8 +11,12 @@ Video #5, the first film in [Product & Launch](../../series/product-launch/SERIE
 ## Status: production
 - **Brief and treatment.** [BRIEF.md](BRIEF.md) and [TREATMENT.md](TREATMENT.md). The creator chose
   treatment A on 2026-11-24, built as A′.
-- **Now.** Capture of the live product takes; the shared web kit (`packages/web-kit`).
-- **Next.** The pilot look check on the permission beat, then the review cut.
+- **Done.** The live takes on all three surfaces (2026-11-24); the shared web kit
+  (`packages/web-kit`); the pilot look check (light panes, 60 fps); the hook, terminal, hand-off,
+  record, permission and desktop acts; [FACTS.md](FACTS.md), [SCRIPT.md](SCRIPT.md),
+  [STORYBOARD.md](STORYBOARD.md).
+- **Now.** The runtime and close acts and the score; then the full draft and its critique.
+- **Next.** The review cut (gate 2).
 
 ## Watch
 Not published yet.
@@ -22,6 +26,8 @@ Not published yet.
   installer. The terminal is redrawn from its recorded output. The web and desktop UI are captured
   as stills at three times their pixel density. The tools are in [`capture/`](capture/).
 - **Picture.** The web engine, with the WebGL2 kit shared in `packages/web-kit`.
+- **Reference.** DeepSeek Harness's Creator Mode film, studied and not copied
+  ([note](../../references/dsh-creator-mode-film-2026-11.md)).
 - **Method.** Read from op7418/guizang-product-video-skill as a guide only
   ([note](../../references/guizang-product-video-skill.md)).
 
