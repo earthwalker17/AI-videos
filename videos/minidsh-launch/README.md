@@ -8,17 +8,15 @@ English, no voice, an original score in code.
 
 Video #5, the first film in [Product & Launch](../../series/product-launch/SERIES.md).
 
-## Status: production
+## Status: locked
 - **Brief and treatment.** [BRIEF.md](BRIEF.md) and [TREATMENT.md](TREATMENT.md). The creator chose
   treatment A on 2026-11-24, built as A′.
 - **Done.** The live takes on all three surfaces (2026-11-24); the shared web kit
-  (`packages/web-kit`); the pilot look check (light panes, 60 fps); the hook, terminal, hand-off,
-  record, permission and desktop acts; [FACTS.md](FACTS.md), [SCRIPT.md](SCRIPT.md),
-  [STORYBOARD.md](STORYBOARD.md).
-- **Now.** The review cut (gate 2): rendered at d8d06bf after two frame-critic rounds, QA passed
-  except the end card's hold-cue bookkeeping (since fixed for the final). Waiting for the creator.
-- **Next.** Notes into a second cut, or the final (no leader, frame 0 the poster), captions,
-  publish texts.
+  (`packages/web-kit`); the pilot look check (light panes, 60 fps); all eight acts and the score;
+  two frame-critic rounds; [FACTS.md](FACTS.md), [SCRIPT.md](SCRIPT.md),
+  [STORYBOARD.md](STORYBOARD.md). The creator approved the review cut on 2026-11-24, with the
+  desktop title changed to "Its own window. Node inside."
+- **Now.** The final: no leader, frame 0 the poster; then captions and the publish texts (gate 3).
 
 ## Watch
 Not published yet.

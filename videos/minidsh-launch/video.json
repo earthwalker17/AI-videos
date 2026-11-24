@@ -5,15 +5,20 @@
   "slug": "minidsh-launch",
   "title": "MiniDSH 2.0: One Runtime, Every Surface",
   "series": "product-launch",
-  "status": "production",
+  "status": "locked",
   "approvals": [
     {
       "gate": "treatment",
       "date": "2026-11-24",
       "note": "In plan mode the user was asked \"Which treatment should the MiniDSH launch film be built on?\" with three candidates and answered \"A: One session, three surfaces (Recommended)\"; in the same round they chose WSL for the terminal and web with the desktop on Windows, the official v2.0.0 installer, and the font-size reading of the 36 px text bar, then approved the plan (treatment A, refined as A-prime by a creative review the same day)."
+    },
+    {
+      "gate": "review",
+      "date": "2026-11-24",
+      "note": "Shown the 1080p60 review cut (84.5 s, out/minidsh-launch/post/review/minidsh-launch.mp4) with the side-by-side against the DSH reference, what was and was not verified (nobody had listened to the score), and the known weak spots, and asked for the review approval or notes, the user answered: \"Approved, use \"Node inside.\" and render the final\". The desktop title became \"Its own window. Node inside.\" as they chose."
     }
   ],
-  "next": "Capture the live takes (terminal and web in WSL, desktop on Windows) once the user has set the demo keys and installed the app; then cues.ts, the pilot look check on the permission beat.",
+  "next": "Render the final (no leader, frame 0 the poster), post and qa it (both reports), draft the captions and finish publish/; then gate 3, the final approval.",
   "languages": [
     "en"
   ],
@@ -34,10 +39,6 @@
     ]
   },
   "qa": {
-    "swatchFrames": [
-      0,
-      30
-    ],
     "loudness": {
       "integrated": -14,
       "tolerance": 1,

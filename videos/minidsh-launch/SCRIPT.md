@@ -12,7 +12,7 @@ of the film's titles below, each set in `src/cues.ts` with its frames and checke
 | 10 | t-session | Same session. In your browser. |
 | 12 | t-record | The runtime's record, not the model's word. |
 | 15 | t-perm | Write inside the workspace. / Anything wider needs approval. |
-| 21 | t-window | Its own window. Its own Node. |
+| 21 | t-window | Its own window. Node inside. |
 | 24 | t-kept | Quit mid-turn. The session is kept. |
 | 28 | t-ways | Four ways in. |
 | 31 | t-providers | DeepSeek, Anthropic or OpenAI. |
@@ -33,4 +33,5 @@ of the film's titles below, each set in `src/cues.ts` with its frames and checke
   "Send a message to resume this session…".
 
 ## Captions
-Drafted from the title cues with `aiv captions` (decision 32) once the leader is removed.
+Drafted from the title and end-card cues with `aiv captions` (decision 32) on the final, which has no
+leader: `publish/captions/en.srt`.

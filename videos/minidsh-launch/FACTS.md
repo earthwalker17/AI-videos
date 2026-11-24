@@ -14,7 +14,7 @@ against the tag on 2026-11-24.
 | The terminal's session continues in the web UI | "Same session. In your browser." | README.md:62 ("use one runtime and the same stored sessions"); docs/GUIDE.md:174; take-web (the web take opened the session the terminal take started, same MINIDSH_HOME) | yes |
 | The receipt is the runtime's record, not the model's account | "The runtime's record, not the model's word." | src/app/web/cards.js:261 ("the runtime's own record of an effect, never the model's account of it") | yes |
 | The default preset | "Write inside the workspace. / Anything wider needs approval." | src/core/presets/index.ts:37 (verbatim: "Write inside the workspace; anything wider needs approval.") | yes, scoped (below) |
-| The desktop app has its own window and its own Node | "Its own window. Its own Node." | docs/GUIDE.md:29 ("the web UI in its own window, with its own Node inside") | yes |
+| The desktop app has its own window, with Node inside | "Its own window. Node inside." | docs/GUIDE.md:29 ("the web UI in its own window, with its own Node inside") | yes |
 | Quitting mid-turn keeps the session | "Quit mid-turn. The session is kept." | desktop/src/main.ts:410-411 (the confirm: "Quit MiniDSH? … Quitting stops it; every session is kept and can be resumed."); take-desk (quit mid-turn; on restart the session was listed and opened, marked "Stopped · The turn was cancelled before it finished.") | yes |
 | Four ways in | "Four ways in." | README.md:62 (terminal, web UI, desktop app, headless `run`) | yes |
 | Three providers | "DeepSeek, Anthropic or OpenAI." | README.md:56; docs/GUIDE.md:54-60 (bring your own key); take-desk (the model picker lists the providers) | yes |

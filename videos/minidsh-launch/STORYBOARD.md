@@ -1,7 +1,7 @@
 # Storyboard: MiniDSH 2.0: One Runtime, Every Surface
 
-42 bars at 120 bpm, 60 fps (a bar is 2 s, 120 frames), plus a 30-frame test-card leader for drafts
-and the review cut. The timeline is `src/cues.ts`; each act is a module in `src/acts/`.
+42 bars at 120 bpm, 60 fps (a bar is 2 s, 120 frames). Drafts and the review cut had a 30-frame
+test-card leader; the final has none. The timeline is `src/cues.ts`; each act is a module in `src/acts/`.
 
 ## Shots
 | Bars | Act (module) | Picture | Motion | Words | Sound |

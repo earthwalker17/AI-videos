@@ -158,7 +158,7 @@
       "slug": "minidsh-launch",
       "title": "MiniDSH 2.0: One Runtime, Every Surface",
       "series": "product-launch",
-      "status": "production",
+      "status": "locked",
       "engine": "web",
       "reproducibility": "full",
       "languages": [

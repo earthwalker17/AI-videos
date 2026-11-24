@@ -22,7 +22,7 @@ two films before them were made before this repository and are catalogued as rec
 | 2 | [THE AI STACK](videos/the-ai-stack/README.md) | [3D Concept Visualizations](series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
 | 3 | [A Halloween Gift](videos/halloween-gift/README.md) | [Festival & Celebration](series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
 | 4 | [Who Routes the Agents?](videos/super-agent/README.md) | [Science & Technology Explainers](series/science-explainers/SERIES.md) | published | [YouTube](https://youtu.be/-b7g5XIgEn0) |
-| 5 | [MiniDSH 2.0: One Runtime, Every Surface](videos/minidsh-launch/README.md) | [Product & Launch](series/product-launch/SERIES.md) | production | — |
+| 5 | [MiniDSH 2.0: One Runtime, Every Surface](videos/minidsh-launch/README.md) | [Product & Launch](series/product-launch/SERIES.md) | locked | — |
 <!-- /aiv:generated -->
 
 Series: [3D Concept Visualizations](series/concept-viz/SERIES.md) ·

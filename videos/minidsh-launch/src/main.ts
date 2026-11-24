@@ -2,8 +2,8 @@
  * The page the web engine captures: "MiniDSH 2.0: One Runtime, Every Surface". One WebGL2 stage
  * (@aiv/web-kit) draws the lit ink, the real product captures as panes, the type and the cursor;
  * the frame is copied to a CPU 2D canvas the engine reads. Frames [0, LEADER) are the test card
- * with the colour swatches (video.json qa.swatchFrames). Every frame is a pure function of its
- * index: fonts and every capture's bytes are loaded in setup, before frame 0.
+ * with the colour swatches (video.json qa.swatchFrames); the final has none. Every frame is a pure
+ * function of its index: fonts and every capture's bytes are loaded in setup, before frame 0.
  */
 import { installCapture, pageParams } from '@aiv/engine-web/page';
 import monoUrl from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2?url';
@@ -66,7 +66,7 @@ installCapture({
   // the atlas styles, and the faces the terminal pane draws with on its own canvas
   fonts: [...fontSpecs(STYLES), `500 40px "${MONO}"`, `600 40px "${MONO}"`, `500 30px "${MONO}"`],
   gpu: 'webgl',
-  swatchFrames: [0, LEADER],
+  ...(LEADER > 0 ? { swatchFrames: [0, LEADER] as const } : {}),
   // the engine re-renders the last warm-up frame as its purity probe: ending on the receipt after
   // the approval card makes that check cross a change of capture (and of texture residency)
   warmupFrames: [LEADER + at(16, 2), LEADER + at(18, 2), LEADER + at(15, 1), LEADER + at(19, 3)],

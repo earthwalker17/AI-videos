@@ -16,8 +16,8 @@ export const BEAT = (FPS * 60) / BPM;
 export const BAR = BEAT * BEATS_PER_BAR;
 export const BARS = 42;
 export const FILM_FRAMES = BARS * BAR;
-/** test-card frames before the film: 30 for drafts and the review cut (colour evidence), 0 for the final */
-export const LEADER = 30;
+/** test-card frames before the film: 30 for drafts and the review cut (its QA report is the colour evidence), 0 for the final */
+export const LEADER = 0;
 
 /** Frames a title takes to arrive and to leave (exits shorter than entrances). */
 export const TEXT_IN = 12;
@@ -75,7 +75,7 @@ export const TITLES: Title[] = [
   { id: 't-session', act: 'handoff', tier: 'title', text: 'Same session. In your browser.', frame: at(10, 2), end: at(12, 1) },
   { id: 't-record', act: 'record', tier: 'title', text: "The runtime's record, not the model's word.", frame: at(12, 3), end: at(15, 1) },
   { id: 't-perm', act: 'permission', tier: 'title', text: 'Write inside the workspace.\nAnything wider needs approval.', frame: at(15, 3), end: at(19, 1) - TEXT_OUT },
-  { id: 't-window', act: 'desktop', tier: 'title', text: 'Its own window. Its own Node.', frame: at(21, 3), end: at(23, 3) },
+  { id: 't-window', act: 'desktop', tier: 'title', text: 'Its own window. Node inside.', frame: at(21, 3), end: at(23, 3) },
   { id: 't-kept', act: 'desktop', tier: 'title', text: 'Quit mid-turn. The session is kept.', frame: at(24, 1), end: at(26, 3) },
   { id: 't-ways', act: 'runtime', tier: 'title', text: 'Four ways in.', frame: at(28, 1), end: at(29, 3) },
   { id: 't-providers', act: 'runtime', tier: 'title', text: 'DeepSeek, Anthropic or OpenAI.', frame: at(32, 1) - 44, end: at(33, 1) - TEXT_IN - TEXT_OUT },
