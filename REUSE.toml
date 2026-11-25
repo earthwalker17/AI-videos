@@ -35,6 +35,13 @@ path = ["videos/halloween-gift/publish/thumbnail.jpg", "videos/super-agent/publi
 SPDX-FileCopyrightText = "NONE"
 SPDX-License-Identifier = "LicenseRef-AI-Output"
 
+# Video #5's thumbnail: AI output with MiniDSH's real mark (MIT) composited over the model's drawing
+# of it (publish/thumbnail.provenance.json).
+[[annotations]]
+path = ["videos/minidsh-launch/publish/thumbnail.jpg"]
+SPDX-FileCopyrightText = "2026 MiniDSH contributors"
+SPDX-License-Identifier = "LicenseRef-AI-Output AND MIT"
+
 # Video #5: real captures of MiniDSH 2.0.0 (MIT) and its terminal output; its web UI adapts design
 # tokens and icons from DeepSeek Harness (MIT). Provenance per file: videos/minidsh-launch/CREDITS.md.
 [[annotations]]

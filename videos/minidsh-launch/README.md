@@ -1,28 +1,39 @@
 # MiniDSH 2.0: One Runtime, Every Surface
 
+[![MiniDSH 2.0: the film's thumbnail. The MiniDSH mark and name over three windows, the web UI, the terminal and the desktop app, with the words Architecture-first agent harness and Launch demo. Click to watch the film on YouTube.](publish/thumbnail.jpg)](https://youtu.be/HpzzGoYtYEc)
+
 The launch film for [MiniDSH](https://github.com/earthwalker17/MiniDSH) 2.0. MiniDSH is the
 creator's own small, architecture-first, local-first coding-agent harness. One real coding task,
 filmed live: the terminal runs the tools, the same session continues in the browser, the desktop app
 keeps its session through a quit, and the one runtime behind them is shown last. About 84 s, 16:9,
-English, no voice, an original score in code.
+English, no voice, an original score in code. On YouTube the film is titled *My MiniDSH 2.0 is
+Finally Out: One Runtime, Three Surfaces*.
 
-Video #5, the first film in [Product & Launch](../../series/product-launch/SERIES.md).
+**Series:** [Product & Launch](../../series/product-launch/SERIES.md) (its first film) · **Number:** 5 · **Engine:** web, 1920×1080 at 60 fps
+▶ **Watch:** [youtu.be/HpzzGoYtYEc](https://youtu.be/HpzzGoYtYEc) (published 2026-11-24)
 
-## Status: locked
+## Status: locked; published on YouTube, release pending
+Published on YouTube on 2026-11-24 at 23:44 UTC
+([youtu.be/HpzzGoYtYEc](https://youtu.be/HpzzGoYtYEc)): 1920×1080 at 60 fps, 42 bars at 120 bpm,
+5,040 frames, 1:24.0, English, no voice.
+
 - **Brief and treatment.** [BRIEF.md](BRIEF.md) and [TREATMENT.md](TREATMENT.md). The creator chose
   treatment A on 2026-11-24, built as A′.
-- **Done.** The live takes on all three surfaces (2026-11-24); the shared web kit
+- **Made.** The live takes on all three surfaces (2026-11-24); the shared web kit
   (`packages/web-kit`); the pilot look check (light panes, 60 fps); all eight acts and the score;
   two frame-critic rounds; [FACTS.md](FACTS.md), [SCRIPT.md](SCRIPT.md),
   [STORYBOARD.md](STORYBOARD.md). The creator approved the review cut on 2026-11-24, with the
-  desktop title changed to "Its own window. Node inside."
-- **Now.** The final (gate 3): rendered at f5983de, frame for frame the approved review cut except
-  the new desktop title; QA passed on the delivery and the archive master. Captions and the publish
-  kit (YouTube, X, Product Hunt, AI use) are drafted and audited. The creator approved the final on
-  2026-11-25 and is making the thumbnail; next, the upload and the release.
-
-## Watch
-Not published yet.
+  desktop title changed to "Its own window. Node inside.", and the final on 2026-11-25 (their
+  local date).
+- **Verified.** The final is frame for frame the approved review cut without its 30-frame test
+  card, except the new desktop title (frames 2448–2707). `aiv qa` passes on the delivery and on
+  the archive master (−14.0 LUFS, −3.2 dBTP, every hit on its frame, both rests silent, every cut
+  on a bar, every reading hold). Colour was verified on the review cut's swatches; the final has
+  no test card to measure.
+- **Publish kit.** [publish/](publish/): the title and description as uploaded, the X and Product
+  Hunt drafts, captions, chapters, the AI-use note and the thumbnail. The thumbnail is the
+  creator's ChatGPT image with MiniDSH's real mark put in place of the model's drawing of it
+  ([provenance](publish/thumbnail.provenance.json)).
 
 ## How it is made
 - **Footage.** The real product, recorded live from the published npm package and the published
@@ -37,6 +48,7 @@ Not published yet.
 ## Licence
 - Code is MIT.
 - The film and prose are CC BY 4.0 ([LICENSING](../../docs/LICENSING.md)).
+- The thumbnail is AI output with no copyright claimed, with MiniDSH's mark (MIT).
 <!-- REUSE-IgnoreStart: third-party rights, not notices for this file -->
 - MiniDSH is MIT; its web UI adapts DeepSeek Harness's design tokens and icons (MIT, © DeepSeek).
 - MiniDSH is an independent project inspired by DeepSeek Harness, not affiliated with or endorsed by

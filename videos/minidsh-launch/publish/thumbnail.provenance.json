@@ -1,0 +1,20 @@
+{
+  "file": "thumbnail.jpg",
+  "sha256": "10a8718c96b952fa4353d872c3bbb83befb2fb2024e27145cf836eafa50e071a",
+  "what": "The thumbnail of MiniDSH 2.0: One Runtime, Every Surface (https://youtu.be/HpzzGoYtYEc), 1672x941, with MiniDSH's real mark in place of the model's drawing of it",
+  "made": "2026-11-24 (UTC; the time of the creator's export, 23:31); the mark replaced on 2026-11-25",
+  "by": "the creator, with ChatGPT's image generation (OpenAI); the mark composited by the agent at the creator's request",
+  "model": "ChatGPT image generation (the export's C2PA content credential names ChatGPT and gpt-image); model version not recorded",
+  "prompt": "not recorded",
+  "inputs": "stills of the final and real captures from out/minidsh-launch/publish-candidates (frames of the terminal, browser and desktop acts, the web and desktop captures); which ones the creator gave ChatGPT is not recorded",
+  "terms": "OpenAI Terms of Use: the user owns the output (as summarised in references/genai-landscape-2026-11.md; not re-read at source for this file)",
+  "cost": "not recorded",
+  "rightsClass": "A",
+  "licence": "LicenseRef-AI-Output AND MIT: the generated image claims no copyright (LICENSES/LicenseRef-AI-Output.txt); the composited mark is MiniDSH's (MIT)",
+  "thirdParty": "MiniDSH's UI and mark (MIT, the creator's own project). The three windows are the model's redrawing of the film's stills, not captures: their text and layout follow the real UI but are not pixel-exact, which the creator accepted (an exception to the series rule that product UI in a thumbnail is a real capture). The model's drawing of the mark was replaced with the real one. The text 'deepseek-flash' is the product's own model label. No person or other logo.",
+  "derivedFrom": {
+    "file": "Thumbnail.png (the creator's export, 1,839,597 bytes)",
+    "sha256": "b2504d75694d32b97456febd3410717c8039732e951d08b8b9741705b07e7ec3",
+    "change": "the model's mark (x 386-530, y 40-172) removed with ffmpeg removelogo, then MiniDSH's docs/images/logo/minidsh-mark-1024.png (MiniDSH 0ca3475) scaled to 134 px with lanczos and laid over it at (391, 40) on a soft cyan glow of its own alpha; then converted to JPEG (ffmpeg -q:v 2, 4:4:4): 368,052 bytes. The edit drops the export's C2PA credential."
+  }
+}

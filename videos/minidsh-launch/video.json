@@ -23,7 +23,7 @@
       "note": "Shown the final (out/minidsh-launch/post/final/minidsh-launch.mp4, frame for frame the approved review cut except the new desktop title, aiv qa passed on the delivery and the archive master) and the publish kit, the user answered: \"OK approved.\" and asked for stills from the film to make the thumbnail with ChatGPT."
     }
   ],
-  "next": "Upload: the creator makes the thumbnail (stills in out/minidsh-launch/publish-candidates/), uploads the final with the publish kit; then aiv release, the release commit and tag, the push when asked.",
+  "next": "The creator published the final on YouTube (https://youtu.be/HpzzGoYtYEc, 2026-11-24 23:44 UTC) with their ChatGPT thumbnail; the committed thumbnail carries MiniDSH's real mark. Now: aiv release (v1), youtube.id and status published, the tag video/minidsh-launch/v1, the push and the GitHub release.",
   "languages": [
     "en"
   ],
