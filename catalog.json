@@ -158,14 +158,14 @@
       "slug": "minidsh-launch",
       "title": "MiniDSH 2.0: One Runtime, Every Surface",
       "series": "product-launch",
-      "status": "locked",
+      "status": "published",
       "engine": "web",
       "reproducibility": "full",
       "languages": [
         "en"
       ],
       "path": "videos/minidsh-launch",
-      "watch": null,
+      "watch": "https://youtu.be/HpzzGoYtYEc",
       "reusable": []
     }
   ],
@@ -357,6 +357,8 @@
     "videos/halloween-gift/src",
     "videos/halloween-gift/audio",
     "videos/super-agent/src",
-    "videos/super-agent/audio"
+    "videos/super-agent/audio",
+    "videos/minidsh-launch/src",
+    "videos/minidsh-launch/audio"
   ]
 }

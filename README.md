@@ -8,10 +8,11 @@ Manim or Blender. Every video lives in one folder on top of shared, tested infra
 deterministic rendering, resumable chunked renders, colour-correct encoding, loudness
 mastering, automated QA and reproducible releases.
 
-**Status: two films made here are out.** The shared tooling, both engines and their templates
-work end to end. *A Halloween Gift* (#3, the Remotion engine) and *Who Routes the Agents?* (#4,
-the web engine at 60 fps) were made here from brief to release, picture and score in code. The
-two films before them were made before this repository and are catalogued as records.
+**Status: three films made here are out.** The shared tooling, both engines and their templates
+work end to end. *A Halloween Gift* (#3, the Remotion engine), *Who Routes the Agents?* (#4, the
+web engine at 60 fps) and *MiniDSH 2.0: One Runtime, Every Surface* (#5, a launch film staged from
+live captures of a real product) were made here from brief to release, picture and score in code.
+The two films before them were made before this repository and are catalogued as records.
 
 ## Videos
 
@@ -22,7 +23,7 @@ two films before them were made before this repository and are catalogued as rec
 | 2 | [THE AI STACK](videos/the-ai-stack/README.md) | [3D Concept Visualizations](series/concept-viz/SERIES.md) | published (record only) | [YouTube](https://youtu.be/LDH7UhHeKG4) |
 | 3 | [A Halloween Gift](videos/halloween-gift/README.md) | [Festival & Celebration](series/festivals/SERIES.md) | published | [YouTube](https://youtu.be/gL01vESC-fU) |
 | 4 | [Who Routes the Agents?](videos/super-agent/README.md) | [Science & Technology Explainers](series/science-explainers/SERIES.md) | published | [YouTube](https://youtu.be/-b7g5XIgEn0) |
-| 5 | [MiniDSH 2.0: One Runtime, Every Surface](videos/minidsh-launch/README.md) | [Product & Launch](series/product-launch/SERIES.md) | locked | — |
+| 5 | [MiniDSH 2.0: One Runtime, Every Surface](videos/minidsh-launch/README.md) | [Product & Launch](series/product-launch/SERIES.md) | published | [YouTube](https://youtu.be/HpzzGoYtYEc) |
 <!-- /aiv:generated -->
 
 Series: [3D Concept Visualizations](series/concept-viz/SERIES.md) ·
@@ -35,7 +36,7 @@ Series: [3D Concept Visualizations](series/concept-viz/SERIES.md) ·
 
 | … | Start here |
 |---|---|
-| see how a video was made | its folder under [`videos/`](videos/): README, brief, treatment, script, storyboard, sources and code; start with [A Halloween Gift](videos/halloween-gift/README.md) or [Who Routes the Agents?](videos/super-agent/README.md). The two earlier records link to their own sources, and [`templates/`](templates/) holds the runnable examples |
+| see how a video was made | its folder under [`videos/`](videos/): README, brief, treatment, script, storyboard, sources and code; start with [A Halloween Gift](videos/halloween-gift/README.md), [Who Routes the Agents?](videos/super-agent/README.md) or [MiniDSH 2.0](videos/minidsh-launch/README.md). The two earlier records link to their own sources, and [`templates/`](templates/) holds the runnable examples |
 | learn a technique | [`knowledge/`](knowledge/README.md) (verified cards) and [`references/`](references/README.md) (pinned notes on outside tools) |
 | render a template on my machine | [Quick start](#quick-start) |
 | make my own videos with this toolchain | fork it ([Make your own](#make-your-own)), then read [ARCHITECTURE](docs/ARCHITECTURE.md) and [PRODUCTION](docs/PRODUCTION.md) |

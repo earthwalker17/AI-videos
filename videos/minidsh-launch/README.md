@@ -12,10 +12,14 @@ Finally Out: One Runtime, Three Surfaces*.
 **Series:** [Product & Launch](../../series/product-launch/SERIES.md) (its first film) · **Number:** 5 · **Engine:** web, 1920×1080 at 60 fps
 ▶ **Watch:** [youtu.be/HpzzGoYtYEc](https://youtu.be/HpzzGoYtYEc) (published 2026-11-24)
 
-## Status: locked; published on YouTube, release pending
+## Status: published
 Published on YouTube on 2026-11-24 at 23:44 UTC
-([youtu.be/HpzzGoYtYEc](https://youtu.be/HpzzGoYtYEc)): 1920×1080 at 60 fps, 42 bars at 120 bpm,
-5,040 frames, 1:24.0, English, no voice.
+([youtu.be/HpzzGoYtYEc](https://youtu.be/HpzzGoYtYEc)) as release v1
+([release/v1.json](release/v1.json)): the delivery `minidsh-launch-v1.mp4` (1920×1080 at 60 fps,
+42 bars at 120 bpm, 5,040 frames, 1:24.0, H.264 and AAC, BT.709; sha256 `cdc893d58bf0…`, the
+post file handed over for the upload) and an archive master with PCM audio (sha256
+`584c6e415d39…`), published as the assets of the GitHub release `video/minidsh-launch/v1`.
+English, no voice. The film is frozen at that tag and rebuilt only from it (see Reproduce it).
 
 - **Brief and treatment.** [BRIEF.md](BRIEF.md) and [TREATMENT.md](TREATMENT.md). The creator chose
   treatment A on 2026-11-24, built as A′.
@@ -44,6 +48,19 @@ Published on YouTube on 2026-11-24 at 23:44 UTC
   ([note](../../references/dsh-creator-mode-film-2026-11.md)).
 - **Method.** Read from op7418/guizang-product-video-skill as a guide only
   ([note](../../references/guizang-product-video-skill.md)).
+
+## Reproduce it
+The film is frozen: rebuild it from its release tag, not from `main`.
+```sh
+git worktree add ../rebuild-minidsh-launch-v1 video/minidsh-launch/v1
+cd ../rebuild-minidsh-launch-v1
+pnpm install --frozen-lockfile && pnpm aiv doctor --fix   # that tag's toolchain and pinned browser
+pnpm aiv audio minidsh-launch
+pnpm aiv render minidsh-launch --profile final && pnpm aiv post minidsh-launch --profile final && pnpm aiv qa minidsh-launch --profile final
+```
+The captures are committed in `assets/`, so a rebuild needs neither MiniDSH nor a key. On the
+reference host the frames should match the release's frame hashes; elsewhere compare with SSIM
+([PRODUCTION](../../docs/PRODUCTION.md), Rebuild a frozen video).
 
 ## Licence
 - Code is MIT.

@@ -5,7 +5,7 @@
   "slug": "minidsh-launch",
   "title": "MiniDSH 2.0: One Runtime, Every Surface",
   "series": "product-launch",
-  "status": "locked",
+  "status": "published",
   "approvals": [
     {
       "gate": "treatment",
@@ -23,7 +23,7 @@
       "note": "Shown the final (out/minidsh-launch/post/final/minidsh-launch.mp4, frame for frame the approved review cut except the new desktop title, aiv qa passed on the delivery and the archive master) and the publish kit, the user answered: \"OK approved.\" and asked for stills from the film to make the thumbnail with ChatGPT."
     }
   ],
-  "next": "The creator published the final on YouTube (https://youtu.be/HpzzGoYtYEc, 2026-11-24 23:44 UTC) with their ChatGPT thumbnail; the committed thumbnail carries MiniDSH's real mark. Now: aiv release (v1), youtube.id and status published, the tag video/minidsh-launch/v1, the push and the GitHub release.",
+  "next": "Published on YouTube on 2026-11-24 (https://youtu.be/HpzzGoYtYEc) and released as v1 (tag video/minidsh-launch/v1). The film is frozen: it is rebuilt from that tag, never edited.",
   "languages": [
     "en"
   ],
@@ -52,9 +52,15 @@
   },
   "reusable": [],
   "license": {
-    "film": "CC-BY-4.0"
+    "film": "CC-BY-4.0",
+    "note": "The film (picture and score) is CC BY 4.0. It shows real captures of MiniDSH 2.0.0 (MIT), whose web UI adapts design tokens and icons from DeepSeek Harness (MIT); see CREDITS.md. The thumbnail is AI output with no copyright claimed, with MiniDSH's mark (MIT). Not affiliated with or endorsed by DeepSeek. Code MIT and text CC BY 4.0 as in the rest of the repository."
   },
-  "youtube": null,
-  "release": null,
+  "youtube": {
+    "id": "HpzzGoYtYEc",
+    "published": "2026-11-24"
+  },
+  "release": {
+    "version": 1
+  },
   "source": null
 }
