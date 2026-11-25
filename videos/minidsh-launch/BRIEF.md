@@ -69,7 +69,7 @@ continues in the browser and has its own desktop app. The viewer leaves knowing 
   still.
 - **Rights.**
   - The captures show MIT software (MiniDSH).
-  - Its web UI adapts DSH's design tokens and icons (MIT, © DeepSeek), credited in
+  - Its web UI adapts DSH's design tokens and icons (MIT, by DeepSeek), credited in
     [CREDITS.md](CREDITS.md).
   - The model's words on screen are product output.
 - **Budget.** One session of about 20 hours on an 8 GB laptop. The plan's shortcuts, in order: 30 fps,

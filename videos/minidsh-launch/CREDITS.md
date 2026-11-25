@@ -12,6 +12,8 @@
 - **Timing.** The film retimes the takes to its beat ("waits shortened") and never changes their
   content.
 
+<!-- REUSE-IgnoreStart: third-party holders in the table, not notices for this file -->
+
 | Asset | Source | Licence or rights class | Changes | Used as |
 |---|---|---|---|---|
 | `assets/ui/web-*.png` | Real stills of MiniDSH's web UI (`minidsh web` 2.0.0 in WSL, shown in Chrome at 3× pixel density, 1280×800 CSS px), from the session the terminal started (`capture/web_take.ts`) | MIT (MiniDSH contributors). The web UI's design tokens and icons are adapted from DeepSeek Harness (MIT, © DeepSeek), per MiniDSH's NOTICE | none | Panes in the web acts, cropped and magnified by the film |
@@ -22,6 +24,8 @@
 | IBM Plex Sans | `@fontsource-variable/ibm-plex-sans` 5.3.0 (IBM Corp.) | OFL-1.1 | none (used unmodified, not redistributed) | Titles |
 | IBM Plex Mono | `@fontsource/ibm-plex-mono` 5.3.0 (IBM Corp.) | OFL-1.1 | none (used unmodified, not redistributed) | Commands, receipts, the terminal pane |
 | The reference film | DeepSeek Harness's "Creator Mode" film (X, 2026-11-02), studied locally | Its owner's rights: reference only | Never committed; no frame, sound or asset of it is in the film | The quality bar ([BRIEF.md](BRIEF.md)) |
+
+<!-- REUSE-IgnoreEnd -->
 
 - **Non-affiliation.** MiniDSH is an independent project inspired by DeepSeek Harness, not
   affiliated with or endorsed by DeepSeek. No DeepSeek logo or brand artwork appears in the film.

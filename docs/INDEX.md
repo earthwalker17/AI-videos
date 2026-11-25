@@ -60,6 +60,7 @@ _None yet: a style is added when a second video reuses a look ([styles/README.md
 - [Animate everything on ones when the camera moves, and measure cadence, not stills](../knowledge/motion-cadence.md): A stylised film often animates its characters "on twos" (a new pose every other frame) for a hand-made feel.
 - [A painted moonlit night in real-time 3D comes from the darks, the depth and the sky, not from the models](../knowledge/painterly-night-3d.md): Real-time 3D lit by a moon behind the scene renders as black cut-outs with a cyan outline: every face toward the camera is in shadow, and shadows in a physically based renderer…
 - [Render React Three Fiber under Remotion so every chunk start looks the same](../knowledge/r3f-under-remotion.md): Remotion renders a 3D scene one frame at a time, in chunks, and each chunk usually starts on a fresh page.
+- [Film real product UI live, as stills at three times the density, and magnify one element at a time](../knowledge/real-ui-in-a-film.md): A launch film has to show the real product, and a desktop or web UI set in 14 px text cannot be read at 1080p.
 - [Lay a synthesised score on the film's cue sheet, and measure it the way QA will](../knowledge/score-to-the-cue-sheet.md): A score written in code for a film whose picture is also code can stay in sync to the sample, but only if both read one timeline and the score is measured against what QA will…
 
 ## Reusable parts of videos

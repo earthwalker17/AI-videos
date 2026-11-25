@@ -267,6 +267,11 @@
       "path": "knowledge/r3f-under-remotion.md"
     },
     {
+      "id": "real-ui-in-a-film",
+      "title": "Film real product UI live, as stills at three times the density, and magnify one element at a time",
+      "path": "knowledge/real-ui-in-a-film.md"
+    },
+    {
       "id": "score-to-the-cue-sheet",
       "title": "Lay a synthesised score on the film's cue sheet, and measure it the way QA will",
       "path": "knowledge/score-to-the-cue-sheet.md"

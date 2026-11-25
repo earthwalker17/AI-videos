@@ -49,6 +49,10 @@ stays.
 The first web-engine film and the first at 60 fps (decision 34). It needed no new infrastructure;
 its kit stays in its slot, and the 60 fps measurements are in `engines/web/ENGINE.md`.
 
+## Done: #5, *MiniDSH 2.0: One Runtime, Every Surface* (published 2026-11-24, https://youtu.be/HpzzGoYtYEc)
+The first capture film: `@aiv/web-kit` with its image mark (decision 36), a video's `capture/` tools,
+third-party skills as pinned sources (decision 35); lessons in `knowledge/real-ui-in-a-film.md`.
+
 ## Now
 - [ ] **QA's hit-onset detector.** It read ten of V2's thirteen hits 65 to 115 ms late and six
   of V1's 55 to 110 ms late, each placed on its frame: measure onsets in a high band.
@@ -60,8 +64,7 @@ its kit stays in its slot, and the 60 fps measurements are in `engines/web/ENGIN
   or `@remotion/layout-utils`: remove them (V1 rebuilds from its tag's own lockfile).
 - [ ] **Two-user promotions.** Only at V1's tag: the caption pattern and cue-text helpers,
   `planSlices`, `PreToeEffect`, the analytic footprint light, the 2D motion kit. Each moves to
-  a shared package when a second film needs it. (V2's WebGL2 kit moved to `@aiv/web-kit` with #5,
-  decision 36.)
+  a shared package when a second film needs it.
 
 ## Next: built when a film needs it
 Built when a film needs them, not before:
@@ -78,9 +81,8 @@ Built when a film needs them, not before:
   between `deliverables[]` in `video.json` and linked slots, with the first such piece.
 - **A voice track**: text-to-speech or a recorded voice in `media/`, with captions aligned from
   `SCRIPT.md`'s subtitle text (decision 32 notes the gap). Built when a film is narrated.
-- **Bilibili publishing**: a `references/bilibili-publishing.md` (AI-content label, 自制
-  declaration, covers, CC subtitles, 合集), and whether `video.json` records a Bilibili
-  release. Planned for #4 V1, dropped on 2026-11-13; #4 was published on YouTube only.
+- **Bilibili publishing**: `references/bilibili-publishing.md` (AI-content label, 自制, covers, CC
+  subtitles, 合集) and a Bilibili release in `video.json`. Dropped for #4 on 2026-11-13.
 
 ## Known gaps (not blocking)
 - Post is one-shot, not chunked; the assembly decode check reads the whole mezzanine.

@@ -3,6 +3,8 @@
 Read back from the public watch page on 2026-11-25. The creator edited the draft before the
 upload; the text below is theirs, as published.
 
+<!-- REUSE-IgnoreStart: third-party credits in the texts, not notices for this file -->
+
 **Title:** My MiniDSH 2.0 is Finally Out: One Runtime, Three Surfaces
 
 MiniDSH is a small, local-first coding agent harness for your terminal, browser and desktop. All of them sit above one runtime and share the same stored sessions.
@@ -63,3 +65,5 @@ adapts design tokens and icons from DeepSeek Harness (MIT, © DeepSeek)."
 - **Gallery:** the thumbnail and two or three real stills from the final (the Record card, the
   approval card, the end card); the video: https://youtu.be/HpzzGoYtYEc
 - **First comment:** MiniDSH is my own project, an experiment and a learning resource first: an architecture you can read and change. Its code is free and MIT-licensed; model calls are billed by your provider, on your own key. An independent project inspired by DeepSeek Harness. Not affiliated with or endorsed by DeepSeek. Its web UI adapts design tokens and icons from DeepSeek Harness (MIT, © DeepSeek).
+
+<!-- REUSE-IgnoreEnd -->

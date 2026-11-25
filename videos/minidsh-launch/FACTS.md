@@ -7,6 +7,8 @@ against the tag on 2026-11-24.
 
 ## The words on screen
 
+<!-- REUSE-IgnoreStart: a quoted third-party notice, not one for this file -->
+
 | Claim | As said in the film | Source | Checked |
 |---|---|---|---|
 | A coding agent you use from a terminal, a browser and a desktop window | "A coding agent for your terminal, browser and desktop." | README.md:14 ("A coding agent for a terminal, a browser, a desktop window or a script") | yes |
@@ -28,6 +30,8 @@ against the tag on 2026-11-24.
 | The repository | "github.com/earthwalker17/MiniDSH" | the repository (public, MIT) | yes |
 | Non-affiliation | "An independent project inspired by DeepSeek Harness. Not affiliated with or endorsed by DeepSeek." | README.md:152, condensed (it reads "MiniDSH is an independent project inspired by DeepSeek Harness (MIT, © DeepSeek). It is not affiliated with or endorsed by DeepSeek."); NOTICE | yes |
 | How the film was made | "Real sessions, recorded live; waits shortened." | take-tui, take-web, take-desk; capture/ (the film retimes the takes to the beat and never changes their content) | yes |
+
+<!-- REUSE-IgnoreEnd -->
 
 ## The pictures
 

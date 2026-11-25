@@ -157,6 +157,18 @@ pnpm aiv captions <slug> --lint                                         # lints 
 - **The linter's limits** are in `references/subtitles.md`. `aiv check` fails on a lint error in
   any unfrozen video's caption files.
 
+**Publish texts and thumbnail.**
+- **Audit the texts for scope words** before showing them. On #5 an audit found drafts that
+  claimed more than the film shows ("every effect" carries a record; "wider actions ask first",
+  which implied that reads and network access are gated too).
+- **Offer the creator several different stills** for the thumbnail, never one. Put about ten
+  exact frames of the final in `out/<slug>/publish-candidates/`, covering every act and subject,
+  with and without titles, plus clean real captures and a labelled overview sheet. Extract them
+  from the mezzanine and check each against `frames.sha256`.
+- **Check a generated thumbnail's marks and UI.** The model redraws logos and screens; #5's
+  thumbnail had its MiniDSH mark replaced with the real one by compositing, and its provenance
+  records the edit.
+
 Check `video.json` `license.film` against `CREDITS.md`: a film with class C or D material,
 or any non-commercial or share-alike part, is not CC BY ([LICENSING](LICENSING.md)).
 
